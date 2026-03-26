@@ -31,23 +31,23 @@
             components = new System.ComponentModel.Container();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
-            btnOpenFile = new System.Windows.Forms.Button();
-            txtFilePath = new System.Windows.Forms.TextBox();
-            label2 = new System.Windows.Forms.Label();
-            chkFirstRowIsColumnName = new System.Windows.Forms.CheckBox();
+            btnOpenFile = new AntdUI.Button();
+            txtFilePath = new AntdUI.Input();
+            label2 = new AntdUI.Label();
+            chkFirstRowIsColumnName = new AntdUI.Checkbox();
             openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
-            chkUseColumnMapping = new System.Windows.Forms.CheckBox();
+            chkUseColumnMapping = new AntdUI.Checkbox();
             splitContainer1 = new System.Windows.Forms.SplitContainer();
             picMappingTip = new System.Windows.Forms.PictureBox();
-            btnCancel = new System.Windows.Forms.Button();
-            btnOK = new System.Windows.Forms.Button();
-            gbColumnMappings = new System.Windows.Forms.GroupBox();
+            btnCancel = new AntdUI.Button();
+            btnOK = new AntdUI.Button();
+            gbColumnMappings = new AntdUI.Panel();
             dgvColumns = new System.Windows.Forms.DataGridView();
             colTableColumnName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colFileColumnName = new System.Windows.Forms.DataGridViewComboBoxColumn();
             colReferencedTable = new System.Windows.Forms.DataGridViewComboBoxColumn();
             colReferencedTableColumn = new System.Windows.Forms.DataGridViewButtonColumn();
-            txtMessage = new System.Windows.Forms.TextBox();
+            txtMessage = new AntdUI.Input();
             toolTip1 = new System.Windows.Forms.ToolTip(components);
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
@@ -63,10 +63,9 @@
             btnOpenFile.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             btnOpenFile.Location = new System.Drawing.Point(777, 8);
             btnOpenFile.Name = "btnOpenFile";
-            btnOpenFile.Size = new System.Drawing.Size(40, 23);
+            btnOpenFile.Size = new System.Drawing.Size(40, 32);
             btnOpenFile.TabIndex = 14;
             btnOpenFile.Text = "...";
-            btnOpenFile.UseVisualStyleBackColor = true;
             btnOpenFile.Click += btnOpenFile_Click;
             // 
             // txtFilePath
@@ -74,17 +73,8 @@
             txtFilePath.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             txtFilePath.Location = new System.Drawing.Point(85, 8);
             txtFilePath.Name = "txtFilePath";
-            txtFilePath.Size = new System.Drawing.Size(686, 23);
+            txtFilePath.Size = new System.Drawing.Size(686, 32);
             txtFilePath.TabIndex = 13;
-            // 
-            // label2
-            // 
-            label2.AutoSize = true;
-            label2.Location = new System.Drawing.Point(14, 11);
-            label2.Name = "label2";
-            label2.Size = new System.Drawing.Size(59, 17);
-            label2.TabIndex = 12;
-            label2.Text = "File Path:";
             // 
             // chkFirstRowIsColumnName
             // 
@@ -94,8 +84,7 @@
             chkFirstRowIsColumnName.Size = new System.Drawing.Size(172, 21);
             chkFirstRowIsColumnName.TabIndex = 11;
             chkFirstRowIsColumnName.Text = "First row is column name";
-            chkFirstRowIsColumnName.UseVisualStyleBackColor = true;
-            chkFirstRowIsColumnName.CheckedChanged += chkFirstRowIsColumnName_CheckedChanged;
+            chkFirstRowIsColumnName.CheckedChanged += (sender, value) => chkFirstRowIsColumnName_CheckedChanged(sender, new System.EventArgs());
             // 
             // openFileDialog1
             // 
@@ -111,8 +100,7 @@
             chkUseColumnMapping.Size = new System.Drawing.Size(179, 21);
             chkUseColumnMapping.TabIndex = 20;
             chkUseColumnMapping.Text = "Custom column mappings";
-            chkUseColumnMapping.UseVisualStyleBackColor = true;
-            chkUseColumnMapping.CheckedChanged += chkUseColumMapping_CheckedChanged;
+            chkUseColumnMapping.CheckedChanged += (sender, value) => chkUseColumMapping_CheckedChanged(sender, new System.EventArgs());
             // 
             // splitContainer1
             // 
@@ -155,10 +143,9 @@
             btnCancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             btnCancel.Location = new System.Drawing.Point(433, 458);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new System.Drawing.Size(75, 23);
+            btnCancel.Size = new System.Drawing.Size(75, 32);
             btnCancel.TabIndex = 23;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
             // 
             // btnOK
@@ -166,10 +153,9 @@
             btnOK.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             btnOK.Location = new System.Drawing.Point(322, 458);
             btnOK.Name = "btnOK";
-            btnOK.Size = new System.Drawing.Size(75, 23);
+            btnOK.Size = new System.Drawing.Size(75, 32);
             btnOK.TabIndex = 22;
             btnOK.Text = "OK";
-            btnOK.UseVisualStyleBackColor = true;
             btnOK.Click += btnOK_Click;
             // 
             // gbColumnMappings
@@ -180,7 +166,6 @@
             gbColumnMappings.Name = "gbColumnMappings";
             gbColumnMappings.Size = new System.Drawing.Size(812, 373);
             gbColumnMappings.TabIndex = 21;
-            gbColumnMappings.TabStop = false;
             gbColumnMappings.Text = "Column Mappings";
             // 
             // dgvColumns
@@ -259,7 +244,6 @@
             txtMessage.Location = new System.Drawing.Point(0, 0);
             txtMessage.Multiline = true;
             txtMessage.Name = "txtMessage";
-            txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             txtMessage.Size = new System.Drawing.Size(829, 86);
             txtMessage.TabIndex = 20;
             // 
@@ -286,18 +270,18 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btnOpenFile;
-        private System.Windows.Forms.TextBox txtFilePath;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.CheckBox chkFirstRowIsColumnName;
+        private AntdUI.Button btnOpenFile;
+        private AntdUI.Input txtFilePath;
+        private AntdUI.Label label2;
+        private AntdUI.Checkbox chkFirstRowIsColumnName;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
-        private System.Windows.Forms.CheckBox chkUseColumnMapping;
+        private AntdUI.Checkbox chkUseColumnMapping;
         private System.Windows.Forms.SplitContainer splitContainer1;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.GroupBox gbColumnMappings;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Button btnOK;
+        private AntdUI.Panel gbColumnMappings;
         private System.Windows.Forms.DataGridView dgvColumns;
-        private System.Windows.Forms.TextBox txtMessage;
+        private AntdUI.Input txtMessage;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTableColumnName;
         private System.Windows.Forms.DataGridViewComboBoxColumn colFileColumnName;
         private System.Windows.Forms.DataGridViewComboBoxColumn colReferencedTable;

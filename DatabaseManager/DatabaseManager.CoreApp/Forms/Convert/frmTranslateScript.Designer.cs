@@ -29,19 +29,19 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmTranslateScript));
-            cboTargetDbType = new System.Windows.Forms.ComboBox();
-            cboSourceDbType = new System.Windows.Forms.ComboBox();
-            lblSource = new System.Windows.Forms.Label();
-            lblTarget = new System.Windows.Forms.Label();
+            cboTargetDbType = new AntdUI.Select();
+            cboSourceDbType = new AntdUI.Select();
+            lblSource = new AntdUI.Label();
+            lblTarget = new AntdUI.Label();
             splitContainer1 = new System.Windows.Forms.SplitContainer();
             txtSource = new SqlCodeEditor.TextEditorControlEx();
             txtTarget = new SqlCodeEditor.TextEditorControlEx();
-            btnTranlate = new System.Windows.Forms.Button();
-            btnClose = new System.Windows.Forms.Button();
-            btnClear = new System.Windows.Forms.Button();
-            btnExchange = new System.Windows.Forms.Button();
-            chkHighlighting = new System.Windows.Forms.CheckBox();
-            chkValidateScriptsAfterTranslated = new System.Windows.Forms.CheckBox();
+            btnTranlate = new AntdUI.Button();
+            btnClose = new AntdUI.Button();
+            btnClear = new AntdUI.Button();
+            btnExchange = new AntdUI.Button();
+            chkHighlighting = new AntdUI.Checkbox();
+            chkValidateScriptsAfterTranslated = new AntdUI.Checkbox();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
@@ -50,28 +50,21 @@
             // 
             // cboTargetDbType
             // 
-            cboTargetDbType.BackColor = System.Drawing.Color.White;
-            cboTargetDbType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboTargetDbType.FormattingEnabled = true;
             cboTargetDbType.Location = new System.Drawing.Point(342, 8);
             cboTargetDbType.Margin = new System.Windows.Forms.Padding(4);
-            cboTargetDbType.MaxDropDownItems = 100;
             cboTargetDbType.Name = "cboTargetDbType";
-            cboTargetDbType.Size = new System.Drawing.Size(124, 25);
+            cboTargetDbType.Size = new System.Drawing.Size(124, 32);
             cboTargetDbType.TabIndex = 42;
-            cboTargetDbType.SelectedIndexChanged += cboTargetDbType_SelectedIndexChanged;
+            cboTargetDbType.SelectedIndexChanged += (sender, index) => cboTargetDbType_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // cboSourceDbType
             // 
-            cboSourceDbType.BackColor = System.Drawing.Color.White;
-            cboSourceDbType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboSourceDbType.FormattingEnabled = true;
             cboSourceDbType.Location = new System.Drawing.Point(69, 8);
             cboSourceDbType.Margin = new System.Windows.Forms.Padding(4);
             cboSourceDbType.Name = "cboSourceDbType";
-            cboSourceDbType.Size = new System.Drawing.Size(124, 25);
+            cboSourceDbType.Size = new System.Drawing.Size(124, 32);
             cboSourceDbType.TabIndex = 41;
-            cboSourceDbType.SelectedIndexChanged += cboSourceDbType_SelectedIndexChanged;
+            cboSourceDbType.SelectedIndexChanged += (sender, index) => cboSourceDbType_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // lblSource
             // 
@@ -146,10 +139,9 @@
             btnTranlate.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             btnTranlate.Location = new System.Drawing.Point(671, 445);
             btnTranlate.Name = "btnTranlate";
-            btnTranlate.Size = new System.Drawing.Size(75, 30);
+            btnTranlate.Size = new System.Drawing.Size(75, 36);
             btnTranlate.TabIndex = 46;
             btnTranlate.Text = "Translate";
-            btnTranlate.UseVisualStyleBackColor = true;
             btnTranlate.Click += btnTranlate_Click;
             // 
             // btnClose
@@ -157,10 +149,9 @@
             btnClose.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             btnClose.Location = new System.Drawing.Point(769, 445);
             btnClose.Name = "btnClose";
-            btnClose.Size = new System.Drawing.Size(75, 30);
+            btnClose.Size = new System.Drawing.Size(75, 36);
             btnClose.TabIndex = 47;
             btnClose.Text = "Close";
-            btnClose.UseVisualStyleBackColor = true;
             btnClose.Click += btnClose_Click;
             // 
             // btnClear
@@ -168,34 +159,30 @@
             btnClear.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             btnClear.Location = new System.Drawing.Point(11, 445);
             btnClear.Name = "btnClear";
-            btnClear.Size = new System.Drawing.Size(75, 30);
+            btnClear.Size = new System.Drawing.Size(75, 36);
             btnClear.TabIndex = 48;
             btnClear.Text = "Clear";
-            btnClear.UseVisualStyleBackColor = true;
             btnClear.Click += btnClear_Click;
             // 
             // btnExchange
             // 
-            btnExchange.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
             btnExchange.Location = new System.Drawing.Point(219, 8);
             btnExchange.Name = "btnExchange";
-            btnExchange.Size = new System.Drawing.Size(49, 25);
+            btnExchange.Size = new System.Drawing.Size(49, 32);
             btnExchange.TabIndex = 49;
-            btnExchange.UseVisualStyleBackColor = true;
+            btnExchange.Text = "⇄";
             btnExchange.Click += btnExchange_Click;
             // 
             // chkHighlighting
             // 
             chkHighlighting.AutoSize = true;
             chkHighlighting.Checked = true;
-            chkHighlighting.CheckState = System.Windows.Forms.CheckState.Checked;
             chkHighlighting.Location = new System.Drawing.Point(491, 12);
             chkHighlighting.Name = "chkHighlighting";
             chkHighlighting.Size = new System.Drawing.Size(122, 21);
             chkHighlighting.TabIndex = 50;
             chkHighlighting.Text = "Highlighting text";
-            chkHighlighting.UseVisualStyleBackColor = true;
-            chkHighlighting.CheckedChanged += chkHighlighting_CheckedChanged;
+            chkHighlighting.CheckedChanged += (sender, value) => chkHighlighting_CheckedChanged(sender, new System.EventArgs());
             // 
             // chkValidateScriptsAfterTranslated
             // 
@@ -206,7 +193,6 @@
             chkValidateScriptsAfterTranslated.Size = new System.Drawing.Size(209, 21);
             chkValidateScriptsAfterTranslated.TabIndex = 51;
             chkValidateScriptsAfterTranslated.Text = "Validate scripts after translated";
-            chkValidateScriptsAfterTranslated.UseVisualStyleBackColor = true;
             // 
             // frmTranslateScript
             // 
@@ -241,17 +227,17 @@
 
         #endregion
 
-        private System.Windows.Forms.ComboBox cboTargetDbType;
-        private System.Windows.Forms.ComboBox cboSourceDbType;
-        private System.Windows.Forms.Label lblSource;
-        private System.Windows.Forms.Label lblTarget;
+        private AntdUI.Select cboTargetDbType;
+        private AntdUI.Select cboSourceDbType;
+        private AntdUI.Label lblSource;
+        private AntdUI.Label lblTarget;
         private System.Windows.Forms.SplitContainer splitContainer1;
-        private System.Windows.Forms.Button btnTranlate;
-        private System.Windows.Forms.Button btnClose;
-        private System.Windows.Forms.Button btnClear;
-        private System.Windows.Forms.Button btnExchange;
-        private System.Windows.Forms.CheckBox chkHighlighting;
-        private System.Windows.Forms.CheckBox chkValidateScriptsAfterTranslated;
+        private AntdUI.Button btnTranlate;
+        private AntdUI.Button btnClose;
+        private AntdUI.Button btnClear;
+        private AntdUI.Button btnExchange;
+        private AntdUI.Checkbox chkHighlighting;
+        private AntdUI.Checkbox chkValidateScriptsAfterTranslated;
         private SqlCodeEditor.TextEditorControlEx txtSource;
         private SqlCodeEditor.TextEditorControlEx txtTarget;
     }

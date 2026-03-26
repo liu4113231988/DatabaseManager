@@ -31,22 +31,22 @@ namespace DatabaseManager.Forms
         private void InitializeComponent()
         {
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            label1 = new System.Windows.Forms.Label();
-            cboFileType = new System.Windows.Forms.ComboBox();
-            chkShowColumnName = new System.Windows.Forms.CheckBox();
-            btnOK = new System.Windows.Forms.Button();
-            btnCancel = new System.Windows.Forms.Button();
+            label1 = new AntdUI.Label();
+            cboFileType = new AntdUI.Select();
+            chkShowColumnName = new AntdUI.Checkbox();
+            btnOK = new AntdUI.Button();
+            btnCancel = new AntdUI.Button();
             saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
-            label2 = new System.Windows.Forms.Label();
-            txtFilePath = new System.Windows.Forms.TextBox();
-            btnSelectPath = new System.Windows.Forms.Button();
-            gbScope = new System.Windows.Forms.GroupBox();
-            txtPageNumberRange = new System.Windows.Forms.TextBox();
-            rbPageNumberRange = new System.Windows.Forms.RadioButton();
-            rbAllPages = new System.Windows.Forms.RadioButton();
-            rbCurrentPage = new System.Windows.Forms.RadioButton();
-            txtMessage = new System.Windows.Forms.TextBox();
-            gbColumns = new System.Windows.Forms.GroupBox();
+            label2 = new AntdUI.Label();
+            txtFilePath = new AntdUI.Input();
+            btnSelectPath = new AntdUI.Button();
+            gbScope = new AntdUI.Panel();
+            txtPageNumberRange = new AntdUI.Input();
+            rbPageNumberRange = new AntdUI.Radio();
+            rbAllPages = new AntdUI.Radio();
+            rbCurrentPage = new AntdUI.Radio();
+            txtMessage = new AntdUI.Input();
+            gbColumns = new AntdUI.Panel();
             dgvColumns = new DraggableDataGridView();
             colSelect = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             colColumnName = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -67,11 +67,9 @@ namespace DatabaseManager.Forms
             // 
             // cboFileType
             // 
-            cboFileType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboFileType.FormattingEnabled = true;
             cboFileType.Location = new System.Drawing.Point(78, 6);
             cboFileType.Name = "cboFileType";
-            cboFileType.Size = new System.Drawing.Size(152, 25);
+            cboFileType.Size = new System.Drawing.Size(152, 32);
             cboFileType.TabIndex = 1;
             // 
             // chkShowColumnName
@@ -82,18 +80,16 @@ namespace DatabaseManager.Forms
             chkShowColumnName.Size = new System.Drawing.Size(175, 21);
             chkShowColumnName.TabIndex = 5;
             chkShowColumnName.Text = "Show column name in file";
-            chkShowColumnName.UseVisualStyleBackColor = true;
-            chkShowColumnName.CheckedChanged += chkShowColumnName_CheckedChanged;
+            chkShowColumnName.CheckedChanged += (sender, e) => chkShowColumnName_CheckedChanged(chkShowColumnName.Checked);
             // 
             // btnOK
             // 
             btnOK.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             btnOK.Location = new System.Drawing.Point(135, 510);
             btnOK.Name = "btnOK";
-            btnOK.Size = new System.Drawing.Size(75, 23);
+            btnOK.Size = new System.Drawing.Size(75, 32);
             btnOK.TabIndex = 6;
             btnOK.Text = "OK";
-            btnOK.UseVisualStyleBackColor = true;
             btnOK.Click += btnOK_Click;
             // 
             // btnCancel
@@ -102,10 +98,9 @@ namespace DatabaseManager.Forms
             btnCancel.Enabled = false;
             btnCancel.Location = new System.Drawing.Point(246, 510);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new System.Drawing.Size(75, 23);
+            btnCancel.Size = new System.Drawing.Size(75, 32);
             btnCancel.TabIndex = 7;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
             // 
             // label2
@@ -122,7 +117,7 @@ namespace DatabaseManager.Forms
             txtFilePath.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             txtFilePath.Location = new System.Drawing.Point(78, 38);
             txtFilePath.Name = "txtFilePath";
-            txtFilePath.Size = new System.Drawing.Size(402, 23);
+            txtFilePath.Size = new System.Drawing.Size(402, 32);
             txtFilePath.TabIndex = 9;
             // 
             // btnSelectPath
@@ -130,10 +125,9 @@ namespace DatabaseManager.Forms
             btnSelectPath.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             btnSelectPath.Location = new System.Drawing.Point(486, 37);
             btnSelectPath.Name = "btnSelectPath";
-            btnSelectPath.Size = new System.Drawing.Size(40, 25);
+            btnSelectPath.Size = new System.Drawing.Size(40, 32);
             btnSelectPath.TabIndex = 10;
             btnSelectPath.Text = "...";
-            btnSelectPath.UseVisualStyleBackColor = true;
             btnSelectPath.Click += btnSelectPath_Click;
             // 
             // gbScope
@@ -147,7 +141,6 @@ namespace DatabaseManager.Forms
             gbScope.Name = "gbScope";
             gbScope.Size = new System.Drawing.Size(515, 114);
             gbScope.TabIndex = 11;
-            gbScope.TabStop = false;
             gbScope.Text = "Scope";
             // 
             // txtPageNumberRange
@@ -157,7 +150,7 @@ namespace DatabaseManager.Forms
             txtPageNumberRange.Location = new System.Drawing.Point(89, 83);
             txtPageNumberRange.Name = "txtPageNumberRange";
             txtPageNumberRange.PlaceholderText = "for example: 1-3,5,9";
-            txtPageNumberRange.Size = new System.Drawing.Size(417, 23);
+            txtPageNumberRange.Size = new System.Drawing.Size(417, 32);
             txtPageNumberRange.TabIndex = 3;
             // 
             // rbPageNumberRange
@@ -168,8 +161,7 @@ namespace DatabaseManager.Forms
             rbPageNumberRange.Size = new System.Drawing.Size(63, 21);
             rbPageNumberRange.TabIndex = 2;
             rbPageNumberRange.Text = "Range";
-            rbPageNumberRange.UseVisualStyleBackColor = true;
-            rbPageNumberRange.CheckedChanged += rbPageNumberRange_CheckedChanged;
+            rbPageNumberRange.CheckedChanged += (sender, e) => rbPageNumberRange_CheckedChanged(rbPageNumberRange.Checked);
             // 
             // rbAllPages
             // 
@@ -179,7 +171,6 @@ namespace DatabaseManager.Forms
             rbAllPages.Size = new System.Drawing.Size(80, 21);
             rbAllPages.TabIndex = 1;
             rbAllPages.Text = "All pages";
-            rbAllPages.UseVisualStyleBackColor = true;
             // 
             // rbCurrentPage
             // 
@@ -189,9 +180,7 @@ namespace DatabaseManager.Forms
             rbCurrentPage.Name = "rbCurrentPage";
             rbCurrentPage.Size = new System.Drawing.Size(103, 21);
             rbCurrentPage.TabIndex = 0;
-            rbCurrentPage.TabStop = true;
             rbCurrentPage.Text = "Current page";
-            rbCurrentPage.UseVisualStyleBackColor = true;
             // 
             // txtMessage
             // 
@@ -201,7 +190,6 @@ namespace DatabaseManager.Forms
             txtMessage.Multiline = true;
             txtMessage.Name = "txtMessage";
             txtMessage.ReadOnly = true;
-            txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             txtMessage.Size = new System.Drawing.Size(530, 58);
             txtMessage.TabIndex = 12;
             // 
@@ -213,7 +201,6 @@ namespace DatabaseManager.Forms
             gbColumns.Name = "gbColumns";
             gbColumns.Size = new System.Drawing.Size(521, 281);
             gbColumns.TabIndex = 13;
-            gbColumns.TabStop = false;
             gbColumns.Text = "Columns to export";
             // 
             // dgvColumns
@@ -291,24 +278,23 @@ namespace DatabaseManager.Forms
 
         #endregion
 
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.ComboBox cboFileType;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.CheckBox chkShowColumnName;
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.Button btnCancel;
+        private AntdUI.Label label1;
+        private AntdUI.Select cboFileType;
+        private AntdUI.Checkbox chkShowColumnName;
+        private AntdUI.Button btnOK;
+        private AntdUI.Button btnCancel;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox txtFilePath;
-        private System.Windows.Forms.Button btnSelectPath;
-        private System.Windows.Forms.GroupBox gbScope;
-        private System.Windows.Forms.RadioButton rbAllPages;
-        private System.Windows.Forms.RadioButton rbCurrentPage;
-        private System.Windows.Forms.TextBox txtMessage;
-        private System.Windows.Forms.GroupBox gbColumns;
+        private AntdUI.Label label2;
+        private AntdUI.Input txtFilePath;
+        private AntdUI.Button btnSelectPath;
+        private AntdUI.Panel gbScope;
+        private AntdUI.Radio rbAllPages;
+        private AntdUI.Radio rbCurrentPage;
+        private AntdUI.Input txtMessage;
+        private AntdUI.Panel gbColumns;
         private DraggableDataGridView dgvColumns;
-        private System.Windows.Forms.RadioButton rbPageNumberRange;
-        private System.Windows.Forms.TextBox txtPageNumberRange;
+        private AntdUI.Radio rbPageNumberRange;
+        private AntdUI.Input txtPageNumberRange;
         private System.Windows.Forms.DataGridViewCheckBoxColumn colSelect;
         private System.Windows.Forms.DataGridViewTextBoxColumn colColumnName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colDisplayName;

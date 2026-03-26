@@ -28,15 +28,15 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.label1 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.txtFilePath = new System.Windows.Forms.TextBox();
-            this.txtPassword = new System.Windows.Forms.TextBox();
-            this.btnBrowserFile = new System.Windows.Forms.Button();
-            this.btnTest = new System.Windows.Forms.Button();
-            this.chkRememberPassword = new System.Windows.Forms.CheckBox();
+            this.label1 = new AntdUI.Label();
+            this.label2 = new AntdUI.Label();
+            this.txtFilePath = new AntdUI.Input();
+            this.txtPassword = new AntdUI.Input();
+            this.btnBrowserFile = new AntdUI.Button();
+            this.btnTest = new AntdUI.Button();
+            this.chkRememberPassword = new AntdUI.Checkbox();
             this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
-            this.chkHasPassword = new System.Windows.Forms.CheckBox();
+            this.chkHasPassword = new AntdUI.Checkbox();
             this.SuspendLayout();
             // 
             // label1
@@ -61,7 +61,7 @@
             // 
             this.txtFilePath.Location = new System.Drawing.Point(101, 16);
             this.txtFilePath.Name = "txtFilePath";
-            this.txtFilePath.Size = new System.Drawing.Size(187, 23);
+            this.txtFilePath.Size = new System.Drawing.Size(187, 32);
             this.txtFilePath.TabIndex = 2;
             // 
             // txtPassword
@@ -70,27 +70,25 @@
             this.txtPassword.Location = new System.Drawing.Point(101, 76);
             this.txtPassword.Name = "txtPassword";
             this.txtPassword.PasswordChar = '*';
-            this.txtPassword.Size = new System.Drawing.Size(187, 23);
+            this.txtPassword.Size = new System.Drawing.Size(187, 32);
             this.txtPassword.TabIndex = 3;
             // 
             // btnBrowserFile
             // 
             this.btnBrowserFile.Location = new System.Drawing.Point(294, 16);
             this.btnBrowserFile.Name = "btnBrowserFile";
-            this.btnBrowserFile.Size = new System.Drawing.Size(50, 23);
+            this.btnBrowserFile.Size = new System.Drawing.Size(50, 32);
             this.btnBrowserFile.TabIndex = 4;
             this.btnBrowserFile.Text = "...";
-            this.btnBrowserFile.UseVisualStyleBackColor = true;
             this.btnBrowserFile.Click += new System.EventHandler(this.btnBrowserFile_Click);
             // 
             // btnTest
             // 
             this.btnTest.Location = new System.Drawing.Point(294, 76);
             this.btnTest.Name = "btnTest";
-            this.btnTest.Size = new System.Drawing.Size(50, 23);
+            this.btnTest.Size = new System.Drawing.Size(50, 32);
             this.btnTest.TabIndex = 5;
             this.btnTest.Text = "Test";
-            this.btnTest.UseVisualStyleBackColor = true;
             this.btnTest.Click += new System.EventHandler(this.btnTest_Click);
             // 
             // chkRememberPassword
@@ -102,7 +100,6 @@
             this.chkRememberPassword.Size = new System.Drawing.Size(152, 21);
             this.chkRememberPassword.TabIndex = 6;
             this.chkRememberPassword.Text = "Remember password";
-            this.chkRememberPassword.UseVisualStyleBackColor = true;
             // 
             // openFileDialog1
             // 
@@ -116,8 +113,7 @@
             this.chkHasPassword.Size = new System.Drawing.Size(110, 21);
             this.chkHasPassword.TabIndex = 7;
             this.chkHasPassword.Text = "Has password";
-            this.chkHasPassword.UseVisualStyleBackColor = true;
-            this.chkHasPassword.CheckedChanged += new System.EventHandler(this.chkHasPassword_CheckedChanged);
+            this.chkHasPassword.CheckedChanged += (sender, e) => this.chkHasPassword_CheckedChanged(sender, new System.EventArgs());
             // 
             // UC_FileConnectionInfo
             // 
@@ -140,14 +136,14 @@
 
         #endregion
 
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox txtFilePath;
-        private System.Windows.Forms.TextBox txtPassword;
-        private System.Windows.Forms.Button btnBrowserFile;
-        private System.Windows.Forms.Button btnTest;
-        private System.Windows.Forms.CheckBox chkRememberPassword;
+        private AntdUI.Label label1;
+        private AntdUI.Label label2;
+        private AntdUI.Input txtFilePath;
+        private AntdUI.Input txtPassword;
+        private AntdUI.Button btnBrowserFile;
+        private AntdUI.Button btnTest;
+        private AntdUI.Checkbox chkRememberPassword;
         private System.Windows.Forms.OpenFileDialog openFileDialog1;
-        private System.Windows.Forms.CheckBox chkHasPassword;
+        private AntdUI.Checkbox chkHasPassword;
     }
 }

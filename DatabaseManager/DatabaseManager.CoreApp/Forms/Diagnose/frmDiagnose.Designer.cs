@@ -29,18 +29,18 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmDiagnose));
-            btnStart = new System.Windows.Forms.Button();
-            btnClose = new System.Windows.Forms.Button();
-            rbNameNotMatchForScript = new System.Windows.Forms.RadioButton();
-            rbSelfReferenceSame = new System.Windows.Forms.RadioButton();
-            rbWithLeadingOrTrailingWhitespace = new System.Windows.Forms.RadioButton();
-            rbNotNullWithEmpty = new System.Windows.Forms.RadioButton();
+            btnStart = new AntdUI.Button();
+            btnClose = new AntdUI.Button();
+            rbNameNotMatchForScript = new AntdUI.Radio();
+            rbSelfReferenceSame = new AntdUI.Radio();
+            rbWithLeadingOrTrailingWhitespace = new AntdUI.Radio();
+            rbNotNullWithEmpty = new AntdUI.Radio();
             tabControl = new System.Windows.Forms.TabControl();
             tabForTable = new System.Windows.Forms.TabPage();
-            rbEmptyValueRatherThanNull = new System.Windows.Forms.RadioButton();
+            rbEmptyValueRatherThanNull = new AntdUI.Radio();
             tabForScript = new System.Windows.Forms.TabPage();
-            rbViewColumnAliasWithoutQuotationChar = new System.Windows.Forms.RadioButton();
-            rbPrimaryKeyColumnIsNullable = new System.Windows.Forms.RadioButton();
+            rbViewColumnAliasWithoutQuotationChar = new AntdUI.Radio();
+            rbPrimaryKeyColumnIsNullable = new AntdUI.Radio();
             tabControl.SuspendLayout();
             tabForTable.SuspendLayout();
             tabForScript.SuspendLayout();
@@ -51,10 +51,9 @@
             btnStart.Location = new System.Drawing.Point(109, 217);
             btnStart.Margin = new System.Windows.Forms.Padding(4);
             btnStart.Name = "btnStart";
-            btnStart.Size = new System.Drawing.Size(88, 33);
+            btnStart.Size = new System.Drawing.Size(88, 36);
             btnStart.TabIndex = 3;
             btnStart.Text = "Start";
-            btnStart.UseVisualStyleBackColor = true;
             btnStart.Click += btnStart_Click;
             // 
             // btnClose
@@ -62,10 +61,9 @@
             btnClose.Location = new System.Drawing.Point(216, 217);
             btnClose.Margin = new System.Windows.Forms.Padding(4);
             btnClose.Name = "btnClose";
-            btnClose.Size = new System.Drawing.Size(88, 33);
+            btnClose.Size = new System.Drawing.Size(88, 36);
             btnClose.TabIndex = 4;
             btnClose.Text = "Close";
-            btnClose.UseVisualStyleBackColor = true;
             btnClose.Click += btnClose_Click;
             // 
             // rbNameNotMatchForScript
@@ -76,7 +74,6 @@
             rbNameNotMatchForScript.Size = new System.Drawing.Size(370, 21);
             rbNameNotMatchForScript.TabIndex = 0;
             rbNameNotMatchForScript.Text = "Object names in script don't matched with they are defined";
-            rbNameNotMatchForScript.UseVisualStyleBackColor = true;
             // 
             // rbSelfReferenceSame
             // 
@@ -87,7 +84,6 @@
             rbSelfReferenceSame.Size = new System.Drawing.Size(196, 21);
             rbSelfReferenceSame.TabIndex = 1;
             rbSelfReferenceSame.Text = "table self refer to same value";
-            rbSelfReferenceSame.UseVisualStyleBackColor = true;
             // 
             // rbWithLeadingOrTrailingWhitespace
             // 
@@ -98,7 +94,6 @@
             rbWithLeadingOrTrailingWhitespace.Size = new System.Drawing.Size(225, 21);
             rbWithLeadingOrTrailingWhitespace.TabIndex = 5;
             rbWithLeadingOrTrailingWhitespace.Text = "with leading or trailing whitespace";
-            rbWithLeadingOrTrailingWhitespace.UseVisualStyleBackColor = true;
             // 
             // rbNotNullWithEmpty
             // 
@@ -109,7 +104,6 @@
             rbNotNullWithEmpty.Size = new System.Drawing.Size(199, 21);
             rbNotNullWithEmpty.TabIndex = 0;
             rbNotNullWithEmpty.Text = "not null field with empty value";
-            rbNotNullWithEmpty.UseVisualStyleBackColor = true;
             // 
             // tabControl
             // 
@@ -145,7 +139,6 @@
             rbEmptyValueRatherThanNull.Size = new System.Drawing.Size(408, 21);
             rbEmptyValueRatherThanNull.TabIndex = 6;
             rbEmptyValueRatherThanNull.Text = "empty value rather than null (no matter the field is not null or not)";
-            rbEmptyValueRatherThanNull.UseVisualStyleBackColor = true;
             // 
             // tabForScript
             // 
@@ -167,7 +160,6 @@
             rbViewColumnAliasWithoutQuotationChar.Size = new System.Drawing.Size(277, 21);
             rbViewColumnAliasWithoutQuotationChar.TabIndex = 1;
             rbViewColumnAliasWithoutQuotationChar.Text = "Column alias of view has no quotation char";
-            rbViewColumnAliasWithoutQuotationChar.UseVisualStyleBackColor = true;
             // 
             // rbPrimaryKeyColumnIsNullable
             // 
@@ -178,7 +170,6 @@
             rbPrimaryKeyColumnIsNullable.Size = new System.Drawing.Size(203, 21);
             rbPrimaryKeyColumnIsNullable.TabIndex = 7;
             rbPrimaryKeyColumnIsNullable.Text = "primary key column is nullable";
-            rbPrimaryKeyColumnIsNullable.UseVisualStyleBackColor = true;
             // 
             // frmDiagnose
             // 
@@ -204,17 +195,17 @@
         }
 
         #endregion
-        private System.Windows.Forms.Button btnStart;
-        private System.Windows.Forms.Button btnClose;
-        private System.Windows.Forms.RadioButton rbNameNotMatchForScript;
-        private System.Windows.Forms.RadioButton rbSelfReferenceSame;
-        private System.Windows.Forms.RadioButton rbWithLeadingOrTrailingWhitespace;
-        private System.Windows.Forms.RadioButton rbNotNullWithEmpty;
+        private AntdUI.Button btnStart;
+        private AntdUI.Button btnClose;
+        private AntdUI.Radio rbNameNotMatchForScript;
+        private AntdUI.Radio rbSelfReferenceSame;
+        private AntdUI.Radio rbWithLeadingOrTrailingWhitespace;
+        private AntdUI.Radio rbNotNullWithEmpty;
         private System.Windows.Forms.TabControl tabControl;
         private System.Windows.Forms.TabPage tabForTable;
         private System.Windows.Forms.TabPage tabForScript;
-        private System.Windows.Forms.RadioButton rbViewColumnAliasWithoutQuotationChar;
-        private System.Windows.Forms.RadioButton rbEmptyValueRatherThanNull;
-        private System.Windows.Forms.RadioButton rbPrimaryKeyColumnIsNullable;
+        private AntdUI.Radio rbViewColumnAliasWithoutQuotationChar;
+        private AntdUI.Radio rbEmptyValueRatherThanNull;
+        private AntdUI.Radio rbPrimaryKeyColumnIsNullable;
     }
 }

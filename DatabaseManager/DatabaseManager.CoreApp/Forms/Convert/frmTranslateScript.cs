@@ -38,7 +38,8 @@ namespace DatabaseManager.Forms
 
         private void InitControls()
         {
-            this.btnExchange.Image = IconImageHelper.GetImageByFontType(IconChar.Exchange, IconFont.Solid, Color.DodgerBlue);
+            // AntdUI Button doesn't support Image property - using text instead
+            // this.btnExchange.Image = IconImageHelper.GetImageByFontType(IconChar.Exchange, IconFont.Solid, Color.DodgerBlue);
 
             (this.txtSource.Document.TextBufferStrategy as GapTextBufferStrategy).CheckTread = false;
             (this.txtTarget.Document.TextBufferStrategy as GapTextBufferStrategy).CheckTread = false;           

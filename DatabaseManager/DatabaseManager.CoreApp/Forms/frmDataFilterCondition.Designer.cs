@@ -28,25 +28,25 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.btnOK = new System.Windows.Forms.Button();
-            this.gbRange = new System.Windows.Forms.GroupBox();
-            this.panelRange = new System.Windows.Forms.Panel();
-            this.label2 = new System.Windows.Forms.Label();
-            this.label3 = new System.Windows.Forms.Label();
-            this.txtFrom = new System.Windows.Forms.TextBox();
-            this.txtTo = new System.Windows.Forms.TextBox();
-            this.rbRange = new System.Windows.Forms.RadioButton();
-            this.btnCancel = new System.Windows.Forms.Button();
-            this.btnClear = new System.Windows.Forms.Button();
-            this.gbSeries = new System.Windows.Forms.GroupBox();
-            this.panelSeries = new System.Windows.Forms.Panel();
-            this.txtValues = new System.Windows.Forms.TextBox();
-            this.gbSingle = new System.Windows.Forms.GroupBox();
-            this.panelSingle = new System.Windows.Forms.Panel();
-            this.txtValue = new System.Windows.Forms.TextBox();
-            this.cboOperator = new System.Windows.Forms.ComboBox();
-            this.rbSingle = new System.Windows.Forms.RadioButton();
-            this.rbSeries = new System.Windows.Forms.RadioButton();
+            this.btnOK = new AntdUI.Button();
+            this.gbRange = new AntdUI.Panel();
+            this.panelRange = new AntdUI.Panel();
+            this.label2 = new AntdUI.Label();
+            this.label3 = new AntdUI.Label();
+            this.txtFrom = new AntdUI.Input();
+            this.txtTo = new AntdUI.Input();
+            this.rbRange = new AntdUI.Radio();
+            this.btnCancel = new AntdUI.Button();
+            this.btnClear = new AntdUI.Button();
+            this.gbSeries = new AntdUI.Panel();
+            this.panelSeries = new AntdUI.Panel();
+            this.txtValues = new AntdUI.Input();
+            this.gbSingle = new AntdUI.Panel();
+            this.panelSingle = new AntdUI.Panel();
+            this.txtValue = new AntdUI.Input();
+            this.cboOperator = new AntdUI.Select();
+            this.rbSingle = new AntdUI.Radio();
+            this.rbSeries = new AntdUI.Radio();
             this.gbRange.SuspendLayout();
             this.panelRange.SuspendLayout();
             this.gbSeries.SuspendLayout();
@@ -58,8 +58,6 @@
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.btnOK.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.btnOK.Location = new System.Drawing.Point(284, 287);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(70, 22);
@@ -74,7 +72,7 @@
             this.gbRange.Name = "gbRange";
             this.gbRange.Size = new System.Drawing.Size(417, 56);
             this.gbRange.TabIndex = 10;
-            this.gbRange.TabStop = false;
+            this.gbRange.Text = "";
             // 
             // panelRange
             // 
@@ -129,16 +127,12 @@
             this.rbRange.Name = "rbRange";
             this.rbRange.Size = new System.Drawing.Size(125, 16);
             this.rbRange.TabIndex = 4;
-            this.rbRange.TabStop = true;
             this.rbRange.Text = "Interval criteria";
-            this.rbRange.UseVisualStyleBackColor = true;
-            this.rbRange.CheckedChanged += new System.EventHandler(this.rbRange_CheckedChanged);
+            this.rbRange.CheckedChanged += new AntdUI.BoolEventHandler(this.rbRange_CheckedChanged);
             // 
             // btnCancel
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.btnCancel.Location = new System.Drawing.Point(360, 287);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(70, 22);
@@ -149,7 +143,6 @@
             // btnClear
             // 
             this.btnClear.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.btnClear.FlatStyle = System.Windows.Forms.FlatStyle.System;
             this.btnClear.Location = new System.Drawing.Point(22, 287);
             this.btnClear.Name = "btnClear";
             this.btnClear.Size = new System.Drawing.Size(70, 22);
@@ -164,7 +157,7 @@
             this.gbSeries.Name = "gbSeries";
             this.gbSeries.Size = new System.Drawing.Size(417, 56);
             this.gbSeries.TabIndex = 14;
-            this.gbSeries.TabStop = false;
+            this.gbSeries.Text = "";
             // 
             // panelSeries
             // 
@@ -189,7 +182,7 @@
             this.gbSingle.Name = "gbSingle";
             this.gbSingle.Size = new System.Drawing.Size(417, 56);
             this.gbSingle.TabIndex = 8;
-            this.gbSingle.TabStop = false;
+            this.gbSingle.Text = "";
             // 
             // panelSingle
             // 
@@ -209,7 +202,6 @@
             // 
             // cboOperator
             // 
-            this.cboOperator.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cboOperator.Items.AddRange(new object[] {
             "=",
             ">",
@@ -232,10 +224,8 @@
             this.rbSingle.Name = "rbSingle";
             this.rbSingle.Size = new System.Drawing.Size(149, 16);
             this.rbSingle.TabIndex = 2;
-            this.rbSingle.TabStop = true;
             this.rbSingle.Text = "Single value criteria";
-            this.rbSingle.UseVisualStyleBackColor = true;
-            this.rbSingle.CheckedChanged += new System.EventHandler(this.rbSingle_CheckedChanged);
+            this.rbSingle.CheckedChanged += new AntdUI.BoolEventHandler(this.rbSingle_CheckedChanged);
             // 
             // rbSeries
             // 
@@ -244,9 +234,7 @@
             this.rbSeries.Name = "rbSeries";
             this.rbSeries.Size = new System.Drawing.Size(59, 16);
             this.rbSeries.TabIndex = 15;
-            this.rbSeries.TabStop = true;
             this.rbSeries.Text = "Series";
-            this.rbSeries.UseVisualStyleBackColor = true;
             // 
             // frmDataFilterCondition
             // 
@@ -283,24 +271,24 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.GroupBox gbRange;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.TextBox txtFrom;
-        private System.Windows.Forms.TextBox txtTo;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Button btnClear;
-        private System.Windows.Forms.GroupBox gbSeries;
-        private System.Windows.Forms.TextBox txtValues;
-        private System.Windows.Forms.RadioButton rbRange;
-        private System.Windows.Forms.Panel panelRange;
-        private System.Windows.Forms.Panel panelSeries;
-        private System.Windows.Forms.GroupBox gbSingle;
-        private System.Windows.Forms.Panel panelSingle;
-        private System.Windows.Forms.TextBox txtValue;
-        private System.Windows.Forms.ComboBox cboOperator;
-        private System.Windows.Forms.RadioButton rbSingle;
-        private System.Windows.Forms.RadioButton rbSeries;
+        private AntdUI.Button btnOK;
+        private AntdUI.Panel gbRange;
+        private AntdUI.Label label2;
+        private AntdUI.Input txtFrom;
+        private AntdUI.Input txtTo;
+        private AntdUI.Label label3;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Button btnClear;
+        private AntdUI.Panel gbSeries;
+        private AntdUI.Input txtValues;
+        private AntdUI.Radio rbRange;
+        private AntdUI.Panel panelRange;
+        private AntdUI.Panel panelSeries;
+        private AntdUI.Panel gbSingle;
+        private AntdUI.Panel panelSingle;
+        private AntdUI.Input txtValue;
+        private AntdUI.Select cboOperator;
+        private AntdUI.Radio rbSingle;
+        private AntdUI.Radio rbSeries;
     }
 }

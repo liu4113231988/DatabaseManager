@@ -31,20 +31,20 @@
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmCodeGenerator));
             dlgOutputFolder = new System.Windows.Forms.FolderBrowserDialog();
             splitContainer1 = new System.Windows.Forms.SplitContainer();
-            chkGenerateComments = new System.Windows.Forms.CheckBox();
-            txtNamespance = new System.Windows.Forms.TextBox();
-            lblNamespace = new System.Windows.Forms.Label();
-            label1 = new System.Windows.Forms.Label();
-            cboLanguage = new System.Windows.Forms.ComboBox();
-            lblOutputFolder = new System.Windows.Forms.Label();
-            btnOutputFolder = new System.Windows.Forms.Button();
-            txtOutputFolder = new System.Windows.Forms.TextBox();
-            btnCancel = new System.Windows.Forms.Button();
-            btnGenerate = new System.Windows.Forms.Button();
+            chkGenerateComments = new AntdUI.Checkbox();
+            txtNamespance = new AntdUI.Input();
+            lblNamespace = new AntdUI.Label();
+            label1 = new AntdUI.Label();
+            cboLanguage = new AntdUI.Select();
+            lblOutputFolder = new AntdUI.Label();
+            btnOutputFolder = new AntdUI.Button();
+            txtOutputFolder = new AntdUI.Input();
+            btnCancel = new AntdUI.Button();
+            btnGenerate = new AntdUI.Button();
             tvDbObjects = new DatabaseManager.Controls.UC_DbObjectsSimpleTree();
-            btnConnect = new System.Windows.Forms.Button();
+            btnConnect = new AntdUI.Button();
             dbConnectionProfile = new DatabaseManager.Controls.UC_DbConnectionProfile();
-            txtMessage = new System.Windows.Forms.TextBox();
+            txtMessage = new AntdUI.Input();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
@@ -87,20 +87,18 @@
             chkGenerateComments.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
             chkGenerateComments.AutoSize = true;
             chkGenerateComments.Checked = true;
-            chkGenerateComments.CheckState = System.Windows.Forms.CheckState.Checked;
             chkGenerateComments.Location = new System.Drawing.Point(11, 340);
             chkGenerateComments.Name = "chkGenerateComments";
             chkGenerateComments.Size = new System.Drawing.Size(185, 21);
             chkGenerateComments.TabIndex = 76;
             chkGenerateComments.Text = "Generate comments if exist";
-            chkGenerateComments.UseVisualStyleBackColor = true;
             // 
             // txtNamespance
             // 
             txtNamespance.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
             txtNamespance.Location = new System.Drawing.Point(428, 303);
             txtNamespance.Name = "txtNamespance";
-            txtNamespance.Size = new System.Drawing.Size(259, 23);
+            txtNamespance.Size = new System.Drawing.Size(259, 32);
             txtNamespance.TabIndex = 75;
             // 
             // lblNamespace
@@ -128,13 +126,11 @@
             // cboLanguage
             // 
             cboLanguage.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-            cboLanguage.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboLanguage.FormattingEnabled = true;
             cboLanguage.Location = new System.Drawing.Point(83, 303);
             cboLanguage.Name = "cboLanguage";
-            cboLanguage.Size = new System.Drawing.Size(121, 25);
+            cboLanguage.Size = new System.Drawing.Size(121, 32);
             cboLanguage.TabIndex = 72;
-            cboLanguage.SelectedIndexChanged += cboLanguage_SelectedIndexChanged;
+            cboLanguage.SelectedIndexChanged += (sender, index) => cboLanguage_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // lblOutputFolder
             // 
@@ -153,10 +149,9 @@
             btnOutputFolder.Location = new System.Drawing.Point(695, 370);
             btnOutputFolder.Margin = new System.Windows.Forms.Padding(4);
             btnOutputFolder.Name = "btnOutputFolder";
-            btnOutputFolder.Size = new System.Drawing.Size(42, 25);
+            btnOutputFolder.Size = new System.Drawing.Size(42, 32);
             btnOutputFolder.TabIndex = 70;
             btnOutputFolder.Text = "...";
-            btnOutputFolder.UseVisualStyleBackColor = true;
             btnOutputFolder.Click += btnOutputFolder_Click;
             // 
             // txtOutputFolder
@@ -165,7 +160,7 @@
             txtOutputFolder.Location = new System.Drawing.Point(118, 371);
             txtOutputFolder.Margin = new System.Windows.Forms.Padding(4);
             txtOutputFolder.Name = "txtOutputFolder";
-            txtOutputFolder.Size = new System.Drawing.Size(571, 23);
+            txtOutputFolder.Size = new System.Drawing.Size(571, 32);
             txtOutputFolder.TabIndex = 69;
             // 
             // btnCancel
@@ -175,10 +170,9 @@
             btnCancel.Location = new System.Drawing.Point(400, 407);
             btnCancel.Margin = new System.Windows.Forms.Padding(4);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new System.Drawing.Size(88, 33);
+            btnCancel.Size = new System.Drawing.Size(88, 36);
             btnCancel.TabIndex = 68;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
             // 
             // btnGenerate
@@ -187,10 +181,9 @@
             btnGenerate.Location = new System.Drawing.Point(287, 407);
             btnGenerate.Margin = new System.Windows.Forms.Padding(4);
             btnGenerate.Name = "btnGenerate";
-            btnGenerate.Size = new System.Drawing.Size(88, 33);
+            btnGenerate.Size = new System.Drawing.Size(88, 36);
             btnGenerate.TabIndex = 67;
             btnGenerate.Text = "Generate";
-            btnGenerate.UseVisualStyleBackColor = true;
             btnGenerate.Click += btnGenerate_Click;
             // 
             // tvDbObjects
@@ -206,16 +199,12 @@
             // btnConnect
             // 
             btnConnect.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
-            btnConnect.Image = (System.Drawing.Image)resources.GetObject("btnConnect.Image");
-            btnConnect.ImageAlign = System.Drawing.ContentAlignment.MiddleLeft;
             btnConnect.Location = new System.Drawing.Point(664, 6);
             btnConnect.Margin = new System.Windows.Forms.Padding(4);
             btnConnect.Name = "btnConnect";
-            btnConnect.Size = new System.Drawing.Size(82, 26);
+            btnConnect.Size = new System.Drawing.Size(82, 32);
             btnConnect.TabIndex = 65;
             btnConnect.Text = "Connect";
-            btnConnect.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            btnConnect.UseVisualStyleBackColor = true;
             btnConnect.Click += btnConnect_Click;
             // 
             // dbConnectionProfile
@@ -261,19 +250,19 @@
         #endregion
         private System.Windows.Forms.FolderBrowserDialog dlgOutputFolder;
         private System.Windows.Forms.SplitContainer splitContainer1;
-        private System.Windows.Forms.CheckBox chkGenerateComments;
-        private System.Windows.Forms.TextBox txtNamespance;
-        private System.Windows.Forms.Label lblNamespace;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.ComboBox cboLanguage;
-        private System.Windows.Forms.Label lblOutputFolder;
-        private System.Windows.Forms.Button btnOutputFolder;
-        private System.Windows.Forms.TextBox txtOutputFolder;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Button btnGenerate;
+        private AntdUI.Checkbox chkGenerateComments;
+        private AntdUI.Input txtNamespance;
+        private AntdUI.Label lblNamespace;
+        private AntdUI.Label label1;
+        private AntdUI.Select cboLanguage;
+        private AntdUI.Label lblOutputFolder;
+        private AntdUI.Button btnOutputFolder;
+        private AntdUI.Input txtOutputFolder;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Button btnGenerate;
         private Controls.UC_DbObjectsSimpleTree tvDbObjects;
-        private System.Windows.Forms.Button btnConnect;
+        private AntdUI.Button btnConnect;
         private Controls.UC_DbConnectionProfile dbConnectionProfile;
-        private System.Windows.Forms.TextBox txtMessage;
+        private AntdUI.Input txtMessage;
     }
 }

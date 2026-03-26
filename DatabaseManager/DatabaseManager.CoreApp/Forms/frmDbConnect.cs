@@ -114,7 +114,8 @@ namespace DatabaseManager.Forms
 
                 this.cboDatabase.Text = oldDatabase;
 
-                this.cboDatabase.DroppedDown = true;
+                // AntdUI.Select doesn't have DroppedDown property
+                // this.cboDatabase.DroppedDown = true;
             }
             catch (Exception ex)
             {

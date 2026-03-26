@@ -31,23 +31,23 @@
             components = new System.ComponentModel.Container();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             dgvData = new System.Windows.Forms.DataGridView();
-            btnFilter = new System.Windows.Forms.Button();
+            btnFilter = new AntdUI.Button();
             pagination = new UC_Pagination();
             cellContextMenu = new System.Windows.Forms.ContextMenuStrip(components);
             tsmiSetCellValueToNull = new System.Windows.Forms.ToolStripMenuItem();
             tsmiCopy = new System.Windows.Forms.ToolStripMenuItem();
             tsmiShowContent = new System.Windows.Forms.ToolStripMenuItem();
             tsmiViewGeometry = new System.Windows.Forms.ToolStripMenuItem();
-            cboAddMultipleRows = new System.Windows.Forms.ComboBox();
-            btnAdd = new System.Windows.Forms.Button();
-            btnRemove = new System.Windows.Forms.Button();
-            btnRevert = new System.Windows.Forms.Button();
-            btnCommit = new System.Windows.Forms.Button();
+            cboAddMultipleRows = new AntdUI.Select();
+            btnAdd = new AntdUI.Button();
+            btnRemove = new AntdUI.Button();
+            btnRevert = new AntdUI.Button();
+            btnCommit = new AntdUI.Button();
             contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(components);
-            cboAddMode = new System.Windows.Forms.ComboBox();
-            label1 = new System.Windows.Forms.Label();
+            cboAddMode = new AntdUI.Select();
+            label1 = new AntdUI.Label();
             toolTip1 = new System.Windows.Forms.ToolTip(components);
-            btnExport = new System.Windows.Forms.Button();
+            btnExport = new AntdUI.Button();
             uc_QuickFilter = new UC_QuickFilter();
             loadingPanel = new UC_LoadingPanel();
             ((System.ComponentModel.ISupportInitialize)dgvData).BeginInit();
@@ -86,15 +86,12 @@
             // btnFilter
             // 
             btnFilter.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
-            btnFilter.FlatAppearance.BorderSize = 0;
-            btnFilter.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnFilter.Location = new System.Drawing.Point(10, 455);
             btnFilter.Margin = new System.Windows.Forms.Padding(4);
             btnFilter.Name = "btnFilter";
-            btnFilter.Size = new System.Drawing.Size(22, 22);
+            btnFilter.Size = new System.Drawing.Size(28, 28);
             btnFilter.TabIndex = 7;
             toolTip1.SetToolTip(btnFilter, "Filter");
-            btnFilter.UseVisualStyleBackColor = true;
             btnFilter.Click += btnFilter_Click;
             // 
             // pagination
@@ -148,33 +145,27 @@
             // 
             // cboAddMultipleRows
             // 
-            cboAddMultipleRows.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboAddMultipleRows.DropDownWidth = 180;
-            cboAddMultipleRows.FormattingEnabled = true;
-            cboAddMultipleRows.Items.AddRange(new object[] { "Insert multiple rows" });
             cboAddMultipleRows.Location = new System.Drawing.Point(6, 2);
             cboAddMultipleRows.Name = "cboAddMultipleRows";
-            cboAddMultipleRows.Size = new System.Drawing.Size(50, 25);
+            cboAddMultipleRows.Size = new System.Drawing.Size(50, 32);
             cboAddMultipleRows.TabIndex = 8;
-            cboAddMultipleRows.SelectedIndexChanged += cboAddModes_SelectedIndexChanged;
+            cboAddMultipleRows.SelectedIndexChanged += (sender, index) => cboAddModes_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // btnAdd
             // 
             btnAdd.Location = new System.Drawing.Point(4, 2);
             btnAdd.Name = "btnAdd";
-            btnAdd.Size = new System.Drawing.Size(38, 27);
+            btnAdd.Size = new System.Drawing.Size(38, 32);
             btnAdd.TabIndex = 9;
-            btnAdd.UseVisualStyleBackColor = true;
             btnAdd.Click += btnAdd_Click;
             // 
             // btnRemove
             // 
             btnRemove.Location = new System.Drawing.Point(61, 2);
             btnRemove.Name = "btnRemove";
-            btnRemove.Size = new System.Drawing.Size(34, 26);
+            btnRemove.Size = new System.Drawing.Size(34, 32);
             btnRemove.TabIndex = 10;
             toolTip1.SetToolTip(btnRemove, "Remove");
-            btnRemove.UseVisualStyleBackColor = true;
             btnRemove.Click += btnRemove_Click;
             // 
             // btnRevert
@@ -182,10 +173,9 @@
             btnRevert.Enabled = false;
             btnRevert.Location = new System.Drawing.Point(101, 2);
             btnRevert.Name = "btnRevert";
-            btnRevert.Size = new System.Drawing.Size(37, 26);
+            btnRevert.Size = new System.Drawing.Size(37, 32);
             btnRevert.TabIndex = 11;
             toolTip1.SetToolTip(btnRevert, "Revert");
-            btnRevert.UseVisualStyleBackColor = true;
             btnRevert.Click += btnRevert_Click;
             // 
             // btnCommit
@@ -193,10 +183,9 @@
             btnCommit.Enabled = false;
             btnCommit.Location = new System.Drawing.Point(144, 2);
             btnCommit.Name = "btnCommit";
-            btnCommit.Size = new System.Drawing.Size(37, 26);
+            btnCommit.Size = new System.Drawing.Size(37, 32);
             btnCommit.TabIndex = 12;
             toolTip1.SetToolTip(btnCommit, "Commit");
-            btnCommit.UseVisualStyleBackColor = true;
             btnCommit.Click += btnCommit_Click;
             // 
             // contextMenuStrip1
@@ -206,13 +195,9 @@
             // 
             // cboAddMode
             // 
-            cboAddMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboAddMode.DropDownWidth = 220;
-            cboAddMode.FormattingEnabled = true;
-            cboAddMode.Items.AddRange(new object[] { "Place new rows above selected row", "Place new rows below selected row", "Place new rows at the bottom" });
             cboAddMode.Location = new System.Drawing.Point(338, 2);
             cboAddMode.Name = "cboAddMode";
-            cboAddMode.Size = new System.Drawing.Size(217, 25);
+            cboAddMode.Size = new System.Drawing.Size(217, 32);
             cboAddMode.TabIndex = 14;
             // 
             // label1
@@ -227,15 +212,12 @@
             // btnExport
             // 
             btnExport.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right;
-            btnExport.FlatAppearance.BorderSize = 0;
-            btnExport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             btnExport.Location = new System.Drawing.Point(794, 453);
             btnExport.Margin = new System.Windows.Forms.Padding(4);
             btnExport.Name = "btnExport";
-            btnExport.Size = new System.Drawing.Size(22, 22);
+            btnExport.Size = new System.Drawing.Size(28, 28);
             btnExport.TabIndex = 20;
             toolTip1.SetToolTip(btnExport, "Export");
-            btnExport.UseVisualStyleBackColor = true;
             btnExport.Click += btnExport_Click;
             // 
             // uc_QuickFilter
@@ -288,23 +270,23 @@
 
         private System.Windows.Forms.DataGridView dgvData;
         private UC_Pagination pagination;
-        private System.Windows.Forms.Button btnFilter;
+        private AntdUI.Button btnFilter;
         private System.Windows.Forms.ContextMenuStrip cellContextMenu;
         private System.Windows.Forms.ToolStripMenuItem tsmiCopy;
         private System.Windows.Forms.ToolStripMenuItem tsmiViewGeometry;
         private System.Windows.Forms.ToolStripMenuItem tsmiShowContent;
-        private System.Windows.Forms.ComboBox cboAddMultipleRows;
-        private System.Windows.Forms.Button btnAdd;
-        private System.Windows.Forms.Button btnRemove;
-        private System.Windows.Forms.Button btnRevert;
-        private System.Windows.Forms.Button btnCommit;
+        private AntdUI.Select cboAddMultipleRows;
+        private AntdUI.Button btnAdd;
+        private AntdUI.Button btnRemove;
+        private AntdUI.Button btnRevert;
+        private AntdUI.Button btnCommit;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
-        private System.Windows.Forms.ComboBox cboAddMode;
-        private System.Windows.Forms.Label label1;
+        private AntdUI.Select cboAddMode;
+        private AntdUI.Label label1;
         private System.Windows.Forms.ToolStripMenuItem tsmiSetCellValueToNull;
         private System.Windows.Forms.ToolTip toolTip1;
         private UC_QuickFilter uc_QuickFilter;
         private UC_LoadingPanel loadingPanel;
-        private System.Windows.Forms.Button btnExport;
+        private AntdUI.Button btnExport;
     }
 }

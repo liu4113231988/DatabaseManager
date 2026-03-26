@@ -30,11 +30,11 @@
         {
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmDataTypeMappingSetting));
-            btnExchange = new System.Windows.Forms.Button();
-            lblTarget = new System.Windows.Forms.Label();
-            lblSource = new System.Windows.Forms.Label();
-            cboTargetDbType = new System.Windows.Forms.ComboBox();
-            cboSourceDbType = new System.Windows.Forms.ComboBox();
+            btnExchange = new AntdUI.Button();
+            lblTarget = new AntdUI.Label();
+            lblSource = new AntdUI.Label();
+            cboTargetDbType = new AntdUI.Select();
+            cboSourceDbType = new AntdUI.Select();
             dgvData = new System.Windows.Forms.DataGridView();
             colCheck = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             colSourceType = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -46,7 +46,7 @@
             colSubstitute = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colArgs = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colSpecials = new System.Windows.Forms.DataGridViewButtonColumn();
-            btnLoadDefault = new System.Windows.Forms.Button();
+            btnLoadDefault = new AntdUI.Button();
             toolStrip1 = new System.Windows.Forms.ToolStrip();
             tsbSave = new System.Windows.Forms.ToolStripButton();
             tssSave = new System.Windows.Forms.ToolStripSeparator();
@@ -55,9 +55,9 @@
             tsbAdd = new System.Windows.Forms.ToolStripButton();
             toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             tsbDelete = new System.Windows.Forms.ToolStripButton();
-            btnAdd = new System.Windows.Forms.Button();
-            cboCustom = new System.Windows.Forms.ComboBox();
-            panelOperation = new System.Windows.Forms.Panel();
+            btnAdd = new AntdUI.Button();
+            cboCustom = new AntdUI.Select();
+            panelOperation = new AntdUI.Panel();
             ((System.ComponentModel.ISupportInitialize)dgvData).BeginInit();
             toolStrip1.SuspendLayout();
             panelOperation.SuspendLayout();
@@ -65,12 +65,11 @@
             // 
             // btnExchange
             // 
-            btnExchange.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F);
             btnExchange.Location = new System.Drawing.Point(212, 7);
             btnExchange.Name = "btnExchange";
-            btnExchange.Size = new System.Drawing.Size(49, 25);
+            btnExchange.Size = new System.Drawing.Size(49, 32);
             btnExchange.TabIndex = 54;
-            btnExchange.UseVisualStyleBackColor = true;
+            btnExchange.Text = "⇄";
             btnExchange.Click += btnExchange_Click;
             // 
             // lblTarget
@@ -93,28 +92,21 @@
             // 
             // cboTargetDbType
             // 
-            cboTargetDbType.BackColor = System.Drawing.Color.White;
-            cboTargetDbType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboTargetDbType.FormattingEnabled = true;
             cboTargetDbType.Location = new System.Drawing.Point(335, 7);
             cboTargetDbType.Margin = new System.Windows.Forms.Padding(4);
-            cboTargetDbType.MaxDropDownItems = 100;
             cboTargetDbType.Name = "cboTargetDbType";
-            cboTargetDbType.Size = new System.Drawing.Size(124, 25);
+            cboTargetDbType.Size = new System.Drawing.Size(124, 32);
             cboTargetDbType.TabIndex = 51;
-            cboTargetDbType.SelectedIndexChanged += cboTargetDbType_SelectedIndexChanged;
+            cboTargetDbType.SelectedIndexChanged += (sender, index) => cboTargetDbType_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // cboSourceDbType
             // 
-            cboSourceDbType.BackColor = System.Drawing.Color.White;
-            cboSourceDbType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboSourceDbType.FormattingEnabled = true;
             cboSourceDbType.Location = new System.Drawing.Point(62, 7);
             cboSourceDbType.Margin = new System.Windows.Forms.Padding(4);
             cboSourceDbType.Name = "cboSourceDbType";
-            cboSourceDbType.Size = new System.Drawing.Size(124, 25);
+            cboSourceDbType.Size = new System.Drawing.Size(124, 32);
             cboSourceDbType.TabIndex = 50;
-            cboSourceDbType.SelectedIndexChanged += cboSourceDbType_SelectedIndexChanged;
+            cboSourceDbType.SelectedIndexChanged += (sender, index) => cboSourceDbType_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // dgvData
             // 
@@ -202,10 +194,9 @@
             // 
             btnLoadDefault.Location = new System.Drawing.Point(493, 8);
             btnLoadDefault.Name = "btnLoadDefault";
-            btnLoadDefault.Size = new System.Drawing.Size(101, 25);
+            btnLoadDefault.Size = new System.Drawing.Size(101, 32);
             btnLoadDefault.TabIndex = 59;
             btnLoadDefault.Text = "Load default";
-            btnLoadDefault.UseVisualStyleBackColor = true;
             btnLoadDefault.Click += btnLoadDefault_Click;
             // 
             // toolStrip1
@@ -282,21 +273,17 @@
             // 
             btnAdd.Location = new System.Drawing.Point(623, 7);
             btnAdd.Name = "btnAdd";
-            btnAdd.Size = new System.Drawing.Size(96, 27);
+            btnAdd.Size = new System.Drawing.Size(96, 32);
             btnAdd.TabIndex = 62;
             btnAdd.Text = "Load custom";
-            btnAdd.UseVisualStyleBackColor = true;
             // 
             // cboCustom
             // 
-            cboCustom.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboCustom.DropDownWidth = 180;
-            cboCustom.FormattingEnabled = true;
             cboCustom.Location = new System.Drawing.Point(625, 8);
             cboCustom.Name = "cboCustom";
-            cboCustom.Size = new System.Drawing.Size(107, 25);
+            cboCustom.Size = new System.Drawing.Size(107, 32);
             cboCustom.TabIndex = 61;
-            cboCustom.SelectedIndexChanged += cboCustom_SelectedIndexChanged;
+            cboCustom.SelectedIndexChanged += (sender, index) => cboCustom_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // panelOperation
             // 
@@ -335,13 +322,13 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btnExchange;
-        private System.Windows.Forms.Label lblTarget;
-        private System.Windows.Forms.Label lblSource;
-        private System.Windows.Forms.ComboBox cboTargetDbType;
-        private System.Windows.Forms.ComboBox cboSourceDbType;
+        private AntdUI.Button btnExchange;
+        private AntdUI.Label lblTarget;
+        private AntdUI.Label lblSource;
+        private AntdUI.Select cboTargetDbType;
+        private AntdUI.Select cboSourceDbType;
         private System.Windows.Forms.DataGridView dgvData;
-        private System.Windows.Forms.Button btnLoadDefault;
+        private AntdUI.Button btnLoadDefault;
         private System.Windows.Forms.ToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripButton tsbSave;
         private System.Windows.Forms.ToolStripSeparator tssSave;
@@ -360,8 +347,8 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colArgs;
         private System.Windows.Forms.DataGridViewButtonColumn colSpecials;
         private System.Windows.Forms.ToolStripButton tsbSaveAs;
-        private System.Windows.Forms.Button btnAdd;
-        private System.Windows.Forms.ComboBox cboCustom;
-        private System.Windows.Forms.Panel panelOperation;
+        private AntdUI.Button btnAdd;
+        private AntdUI.Select cboCustom;
+        private AntdUI.Panel panelOperation;
     }
 }

@@ -31,28 +31,28 @@ namespace DatabaseManager.Forms
         private void InitializeComponent()
         {
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            btnSelectPath = new System.Windows.Forms.Button();
-            txtFilePath = new System.Windows.Forms.TextBox();
-            label2 = new System.Windows.Forms.Label();
+            btnSelectPath = new AntdUI.Button();
+            txtFilePath = new AntdUI.Input();
+            label2 = new AntdUI.Label();
             saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
-            chkShowTableComment = new System.Windows.Forms.CheckBox();
-            gbProperties = new System.Windows.Forms.GroupBox();
+            chkShowTableComment = new AntdUI.Checkbox();
+            gbProperties = new AntdUI.Panel();
             dgvProperties = new DraggableDataGridView();
             colSelect = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             colPropertyName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             colDisplayName = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            txtMessage = new System.Windows.Forms.TextBox();
-            btnCancel = new System.Windows.Forms.Button();
-            btnOK = new System.Windows.Forms.Button();
+            txtMessage = new AntdUI.Input();
+            btnCancel = new AntdUI.Button();
+            btnOK = new AntdUI.Button();
             colorDialog1 = new System.Windows.Forms.ColorDialog();
-            label1 = new System.Windows.Forms.Label();
-            txtBackColor = new System.Windows.Forms.TextBox();
-            btnSelectBackColor = new System.Windows.Forms.Button();
-            gbTableStyle = new System.Windows.Forms.GroupBox();
-            chkColumnHeaderIsBold = new System.Windows.Forms.CheckBox();
-            label3 = new System.Windows.Forms.Label();
-            btnSelectForeColor = new System.Windows.Forms.Button();
-            txtForeColor = new System.Windows.Forms.TextBox();
+            label1 = new AntdUI.Label();
+            txtBackColor = new AntdUI.Input();
+            btnSelectBackColor = new AntdUI.Button();
+            gbTableStyle = new AntdUI.Panel();
+            chkColumnHeaderIsBold = new AntdUI.Checkbox();
+            label3 = new AntdUI.Label();
+            btnSelectForeColor = new AntdUI.Button();
+            txtForeColor = new AntdUI.Input();
             gbProperties.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvProperties).BeginInit();
             gbTableStyle.SuspendLayout();
@@ -63,10 +63,9 @@ namespace DatabaseManager.Forms
             btnSelectPath.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right;
             btnSelectPath.Location = new System.Drawing.Point(498, 11);
             btnSelectPath.Name = "btnSelectPath";
-            btnSelectPath.Size = new System.Drawing.Size(40, 25);
+            btnSelectPath.Size = new System.Drawing.Size(40, 32);
             btnSelectPath.TabIndex = 13;
             btnSelectPath.Text = "...";
-            btnSelectPath.UseVisualStyleBackColor = true;
             btnSelectPath.Click += btnSelectPath_Click;
             // 
             // txtFilePath
@@ -74,7 +73,7 @@ namespace DatabaseManager.Forms
             txtFilePath.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
             txtFilePath.Location = new System.Drawing.Point(76, 12);
             txtFilePath.Name = "txtFilePath";
-            txtFilePath.Size = new System.Drawing.Size(416, 23);
+            txtFilePath.Size = new System.Drawing.Size(416, 32);
             txtFilePath.TabIndex = 12;
             // 
             // label2
@@ -90,13 +89,11 @@ namespace DatabaseManager.Forms
             // 
             chkShowTableComment.AutoSize = true;
             chkShowTableComment.Checked = true;
-            chkShowTableComment.CheckState = System.Windows.Forms.CheckState.Checked;
             chkShowTableComment.Location = new System.Drawing.Point(16, 421);
             chkShowTableComment.Name = "chkShowTableComment";
             chkShowTableComment.Size = new System.Drawing.Size(149, 21);
             chkShowTableComment.TabIndex = 14;
             chkShowTableComment.Text = "Show table comment";
-            chkShowTableComment.UseVisualStyleBackColor = true;
             // 
             // gbProperties
             // 
@@ -106,7 +103,6 @@ namespace DatabaseManager.Forms
             gbProperties.Name = "gbProperties";
             gbProperties.Size = new System.Drawing.Size(535, 229);
             gbProperties.TabIndex = 15;
-            gbProperties.TabStop = false;
             gbProperties.Text = "Properties to generate";
             // 
             // dgvProperties
@@ -162,7 +158,6 @@ namespace DatabaseManager.Forms
             txtMessage.Multiline = true;
             txtMessage.Name = "txtMessage";
             txtMessage.ReadOnly = true;
-            txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             txtMessage.Size = new System.Drawing.Size(540, 58);
             txtMessage.TabIndex = 18;
             // 
@@ -172,10 +167,9 @@ namespace DatabaseManager.Forms
             btnCancel.Enabled = false;
             btnCancel.Location = new System.Drawing.Point(267, 480);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new System.Drawing.Size(75, 23);
+            btnCancel.Size = new System.Drawing.Size(75, 32);
             btnCancel.TabIndex = 17;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
             // 
             // btnOK
@@ -183,10 +177,9 @@ namespace DatabaseManager.Forms
             btnOK.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
             btnOK.Location = new System.Drawing.Point(156, 480);
             btnOK.Name = "btnOK";
-            btnOK.Size = new System.Drawing.Size(75, 23);
+            btnOK.Size = new System.Drawing.Size(75, 32);
             btnOK.TabIndex = 16;
             btnOK.Text = "OK";
-            btnOK.UseVisualStyleBackColor = true;
             btnOK.Click += btnOK_Click;
             // 
             // label1
@@ -203,17 +196,16 @@ namespace DatabaseManager.Forms
             txtBackColor.BackColor = System.Drawing.Color.White;
             txtBackColor.Location = new System.Drawing.Point(222, 27);
             txtBackColor.Name = "txtBackColor";
-            txtBackColor.Size = new System.Drawing.Size(100, 23);
+            txtBackColor.Size = new System.Drawing.Size(100, 32);
             txtBackColor.TabIndex = 20;
             // 
             // btnSelectBackColor
             // 
             btnSelectBackColor.Location = new System.Drawing.Point(328, 27);
             btnSelectBackColor.Name = "btnSelectBackColor";
-            btnSelectBackColor.Size = new System.Drawing.Size(75, 23);
+            btnSelectBackColor.Size = new System.Drawing.Size(75, 32);
             btnSelectBackColor.TabIndex = 21;
             btnSelectBackColor.Text = "Select";
-            btnSelectBackColor.UseVisualStyleBackColor = true;
             btnSelectBackColor.Click += btnSelectBackColor_Click;
             // 
             // gbTableStyle
@@ -230,20 +222,17 @@ namespace DatabaseManager.Forms
             gbTableStyle.Name = "gbTableStyle";
             gbTableStyle.Size = new System.Drawing.Size(531, 129);
             gbTableStyle.TabIndex = 22;
-            gbTableStyle.TabStop = false;
             gbTableStyle.Text = "Table style";
             // 
             // chkColumnHeaderIsBold
             // 
             chkColumnHeaderIsBold.AutoSize = true;
             chkColumnHeaderIsBold.Checked = true;
-            chkColumnHeaderIsBold.CheckState = System.Windows.Forms.CheckState.Checked;
             chkColumnHeaderIsBold.Location = new System.Drawing.Point(11, 96);
             chkColumnHeaderIsBold.Name = "chkColumnHeaderIsBold";
             chkColumnHeaderIsBold.Size = new System.Drawing.Size(187, 21);
             chkColumnHeaderIsBold.TabIndex = 25;
             chkColumnHeaderIsBold.Text = "Column header font is bold";
-            chkColumnHeaderIsBold.UseVisualStyleBackColor = true;
             // 
             // label3
             // 
@@ -258,10 +247,9 @@ namespace DatabaseManager.Forms
             // 
             btnSelectForeColor.Location = new System.Drawing.Point(328, 63);
             btnSelectForeColor.Name = "btnSelectForeColor";
-            btnSelectForeColor.Size = new System.Drawing.Size(75, 23);
+            btnSelectForeColor.Size = new System.Drawing.Size(75, 32);
             btnSelectForeColor.TabIndex = 24;
             btnSelectForeColor.Text = "Select";
-            btnSelectForeColor.UseVisualStyleBackColor = true;
             btnSelectForeColor.Click += btnSelectForeColor_Click;
             // 
             // txtForeColor
@@ -269,7 +257,7 @@ namespace DatabaseManager.Forms
             txtForeColor.BackColor = System.Drawing.Color.White;
             txtForeColor.Location = new System.Drawing.Point(222, 63);
             txtForeColor.Name = "txtForeColor";
-            txtForeColor.Size = new System.Drawing.Size(100, 23);
+            txtForeColor.Size = new System.Drawing.Size(100, 32);
             txtForeColor.TabIndex = 23;
             // 
             // frmGenerateColumnDocumentation
@@ -300,27 +288,27 @@ namespace DatabaseManager.Forms
 
         #endregion
 
-        private System.Windows.Forms.Button btnSelectPath;
-        private System.Windows.Forms.TextBox txtFilePath;
-        private System.Windows.Forms.Label label2;
+        private AntdUI.Button btnSelectPath;
+        private AntdUI.Input txtFilePath;
+        private AntdUI.Label label2;
         private System.Windows.Forms.SaveFileDialog saveFileDialog1;
-        private System.Windows.Forms.CheckBox chkShowTableComment;
-        private System.Windows.Forms.GroupBox gbProperties;
+        private AntdUI.Checkbox chkShowTableComment;
+        private AntdUI.Panel gbProperties;
         private DraggableDataGridView dgvProperties;
         private System.Windows.Forms.DataGridViewCheckBoxColumn colSelect;
         private System.Windows.Forms.DataGridViewTextBoxColumn colPropertyName;
         private System.Windows.Forms.DataGridViewTextBoxColumn colDisplayName;
-        private System.Windows.Forms.TextBox txtMessage;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Button btnOK;
+        private AntdUI.Input txtMessage;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Button btnOK;
         private System.Windows.Forms.ColorDialog colorDialog1;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.TextBox txtBackColor;
-        private System.Windows.Forms.Button btnSelectBackColor;
-        private System.Windows.Forms.GroupBox gbTableStyle;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.Button btnSelectForeColor;
-        private System.Windows.Forms.TextBox txtForeColor;
-        private System.Windows.Forms.CheckBox chkColumnHeaderIsBold;
+        private AntdUI.Label label1;
+        private AntdUI.Input txtBackColor;
+        private AntdUI.Button btnSelectBackColor;
+        private AntdUI.Panel gbTableStyle;
+        private AntdUI.Label label3;
+        private AntdUI.Button btnSelectForeColor;
+        private AntdUI.Input txtForeColor;
+        private AntdUI.Checkbox chkColumnHeaderIsBold;
     }
 }

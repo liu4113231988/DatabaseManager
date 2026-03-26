@@ -28,19 +28,19 @@
         /// </summary>
         private void InitializeComponent()
         {
-            btnConfirm = new System.Windows.Forms.Button();
-            lblDatabase = new System.Windows.Forms.Label();
-            cboDatabase = new System.Windows.Forms.ComboBox();
-            lblProfileName = new System.Windows.Forms.Label();
-            txtProfileName = new System.Windows.Forms.TextBox();
-            btnCancel = new System.Windows.Forms.Button();
-            label2 = new System.Windows.Forms.Label();
-            rbInput = new System.Windows.Forms.RadioButton();
-            rbChoose = new System.Windows.Forms.RadioButton();
+            btnConfirm = new AntdUI.Button();
+            lblDatabase = new AntdUI.Label();
+            cboDatabase = new AntdUI.Select();
+            lblProfileName = new AntdUI.Label();
+            txtProfileName = new AntdUI.Input();
+            btnCancel = new AntdUI.Button();
+            label2 = new AntdUI.Label();
+            rbInput = new AntdUI.Radio();
+            rbChoose = new AntdUI.Radio();
             ucDbAccountInfo = new Controls.UC_DbAccountInfo();
-            panelMode = new System.Windows.Forms.Panel();
-            panelContent = new System.Windows.Forms.Panel();
-            panelButton = new System.Windows.Forms.Panel();
+            panelMode = new AntdUI.Panel();
+            panelContent = new AntdUI.Panel();
+            panelButton = new AntdUI.Panel();
             panelMode.SuspendLayout();
             panelContent.SuspendLayout();
             panelButton.SuspendLayout();
@@ -51,10 +51,9 @@
             btnConfirm.Location = new System.Drawing.Point(141, 7);
             btnConfirm.Margin = new System.Windows.Forms.Padding(4);
             btnConfirm.Name = "btnConfirm";
-            btnConfirm.Size = new System.Drawing.Size(88, 33);
+            btnConfirm.Size = new System.Drawing.Size(88, 36);
             btnConfirm.TabIndex = 9;
             btnConfirm.Text = "OK";
-            btnConfirm.UseVisualStyleBackColor = true;
             btnConfirm.Click += btnConfirm_Click;
             // 
             // lblDatabase
@@ -69,18 +68,12 @@
             // 
             // cboDatabase
             // 
-            cboDatabase.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.SuggestAppend;
-            cboDatabase.AutoCompleteSource = System.Windows.Forms.AutoCompleteSource.ListItems;
-            cboDatabase.DropDownHeight = 200;
-            cboDatabase.FormattingEnabled = true;
-            cboDatabase.IntegralHeight = false;
             cboDatabase.Location = new System.Drawing.Point(143, 244);
             cboDatabase.Margin = new System.Windows.Forms.Padding(4);
             cboDatabase.Name = "cboDatabase";
-            cboDatabase.Size = new System.Drawing.Size(193, 25);
+            cboDatabase.Size = new System.Drawing.Size(193, 32);
             cboDatabase.TabIndex = 7;
-            cboDatabase.SelectedIndexChanged += cboDatabase_SelectedIndexChanged;
-            cboDatabase.MouseClick += cboDatabase_MouseClick;
+            cboDatabase.SelectedIndexChanged += (sender, index) => cboDatabase_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // lblProfileName
             // 
@@ -97,7 +90,7 @@
             txtProfileName.Location = new System.Drawing.Point(142, 287);
             txtProfileName.Margin = new System.Windows.Forms.Padding(4);
             txtProfileName.Name = "txtProfileName";
-            txtProfileName.Size = new System.Drawing.Size(193, 23);
+            txtProfileName.Size = new System.Drawing.Size(193, 32);
             txtProfileName.TabIndex = 0;
             // 
             // btnCancel
@@ -105,10 +98,9 @@
             btnCancel.Location = new System.Drawing.Point(247, 7);
             btnCancel.Margin = new System.Windows.Forms.Padding(4);
             btnCancel.Name = "btnCancel";
-            btnCancel.Size = new System.Drawing.Size(88, 33);
+            btnCancel.Size = new System.Drawing.Size(88, 36);
             btnCancel.TabIndex = 17;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             btnCancel.Click += btnCancel_Click;
             // 
             // label2
@@ -130,9 +122,7 @@
             rbInput.Name = "rbInput";
             rbInput.Size = new System.Drawing.Size(56, 21);
             rbInput.TabIndex = 20;
-            rbInput.TabStop = true;
             rbInput.Text = "Input";
-            rbInput.UseVisualStyleBackColor = true;
             // 
             // rbChoose
             // 
@@ -143,8 +133,7 @@
             rbChoose.Size = new System.Drawing.Size(70, 21);
             rbChoose.TabIndex = 21;
             rbChoose.Text = "Choose";
-            rbChoose.UseVisualStyleBackColor = true;
-            rbChoose.CheckedChanged += rbChoose_CheckedChanged;
+            rbChoose.CheckedChanged += (sender, value) => rbChoose_CheckedChanged(sender, new System.EventArgs());
             // 
             // ucDbAccountInfo
             // 
@@ -211,18 +200,18 @@
         }
 
         #endregion
-        private System.Windows.Forms.Button btnConfirm;
-        private System.Windows.Forms.Label lblDatabase;
-        private System.Windows.Forms.ComboBox cboDatabase;
-        private System.Windows.Forms.Label lblProfileName;
-        private System.Windows.Forms.TextBox txtProfileName;
+        private AntdUI.Button btnConfirm;
+        private AntdUI.Label lblDatabase;
+        private AntdUI.Select cboDatabase;
+        private AntdUI.Label lblProfileName;
+        private AntdUI.Input txtProfileName;
         private Controls.UC_DbAccountInfo ucDbAccountInfo;
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.RadioButton rbInput;
-        private System.Windows.Forms.RadioButton rbChoose;
-        private System.Windows.Forms.Panel panelMode;
-        private System.Windows.Forms.Panel panelContent;
-        private System.Windows.Forms.Panel panelButton;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Label label2;
+        private AntdUI.Radio rbInput;
+        private AntdUI.Radio rbChoose;
+        private AntdUI.Panel panelMode;
+        private AntdUI.Panel panelContent;
+        private AntdUI.Panel panelButton;
     }
 }

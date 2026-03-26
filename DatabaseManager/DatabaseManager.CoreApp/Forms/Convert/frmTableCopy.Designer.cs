@@ -30,31 +30,31 @@
         {
             components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmTableCopy));
-            rbSameDatabase = new System.Windows.Forms.RadioButton();
-            rbAnotherDatabase = new System.Windows.Forms.RadioButton();
-            chkScriptData = new System.Windows.Forms.CheckBox();
-            chkScriptSchema = new System.Windows.Forms.CheckBox();
-            lblScriptsMode = new System.Windows.Forms.Label();
-            btnClose = new System.Windows.Forms.Button();
-            btnExecute = new System.Windows.Forms.Button();
-            label1 = new System.Windows.Forms.Label();
-            txtName = new System.Windows.Forms.TextBox();
+            rbSameDatabase = new AntdUI.Radio();
+            rbAnotherDatabase = new AntdUI.Radio();
+            chkScriptData = new AntdUI.Checkbox();
+            chkScriptSchema = new AntdUI.Checkbox();
+            lblScriptsMode = new AntdUI.Label();
+            btnClose = new AntdUI.Button();
+            btnExecute = new AntdUI.Button();
+            label1 = new AntdUI.Label();
+            txtName = new AntdUI.Input();
             ucConnection = new DatabaseManager.Controls.UC_DbConnectionProfile();
-            chkGenerateIdentity = new System.Windows.Forms.CheckBox();
-            lblSchema = new System.Windows.Forms.Label();
-            cboSchema = new System.Windows.Forms.ComboBox();
-            chkPrimaryKey = new System.Windows.Forms.CheckBox();
-            chkForeignKey = new System.Windows.Forms.CheckBox();
-            chkIndex = new System.Windows.Forms.CheckBox();
-            chkCheckConstraint = new System.Windows.Forms.CheckBox();
-            chkTrigger = new System.Windows.Forms.CheckBox();
-            lblDataTypeMappingFileType = new System.Windows.Forms.LinkLabel();
-            cboDataTypeMappingFile = new System.Windows.Forms.ComboBox();
-            label2 = new System.Windows.Forms.Label();
-            chkNeedPreview = new System.Windows.Forms.CheckBox();
+            chkGenerateIdentity = new AntdUI.Checkbox();
+            lblSchema = new AntdUI.Label();
+            cboSchema = new AntdUI.Select();
+            chkPrimaryKey = new AntdUI.Checkbox();
+            chkForeignKey = new AntdUI.Checkbox();
+            chkIndex = new AntdUI.Checkbox();
+            chkCheckConstraint = new AntdUI.Checkbox();
+            chkTrigger = new AntdUI.Checkbox();
+            lblDataTypeMappingFileType = new AntdUI.Label();
+            cboDataTypeMappingFile = new AntdUI.Select();
+            label2 = new AntdUI.Label();
+            chkNeedPreview = new AntdUI.Checkbox();
             picNeedPreviewTip = new System.Windows.Forms.PictureBox();
             toolTip1 = new System.Windows.Forms.ToolTip(components);
-            txtMessage = new System.Windows.Forms.TextBox();
+            txtMessage = new AntdUI.Input();
             ((System.ComponentModel.ISupportInitialize)picNeedPreviewTip).BeginInit();
             SuspendLayout();
             // 
@@ -67,10 +67,8 @@
             rbSameDatabase.Name = "rbSameDatabase";
             rbSameDatabase.Size = new System.Drawing.Size(115, 21);
             rbSameDatabase.TabIndex = 1;
-            rbSameDatabase.TabStop = true;
             rbSameDatabase.Text = "same database";
-            rbSameDatabase.UseVisualStyleBackColor = true;
-            rbSameDatabase.CheckedChanged += rbSameDatabase_CheckedChanged;
+            rbSameDatabase.CheckedChanged += (sender, value) => rbSameDatabase_CheckedChanged(sender, new System.EventArgs());
             // 
             // rbAnotherDatabase
             // 
@@ -81,35 +79,30 @@
             rbAnotherDatabase.Size = new System.Drawing.Size(129, 21);
             rbAnotherDatabase.TabIndex = 2;
             rbAnotherDatabase.Text = "another database";
-            rbAnotherDatabase.UseVisualStyleBackColor = true;
             // 
             // chkScriptData
             // 
             chkScriptData.AutoSize = true;
             chkScriptData.Checked = true;
-            chkScriptData.CheckState = System.Windows.Forms.CheckState.Checked;
             chkScriptData.Location = new System.Drawing.Point(176, 180);
             chkScriptData.Margin = new System.Windows.Forms.Padding(4);
             chkScriptData.Name = "chkScriptData";
             chkScriptData.Size = new System.Drawing.Size(53, 21);
             chkScriptData.TabIndex = 15;
             chkScriptData.Text = "data";
-            chkScriptData.UseVisualStyleBackColor = true;
-            chkScriptData.CheckedChanged += chkScriptData_CheckedChanged;
+            chkScriptData.CheckedChanged += (sender, value) => chkScriptData_CheckedChanged(sender, new System.EventArgs());
             // 
             // chkScriptSchema
             // 
             chkScriptSchema.AutoSize = true;
             chkScriptSchema.Checked = true;
-            chkScriptSchema.CheckState = System.Windows.Forms.CheckState.Checked;
             chkScriptSchema.Location = new System.Drawing.Point(83, 180);
             chkScriptSchema.Margin = new System.Windows.Forms.Padding(4);
             chkScriptSchema.Name = "chkScriptSchema";
             chkScriptSchema.Size = new System.Drawing.Size(71, 21);
             chkScriptSchema.TabIndex = 14;
             chkScriptSchema.Text = "schema";
-            chkScriptSchema.UseVisualStyleBackColor = true;
-            chkScriptSchema.CheckedChanged += chkScriptSchema_CheckedChanged;
+            chkScriptSchema.CheckedChanged += (sender, value) => chkScriptSchema_CheckedChanged(sender, new System.EventArgs());
             // 
             // lblScriptsMode
             // 
@@ -127,10 +120,9 @@
             btnClose.Location = new System.Drawing.Point(352, 320);
             btnClose.Margin = new System.Windows.Forms.Padding(4);
             btnClose.Name = "btnClose";
-            btnClose.Size = new System.Drawing.Size(88, 33);
+            btnClose.Size = new System.Drawing.Size(88, 36);
             btnClose.TabIndex = 24;
             btnClose.Text = "Close";
-            btnClose.UseVisualStyleBackColor = true;
             btnClose.Click += btnCancel_Click;
             // 
             // btnExecute
@@ -139,28 +131,17 @@
             btnExecute.Location = new System.Drawing.Point(239, 320);
             btnExecute.Margin = new System.Windows.Forms.Padding(4);
             btnExecute.Name = "btnExecute";
-            btnExecute.Size = new System.Drawing.Size(88, 33);
+            btnExecute.Size = new System.Drawing.Size(88, 36);
             btnExecute.TabIndex = 23;
             btnExecute.Text = "Execute";
-            btnExecute.UseVisualStyleBackColor = true;
             btnExecute.Click += btnExecute_Click;
-            // 
-            // label1
-            // 
-            label1.AutoSize = true;
-            label1.Location = new System.Drawing.Point(16, 93);
-            label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            label1.Name = "label1";
-            label1.Size = new System.Drawing.Size(46, 17);
-            label1.TabIndex = 25;
-            label1.Text = "Name:";
             // 
             // txtName
             // 
             txtName.Location = new System.Drawing.Point(83, 89);
             txtName.Margin = new System.Windows.Forms.Padding(4);
             txtName.Name = "txtName";
-            txtName.Size = new System.Drawing.Size(302, 23);
+            txtName.Size = new System.Drawing.Size(302, 32);
             txtName.TabIndex = 26;
             // 
             // ucConnection
@@ -189,7 +170,6 @@
             chkGenerateIdentity.Size = new System.Drawing.Size(126, 21);
             chkGenerateIdentity.TabIndex = 27;
             chkGenerateIdentity.Text = "Generate identity";
-            chkGenerateIdentity.UseVisualStyleBackColor = true;
             // 
             // lblSchema
             // 
@@ -203,12 +183,9 @@
             // 
             // cboSchema
             // 
-            cboSchema.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboSchema.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            cboSchema.FormattingEnabled = true;
             cboSchema.Location = new System.Drawing.Point(517, 87);
             cboSchema.Name = "cboSchema";
-            cboSchema.Size = new System.Drawing.Size(121, 25);
+            cboSchema.Size = new System.Drawing.Size(121, 32);
             cboSchema.TabIndex = 30;
             // 
             // chkPrimaryKey
@@ -220,7 +197,6 @@
             chkPrimaryKey.Size = new System.Drawing.Size(96, 21);
             chkPrimaryKey.TabIndex = 31;
             chkPrimaryKey.Text = "Primary Key";
-            chkPrimaryKey.UseVisualStyleBackColor = true;
             // 
             // chkForeignKey
             // 
@@ -231,7 +207,6 @@
             chkForeignKey.Size = new System.Drawing.Size(96, 21);
             chkForeignKey.TabIndex = 32;
             chkForeignKey.Text = "Foreign Key";
-            chkForeignKey.UseVisualStyleBackColor = true;
             // 
             // chkIndex
             // 
@@ -242,7 +217,6 @@
             chkIndex.Size = new System.Drawing.Size(59, 21);
             chkIndex.TabIndex = 33;
             chkIndex.Text = "Index";
-            chkIndex.UseVisualStyleBackColor = true;
             // 
             // chkCheckConstraint
             // 
@@ -253,7 +227,64 @@
             chkCheckConstraint.Size = new System.Drawing.Size(125, 21);
             chkCheckConstraint.TabIndex = 34;
             chkCheckConstraint.Text = "Check Constraint";
-            chkCheckConstraint.UseVisualStyleBackColor = true;
+            // 
+            // chkGenerateIdentity
+            // 
+            chkGenerateIdentity.AutoSize = true;
+            chkGenerateIdentity.Checked = true;
+            chkGenerateIdentity.Location = new System.Drawing.Point(19, 240);
+            chkGenerateIdentity.Margin = new System.Windows.Forms.Padding(4);
+            chkGenerateIdentity.Name = "chkGenerateIdentity";
+            chkGenerateIdentity.Size = new System.Drawing.Size(126, 21);
+            chkGenerateIdentity.TabIndex = 27;
+            chkGenerateIdentity.Text = "Generate identity";
+            // 
+            // cboSchema
+            // 
+            cboSchema.Location = new System.Drawing.Point(517, 87);
+            cboSchema.Name = "cboSchema";
+            cboSchema.Size = new System.Drawing.Size(121, 32);
+            cboSchema.TabIndex = 30;
+            // 
+            // chkPrimaryKey
+            // 
+            chkPrimaryKey.AutoSize = true;
+            chkPrimaryKey.Location = new System.Drawing.Point(19, 211);
+            chkPrimaryKey.Margin = new System.Windows.Forms.Padding(4);
+            chkPrimaryKey.Name = "chkPrimaryKey";
+            chkPrimaryKey.Size = new System.Drawing.Size(96, 21);
+            chkPrimaryKey.TabIndex = 31;
+            chkPrimaryKey.Text = "Primary Key";
+            // 
+            // chkForeignKey
+            // 
+            chkForeignKey.AutoSize = true;
+            chkForeignKey.Location = new System.Drawing.Point(143, 211);
+            chkForeignKey.Margin = new System.Windows.Forms.Padding(4);
+            chkForeignKey.Name = "chkForeignKey";
+            chkForeignKey.Size = new System.Drawing.Size(96, 21);
+            chkForeignKey.TabIndex = 32;
+            chkForeignKey.Text = "Foreign Key";
+            // 
+            // chkIndex
+            // 
+            chkIndex.AutoSize = true;
+            chkIndex.Location = new System.Drawing.Point(267, 211);
+            chkIndex.Margin = new System.Windows.Forms.Padding(4);
+            chkIndex.Name = "chkIndex";
+            chkIndex.Size = new System.Drawing.Size(59, 21);
+            chkIndex.TabIndex = 33;
+            chkIndex.Text = "Index";
+            // 
+            // chkCheckConstraint
+            // 
+            chkCheckConstraint.AutoSize = true;
+            chkCheckConstraint.Location = new System.Drawing.Point(352, 211);
+            chkCheckConstraint.Margin = new System.Windows.Forms.Padding(4);
+            chkCheckConstraint.Name = "chkCheckConstraint";
+            chkCheckConstraint.Size = new System.Drawing.Size(125, 21);
+            chkCheckConstraint.TabIndex = 34;
+            chkCheckConstraint.Text = "Check Constraint";
             // 
             // chkTrigger
             // 
@@ -264,7 +295,6 @@
             chkTrigger.Size = new System.Drawing.Size(70, 21);
             chkTrigger.TabIndex = 35;
             chkTrigger.Text = "Trigger";
-            chkTrigger.UseVisualStyleBackColor = true;
             // 
             // lblDataTypeMappingFileType
             // 
@@ -277,24 +307,11 @@
             // 
             // cboDataTypeMappingFile
             // 
-            cboDataTypeMappingFile.DisplayMember = "Name";
-            cboDataTypeMappingFile.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboDataTypeMappingFile.FormattingEnabled = true;
             cboDataTypeMappingFile.Location = new System.Drawing.Point(163, 137);
             cboDataTypeMappingFile.Name = "cboDataTypeMappingFile";
-            cboDataTypeMappingFile.Size = new System.Drawing.Size(162, 25);
+            cboDataTypeMappingFile.Size = new System.Drawing.Size(162, 32);
             cboDataTypeMappingFile.TabIndex = 70;
-            cboDataTypeMappingFile.SelectedIndexChanged += cboDataTypeMappingFile_SelectedIndexChanged;
-            // 
-            // label2
-            // 
-            label2.AutoSize = true;
-            label2.Location = new System.Drawing.Point(15, 140);
-            label2.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            label2.Name = "label2";
-            label2.Size = new System.Drawing.Size(144, 17);
-            label2.TabIndex = 69;
-            label2.Text = "Data type mapping file:";
+            cboDataTypeMappingFile.SelectedIndexChanged += (sender, index) => cboDataTypeMappingFile_SelectedIndexChanged(sender, new System.EventArgs());
             // 
             // chkNeedPreview
             // 
@@ -307,7 +324,6 @@
             chkNeedPreview.TabIndex = 72;
             chkNeedPreview.Tag = "Schema";
             chkNeedPreview.Text = "Need preview";
-            chkNeedPreview.UseVisualStyleBackColor = true;
             // 
             // picNeedPreviewTip
             // 
@@ -327,7 +343,6 @@
             txtMessage.Multiline = true;
             txtMessage.Name = "txtMessage";
             txtMessage.ReadOnly = true;
-            txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
             txtMessage.Size = new System.Drawing.Size(686, 84);
             txtMessage.TabIndex = 74;
             // 
@@ -374,29 +389,29 @@
         #endregion
 
         private Controls.UC_DbConnectionProfile ucConnection;
-        private System.Windows.Forms.RadioButton rbSameDatabase;
-        private System.Windows.Forms.RadioButton rbAnotherDatabase;
-        private System.Windows.Forms.CheckBox chkScriptData;
-        private System.Windows.Forms.CheckBox chkScriptSchema;
-        private System.Windows.Forms.Label lblScriptsMode;
-        private System.Windows.Forms.Button btnClose;
-        private System.Windows.Forms.Button btnExecute;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.TextBox txtName;
-        private System.Windows.Forms.CheckBox chkGenerateIdentity;
-        private System.Windows.Forms.Label lblSchema;
-        private System.Windows.Forms.ComboBox cboSchema;
-        private System.Windows.Forms.CheckBox chkPrimaryKey;
-        private System.Windows.Forms.CheckBox chkForeignKey;
-        private System.Windows.Forms.CheckBox chkIndex;
-        private System.Windows.Forms.CheckBox chkCheckConstraint;
-        private System.Windows.Forms.CheckBox chkTrigger;
-        private System.Windows.Forms.LinkLabel lblDataTypeMappingFileType;
-        private System.Windows.Forms.ComboBox cboDataTypeMappingFile;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.CheckBox chkNeedPreview;
+        private AntdUI.Radio rbSameDatabase;
+        private AntdUI.Radio rbAnotherDatabase;
+        private AntdUI.Checkbox chkScriptData;
+        private AntdUI.Checkbox chkScriptSchema;
+        private AntdUI.Label lblScriptsMode;
+        private AntdUI.Button btnClose;
+        private AntdUI.Button btnExecute;
+        private AntdUI.Label label1;
+        private AntdUI.Input txtName;
+        private AntdUI.Checkbox chkGenerateIdentity;
+        private AntdUI.Label lblSchema;
+        private AntdUI.Select cboSchema;
+        private AntdUI.Checkbox chkPrimaryKey;
+        private AntdUI.Checkbox chkForeignKey;
+        private AntdUI.Checkbox chkIndex;
+        private AntdUI.Checkbox chkCheckConstraint;
+        private AntdUI.Checkbox chkTrigger;
+        private AntdUI.Label lblDataTypeMappingFileType;
+        private AntdUI.Select cboDataTypeMappingFile;
+        private AntdUI.Label label2;
+        private AntdUI.Checkbox chkNeedPreview;
         private System.Windows.Forms.PictureBox picNeedPreviewTip;
         private System.Windows.Forms.ToolTip toolTip1;
-        private System.Windows.Forms.TextBox txtMessage;
+        private AntdUI.Input txtMessage;
     }
 }

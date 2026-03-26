@@ -53,12 +53,19 @@ namespace DatabaseManager.Controls
 
         private void Init()
         {
-            this.btnAdd.Image = IconImageHelper.GetImageByFontType(IconChar.Add, IconFont.Solid);
-            this.btnRemove.Image = IconImageHelper.GetImageByFontType(IconChar.Times, IconFont.Solid, Color.Red);
-            this.btnRevert.Image = IconImageHelper.GetImageByFontType(IconChar.Undo, IconFont.Solid, Color.Red);
-            this.btnCommit.Image = IconImageHelper.GetImageByFontType(IconChar.Check, IconFont.Solid);
-            this.btnFilter.Image = IconImageHelper.GetImage(IconChar.Filter);
-            this.btnExport.Image = IconImageHelper.GetImage(IconChar.FileExport);
+            // AntdUI buttons don't support Image property - using text instead
+            // this.btnAdd.Image = IconImageHelper.GetImageByFontType(IconChar.Add, IconFont.Solid);
+            // this.btnRemove.Image = IconImageHelper.GetImageByFontType(IconChar.Times, IconFont.Solid, Color.Red);
+            // this.btnRevert.Image = IconImageHelper.GetImageByFontType(IconChar.Undo, IconFont.Solid, Color.Red);
+            // this.btnCommit.Image = IconImageHelper.GetImageByFontType(IconChar.Check, IconFont.Solid);
+            // this.btnFilter.Image = IconImageHelper.GetImage(IconChar.Filter);
+            // this.btnExport.Image = IconImageHelper.GetImage(IconChar.FileExport);
+            this.btnAdd.Text = "+";
+            this.btnRemove.Text = "-";
+            this.btnRevert.Text = "↩";
+            this.btnCommit.Text = "✓";
+            this.btnFilter.Text = "🔍";
+            this.btnExport.Text = "📤";
 
             this.cboAddMode.SelectedIndex = 2;
 

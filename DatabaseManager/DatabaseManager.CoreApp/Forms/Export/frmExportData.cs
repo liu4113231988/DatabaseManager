@@ -412,12 +412,12 @@ namespace DatabaseManager.Forms
             this.Feedback(new FeedbackInfo() { Message = message });
         }
 
-        private void chkShowColumnName_CheckedChanged(object sender, EventArgs e)
+        private void chkShowColumnName_CheckedChanged(bool value)
         {
             this.colDisplayName.Visible = this.chkShowColumnName.Checked;
         }
 
-        private void rbPageNumberRange_CheckedChanged(object sender, EventArgs e)
+        private void rbPageNumberRange_CheckedChanged(bool value)
         {
             this.txtPageNumberRange.Enabled = this.rbPageNumberRange.Checked;
         }

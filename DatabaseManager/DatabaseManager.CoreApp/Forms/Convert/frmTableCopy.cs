@@ -188,7 +188,7 @@ namespace DatabaseManager
 
                     if (this.cboDataTypeMappingFile.SelectedIndex >= 0)
                     {
-                        ConvertConfigFileInfo configFileInfo = this.cboDataTypeMappingFile.SelectedItem as ConvertConfigFileInfo;
+                        ConvertConfigFileInfo configFileInfo = this.cboDataTypeMappingFile.SelectedValue as ConvertConfigFileInfo;
 
                         option.DataTypeMappingFilePath = configFileInfo.FilePath;
                     }
@@ -533,7 +533,7 @@ namespace DatabaseManager
 
         private void cboDataTypeMappingFile_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ConvertConfigFileInfo selectedItem = this.cboDataTypeMappingFile.SelectedItem as ConvertConfigFileInfo;
+            ConvertConfigFileInfo selectedItem = this.cboDataTypeMappingFile.SelectedValue as ConvertConfigFileInfo;
 
             if (selectedItem != null)
             {
@@ -547,7 +547,7 @@ namespace DatabaseManager
 
         private void lblDataTypeMappingFileType_Click(object sender, EventArgs e)
         {
-            var selectedItem = this.cboDataTypeMappingFile.SelectedItem;
+            var selectedItem = this.cboDataTypeMappingFile.SelectedValue;
 
             if (selectedItem != null)
             {

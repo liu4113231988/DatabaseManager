@@ -42,7 +42,9 @@ namespace DatabaseManager.Forms
 
             if (!this.isReadonly)
             {
-                this.btnExchange.Image = IconImageHelper.GetImageByFontType(IconChar.Exchange, IconFont.Solid, Color.DodgerBlue);
+                // AntdUI Button doesn't support Image property - using text instead
+                // this.btnExchange.Image = IconImageHelper.GetImageByFontType(IconChar.Exchange, IconFont.Solid, Color.DodgerBlue);
+                this.btnExchange.Text = "⇄";
                 this.tsbAdd.Image = IconImageHelper.GetImageByFontType(IconChar.Plus, IconFont.Solid, null, this.tsbAdd.Width);
                 this.tsbDelete.Image = IconImageHelper.GetImage(IconChar.Times, null, this.tsbDelete.Width);
                 this.tsbSave.Image = IconImageHelper.GetImage(IconChar.Save, null, this.tsbSave.Width);
@@ -108,7 +110,7 @@ namespace DatabaseManager.Forms
 
                     if (!string.IsNullOrEmpty(defaultItem))
                     {
-                        this.cboCustom.SelectedItem = defaultItem;
+                        this.cboCustom.SelectedValue = defaultItem;
                     }
                 }
             }
@@ -127,7 +129,7 @@ namespace DatabaseManager.Forms
 
         private void btnLoadDefault_Click(object sender, EventArgs e)
         {
-            this.cboCustom.SelectedItem = null;
+            this.cboCustom.SelectedValue = null;
 
             this.LoadMappings();
         }
@@ -576,7 +578,7 @@ namespace DatabaseManager.Forms
 
         private void cboCustom_SelectedIndexChanged(object sender, EventArgs e)
         {
-            string selectedItem = this.cboCustom.SelectedItem?.ToString();
+            string selectedItem = this.cboCustom.SelectedValue?.ToString();
 
             if (!string.IsNullOrEmpty(selectedItem))
             {
