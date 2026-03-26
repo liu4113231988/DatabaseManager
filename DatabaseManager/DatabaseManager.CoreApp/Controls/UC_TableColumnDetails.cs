@@ -92,5 +92,40 @@ namespace DatabaseManager.Controls
         {
             this.toolTip1.Hide(this.lvTableColumns);
         }
+
+        private void LoadImageList(ImageList imageList)
+        {
+            var imageNames = new string[]
+            {
+                "tree_TablePrimaryKey.png",
+                "tree_TableForeignKey.png"
+            };
+
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var baseName = "DatabaseManager.Resources.";
+
+            imageList.Images.Clear();
+
+            foreach (var name in imageNames)
+            {
+                try
+                {
+                    var resourceName = baseName + name;
+                    using var stream = assembly.GetManifestResourceStream(resourceName);
+                    if (stream != null)
+                    {
+                        imageList.Images.Add(System.Drawing.Image.FromStream(stream));
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            for (int i = 0; i < imageList.Images.Count; i++)
+            {
+                imageList.Images.SetKeyName(i, imageNames[i].Replace(".png", ""));
+            }
+        }
     }
 }

@@ -15,7 +15,7 @@ using WeifenLuo.WinFormsUI.Docking;
 
 namespace DatabaseManager.Forms
 {
-    public partial class frmMain : Form, IObserver<FeedbackInfo>
+        public partial class frmMain : AntdUI.BaseForm, IObserver<FeedbackInfo>
     {
         private Setting setting = SettingManager.Setting;
         private frmObjectsExplorer explorerForm = new frmObjectsExplorer();
@@ -57,6 +57,8 @@ namespace DatabaseManager.Forms
             this.explorerForm.Explorer.OnFeedback += this.Feedback;
 
             this.ApplyTheme();
+
+            AntdUiThemeHelper.ApplyMainShell(this, this.menuStrip1, this.toolStrip1, this.dockPanelMain);
 
             this.LoadLayoutFromProfile();
         }

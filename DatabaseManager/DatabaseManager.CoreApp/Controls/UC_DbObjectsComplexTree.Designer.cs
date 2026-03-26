@@ -103,25 +103,9 @@
             // imageList1
             // 
             imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
-            imageList1.ImageStream = (System.Windows.Forms.ImageListStreamer)resources.GetObject("imageList1.ImageStream");
             imageList1.TransparentColor = System.Drawing.Color.Transparent;
-            imageList1.Images.SetKeyName(0, "tree_Fake.png");
-            imageList1.Images.SetKeyName(1, "tree_Database.png");
-            imageList1.Images.SetKeyName(2, "tree_Folder.png");
-            imageList1.Images.SetKeyName(3, "tree_TableForeignKey.png");
-            imageList1.Images.SetKeyName(4, "tree_Procedure.png");
-            imageList1.Images.SetKeyName(5, "tree_View.png");
-            imageList1.Images.SetKeyName(6, "tree_TableIndex.png");
-            imageList1.Images.SetKeyName(7, "tree_TablePrimaryKey.png");
-            imageList1.Images.SetKeyName(8, "tree_Table.png");
-            imageList1.Images.SetKeyName(9, "tree_TableConstraint.png");
-            imageList1.Images.SetKeyName(10, "tree_TableTrigger.png");
-            imageList1.Images.SetKeyName(11, "Loading.gif");
-            imageList1.Images.SetKeyName(12, "tree_Function.png");
-            imageList1.Images.SetKeyName(13, "tree_TableColumn.png");
-            imageList1.Images.SetKeyName(14, "tree_UserDefinedType.png");
-            imageList1.Images.SetKeyName(15, "tree_Sequence.png");
-            imageList1.Images.SetKeyName(16, "tree_Function_Trigger.png");
+            imageList1.ImageSize = new System.Drawing.Size(16, 16);
+            LoadImageList(imageList1);
             // 
             // contextMenuStrip1
             // 

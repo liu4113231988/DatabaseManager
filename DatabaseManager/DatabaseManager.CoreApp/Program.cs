@@ -1,5 +1,6 @@
 using DatabaseInterpreter.Core;
 using DatabaseManager.Core;
+using DatabaseManager.Helper;
 using DatabaseManager.Forms;
 using DatabaseManager.Profile.Manager;
 using System;
@@ -18,6 +19,8 @@ namespace DatabaseManager
             DbInterpreter.Setting = SettingManager.GetInterpreterSetting();
 
             ProfileBaseManager.Init();
+
+            AntdUiThemeHelper.ApplyGlobalTheme(SettingManager.Setting.ThemeOption.ThemeType);
 
             Application.SetHighDpiMode(HighDpiMode.SystemAware);
             Application.EnableVisualStyles();

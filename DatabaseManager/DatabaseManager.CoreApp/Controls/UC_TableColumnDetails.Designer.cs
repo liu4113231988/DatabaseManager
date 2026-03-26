@@ -40,10 +40,9 @@
             // imageList1
             // 
             imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
-            imageList1.ImageStream = (System.Windows.Forms.ImageListStreamer)resources.GetObject("imageList1.ImageStream");
             imageList1.TransparentColor = System.Drawing.Color.Transparent;
-            imageList1.Images.SetKeyName(0, "tree_TablePrimaryKey.png");
-            imageList1.Images.SetKeyName(1, "tree_TableForeignKey.png");
+            imageList1.ImageSize = new System.Drawing.Size(16, 16);
+            LoadImageList(imageList1);
             // 
             // lvTableColumns
             // 

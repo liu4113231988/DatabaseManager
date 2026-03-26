@@ -1679,5 +1679,55 @@ namespace DatabaseManager.Controls
                 MessageBox.Show(result.Message);
             }
         }
+
+        private void LoadImageList(ImageList imageList)
+        {
+            var imageNames = new string[]
+            {
+                "tree_Fake.png",
+                "tree_Database.png",
+                "tree_Folder.png",
+                "tree_TableForeignKey.png",
+                "tree_Procedure.png",
+                "tree_View.png",
+                "tree_TableIndex.png",
+                "tree_TablePrimaryKey.png",
+                "tree_Table.png",
+                "tree_TableConstraint.png",
+                "tree_TableTrigger.png",
+                "Loading.gif",
+                "tree_Function.png",
+                "tree_TableColumn.png",
+                "tree_UserDefinedType.png",
+                "tree_Sequence.png",
+                "tree_Function_Trigger.png"
+            };
+
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var baseName = "DatabaseManager.Resources.";
+
+            imageList.Images.Clear();
+
+            foreach (var name in imageNames)
+            {
+                try
+                {
+                    var resourceName = baseName + name;
+                    using var stream = assembly.GetManifestResourceStream(resourceName);
+                    if (stream != null)
+                    {
+                        imageList.Images.Add(System.Drawing.Image.FromStream(stream));
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            for (int i = 0; i < imageList.Images.Count; i++)
+            {
+                imageList.Images.SetKeyName(i, imageNames[i].Replace(".png", "").Replace(".gif", ""));
+            }
+        }
     }
 }

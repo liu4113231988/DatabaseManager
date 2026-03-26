@@ -15,6 +15,23 @@
     <Platforms>AnyCPU;x64</Platforms>
     <AssemblyVersion>2.3.1</AssemblyVersion>
     <FileVersion>2.3.1</FileVersion>
+    <GenerateResourceWarnOnBinaryFormatterUse>false</GenerateResourceWarnOnBinaryFormatterUse>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +43,7 @@
   </ItemGroup>
 	
   <ItemGroup>
+    <PackageReference Include="AntdUI" Version="2.3.2" />
     <PackageReference Include="DiffPlex" Version="1.7.2" />
     <PackageReference Include="DockPanelSuite.ThemeVS2015" Version="3.1.1" />
     <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
