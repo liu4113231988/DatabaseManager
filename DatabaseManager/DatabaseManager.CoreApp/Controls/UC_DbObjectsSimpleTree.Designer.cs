@@ -37,13 +37,24 @@
             // 
             // tvDbObjects
             // 
+            tvDbObjects.BackColor = System.Drawing.Color.White;
             tvDbObjects.CheckBoxes = true;
             tvDbObjects.Dock = System.Windows.Forms.DockStyle.Fill;
+            tvDbObjects.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
+            tvDbObjects.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
+            tvDbObjects.FullRowSelect = true;
+            tvDbObjects.HideSelection = false;
+            tvDbObjects.HotTracking = true;
+            tvDbObjects.ItemHeight = 32;
             tvDbObjects.Location = new System.Drawing.Point(0, 0);
             tvDbObjects.Margin = new System.Windows.Forms.Padding(4);
             tvDbObjects.Name = "tvDbObjects";
+            tvDbObjects.ShowLines = false;
+            tvDbObjects.ShowPlusMinus = true;
+            tvDbObjects.ShowRootLines = false;
             tvDbObjects.Size = new System.Drawing.Size(290, 449);
-            tvDbObjects.TabIndex = 20;      
+            tvDbObjects.TabIndex = 20;
+            tvDbObjects.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawAll;      
             tvDbObjects.AfterCheck += tvDbObjects_AfterCheck;
             tvDbObjects.AfterSelect += tvDbObjects_AfterSelect;
             tvDbObjects.NodeMouseClick += tvDbObjects_NodeMouseClick;

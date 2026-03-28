@@ -1,4 +1,5 @@
-﻿namespace DatabaseManager.Forms
+﻿using AntdUI;
+namespace DatabaseManager.Forms
 {
     partial class frmDbConnectionManage
     {
@@ -29,12 +30,11 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmDbConnectionManage));
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             dgvDbConnection = new System.Windows.Forms.DataGridView();
-            label1 = new System.Windows.Forms.Label();
-            cboDbType = new System.Windows.Forms.ComboBox();
-            btnSelect = new System.Windows.Forms.Button();
-            panelDbType = new System.Windows.Forms.Panel();
+            label1 = new AntdUI.Label();
+            cboDbType = new AntdUI.Select();
+            btnSelect = new AntdUI.Button();
+            panelDbType = new AntdUI.Panel();
             toolStrip1 = new System.Windows.Forms.ToolStrip();
             tsbSave = new System.Windows.Forms.ToolStripButton();
             tssSave = new System.Windows.Forms.ToolStripSeparator();
@@ -49,8 +49,8 @@
             tsbManageProfile = new System.Windows.Forms.ToolStripButton();
             toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
             tsbManageVisibility = new System.Windows.Forms.ToolStripButton();
-            panelInfo = new System.Windows.Forms.Panel();
-            label2 = new System.Windows.Forms.Label();
+            panelInfo = new AntdUI.Panel();
+            label2 = new AntdUI.Label();
             picInfo = new System.Windows.Forms.PictureBox();
             colCheck = new System.Windows.Forms.DataGridViewCheckBoxColumn();
             colId = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -106,8 +106,6 @@
             // cboDbType
             // 
             cboDbType.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            cboDbType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            cboDbType.FormattingEnabled = true;
             cboDbType.Location = new System.Drawing.Point(119, 4);
             cboDbType.Margin = new System.Windows.Forms.Padding(4);
             cboDbType.Name = "cboDbType";
@@ -124,7 +122,6 @@
             btnSelect.Size = new System.Drawing.Size(88, 33);
             btnSelect.TabIndex = 39;
             btnSelect.Text = "Select";
-            btnSelect.UseVisualStyleBackColor = true;
             btnSelect.Visible = false;
             btnSelect.Click += btnSelect_Click;
             // 
@@ -357,8 +354,7 @@
             // 
             // colPriority
             // 
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            colPriority.DefaultCellStyle = dataGridViewCellStyle1;
+
             colPriority.HeaderText = "Priority";
             colPriority.Name = "colPriority";
             colPriority.ReadOnly = true;
@@ -392,10 +388,10 @@
 
         #endregion
         private System.Windows.Forms.DataGridView dgvDbConnection;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.ComboBox cboDbType;
-        private System.Windows.Forms.Button btnSelect;
-        private System.Windows.Forms.Panel panelDbType;
+        private AntdUI.Label label1;
+        private AntdUI.Select cboDbType;
+        private AntdUI.Button btnSelect;
+        private AntdUI.Panel panelDbType;
         private System.Windows.Forms.ToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripButton tsbAdd;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
@@ -406,8 +402,8 @@
         private System.Windows.Forms.ToolStripButton tsbClear;
         private System.Windows.Forms.ToolStripButton tsbSave;
         private System.Windows.Forms.ToolStripSeparator tssSave;
-        private System.Windows.Forms.Panel panelInfo;
-        private System.Windows.Forms.Label label2;
+        private AntdUI.Panel panelInfo;
+        private AntdUI.Label label2;
         private System.Windows.Forms.PictureBox picInfo;
         private System.Windows.Forms.ToolStripButton tsbManageProfile;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;

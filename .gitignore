@@ -257,3 +257,4 @@ __pycache__/
 *.patch
 DatabaseManager/nul
 nul
+**/.history/

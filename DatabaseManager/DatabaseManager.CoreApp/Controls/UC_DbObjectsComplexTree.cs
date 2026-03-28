@@ -12,6 +12,7 @@ using DatabaseManager.Profile.Model;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -41,6 +42,43 @@ namespace DatabaseManager.Controls
 
             TreeView.CheckForIllegalCrossThreadCalls = false;
             Form.CheckForIllegalCrossThreadCalls = false;
+
+            this.tvDbObjects.DrawNode += TvDbObjects_DrawNode;
+        }
+
+        private void TvDbObjects_DrawNode(object sender, DrawTreeNodeEventArgs e)
+        {
+            TreeNode node = e.Node;
+            TreeView tree = sender as TreeView;
+
+            bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
+            bool isHot = (e.State & TreeNodeStates.Hot) != 0;
+            bool isFocused = (e.State & TreeNodeStates.Focused) != 0;
+
+            Rectangle bounds = e.Bounds;
+
+            if (isSelected)
+            {
+                Color backColor = Color.FromArgb(230, 240, 255);
+                using (SolidBrush brush = new SolidBrush(backColor))
+                {
+                    e.Graphics.FillRectangle(brush, bounds);
+                }
+                using (Pen pen = new Pen(Color.FromArgb(100, 150, 255)))
+                {
+                    e.Graphics.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width - 1, bounds.Height - 1);
+                }
+            }
+            else if (isHot)
+            {
+                Color backColor = Color.FromArgb(245, 250, 255);
+                using (SolidBrush brush = new SolidBrush(backColor))
+                {
+                    e.Graphics.FillRectangle(brush, bounds);
+                }
+            }
+
+            e.DrawDefault = true;
         }
 
         public async Task LoadTree(DatabaseType dbType, ConnectionInfo connectionInfo)

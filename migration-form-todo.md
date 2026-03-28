@@ -20,6 +20,12 @@
 | frmImportData | 9 | 已完成 |
 | frmDbConnect | 15 | 已完成 |
 | UC_FileConnectionInfo | 8 | 已完成 |
+| frmColumnMapping | 6 | 已完成 |
+| frmColumnSelect | 3 | 已完成 |
+| frmDataFilter | 7 | 已完成 |
+| frmBackupSetting | 6 | 已完成 |
+| frmDbConnectionManage | 8 | 已完成 |
+| frmSetting | 2 | 已完成 |
 
 ---
 
@@ -27,12 +33,7 @@
 
 | 文件 | 路径 | 控件类型统计 | 说明 |
 |------|------|-------------|------|
-| frmColumnMapping | Forms/frmColumnMapping.Designer.cs | Button:3, Label:2, TextBox:1, ComboBox:1 | 列映射 |
-| frmColumnSelect | Forms/frmColumnSelect.Designer.cs | Button:3, Label:1, CheckBox:1, DataGridView:1 | 列选择 |
-| frmDataFilter | Forms/frmDataFilter.Designer.cs | Button:3, Label:4, TextBox:2, ComboBox:1, DataGridView:1 | 数据过滤 |
-| frmBackupSetting | Forms/Setting/frmBackupSetting.Designer.cs | Button:3, Label:3, TextBox:2, CheckBox:1 | 备份设置 |
-| frmDbConnectionManage | Forms/Setting/frmDbConnectionManage.Designer.cs | Button:4, Label:2, ComboBox:1, DataGridView:1 | 连接管理 |
-| frmSetting | Forms/Setting/frmSetting.Designer.cs | Button:2, TabControl:1 | 设置窗口 |
+
 
 ---
 
@@ -82,4 +83,4 @@
 
 ---
 
-*最后更新: 2026-03-26*
+*最后更新: 2026-03-27*

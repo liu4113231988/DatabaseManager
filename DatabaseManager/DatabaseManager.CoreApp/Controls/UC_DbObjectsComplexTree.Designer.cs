@@ -82,18 +82,26 @@
             // 
             // tvDbObjects
             // 
+            tvDbObjects.BackColor = System.Drawing.Color.White;
             tvDbObjects.Dock = System.Windows.Forms.DockStyle.Fill;
-            tvDbObjects.Font = new System.Drawing.Font("Times New Roman", 10.5F);
+            tvDbObjects.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
+            tvDbObjects.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
+            tvDbObjects.FullRowSelect = true;
             tvDbObjects.HideSelection = false;
+            tvDbObjects.HotTracking = true;
             tvDbObjects.ImageIndex = 0;
             tvDbObjects.ImageList = imageList1;
+            tvDbObjects.ItemHeight = 32;
             tvDbObjects.Location = new System.Drawing.Point(0, 0);
             tvDbObjects.Margin = new System.Windows.Forms.Padding(4);
             tvDbObjects.Name = "tvDbObjects";
             tvDbObjects.SelectedImageIndex = 0;
             tvDbObjects.ShowLines = false;
+            tvDbObjects.ShowPlusMinus = true;
+            tvDbObjects.ShowRootLines = false;
             tvDbObjects.Size = new System.Drawing.Size(186, 276);
             tvDbObjects.TabIndex = 20;
+            tvDbObjects.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawAll;
             tvDbObjects.BeforeExpand += tvDbObjects_BeforeExpand;
             tvDbObjects.AfterExpand += tvDbObjects_AfterExpand;
             tvDbObjects.ItemDrag += tvDbObjects_ItemDrag;
@@ -102,9 +110,9 @@
             // 
             // imageList1
             // 
-            imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
+            imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
+            imageList1.ImageSize = new System.Drawing.Size(20, 20);
             imageList1.TransparentColor = System.Drawing.Color.Transparent;
-            imageList1.ImageSize = new System.Drawing.Size(16, 16);
             LoadImageList(imageList1);
             // 
             // contextMenuStrip1

@@ -29,12 +29,12 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmColumnMapping));
-            this.btnCancel = new System.Windows.Forms.Button();
-            this.btnOK = new System.Windows.Forms.Button();
-            this.gbReferenceTable = new System.Windows.Forms.GroupBox();
-            this.panelReferenceTable = new System.Windows.Forms.Panel();
-            this.gbTable = new System.Windows.Forms.GroupBox();
-            this.panelTable = new System.Windows.Forms.Panel();
+            this.btnCancel = new AntdUI.Button();
+            this.btnOK = new AntdUI.Button();
+            this.gbReferenceTable = new AntdUI.Panel();
+            this.panelReferenceTable = new AntdUI.Panel();
+            this.gbTable = new AntdUI.Panel();
+            this.panelTable = new AntdUI.Panel();
             this.gbReferenceTable.SuspendLayout();
             this.gbTable.SuspendLayout();
             this.SuspendLayout();
@@ -48,7 +48,6 @@
             this.btnCancel.Size = new System.Drawing.Size(88, 33);
             this.btnCancel.TabIndex = 4;
             this.btnCancel.Text = "Cancel";
-            this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
             // btnOK
@@ -60,7 +59,6 @@
             this.btnOK.Size = new System.Drawing.Size(88, 33);
             this.btnOK.TabIndex = 3;
             this.btnOK.Text = "OK";
-            this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
             // gbReferenceTable
@@ -74,7 +72,6 @@
             this.gbReferenceTable.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.gbReferenceTable.Size = new System.Drawing.Size(251, 381);
             this.gbReferenceTable.TabIndex = 5;
-            this.gbReferenceTable.TabStop = false;
             this.gbReferenceTable.Text = "Reference Table";
             // 
             // panelReferenceTable
@@ -97,7 +94,6 @@
             this.gbTable.Padding = new System.Windows.Forms.Padding(4, 4, 4, 4);
             this.gbTable.Size = new System.Drawing.Size(254, 381);
             this.gbTable.TabIndex = 6;
-            this.gbTable.TabStop = false;
             this.gbTable.Text = "Table";
             // 
             // panelTable
@@ -134,11 +130,11 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.GroupBox gbReferenceTable;
-        private System.Windows.Forms.GroupBox gbTable;
-        private System.Windows.Forms.Panel panelReferenceTable;
-        private System.Windows.Forms.Panel panelTable;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Button btnOK;
+        private AntdUI.Panel gbReferenceTable;
+        private AntdUI.Panel gbTable;
+        private AntdUI.Panel panelReferenceTable;
+        private AntdUI.Panel panelTable;
     }
 }

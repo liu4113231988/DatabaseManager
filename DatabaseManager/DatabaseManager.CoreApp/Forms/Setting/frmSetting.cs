@@ -1,4 +1,5 @@
-﻿using DatabaseConverter.Core;
+﻿using AntdUI;
+using DatabaseConverter.Core;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Core;
@@ -178,7 +179,7 @@ namespace DatabaseManager.Forms
         {
             if (this.dlgOutputFolder == null)
             {
-                this.dlgOutputFolder = new FolderBrowserDialog();
+                this.dlgOutputFolder = new System.Windows.Forms.FolderBrowserDialog();
             }
 
             DialogResult result = this.dlgOutputFolder.ShowDialog();
@@ -210,7 +211,7 @@ namespace DatabaseManager.Forms
         {
             if (this.dlgOutputFolder == null)
             {
-                this.dlgOutputFolder = new FolderBrowserDialog();
+                this.dlgOutputFolder = new System.Windows.Forms.FolderBrowserDialog();
             }
 
             DialogResult result = this.dlgOutputFolder.ShowDialog();

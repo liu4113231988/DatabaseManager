@@ -1,4 +1,5 @@
-﻿namespace DatabaseManager.Forms
+﻿using AntdUI;
+namespace DatabaseManager.Forms
 {
     partial class frmColumnSelect
     {
@@ -33,11 +34,11 @@
             this.dgvColumns = new System.Windows.Forms.DataGridView();
             this.colColumName = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.colSort = new System.Windows.Forms.DataGridViewComboBoxColumn();
-            this.btnOK = new System.Windows.Forms.Button();
-            this.btnCancel = new System.Windows.Forms.Button();
+            this.btnOK = new AntdUI.Button();
+            this.btnCancel = new AntdUI.Button();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.tsmiDeleteColumn = new System.Windows.Forms.ToolStripMenuItem();
-            this.textBox1 = new System.Windows.Forms.TextBox();
+            this.textBox1 = new AntdUI.Input();
             ((System.ComponentModel.ISupportInitialize)(this.dgvColumns)).BeginInit();
             this.contextMenuStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -47,16 +48,9 @@
             this.dgvColumns.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-            this.dgvColumns.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvColumns.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.colColumName,
-            this.colSort});
-            this.dgvColumns.EditMode = System.Windows.Forms.DataGridViewEditMode.EditOnEnter;
             this.dgvColumns.Location = new System.Drawing.Point(2, 7);
             this.dgvColumns.Margin = new System.Windows.Forms.Padding(4);
             this.dgvColumns.Name = "dgvColumns";
-            this.dgvColumns.RowHeadersWidth = 25;
-            this.dgvColumns.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.dgvColumns.Size = new System.Drawing.Size(390, 340);
             this.dgvColumns.TabIndex = 1;
             this.dgvColumns.DataBindingComplete += new System.Windows.Forms.DataGridViewBindingCompleteEventHandler(this.dgvColumns_DataBindingComplete);
@@ -68,7 +62,6 @@
             // colColumName
             // 
             this.colColumName.DataPropertyName = "Name";
-            this.colColumName.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.colColumName.Frozen = true;
             this.colColumName.HeaderText = "Column Name";
             this.colColumName.Name = "colColumName";
@@ -77,10 +70,15 @@
             // colSort
             // 
             this.colSort.DataPropertyName = "Sort";
-            this.colSort.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.colSort.HeaderText = "Sort";
             this.colSort.Name = "colSort";
             this.colSort.Width = 100;
+            // 
+            // dgvColumns
+            // 
+            this.dgvColumns.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colColumName,
+            this.colSort});
             // 
             // btnOK
             // 
@@ -91,7 +89,6 @@
             this.btnOK.Size = new System.Drawing.Size(88, 33);
             this.btnOK.TabIndex = 1;
             this.btnOK.Text = "OK";
-            this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
             // btnCancel
@@ -103,7 +100,6 @@
             this.btnCancel.Size = new System.Drawing.Size(88, 33);
             this.btnCancel.TabIndex = 2;
             this.btnCancel.Text = "Cancel";
-            this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
             // contextMenuStrip1
@@ -122,8 +118,6 @@
             // 
             // textBox1
             // 
-            this.textBox1.BackColor = System.Drawing.SystemColors.Control;
-            this.textBox1.BorderStyle = System.Windows.Forms.BorderStyle.None;
             this.textBox1.Location = new System.Drawing.Point(2, 407);
             this.textBox1.Margin = new System.Windows.Forms.Padding(4);
             this.textBox1.Name = "textBox1";
@@ -157,12 +151,12 @@
         #endregion
 
         private System.Windows.Forms.DataGridView dgvColumns;
-        private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.Button btnCancel;
+        private AntdUI.Button btnOK;
+        private AntdUI.Button btnCancel;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem tsmiDeleteColumn;
         private System.Windows.Forms.DataGridViewComboBoxColumn colColumName;
         private System.Windows.Forms.DataGridViewComboBoxColumn colSort;
-        private System.Windows.Forms.TextBox textBox1;
+        private AntdUI.Input textBox1;
     }
 }

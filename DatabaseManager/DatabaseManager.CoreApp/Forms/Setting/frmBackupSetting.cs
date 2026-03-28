@@ -1,4 +1,5 @@
-﻿using DatabaseInterpreter.Model;
+﻿using AntdUI;
+using DatabaseInterpreter.Model;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
 using DatabaseManager.Helper;
@@ -89,7 +90,7 @@ namespace DatabaseManager.Forms
             {
                 if(this.folderBrowserDialog1==null)
                 {
-                    this.folderBrowserDialog1 = new FolderBrowserDialog();
+                    this.folderBrowserDialog1 = new System.Windows.Forms.FolderBrowserDialog();
                 }            
 
                 if (!string.IsNullOrEmpty(value) && File.Exists(value))

@@ -1,4 +1,5 @@
-﻿namespace DatabaseManager.Forms
+﻿using AntdUI;
+namespace DatabaseManager.Forms
 {
     partial class frmSetting
     {
@@ -29,10 +30,10 @@
         private void InitializeComponent()
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmSetting));
-            btnConfirm = new System.Windows.Forms.Button();
-            btnCancel = new System.Windows.Forms.Button();
+            btnConfirm = new AntdUI.Button();
+            btnCancel = new AntdUI.Button();
             tabDatabase = new System.Windows.Forms.TabPage();
-            groupBox4 = new System.Windows.Forms.GroupBox();
+            groupBox4 = new AntdUI.Panel();
             chkExcludePostgresExtensionObjects = new System.Windows.Forms.CheckBox();
             groupBox3 = new System.Windows.Forms.GroupBox();
             txtMySqlCharset = new System.Windows.Forms.TextBox();
@@ -128,7 +129,7 @@
             btnConfirm.Size = new System.Drawing.Size(88, 33);
             btnConfirm.TabIndex = 10;
             btnConfirm.Text = "OK";
-            btnConfirm.UseVisualStyleBackColor = true;
+
             btnConfirm.Click += btnConfirm_Click;
             // 
             // btnCancel
@@ -141,7 +142,6 @@
             btnCancel.Size = new System.Drawing.Size(88, 33);
             btnCancel.TabIndex = 11;
             btnCancel.Text = "Cancel";
-            btnCancel.UseVisualStyleBackColor = true;
             // 
             // tabDatabase
             // 
@@ -907,8 +907,8 @@
         }
 
         #endregion
-        private System.Windows.Forms.Button btnConfirm;
-        private System.Windows.Forms.Button btnCancel;
+        private AntdUI.Button btnConfirm;
+        private AntdUI.Button btnCancel;
         private System.Windows.Forms.TabPage tabDatabase;
         private System.Windows.Forms.TextBox txtMySqlCharsetCollation;
         private System.Windows.Forms.TextBox txtMySqlCharset;
@@ -921,7 +921,7 @@
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage tabApperance;
         private System.Windows.Forms.FolderBrowserDialog dlgOutputFolder;    
-        private System.Windows.Forms.GroupBox groupBox4;
+        private AntdUI.Panel groupBox4;
         private System.Windows.Forms.CheckBox chkExcludePostgresExtensionObjects;
         private System.Windows.Forms.GroupBox groupBox3;
         private System.Windows.Forms.Panel panel_Database;

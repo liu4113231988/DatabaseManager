@@ -58,7 +58,18 @@ namespace DatabaseManager.Forms
 
             this.ApplyTheme();
 
-            AntdUiThemeHelper.ApplyMainShell(this, this.menuStrip1, this.toolStrip1, this.dockPanelMain);
+            AntdUiThemeHelper.ApplyMainShell(this, this.menuStrip1, null, this.dockPanelMain);
+            AntdUiThemeHelper.ApplyCard(this.panelToolbar);
+            foreach (Control control in panelToolbar.Controls)
+            {
+                if (control is AntdUI.Button button)
+                {
+                    button.Radius = 8;
+                    button.BorderWidth = 1;
+                    button.Ghost = true;
+                    button.Type = AntdUI.TTypeMini.Default;
+                }
+            }
 
             this.LoadLayoutFromProfile();
         }

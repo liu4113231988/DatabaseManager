@@ -1,4 +1,5 @@
-﻿namespace DatabaseManager.Forms
+﻿using AntdUI;
+namespace DatabaseManager.Forms
 {
     partial class frmDataFilter
     {
@@ -30,12 +31,11 @@
         {
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmDataFilter));
-            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
-            this.btnCancel = new System.Windows.Forms.Button();
-            this.panel1 = new System.Windows.Forms.Panel();
-            this.btnRemove = new System.Windows.Forms.Button();
-            this.btnClear = new System.Windows.Forms.Button();
-            this.btnOK = new System.Windows.Forms.Button();
+            this.btnCancel = new AntdUI.Button();
+            this.panel1 = new AntdUI.Panel();
+            this.btnRemove = new AntdUI.Button();
+            this.btnClear = new AntdUI.Button();
+            this.btnOK = new AntdUI.Button();
             this.tvColumns = new System.Windows.Forms.TreeView();
             this.imageList1 = new System.Windows.Forms.ImageList(this.components);
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
@@ -59,7 +59,6 @@
             this.btnCancel.Size = new System.Drawing.Size(82, 31);
             this.btnCancel.TabIndex = 7;
             this.btnCancel.Text = "Cancel";
-            this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
             // panel1
@@ -78,14 +77,12 @@
             // btnRemove
             // 
             this.btnRemove.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnRemove.Font = new System.Drawing.Font("Microsoft Sans Serif", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             this.btnRemove.Location = new System.Drawing.Point(239, 8);
             this.btnRemove.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             this.btnRemove.Name = "btnRemove";
             this.btnRemove.Size = new System.Drawing.Size(82, 31);
             this.btnRemove.TabIndex = 9;
             this.btnRemove.Text = "Remove";
-            this.btnRemove.UseVisualStyleBackColor = true;
             this.btnRemove.Click += new System.EventHandler(this.btnRemove_Click);
             // 
             // btnClear
@@ -97,7 +94,6 @@
             this.btnClear.Size = new System.Drawing.Size(82, 31);
             this.btnClear.TabIndex = 8;
             this.btnClear.Text = "Clear";
-            this.btnClear.UseVisualStyleBackColor = true;
             this.btnClear.Click += new System.EventHandler(this.btnClear_Click);
             // 
             // btnOK
@@ -109,18 +105,14 @@
             this.btnOK.Size = new System.Drawing.Size(82, 31);
             this.btnOK.TabIndex = 6;
             this.btnOK.Text = "OK";
-            this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
             // tvColumns
             // 
             this.tvColumns.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.tvColumns.ImageIndex = 0;
-            this.tvColumns.ImageList = this.imageList1;
             this.tvColumns.Location = new System.Drawing.Point(0, 0);
             this.tvColumns.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
             this.tvColumns.Name = "tvColumns";
-            this.tvColumns.SelectedImageIndex = 0;
             this.tvColumns.Size = new System.Drawing.Size(200, 462);
             this.tvColumns.TabIndex = 0;
             this.tvColumns.ItemDrag += new System.Windows.Forms.ItemDragEventHandler(this.tvColumns_ItemDrag);
@@ -157,20 +149,10 @@
             // dgvFilter
             // 
             this.dgvFilter.AllowDrop = true;
-            this.dgvFilter.AllowUserToAddRows = false;
-            this.dgvFilter.AllowUserToResizeRows = false;
-            this.dgvFilter.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this.dgvFilter.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dgvFilter.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.ColumnName,
-            this.Filter});
             this.dgvFilter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dgvFilter.Location = new System.Drawing.Point(0, 0);
             this.dgvFilter.Margin = new System.Windows.Forms.Padding(2, 3, 2, 3);
-            this.dgvFilter.MultiSelect = false;
             this.dgvFilter.Name = "dgvFilter";
-            this.dgvFilter.RowHeadersVisible = false;
-            this.dgvFilter.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.dgvFilter.Size = new System.Drawing.Size(516, 462);
             this.dgvFilter.TabIndex = 1;
             this.dgvFilter.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.dgvFilter_CellClick);
@@ -187,8 +169,6 @@
             // 
             // Filter
             // 
-            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleLeft;
-            this.Filter.DefaultCellStyle = dataGridViewCellStyle1;
             this.Filter.HeaderText = "Filter";
             this.Filter.Name = "Filter";
             this.Filter.ReadOnly = true;
@@ -218,16 +198,16 @@
 
         #endregion
 
-        private System.Windows.Forms.Button btnCancel;
-        private System.Windows.Forms.Panel panel1;
-        private System.Windows.Forms.Button btnOK;
+        private AntdUI.Button btnCancel;
+        private AntdUI.Panel panel1;
+        private AntdUI.Button btnOK;
         private System.Windows.Forms.TreeView tvColumns;
         private System.Windows.Forms.SplitContainer splitContainer1;
         private System.Windows.Forms.DataGridView dgvFilter;
         private System.Windows.Forms.ImageList imageList1;
         private System.Windows.Forms.DataGridViewTextBoxColumn ColumnName;
         private System.Windows.Forms.DataGridViewButtonColumn Filter;
-        private System.Windows.Forms.Button btnClear;
-        private System.Windows.Forms.Button btnRemove;
+        private AntdUI.Button btnClear;
+        private AntdUI.Button btnRemove;
     }
 }

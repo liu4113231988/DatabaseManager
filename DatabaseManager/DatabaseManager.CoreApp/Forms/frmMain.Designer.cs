@@ -1,4 +1,6 @@
-﻿namespace DatabaseManager.Forms
+using AntdUI;
+using WeifenLuo.WinFormsUI.Docking;
+namespace DatabaseManager.Forms
 {
     partial class frmMain
     {
@@ -44,21 +46,26 @@
             tsmiImageViewer = new System.Windows.Forms.ToolStripMenuItem();
             tsmiJsonViwer = new System.Windows.Forms.ToolStripMenuItem();
             tsmiCodeGenerator = new System.Windows.Forms.ToolStripMenuItem();
-            toolStrip1 = new System.Windows.Forms.ToolStrip();
-            tsBtnAddQuery = new System.Windows.Forms.ToolStripButton();
-            tsBtnOpenFile = new System.Windows.Forms.ToolStripButton();
-            tsBtnSave = new System.Windows.Forms.ToolStripButton();
-            tsBtnGenerateScripts = new System.Windows.Forms.ToolStripButton();
-            tsBtnCompare = new System.Windows.Forms.ToolStripButton();
-            tsBtnDataCompare = new System.Windows.Forms.ToolStripButton();
-            tsBtnConvert = new System.Windows.Forms.ToolStripButton();
-            tsBtnTranslateScript = new System.Windows.Forms.ToolStripButton();
-            tsBtnRun = new System.Windows.Forms.ToolStripButton();
+            panelToolbar = new Panel();
+            flowLayoutPanelToolbar = new System.Windows.Forms.FlowLayoutPanel();
+            btnNewQuery = new Button();
+            btnOpen = new Button();
+            btnSave = new Button();
+            separator1 = new System.Windows.Forms.Label();
+            btnGenerateScripts = new Button();
+            btnCompare = new Button();
+            btnDataCompare = new Button();
+            separator2 = new System.Windows.Forms.Label();
+            btnConvert = new Button();
+            btnTranslateScript = new Button();
+            separator3 = new System.Windows.Forms.Label();
+            btnRun = new Button();
             dlgOpenFile = new System.Windows.Forms.OpenFileDialog();
             toolTip1 = new System.Windows.Forms.ToolTip(components);
-            dockPanelMain = new WeifenLuo.WinFormsUI.Docking.DockPanel();
+            dockPanelMain = new DockPanel();
             menuStrip1.SuspendLayout();
-            toolStrip1.SuspendLayout();
+            panelToolbar.SuspendLayout();
+            flowLayoutPanelToolbar.SuspendLayout();
             SuspendLayout();
             // 
             // menuStrip1
@@ -147,7 +154,7 @@
             // 
             tsmiWktView.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             tsmiWktView.Name = "tsmiWktView";
-            tsmiWktView.Size = new System.Drawing.Size(180, 22);
+            tsmiWktView.Size = new System.Drawing.Size(170, 22);
             tsmiWktView.Text = "WKT Viewer";
             tsmiWktView.Click += tsmiWktView_Click;
             // 
@@ -155,7 +162,7 @@
             // 
             tsmiImageViewer.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             tsmiImageViewer.Name = "tsmiImageViewer";
-            tsmiImageViewer.Size = new System.Drawing.Size(180, 22);
+            tsmiImageViewer.Size = new System.Drawing.Size(170, 22);
             tsmiImageViewer.Text = "Image Viewer";
             tsmiImageViewer.Click += tsmiImageViewer_Click;
             // 
@@ -163,7 +170,7 @@
             // 
             tsmiJsonViwer.Image = Resources.JSON;
             tsmiJsonViwer.Name = "tsmiJsonViwer";
-            tsmiJsonViwer.Size = new System.Drawing.Size(180, 22);
+            tsmiJsonViwer.Size = new System.Drawing.Size(170, 22);
             tsmiJsonViwer.Text = "JSON Viewer";
             tsmiJsonViwer.Click += tsmiJsonViwer_Click;
             // 
@@ -171,135 +178,169 @@
             // 
             tsmiCodeGenerator.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
             tsmiCodeGenerator.Name = "tsmiCodeGenerator";
-            tsmiCodeGenerator.Size = new System.Drawing.Size(180, 22);
+            tsmiCodeGenerator.Size = new System.Drawing.Size(170, 22);
             tsmiCodeGenerator.Text = "Code Generator";
             tsmiCodeGenerator.Click += tsmiCodeGenerator_Click;
             // 
-            // toolStrip1
+            // panelToolbar
             // 
-            toolStrip1.AutoSize = false;
-            toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { tsBtnAddQuery, tsBtnOpenFile, tsBtnSave, tsBtnGenerateScripts, tsBtnCompare, tsBtnDataCompare, tsBtnConvert, tsBtnTranslateScript, tsBtnRun });
-            toolStrip1.Location = new System.Drawing.Point(0, 27);
-            toolStrip1.Name = "toolStrip1";
-            toolStrip1.Padding = new System.Windows.Forms.Padding(0, 0, 4, 0);
-            toolStrip1.Size = new System.Drawing.Size(917, 40);
-            toolStrip1.TabIndex = 10;
-            toolStrip1.Text = "toolStrip1";
+            panelToolbar.Controls.Add(flowLayoutPanelToolbar);
+            panelToolbar.Dock = System.Windows.Forms.DockStyle.Top;
+            panelToolbar.Location = new System.Drawing.Point(0, 27);
+            panelToolbar.Name = "panelToolbar";
+            panelToolbar.Size = new System.Drawing.Size(917, 64);
+            panelToolbar.TabIndex = 10;
             // 
-            // tsBtnAddQuery
+            // flowLayoutPanelToolbar
             // 
-            tsBtnAddQuery.AutoSize = false;
-            tsBtnAddQuery.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnAddQuery.Image = (System.Drawing.Image)resources.GetObject("tsBtnAddQuery.Image");
-            tsBtnAddQuery.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnAddQuery.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnAddQuery.Name = "tsBtnAddQuery";
-            tsBtnAddQuery.Size = new System.Drawing.Size(35, 35);
-            tsBtnAddQuery.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnAddQuery.ToolTipText = "New Query";
-            tsBtnAddQuery.Click += tsBtnAddQuery_Click;
+            flowLayoutPanelToolbar.Controls.Add(btnNewQuery);
+            flowLayoutPanelToolbar.Controls.Add(btnOpen);
+            flowLayoutPanelToolbar.Controls.Add(btnSave);
+            flowLayoutPanelToolbar.Controls.Add(separator1);
+            flowLayoutPanelToolbar.Controls.Add(btnGenerateScripts);
+            flowLayoutPanelToolbar.Controls.Add(btnCompare);
+            flowLayoutPanelToolbar.Controls.Add(btnDataCompare);
+            flowLayoutPanelToolbar.Controls.Add(separator2);
+            flowLayoutPanelToolbar.Controls.Add(btnConvert);
+            flowLayoutPanelToolbar.Controls.Add(btnTranslateScript);
+            flowLayoutPanelToolbar.Controls.Add(separator3);
+            flowLayoutPanelToolbar.Controls.Add(btnRun);
+            flowLayoutPanelToolbar.Dock = System.Windows.Forms.DockStyle.Fill;
+            flowLayoutPanelToolbar.Location = new System.Drawing.Point(0, 0);
+            flowLayoutPanelToolbar.Name = "flowLayoutPanelToolbar";
+            flowLayoutPanelToolbar.Size = new System.Drawing.Size(917, 64);
+            flowLayoutPanelToolbar.TabIndex = 0;
             // 
-            // tsBtnOpenFile
+            // btnNewQuery
             // 
-            tsBtnOpenFile.AutoSize = false;
-            tsBtnOpenFile.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnOpenFile.Image = (System.Drawing.Image)resources.GetObject("tsBtnOpenFile.Image");
-            tsBtnOpenFile.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnOpenFile.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnOpenFile.Name = "tsBtnOpenFile";
-            tsBtnOpenFile.Size = new System.Drawing.Size(35, 35);
-            tsBtnOpenFile.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnOpenFile.ToolTipText = "Open File";
-            tsBtnOpenFile.Click += tsBtnOpenFile_Click;
+            btnNewQuery.Icon = (System.Drawing.Image)resources.GetObject("btnNewQuery.Icon");
+            btnNewQuery.IconRatio = 1F;
+            btnNewQuery.Location = new System.Drawing.Point(3, 3);
+            btnNewQuery.Name = "btnNewQuery";
+            btnNewQuery.Size = new System.Drawing.Size(36, 36);
+            btnNewQuery.TabIndex = 0;
+            toolTip1.SetToolTip(btnNewQuery, "New Query");
+            btnNewQuery.Click += tsBtnAddQuery_Click;
             // 
-            // tsBtnSave
+            // btnOpen
             // 
-            tsBtnSave.AutoSize = false;
-            tsBtnSave.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnSave.Image = (System.Drawing.Image)resources.GetObject("tsBtnSave.Image");
-            tsBtnSave.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnSave.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnSave.Name = "tsBtnSave";
-            tsBtnSave.Size = new System.Drawing.Size(35, 35);
-            tsBtnSave.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnSave.ToolTipText = "Save(Ctrl+S)";
-            tsBtnSave.Click += tsBtnSave_Click;
+            btnOpen.Icon = (System.Drawing.Image)resources.GetObject("btnOpen.Icon");
+            btnOpen.IconRatio = 1F;
+            btnOpen.Location = new System.Drawing.Point(44, 2);
+            btnOpen.Margin = new System.Windows.Forms.Padding(2);
+            btnOpen.Name = "btnOpen";
+            btnOpen.Size = new System.Drawing.Size(36, 36);
+            btnOpen.TabIndex = 1;
+            toolTip1.SetToolTip(btnOpen, "Open File");
+            btnOpen.Click += tsBtnOpenFile_Click;
             // 
-            // tsBtnGenerateScripts
+            // btnSave
             // 
-            tsBtnGenerateScripts.AutoSize = false;
-            tsBtnGenerateScripts.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnGenerateScripts.Image = (System.Drawing.Image)resources.GetObject("tsBtnGenerateScripts.Image");
-            tsBtnGenerateScripts.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnGenerateScripts.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnGenerateScripts.Name = "tsBtnGenerateScripts";
-            tsBtnGenerateScripts.Size = new System.Drawing.Size(35, 35);
-            tsBtnGenerateScripts.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnGenerateScripts.ToolTipText = "Generate Scripts";
-            tsBtnGenerateScripts.Click += tsBtnGenerateScripts_Click;
+            btnSave.Icon = (System.Drawing.Image)resources.GetObject("btnSave.Icon");
+            btnSave.IconRatio = 1F;
+            btnSave.Location = new System.Drawing.Point(84, 2);
+            btnSave.Margin = new System.Windows.Forms.Padding(2);
+            btnSave.Name = "btnSave";
+            btnSave.Size = new System.Drawing.Size(36, 36);
+            btnSave.TabIndex = 2;
+            toolTip1.SetToolTip(btnSave, "Save (Ctrl+S)");
+            btnSave.Click += tsBtnSave_Click;
             // 
-            // tsBtnCompare
+            // separator1
             // 
-            tsBtnCompare.AutoSize = false;
-            tsBtnCompare.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnCompare.Image = (System.Drawing.Image)resources.GetObject("tsBtnCompare.Image");
-            tsBtnCompare.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnCompare.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnCompare.Name = "tsBtnCompare";
-            tsBtnCompare.Size = new System.Drawing.Size(35, 35);
-            tsBtnCompare.ToolTipText = "Schema Compare";
-            tsBtnCompare.Click += tsBtnCompare_Click;
+            separator1.BackColor = System.Drawing.Color.FromArgb(226, 232, 240);
+            separator1.Location = new System.Drawing.Point(125, 0);
+            separator1.Name = "separator1";
+            separator1.Size = new System.Drawing.Size(1, 40);
+            separator1.TabIndex = 3;
             // 
-            // tsBtnDataCompare
+            // btnGenerateScripts
             // 
-            tsBtnDataCompare.AutoSize = false;
-            tsBtnDataCompare.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnDataCompare.Image = Resources.DataCompare32;
-            tsBtnDataCompare.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnDataCompare.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnDataCompare.Name = "tsBtnDataCompare";
-            tsBtnDataCompare.Size = new System.Drawing.Size(35, 35);
-            tsBtnDataCompare.Text = "Data Compare";
-            tsBtnDataCompare.Click += tsBtnDataCompare_Click;
+            btnGenerateScripts.Icon = (System.Drawing.Image)resources.GetObject("btnGenerateScripts.Icon");
+            btnGenerateScripts.IconRatio = 1F;
+            btnGenerateScripts.Location = new System.Drawing.Point(131, 2);
+            btnGenerateScripts.Margin = new System.Windows.Forms.Padding(2);
+            btnGenerateScripts.Name = "btnGenerateScripts";
+            btnGenerateScripts.Size = new System.Drawing.Size(36, 36);
+            btnGenerateScripts.TabIndex = 4;
+            toolTip1.SetToolTip(btnGenerateScripts, "Generate Scripts");
+            btnGenerateScripts.Click += tsBtnGenerateScripts_Click;
             // 
-            // tsBtnConvert
+            // btnCompare
             // 
-            tsBtnConvert.AutoSize = false;
-            tsBtnConvert.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnConvert.Image = (System.Drawing.Image)resources.GetObject("tsBtnConvert.Image");
-            tsBtnConvert.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnConvert.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnConvert.Name = "tsBtnConvert";
-            tsBtnConvert.Size = new System.Drawing.Size(35, 35);
-            tsBtnConvert.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnConvert.ToolTipText = "Convert Database";
-            tsBtnConvert.Click += tsBtnConvert_Click;
+            btnCompare.Icon = (System.Drawing.Image)resources.GetObject("btnCompare.Icon");
+            btnCompare.IconRatio = 1F;
+            btnCompare.Location = new System.Drawing.Point(171, 2);
+            btnCompare.Margin = new System.Windows.Forms.Padding(2);
+            btnCompare.Name = "btnCompare";
+            btnCompare.Size = new System.Drawing.Size(36, 36);
+            btnCompare.TabIndex = 5;
+            toolTip1.SetToolTip(btnCompare, "Schema Compare");
+            btnCompare.Click += tsBtnCompare_Click;
             // 
-            // tsBtnTranslateScript
+            // btnDataCompare
             // 
-            tsBtnTranslateScript.AutoSize = false;
-            tsBtnTranslateScript.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnTranslateScript.Image = Resources.Translate;
-            tsBtnTranslateScript.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnTranslateScript.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnTranslateScript.Name = "tsBtnTranslateScript";
-            tsBtnTranslateScript.Size = new System.Drawing.Size(35, 35);
-            tsBtnTranslateScript.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnTranslateScript.ToolTipText = "Translate Script";
-            tsBtnTranslateScript.Click += tsBtnTranslateScript_Click;
+            btnDataCompare.Icon = Resources.DataCompare32;
+            btnDataCompare.IconRatio = 1F;
+            btnDataCompare.Location = new System.Drawing.Point(211, 2);
+            btnDataCompare.Margin = new System.Windows.Forms.Padding(2);
+            btnDataCompare.Name = "btnDataCompare";
+            btnDataCompare.Size = new System.Drawing.Size(36, 36);
+            btnDataCompare.TabIndex = 6;
+            toolTip1.SetToolTip(btnDataCompare, "Data Compare");
+            btnDataCompare.Click += tsBtnDataCompare_Click;
             // 
-            // tsBtnRun
+            // separator2
             // 
-            tsBtnRun.AutoSize = false;
-            tsBtnRun.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            tsBtnRun.Image = (System.Drawing.Image)resources.GetObject("tsBtnRun.Image");
-            tsBtnRun.ImageScaling = System.Windows.Forms.ToolStripItemImageScaling.None;
-            tsBtnRun.ImageTransparentColor = System.Drawing.Color.Magenta;
-            tsBtnRun.Name = "tsBtnRun";
-            tsBtnRun.Size = new System.Drawing.Size(35, 35);
-            tsBtnRun.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
-            tsBtnRun.ToolTipText = "Run(F5)";
-            tsBtnRun.Click += tsBtnRun_Click;
+            separator2.BackColor = System.Drawing.Color.FromArgb(226, 232, 240);
+            separator2.Location = new System.Drawing.Point(252, 0);
+            separator2.Name = "separator2";
+            separator2.Size = new System.Drawing.Size(1, 40);
+            separator2.TabIndex = 7;
+            // 
+            // btnConvert
+            // 
+            btnConvert.Icon = (System.Drawing.Image)resources.GetObject("btnConvert.Icon");
+            btnConvert.IconRatio = 1F;
+            btnConvert.Location = new System.Drawing.Point(258, 2);
+            btnConvert.Margin = new System.Windows.Forms.Padding(2);
+            btnConvert.Name = "btnConvert";
+            btnConvert.Size = new System.Drawing.Size(36, 36);
+            btnConvert.TabIndex = 8;
+            toolTip1.SetToolTip(btnConvert, "Convert Database");
+            btnConvert.Click += tsBtnConvert_Click;
+            // 
+            // btnTranslateScript
+            // 
+            btnTranslateScript.Icon = Resources.Translate;
+            btnTranslateScript.IconRatio = 1F;
+            btnTranslateScript.Location = new System.Drawing.Point(298, 2);
+            btnTranslateScript.Margin = new System.Windows.Forms.Padding(2);
+            btnTranslateScript.Name = "btnTranslateScript";
+            btnTranslateScript.Size = new System.Drawing.Size(36, 36);
+            btnTranslateScript.TabIndex = 9;
+            toolTip1.SetToolTip(btnTranslateScript, "Translate Script");
+            btnTranslateScript.Click += tsBtnTranslateScript_Click;
+            // 
+            // separator3
+            // 
+            separator3.BackColor = System.Drawing.Color.FromArgb(226, 232, 240);
+            separator3.Location = new System.Drawing.Point(339, 0);
+            separator3.Name = "separator3";
+            separator3.Size = new System.Drawing.Size(1, 40);
+            separator3.TabIndex = 10;
+            // 
+            // btnRun
+            // 
+            btnRun.Icon = (System.Drawing.Image)resources.GetObject("btnRun.Icon");
+            btnRun.IconRatio = 1F;
+            btnRun.Location = new System.Drawing.Point(345, 2);
+            btnRun.Margin = new System.Windows.Forms.Padding(2);
+            btnRun.Name = "btnRun";
+            btnRun.Size = new System.Drawing.Size(36, 36);
+            btnRun.TabIndex = 11;
+            toolTip1.SetToolTip(btnRun, "Run (F5)");
+            btnRun.Click += tsBtnRun_Click;
             // 
             // dlgOpenFile
             // 
@@ -308,9 +349,9 @@
             // dockPanelMain
             // 
             dockPanelMain.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right;
-            dockPanelMain.Location = new System.Drawing.Point(0, 65);
+            dockPanelMain.Location = new System.Drawing.Point(0, 70);
             dockPanelMain.Name = "dockPanelMain";
-            dockPanelMain.Size = new System.Drawing.Size(917, 511);
+            dockPanelMain.Size = new System.Drawing.Size(917, 506);
             dockPanelMain.TabIndex = 12;
             // 
             // frmMain
@@ -321,7 +362,7 @@
             BackColor = System.Drawing.SystemColors.Control;
             ClientSize = new System.Drawing.Size(917, 579);
             Controls.Add(dockPanelMain);
-            Controls.Add(toolStrip1);
+            Controls.Add(panelToolbar);
             Controls.Add(menuStrip1);
             Icon = (System.Drawing.Icon)resources.GetObject("$this.Icon");
             KeyPreview = true;
@@ -337,8 +378,8 @@
             KeyDown += frmMain_KeyDown;
             menuStrip1.ResumeLayout(false);
             menuStrip1.PerformLayout();
-            toolStrip1.ResumeLayout(false);
-            toolStrip1.PerformLayout();
+            panelToolbar.ResumeLayout(false);
+            flowLayoutPanelToolbar.ResumeLayout(false);
             ResumeLayout(false);
             PerformLayout();
         }
@@ -349,29 +390,32 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiSettings;
         private System.Windows.Forms.ToolStripMenuItem tsmiSetting;
         private System.Windows.Forms.ToolStripMenuItem tsmiDbConnection;
-        private System.Windows.Forms.ToolStrip toolStrip1;
-        private System.Windows.Forms.ToolStripButton tsBtnGenerateScripts;
-        private System.Windows.Forms.ToolStripButton tsBtnConvert;
-        private System.Windows.Forms.ToolStripButton tsBtnAddQuery;
-        private System.Windows.Forms.ToolStripButton tsBtnRun;
-        private System.Windows.Forms.ToolStripButton tsBtnSave;
-        private System.Windows.Forms.ToolStripButton tsBtnOpenFile;
-        private System.Windows.Forms.OpenFileDialog dlgOpenFile;
         private System.Windows.Forms.ToolStripMenuItem tsmiBackupSetting;
-        private System.Windows.Forms.ToolStripButton tsBtnCompare;
         private System.Windows.Forms.ToolStripMenuItem tsmiLock;
-        private System.Windows.Forms.ToolTip toolTip1;
-        private System.Windows.Forms.ToolStripButton tsBtnTranslateScript;
-        private System.Windows.Forms.ToolStripMenuItem tsmiTools;
-        private System.Windows.Forms.ToolStripMenuItem tsmiWktView;
-        private System.Windows.Forms.ToolStripMenuItem tsmiImageViewer;
-        private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanelMain;
         private System.Windows.Forms.ToolStripMenuItem tsmiViews;
         private System.Windows.Forms.ToolStripMenuItem tsmiObjectsExplorer;
         private System.Windows.Forms.ToolStripMenuItem tsmiMessage;
-        private System.Windows.Forms.ToolStripButton tsBtnDataCompare;
+        private System.Windows.Forms.ToolStripMenuItem tsmiTools;
+        private System.Windows.Forms.ToolStripMenuItem tsmiWktView;
+        private System.Windows.Forms.ToolStripMenuItem tsmiImageViewer;
         private System.Windows.Forms.ToolStripMenuItem tsmiJsonViwer;
         private System.Windows.Forms.ToolStripMenuItem tsmiCodeGenerator;
+        private AntdUI.Panel panelToolbar;
+        private System.Windows.Forms.FlowLayoutPanel flowLayoutPanelToolbar;
+        private AntdUI.Button btnNewQuery;
+        private AntdUI.Button btnOpen;
+        private AntdUI.Button btnSave;
+        private System.Windows.Forms.Label separator1;
+        private AntdUI.Button btnGenerateScripts;
+        private AntdUI.Button btnCompare;
+        private AntdUI.Button btnDataCompare;
+        private System.Windows.Forms.Label separator2;
+        private AntdUI.Button btnConvert;
+        private AntdUI.Button btnTranslateScript;
+        private System.Windows.Forms.Label separator3;
+        private AntdUI.Button btnRun;
+        private System.Windows.Forms.OpenFileDialog dlgOpenFile;
+        private System.Windows.Forms.ToolTip toolTip1;
+        private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanelMain;
     }
 }
-

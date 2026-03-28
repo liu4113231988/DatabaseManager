@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Windows.Forms;
+using AntdUI;
 
 namespace DatabaseManager.Forms
 {
@@ -41,37 +42,38 @@ namespace DatabaseManager.Forms
             {
                 foreach (ForeignKeyColumn mapping in this.Mappings)
                 {
-                    ComboBox refCombo = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, mapping.ReferencedColumnName);
+                    AntdUI.Select refCombo = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, mapping.ReferencedColumnName);
 
                     this.panelReferenceTable.Controls.Add(refCombo);
 
-                    ComboBox combo = this.CreateCombobox(this.panelTable, this.TableColumns, mapping.ColumnName);
+                    AntdUI.Select combo = this.CreateCombobox(this.panelTable, this.TableColumns, mapping.ColumnName);
 
                     this.panelTable.Controls.Add(combo);
                 }
             }
 
-            ComboBox refComboEmpty = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, null);
+            AntdUI.Select refComboEmpty = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, null);
 
             this.panelReferenceTable.Controls.Add(refComboEmpty);
 
-            ComboBox comboEmpty = this.CreateCombobox(this.panelTable, this.TableColumns, null);
+            AntdUI.Select comboEmpty = this.CreateCombobox(this.panelTable, this.TableColumns, null);
 
             this.panelTable.Controls.Add(comboEmpty);
         }
 
-        private ComboBox CreateCombobox(Panel panel, List<string> values, string value)
+        private AntdUI.Select CreateCombobox(AntdUI.Panel panel, List<string> values, string value)
         {
-            ComboBox combo = new ComboBox();
-            combo.MouseClick += Combo_MouseClick;
-            combo.DropDownStyle = ComboBoxStyle.DropDown;
+            AntdUI.Select combo = new AntdUI.Select();
             combo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             combo.Width = panelTable.Width - 5;
             combo.Tag = panel.Controls.Count + 1;
-            combo.SelectedIndexChanged += Combo_SelectedIndexChanged;
-            combo.KeyPress += Combo_KeyPress;
+            combo.SelectedIndexChanged += (sender, index) => Combo_SelectedIndexChanged(sender, new EventArgs());
 
-            combo.Items.AddRange(this.GetValuesWithEmptyItem(values).Except(this.GetExistingValues(panel)).ToArray());
+            var availableValues = this.GetValuesWithEmptyItem(values).Except(this.GetExistingValues(panel)).ToArray();
+            foreach (var item in availableValues)
+            {
+                combo.Items.Add(item);
+            }
 
             if (panel.Controls.Count > 0)
             {
@@ -86,27 +88,12 @@ namespace DatabaseManager.Forms
             return combo;
         }
 
-        private void Combo_MouseClick(object sender, MouseEventArgs e)
-        {
-            ComboBox combo = sender as ComboBox;
-
-            if (!combo.DroppedDown)
-            {
-                combo.DroppedDown = true;
-            }
-        }
-
-        private void Combo_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            e.Handled = true;
-        }
-
-        private List<string> GetExistingValues(Panel panel)
+        private List<string> GetExistingValues(AntdUI.Panel panel)
         {
             List<string> values = new List<string>();
-            var comboboxes = panel.Controls.OfType<ComboBox>();
+            var comboboxes = panel.Controls.OfType<AntdUI.Select>();
 
-            foreach (ComboBox combo in comboboxes)
+            foreach (AntdUI.Select combo in comboboxes)
             {
                 if (!string.IsNullOrEmpty(combo.Text) && combo.Text != EmptyItem)
                 {
@@ -127,7 +114,7 @@ namespace DatabaseManager.Forms
 
         private void Combo_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ComboBox combo = sender as ComboBox;
+            AntdUI.Select combo = sender as AntdUI.Select;
 
             if (combo.Parent == null)
             {
@@ -138,11 +125,11 @@ namespace DatabaseManager.Forms
 
             if (order == combo.Parent.Controls.Count)
             {
-                ComboBox refCombo = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, null);
+                AntdUI.Select refCombo = this.CreateCombobox(this.panelReferenceTable, this.ReferenceTableColumns, null);
 
                 this.panelReferenceTable.Controls.Add(refCombo);
 
-                ComboBox cbo = this.CreateCombobox(this.panelTable, this.TableColumns, null);
+                AntdUI.Select cbo = this.CreateCombobox(this.panelTable, this.TableColumns, null);
 
                 this.panelTable.Controls.Add(cbo);
             }
@@ -154,8 +141,8 @@ namespace DatabaseManager.Forms
 
             for (int i = 0; i < this.panelReferenceTable.Controls.Count; i++)
             {
-                ComboBox refCombo = this.panelReferenceTable.Controls[i] as ComboBox;
-                ComboBox combo = this.panelTable.Controls[i] as ComboBox;
+                AntdUI.Select refCombo = this.panelReferenceTable.Controls[i] as AntdUI.Select;
+                AntdUI.Select combo = this.panelTable.Controls[i] as AntdUI.Select;
 
                 if (!string.IsNullOrEmpty(refCombo.Text) && refCombo.Text != EmptyItem
                     && !string.IsNullOrEmpty(combo.Text) && combo.Text != EmptyItem)
