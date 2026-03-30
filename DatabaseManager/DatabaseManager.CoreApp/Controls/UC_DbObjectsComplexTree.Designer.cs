@@ -1,16 +1,9 @@
-﻿namespace DatabaseManager.Controls
+namespace DatabaseManager.Controls
 {
     partial class UC_DbObjectsComplexTree
     {
-        /// <summary> 
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary> 
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -22,16 +15,10 @@
 
         #region Component Designer generated code
 
-        /// <summary> 
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(UC_DbObjectsComplexTree));
-            tvDbObjects = new System.Windows.Forms.TreeView();
-            imageList1 = new System.Windows.Forms.ImageList(components);
+            tvDbObjects = new AntdUI.Tree();
             contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(components);
             tsmiNewQuery = new System.Windows.Forms.ToolStripMenuItem();
             tsmiNewTable = new System.Windows.Forms.ToolStripMenuItem();
@@ -60,6 +47,7 @@
             tsmiUpdateProcedure = new System.Windows.Forms.ToolStripMenuItem();
             tsmiDeleteProcedure = new System.Windows.Forms.ToolStripMenuItem();
             tsmiExecuteScript = new System.Windows.Forms.ToolStripMenuItem();
+            tsmiDisconnect = new System.Windows.Forms.ToolStripMenuItem();
             tsmiTranslate = new System.Windows.Forms.ToolStripMenuItem();
             tsmiCopy = new System.Windows.Forms.ToolStripMenuItem();
             tsmiDelete = new System.Windows.Forms.ToolStripMenuItem();
@@ -79,358 +67,251 @@
             tsmiGenerateColumnDocumentation = new System.Windows.Forms.ToolStripMenuItem();
             contextMenuStrip1.SuspendLayout();
             SuspendLayout();
-            // 
-            // tvDbObjects
-            // 
-            tvDbObjects.BackColor = System.Drawing.Color.White;
+
             tvDbObjects.Dock = System.Windows.Forms.DockStyle.Fill;
-            tvDbObjects.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
-            tvDbObjects.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            tvDbObjects.FullRowSelect = true;
-            tvDbObjects.HideSelection = false;
-            tvDbObjects.HotTracking = true;
-            tvDbObjects.ImageIndex = 0;
-            tvDbObjects.ImageList = imageList1;
-            tvDbObjects.ItemHeight = 32;
             tvDbObjects.Location = new System.Drawing.Point(0, 0);
-            tvDbObjects.Margin = new System.Windows.Forms.Padding(4);
             tvDbObjects.Name = "tvDbObjects";
-            tvDbObjects.SelectedImageIndex = 0;
-            tvDbObjects.ShowLines = false;
-            tvDbObjects.ShowPlusMinus = true;
-            tvDbObjects.ShowRootLines = false;
             tvDbObjects.Size = new System.Drawing.Size(186, 276);
             tvDbObjects.TabIndex = 20;
-            tvDbObjects.DrawMode = System.Windows.Forms.TreeViewDrawMode.OwnerDrawAll;
-            tvDbObjects.BeforeExpand += tvDbObjects_BeforeExpand;
-            tvDbObjects.AfterExpand += tvDbObjects_AfterExpand;
-            tvDbObjects.ItemDrag += tvDbObjects_ItemDrag;
-            tvDbObjects.NodeMouseClick += tvDbObjects_NodeMouseClick;
-            tvDbObjects.KeyDown += tvDbObjects_KeyDown;
-            // 
-            // imageList1
-            // 
-            imageList1.ColorDepth = System.Windows.Forms.ColorDepth.Depth32Bit;
-            imageList1.ImageSize = new System.Drawing.Size(20, 20);
-            imageList1.TransparentColor = System.Drawing.Color.Transparent;
-            LoadImageList(imageList1);
-            // 
-            // contextMenuStrip1
-            // 
-            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiNewQuery, tsmiNewTable, tsmiNewView, tsmiNewFunction, tsmiNewProcedure, tsmiNewTrigger, tsmiAlter, tsmiDesign, tsmiRefresh, tsmiViewData, tsmiEditData, tsmiExportData, tsmiImportData, tsmiConvert, tsmiCompareSchema, tsmiCompareData, tsmiGenerateScripts, tsmiTranslate, tsmiCopy, tsmiDelete, tsmiDatabaseDiagram, tsmiViewDependency, tsmiCopyChildrenNames, tsmiMore });
+            tvDbObjects.BackHover = System.Drawing.Color.FromArgb(245, 250, 255);
+            tvDbObjects.BackActive = System.Drawing.Color.FromArgb(230, 240, 255);
+            tvDbObjects.ForeColor = System.Drawing.Color.FromArgb(51, 51, 51);
+            tvDbObjects.ForeActive = System.Drawing.Color.FromArgb(0, 80, 160);
+            tvDbObjects.Radius = 6;
+            tvDbObjects.Gap = 6;
+            tvDbObjects.IconRatio = 1.5F;
+            tvDbObjects.ContextMenuStrip = contextMenuStrip1;
+
+            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiNewQuery, tsmiNewTable, tsmiNewView, tsmiNewFunction, tsmiNewProcedure, tsmiNewTrigger, tsmiAlter, tsmiDesign, tsmiRefresh, tsmiViewData, tsmiEditData, tsmiExportData, tsmiImportData, tsmiConvert, tsmiCompareSchema, tsmiCompareData, tsmiGenerateScripts, tsmiTranslate, tsmiCopy, tsmiDelete, tsmiDatabaseDiagram, tsmiViewDependency, tsmiCopyChildrenNames, tsmiMore, tsmiDisconnect });
             contextMenuStrip1.Name = "contextMenuStrip1";
             contextMenuStrip1.Size = new System.Drawing.Size(204, 532);
-            // 
-            // tsmiNewQuery
-            // 
+            contextMenuStrip1.Opening += contextMenuStrip1_Opening;
+
             tsmiNewQuery.Name = "tsmiNewQuery";
             tsmiNewQuery.Size = new System.Drawing.Size(203, 22);
             tsmiNewQuery.Text = "New Query";
             tsmiNewQuery.Click += tsmiNewQuery_Click;
-            // 
-            // tsmiNewTable
-            // 
+
             tsmiNewTable.Name = "tsmiNewTable";
             tsmiNewTable.Size = new System.Drawing.Size(203, 22);
             tsmiNewTable.Text = "New Table";
             tsmiNewTable.Click += tsmiNewTable_Click;
-            // 
-            // tsmiNewView
-            // 
+
             tsmiNewView.Name = "tsmiNewView";
             tsmiNewView.Size = new System.Drawing.Size(203, 22);
             tsmiNewView.Text = "New View";
             tsmiNewView.Click += tsmiNewView_Click;
-            // 
-            // tsmiNewFunction
-            // 
+
             tsmiNewFunction.Name = "tsmiNewFunction";
             tsmiNewFunction.Size = new System.Drawing.Size(203, 22);
             tsmiNewFunction.Text = "New Function";
             tsmiNewFunction.Click += tsmiNewFunction_Click;
-            // 
-            // tsmiNewProcedure
-            // 
+
             tsmiNewProcedure.Name = "tsmiNewProcedure";
             tsmiNewProcedure.Size = new System.Drawing.Size(203, 22);
             tsmiNewProcedure.Text = "New Procedure";
             tsmiNewProcedure.Click += tsmiNewProcedure_Click;
-            // 
-            // tsmiNewTrigger
-            // 
+
             tsmiNewTrigger.Name = "tsmiNewTrigger";
             tsmiNewTrigger.Size = new System.Drawing.Size(203, 22);
             tsmiNewTrigger.Text = "New Trigger";
             tsmiNewTrigger.Click += tsmiNewTrigger_Click;
-            // 
-            // tsmiAlter
-            // 
+
             tsmiAlter.Name = "tsmiAlter";
             tsmiAlter.Size = new System.Drawing.Size(203, 22);
             tsmiAlter.Text = "Modify";
             tsmiAlter.Click += tsmiAlter_Click;
-            // 
-            // tsmiDesign
-            // 
+
             tsmiDesign.Name = "tsmiDesign";
             tsmiDesign.Size = new System.Drawing.Size(203, 22);
             tsmiDesign.Text = "Design";
             tsmiDesign.Click += tsmiDesign_Click;
-            // 
-            // tsmiRefresh
-            // 
+
             tsmiRefresh.Name = "tsmiRefresh";
             tsmiRefresh.Size = new System.Drawing.Size(203, 22);
             tsmiRefresh.Text = "Refresh";
             tsmiRefresh.Click += tsmiRefresh_Click;
-            // 
-            // tsmiViewData
-            // 
+
             tsmiViewData.Name = "tsmiViewData";
             tsmiViewData.Size = new System.Drawing.Size(203, 22);
             tsmiViewData.Text = "View Data";
             tsmiViewData.Click += tsmiViewData_Click;
-            // 
-            // tsmiEditData
-            // 
+
             tsmiEditData.Name = "tsmiEditData";
             tsmiEditData.Size = new System.Drawing.Size(203, 22);
             tsmiEditData.Text = "Edit Data";
             tsmiEditData.Click += tsmiEditData_Click;
-            // 
-            // tsmiExportData
-            // 
+
             tsmiExportData.Name = "tsmiExportData";
             tsmiExportData.Size = new System.Drawing.Size(203, 22);
             tsmiExportData.Text = "Export Data";
             tsmiExportData.Click += tsmiExportData_Click;
-            // 
-            // tsmiImportData
-            // 
+
             tsmiImportData.Name = "tsmiImportData";
             tsmiImportData.Size = new System.Drawing.Size(203, 22);
             tsmiImportData.Text = "Import Data";
             tsmiImportData.Click += tsmiImportData_Click;
-            // 
-            // tsmiConvert
-            // 
+
             tsmiConvert.Name = "tsmiConvert";
             tsmiConvert.Size = new System.Drawing.Size(203, 22);
             tsmiConvert.Text = "Convert";
             tsmiConvert.Click += tsmiConvert_Click;
-            // 
-            // tsmiCompareSchema
-            // 
+
             tsmiCompareSchema.Name = "tsmiCompareSchema";
             tsmiCompareSchema.Size = new System.Drawing.Size(203, 22);
             tsmiCompareSchema.Text = "Compare Schema";
             tsmiCompareSchema.Click += tsmiCompareSchema_Click;
-            // 
-            // tsmiCompareData
-            // 
+
             tsmiCompareData.Name = "tsmiCompareData";
             tsmiCompareData.Size = new System.Drawing.Size(203, 22);
             tsmiCompareData.Text = "Compare Data";
             tsmiCompareData.Click += tsmiCompareData_Click;
-            // 
-            // tsmiGenerateScripts
-            // 
+
             tsmiGenerateScripts.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiCreateScript, tsmiSelectScript, tsmiInsertScript, tsmiUpdateScript, tsmiDeleteScript, tsmiGenerateProcedure, tsmiExecuteScript });
             tsmiGenerateScripts.Name = "tsmiGenerateScripts";
             tsmiGenerateScripts.Size = new System.Drawing.Size(203, 22);
             tsmiGenerateScripts.Text = "Scripts";
-            // 
-            // tsmiCreateScript
-            // 
+
             tsmiCreateScript.Name = "tsmiCreateScript";
             tsmiCreateScript.Size = new System.Drawing.Size(193, 22);
             tsmiCreateScript.Text = "Create Script";
             tsmiCreateScript.Click += tsmiCreateScript_Click;
-            // 
-            // tsmiSelectScript
-            // 
+
             tsmiSelectScript.Name = "tsmiSelectScript";
             tsmiSelectScript.Size = new System.Drawing.Size(193, 22);
             tsmiSelectScript.Text = "Select Script";
             tsmiSelectScript.Click += tsmiSelectScript_Click;
-            // 
-            // tsmiInsertScript
-            // 
+
             tsmiInsertScript.Name = "tsmiInsertScript";
             tsmiInsertScript.Size = new System.Drawing.Size(193, 22);
             tsmiInsertScript.Text = "Insert Script";
             tsmiInsertScript.Click += tsmiInsertScript_Click;
-            // 
-            // tsmiUpdateScript
-            // 
+
             tsmiUpdateScript.Name = "tsmiUpdateScript";
             tsmiUpdateScript.Size = new System.Drawing.Size(193, 22);
             tsmiUpdateScript.Text = "Update Script";
             tsmiUpdateScript.Click += tsmiUpdateScript_Click;
-            // 
-            // tsmiDeleteScript
-            // 
+
             tsmiDeleteScript.Name = "tsmiDeleteScript";
             tsmiDeleteScript.Size = new System.Drawing.Size(193, 22);
             tsmiDeleteScript.Text = "Delete Script";
             tsmiDeleteScript.Click += tsmiDeleteScript_Click;
-            // 
-            // tsmiGenerateProcedure
-            // 
+
             tsmiGenerateProcedure.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiGenerateInsertProcedure, tsmiUpdateProcedure, tsmiDeleteProcedure });
             tsmiGenerateProcedure.Name = "tsmiGenerateProcedure";
             tsmiGenerateProcedure.Size = new System.Drawing.Size(193, 22);
             tsmiGenerateProcedure.Text = "Generate Procedure";
-            // 
-            // tsmiGenerateInsertProcedure
-            // 
+
             tsmiGenerateInsertProcedure.Name = "tsmiGenerateInsertProcedure";
             tsmiGenerateInsertProcedure.Size = new System.Drawing.Size(183, 22);
             tsmiGenerateInsertProcedure.Text = "Insert Procedure";
             tsmiGenerateInsertProcedure.Click += tsmiGenerateInsertProcedure_Click;
-            // 
-            // tsmiUpdateProcedure
-            // 
+
             tsmiUpdateProcedure.Name = "tsmiUpdateProcedure";
             tsmiUpdateProcedure.Size = new System.Drawing.Size(183, 22);
             tsmiUpdateProcedure.Text = "Update Procedure";
             tsmiUpdateProcedure.Click += tsmiUpdateProcedure_Click;
-            // 
-            // tsmiDeleteProcedure
-            // 
+
             tsmiDeleteProcedure.Name = "tsmiDeleteProcedure";
             tsmiDeleteProcedure.Size = new System.Drawing.Size(183, 22);
             tsmiDeleteProcedure.Text = "Delete Procedure";
             tsmiDeleteProcedure.Click += tsmiDeleteProcedure_Click;
-            // 
-            // tsmiExecuteScript
-            // 
+
             tsmiExecuteScript.Name = "tsmiExecuteScript";
             tsmiExecuteScript.Size = new System.Drawing.Size(193, 22);
             tsmiExecuteScript.Text = "Execute Script";
             tsmiExecuteScript.Click += tsmiExecuteScript_Click;
-            // 
-            // tsmiTranslate
-            // 
+
+            tsmiDisconnect.Name = "tsmiDisconnect";
+            tsmiDisconnect.Size = new System.Drawing.Size(203, 22);
+            tsmiDisconnect.Text = "Disconnect";
+            tsmiDisconnect.Click += tsmiDisconnect_Click;
+
             tsmiTranslate.Name = "tsmiTranslate";
             tsmiTranslate.Size = new System.Drawing.Size(203, 22);
             tsmiTranslate.Text = "Translate to";
             tsmiTranslate.MouseEnter += tsmiTranslate_MouseEnter;
-            // 
-            // tsmiCopy
-            // 
+
             tsmiCopy.Name = "tsmiCopy";
             tsmiCopy.Size = new System.Drawing.Size(203, 22);
             tsmiCopy.Text = "Copy";
             tsmiCopy.Click += tsmiCopy_Click;
-            // 
-            // tsmiDelete
-            // 
+
             tsmiDelete.Name = "tsmiDelete";
             tsmiDelete.Size = new System.Drawing.Size(203, 22);
             tsmiDelete.Text = "Delete";
             tsmiDelete.Click += tsmiDelete_Click;
-            // 
-            // tsmiDatabaseDiagram
-            // 
+
             tsmiDatabaseDiagram.Name = "tsmiDatabaseDiagram";
             tsmiDatabaseDiagram.Size = new System.Drawing.Size(203, 22);
             tsmiDatabaseDiagram.Text = "Diagram";
             tsmiDatabaseDiagram.Click += tsmiDatabaseDiagram_Click;
-            // 
-            // tsmiViewDependency
-            // 
+
             tsmiViewDependency.Name = "tsmiViewDependency";
             tsmiViewDependency.Size = new System.Drawing.Size(203, 22);
             tsmiViewDependency.Text = "View Dependencies";
             tsmiViewDependency.Click += tsmiViewDependency_Click;
-            // 
-            // tsmiCopyChildrenNames
-            // 
+
             tsmiCopyChildrenNames.Name = "tsmiCopyChildrenNames";
             tsmiCopyChildrenNames.Size = new System.Drawing.Size(203, 22);
             tsmiCopyChildrenNames.Text = "Copy Children Names";
             tsmiCopyChildrenNames.Click += tsmiCopyChildrenNames_Click;
-            // 
-            // tsmiMore
-            // 
+
             tsmiMore.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiBackup, tsmiDiagnose, tsmiStatistic, tsmiAnalysis, tsmiOptimize, tsmiClearData, tsmiEmptyDatabase, documentationToolStripMenuItem });
             tsmiMore.Name = "tsmiMore";
             tsmiMore.Size = new System.Drawing.Size(203, 22);
             tsmiMore.Text = "More";
-            // 
-            // tsmiBackup
-            // 
+
             tsmiBackup.Name = "tsmiBackup";
             tsmiBackup.Size = new System.Drawing.Size(164, 22);
             tsmiBackup.Text = "Backup";
             tsmiBackup.Click += tsmiBackup_Click;
-            // 
-            // tsmiDiagnose
-            // 
+
             tsmiDiagnose.Name = "tsmiDiagnose";
             tsmiDiagnose.Size = new System.Drawing.Size(164, 22);
             tsmiDiagnose.Text = "Diagnose";
             tsmiDiagnose.Click += tsmiDiagnose_Click;
-            // 
-            // tsmiStatistic
-            // 
+
             tsmiStatistic.Name = "tsmiStatistic";
             tsmiStatistic.Size = new System.Drawing.Size(164, 22);
             tsmiStatistic.Text = "Statistic";
             tsmiStatistic.Click += tsmiStatistic_Click;
-            // 
-            // tsmiAnalysis
-            // 
+
             tsmiAnalysis.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiIndexFragmentation });
             tsmiAnalysis.Name = "tsmiAnalysis";
             tsmiAnalysis.Size = new System.Drawing.Size(164, 22);
             tsmiAnalysis.Text = "Analysis";
-            // 
-            // tsmiIndexFragmentation
-            // 
+
             tsmiIndexFragmentation.Name = "tsmiIndexFragmentation";
             tsmiIndexFragmentation.Size = new System.Drawing.Size(196, 22);
             tsmiIndexFragmentation.Text = "Index Fragmentation";
             tsmiIndexFragmentation.Click += tsmiIndexFragmentation_Click;
-            // 
-            // tsmiOptimize
-            // 
+
             tsmiOptimize.Name = "tsmiOptimize";
             tsmiOptimize.Size = new System.Drawing.Size(164, 22);
             tsmiOptimize.Text = "Optimize";
             tsmiOptimize.Click += tsmiOptimize_Click;
-            // 
-            // tsmiClearData
-            // 
+
             tsmiClearData.Name = "tsmiClearData";
             tsmiClearData.Size = new System.Drawing.Size(164, 22);
             tsmiClearData.Text = "Clear Data";
             tsmiClearData.Click += tsmiClearData_Click;
-            // 
-            // tsmiEmptyDatabase
-            // 
+
             tsmiEmptyDatabase.Name = "tsmiEmptyDatabase";
             tsmiEmptyDatabase.Size = new System.Drawing.Size(164, 22);
             tsmiEmptyDatabase.Text = "Empty";
             tsmiEmptyDatabase.Click += tsmiEmptyDatabase_Click;
-            // 
-            // documentationToolStripMenuItem
-            // 
+
             documentationToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiGenerateColumnDocumentation });
             documentationToolStripMenuItem.Name = "documentationToolStripMenuItem";
             documentationToolStripMenuItem.Size = new System.Drawing.Size(164, 22);
             documentationToolStripMenuItem.Text = "Documentation";
-            // 
-            // tsmiGenerateColumnDocumentation
-            // 
+
             tsmiGenerateColumnDocumentation.Name = "tsmiGenerateColumnDocumentation";
             tsmiGenerateColumnDocumentation.Size = new System.Drawing.Size(266, 22);
             tsmiGenerateColumnDocumentation.Text = "Generate column documentation";
             tsmiGenerateColumnDocumentation.Click += tsmiGenerateColumnDocumentation_Click;
-            // 
-            // UC_DbObjectsComplexTree
-            // 
+
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             Controls.Add(tvDbObjects);
@@ -443,8 +324,7 @@
 
         #endregion
 
-        private System.Windows.Forms.TreeView tvDbObjects;
-        private System.Windows.Forms.ImageList imageList1;
+        private AntdUI.Tree tvDbObjects;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem tsmiGenerateScripts;
         private System.Windows.Forms.ToolStripMenuItem tsmiRefresh;
@@ -475,6 +355,7 @@
         private System.Windows.Forms.ToolStripMenuItem tsmiViewDependency;
         private System.Windows.Forms.ToolStripMenuItem tsmiCopyChildrenNames;
         private System.Windows.Forms.ToolStripMenuItem tsmiExecuteScript;
+        private System.Windows.Forms.ToolStripMenuItem tsmiDisconnect;
         private System.Windows.Forms.ToolStripMenuItem tsmiStatistic;
         private System.Windows.Forms.ToolStripMenuItem tsmiEditData;
         private System.Windows.Forms.ToolStripMenuItem tsmiExportData;

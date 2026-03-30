@@ -1,4 +1,4 @@
-﻿namespace DatabaseManager.Controls
+﻿﻿namespace DatabaseManager.Controls
 {
     partial class UC_DbObjectsSimpleTree
     {
@@ -40,12 +40,12 @@
             tvDbObjects.BackColor = System.Drawing.Color.White;
             tvDbObjects.CheckBoxes = true;
             tvDbObjects.Dock = System.Windows.Forms.DockStyle.Fill;
-            tvDbObjects.Font = new System.Drawing.Font("Microsoft YaHei UI", 11F);
+            tvDbObjects.Font = new System.Drawing.Font("Microsoft YaHei UI", 9F);
             tvDbObjects.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
             tvDbObjects.FullRowSelect = true;
             tvDbObjects.HideSelection = false;
             tvDbObjects.HotTracking = true;
-            tvDbObjects.ItemHeight = 32;
+            tvDbObjects.ItemHeight = 36;
             tvDbObjects.Location = new System.Drawing.Point(0, 0);
             tvDbObjects.Margin = new System.Windows.Forms.Padding(4);
             tvDbObjects.Name = "tvDbObjects";

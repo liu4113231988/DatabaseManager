@@ -1,4 +1,4 @@
-﻿using DatabaseConverter.Model;
+﻿﻿using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -9,6 +9,7 @@ using DatabaseManager.Helper;
 using DatabaseManager.Model;
 using DatabaseManager.Profile.Manager;
 using DatabaseManager.Profile.Model;
+using AntdUI;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -18,6 +19,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Function = DatabaseInterpreter.Model.Function;
 using View = DatabaseInterpreter.Model.View;
+using Table = DatabaseInterpreter.Model.Table;
 
 namespace DatabaseManager.Controls
 {
@@ -43,42 +45,24 @@ namespace DatabaseManager.Controls
             TreeView.CheckForIllegalCrossThreadCalls = false;
             Form.CheckForIllegalCrossThreadCalls = false;
 
-            this.tvDbObjects.DrawNode += TvDbObjects_DrawNode;
-        }
-
-        private void TvDbObjects_DrawNode(object sender, DrawTreeNodeEventArgs e)
-        {
-            TreeNode node = e.Node;
-            TreeView tree = sender as TreeView;
-
-            bool isSelected = (e.State & TreeNodeStates.Selected) != 0;
-            bool isHot = (e.State & TreeNodeStates.Hot) != 0;
-            bool isFocused = (e.State & TreeNodeStates.Focused) != 0;
-
-            Rectangle bounds = e.Bounds;
-
-            if (isSelected)
+            tvDbObjects.BeforeExpand += (sender, e) =>
             {
-                Color backColor = Color.FromArgb(230, 240, 255);
-                using (SolidBrush brush = new SolidBrush(backColor))
+                if (!this.IsOnlyHasFakeChild(e.Item))
                 {
-                    e.Graphics.FillRectangle(brush, bounds);
+                    e.CanExpand = true;
+                    return;
                 }
-                using (Pen pen = new Pen(Color.FromArgb(100, 150, 255)))
-                {
-                    e.Graphics.DrawRectangle(pen, bounds.X, bounds.Y, bounds.Width - 1, bounds.Height - 1);
-                }
-            }
-            else if (isHot)
-            {
-                Color backColor = Color.FromArgb(245, 250, 255);
-                using (SolidBrush brush = new SolidBrush(backColor))
-                {
-                    e.Graphics.FillRectangle(brush, bounds);
-                }
-            }
 
-            e.DrawDefault = true;
+                Task.Run(async () =>
+                {
+                    await this.LoadChildItems(e.Item);
+                });
+            };
+
+            tvDbObjects.AfterExpand += (sender, e) =>
+            {
+                this.Feedback("");
+            };
         }
 
         public async Task LoadTree(DatabaseType dbType, ConnectionInfo connectionInfo)
@@ -86,7 +70,7 @@ namespace DatabaseManager.Controls
             this.databaseType = dbType;
             this.connectionInfo = connectionInfo;
 
-            this.tvDbObjects.Nodes.Clear();
+            this.tvDbObjects.Items.Clear();
 
             DbInterpreter dbInterpreter = DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, simpleInterpreterOption);
 
@@ -113,7 +97,7 @@ namespace DatabaseManager.Controls
                     continue;
                 }
 
-                TreeNode node = DbObjectsTreeHelper.CreateTreeNode(database, true);
+                var item = DbObjectsAntdTreeHelper.CreateTreeItem(database, true);
 
                 if (ManagerUtil.IsFileConnection(dbType))
                 {
@@ -121,81 +105,134 @@ namespace DatabaseManager.Controls
 
                     if (profile != null)
                     {
-                        node.Text = profile.Name;
+                        item.Text = profile.Name;
                     }
                 }
 
-                this.tvDbObjects.Nodes.Add(node);
+                this.tvDbObjects.Items.Add(item);
             }
 
-            if (this.tvDbObjects.Nodes.Count == 1)
+            if (this.tvDbObjects.Items.Count == 1)
             {
-                this.tvDbObjects.SelectedNode = this.tvDbObjects.Nodes[0];
-                this.tvDbObjects.Nodes[0].Expand();
+                this.tvDbObjects.SelectItem = this.tvDbObjects.Items[0];
+                this.tvDbObjects.Items[0].Expand = true;
             }
         }
 
         public void ClearNodes()
         {
-            this.tvDbObjects.Nodes.Clear();
+            this.tvDbObjects.Items.Clear();
         }
 
-        private void tvDbObjects_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
+        private void TvDbObjects_NodeMouseClick(TreeItem item, Rectangle rect, TreeCType type, MouseEventArgs args)
         {
-            if (e.Button == MouseButtons.Right)
+            if (args.Button == MouseButtons.Right)
             {
-                if (e.Node.Name == DbObjectsTreeHelper.FakeNodeName)
+                if (item.Name == DbObjectsAntdTreeHelper.FakeNodeName)
                 {
                     return;
                 }
 
-                this.tvDbObjects.SelectedNode = e.Node;
+                this.tvDbObjects.SelectItem = item;
 
-                this.SetMenuItemVisible(e.Node);
+                this.SetMenuItemVisible(item);
 
                 this.contextMenuStrip1.Show(Cursor.Position);
             }
         }
 
-        private bool CanRefresh(TreeNode node)
+        private bool CanRefresh(AntdUI.TreeItem item)
         {
-            return (node.Level <= 3) && !this.IsOnlyHasFakeChild(node)
-               && !(node.Tag is ScriptDbObject && !(node.Tag is View))
-               && !(node.Tag is UserDefinedType)
-               && !(node.Tag is Sequence);
+            return (GetItemLevel(item) <= 3) && !this.IsOnlyHasFakeChild(item)
+               && !(item.Tag is ScriptDbObject && !(item.Tag is View))
+               && !(item.Tag is UserDefinedType)
+               && !(item.Tag is Sequence);
         }
 
-        private bool CanDelete(TreeNode node)
+        private bool CanDelete(AntdUI.TreeItem item)
         {
-            return node.Level == 2 || (node.Level == 4 && !(node.Tag is TableColumn));
+            int level = GetItemLevel(item);
+            return level == 2 || (level == 4 && !(item.Tag is TableColumn));
         }
 
-        private void SetMenuItemVisible(TreeNode node)
+        private int GetItemLevel(AntdUI.TreeItem item)
         {
-            bool isDatabase = node.Level == 0;
-            bool isView = node.Tag is View;
-            bool isTable = node.Tag is Table;
-            bool isScriptObject = node.Tag is ScriptDbObject;
-            bool isUserDefinedType = node.Tag is UserDefinedType;
-            bool isSequence = node.Tag is Sequence;
-            bool isFunction = node.Tag is Function;
-            bool isTriggerFunction = isFunction && (node.Tag as Function).IsTriggerFunction;
-            bool isProcedure = node.Tag is Procedure;
+            int level = 0;
+            var parent = GetParentItem(item);
+            while (parent != null)
+            {
+                level++;
+                parent = GetParentItem(parent);
+            }
+            return level;
+        }
+
+        private AntdUI.TreeItem GetParentItem(AntdUI.TreeItem item)
+        {
+            foreach (var root in tvDbObjects.Items)
+            {
+                var found = FindParentItem(root, item);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
+
+        private AntdUI.TreeItem FindParentItem(AntdUI.TreeItem parent, AntdUI.TreeItem target)
+        {
+            foreach (var child in parent.Sub)
+            {
+                if (child == target)
+                    return parent;
+                var found = FindParentItem(child, target);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
+
+        private void contextMenuStrip1_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            var pos = this.tvDbObjects.PointToClient(Cursor.Position);
+            var treeItem = this.tvDbObjects.HitTest(pos.X, pos.Y, out _);
+            if (treeItem != null)
+            {
+                this.tvDbObjects.SelectItem = treeItem;
+                this.SetMenuItemVisible(treeItem);
+            }
+            else
+            {
+                e.Cancel = true;
+            }
+        }
+
+        private void SetMenuItemVisible(AntdUI.TreeItem item)
+        {
+            int level = GetItemLevel(item);
+            bool isDatabase = level == 0;
+            bool isView = item.Tag is View;
+            bool isTable = item.Tag is Table;
+            bool isScriptObject = item.Tag is ScriptDbObject;
+            bool isUserDefinedType = item.Tag is UserDefinedType;
+            bool isSequence = item.Tag is Sequence;
+            bool isFunction = item.Tag is Function;
+            bool isTriggerFunction = isFunction && (item.Tag as Function).IsTriggerFunction;
+            bool isProcedure = item.Tag is Procedure;
 
             this.tsmiNewQuery.Visible = isDatabase;
-            this.tsmiNewTable.Visible = node.Name == nameof(DbObjectTreeFolderType.Tables) || isTable;
-            this.tsmiNewView.Visible = node.Name == nameof(DbObjectTreeFolderType.Views) || isView;
-            this.tsmiNewFunction.Visible = node.Name == nameof(DbObjectTreeFolderType.Functions) || node.Tag is Function;
-            this.tsmiNewProcedure.Visible = node.Name == nameof(DbObjectTreeFolderType.Procedures) || node.Tag is Procedure;
-            this.tsmiNewTrigger.Visible = node.Name == nameof(DbObjectTreeFolderType.Triggers) || node.Tag is TableTrigger;
+            this.tsmiNewTable.Visible = item.Name == nameof(DbObjectTreeFolderType.Tables) || isTable;
+            this.tsmiNewView.Visible = item.Name == nameof(DbObjectTreeFolderType.Views) || isView;
+            this.tsmiNewFunction.Visible = item.Name == nameof(DbObjectTreeFolderType.Functions) || item.Tag is Function;
+            this.tsmiNewProcedure.Visible = item.Name == nameof(DbObjectTreeFolderType.Procedures) || item.Tag is Procedure;
+            this.tsmiNewTrigger.Visible = item.Name == nameof(DbObjectTreeFolderType.Triggers) || item.Tag is TableTrigger;
             this.tsmiAlter.Visible = isScriptObject;
             this.tsmiDesign.Visible = isTable;
             this.tsmiCopy.Visible = isTable;
-            this.tsmiRefresh.Visible = this.CanRefresh(node);
+            this.tsmiRefresh.Visible = this.CanRefresh(item);
             this.tsmiGenerateScripts.Visible = isDatabase || isTable || isScriptObject || isUserDefinedType || isSequence;
             this.tsmiConvert.Visible = isDatabase;
             this.tsmiEmptyDatabase.Visible = isDatabase;
-            this.tsmiDelete.Visible = this.CanDelete(node);
+            this.tsmiDelete.Visible = this.CanDelete(item);
             this.tsmiViewData.Visible = isTable || isView;
             this.tsmiImportData.Visible = isTable;
             this.tsmiExportData.Visible = isTable || isView;
@@ -218,8 +255,9 @@ namespace DatabaseManager.Controls
             this.tsmiExecuteScript.Visible = isProcedure;
             this.tsmiDatabaseDiagram.Visible = isDatabase;
             this.tsmiAnalysis.Visible = (this.databaseType == DatabaseType.SqlServer || this.databaseType == DatabaseType.Postgres || this.databaseType == DatabaseType.Oracle);
+            this.tsmiDisconnect.Visible = isDatabase;
 
-            this.tsmiCopyChildrenNames.Visible = node.Level == 1 && node.Nodes.Count > 0 && (node.Nodes[0].Tag != null);
+            this.tsmiCopyChildrenNames.Visible = level == 1 && item.Sub.Count > 0 && (item.Sub[0].Tag != null);
         }
 
         private ConnectionInfo GetConnectionInfo(string database)
@@ -231,12 +269,12 @@ namespace DatabaseManager.Controls
 
         public ConnectionInfo GetCurrentConnectionInfo()
         {
-            TreeNode node = this.tvDbObjects.SelectedNode;
+            var item = this.tvDbObjects.SelectItem;
 
-            if (node != null)
+            if (item != null)
             {
-                TreeNode dbNode = this.GetDatabaseNode(node);
-                ConnectionInfo connectionInfo = this.GetConnectionInfo(dbNode.Name);
+                var dbItem = this.GetDatabaseItem(item);
+                ConnectionInfo connectionInfo = this.GetConnectionInfo(dbItem.Name);
 
                 return connectionInfo;
             }
@@ -244,9 +282,9 @@ namespace DatabaseManager.Controls
             return null;
         }
 
-        private bool IsOnlyHasFakeChild(TreeNode node)
+        private bool IsOnlyHasFakeChild(AntdUI.TreeItem item)
         {
-            if (node.Nodes.Count == 1 && node.Nodes[0].Name == DbObjectsTreeHelper.FakeNodeName)
+            if (item.Sub.Count == 1 && item.Sub[0].Name == DbObjectsAntdTreeHelper.FakeNodeName)
             {
                 return true;
             }
@@ -254,13 +292,15 @@ namespace DatabaseManager.Controls
             return false;
         }
 
-        private TreeNode GetDatabaseNode(TreeNode node)
+        private AntdUI.TreeItem GetDatabaseItem(AntdUI.TreeItem item)
         {
-            while (!(node.Tag is Database))
+            while (!(item.Tag is Database))
             {
-                return this.GetDatabaseNode(node.Parent);
+                var parent = GetParentItem(item);
+                if (parent == null) return item;
+                item = parent;
             }
-            return node;
+            return item;
         }
 
         private DbInterpreter GetDbInterpreter(string database, bool isSimpleMode = true, bool throwExceptionWhenErrorOccurs = false)
@@ -276,7 +316,7 @@ namespace DatabaseManager.Controls
             return dbInterpreter;
         }
 
-        private async Task AddDbObjectNodes(TreeNode parentNode, string database, DatabaseObjectType databaseObjectType = DatabaseObjectType.None, bool createFolderNode = true)
+        private async Task AddDbObjectItems(AntdUI.TreeItem parentItem, string database, DatabaseObjectType databaseObjectType = DatabaseObjectType.None, bool createFolderItem = true)
         {
             DbInterpreter dbInterpreter = this.GetDbInterpreter(database);
 
@@ -290,26 +330,26 @@ namespace DatabaseManager.Controls
             SchemaInfo schemaInfo = databaseObjectType == DatabaseObjectType.None ? new SchemaInfo() :
                                     await dbInterpreter.GetSchemaInfoAsync(filter);
 
-            this.ClearNodes(parentNode);
+            this.ClearItems(parentItem);
 
             if (databaseObjectType == DatabaseObjectType.Table)
             {
-                this.AddTreeNodes(parentNode, databaseObjectType, DatabaseObjectType.Table, schemaInfo.Tables, createFolderNode, true);
+                this.AddTreeItems(parentItem, databaseObjectType, DatabaseObjectType.Table, schemaInfo.Tables, createFolderItem, true);
             }
 
             if (databaseObjectType == DatabaseObjectType.View)
             {
-                this.AddTreeNodes(parentNode, databaseObjectType, DatabaseObjectType.View, schemaInfo.Views, createFolderNode, true);
+                this.AddTreeItems(parentItem, databaseObjectType, DatabaseObjectType.View, schemaInfo.Views, createFolderItem, true);
             }
 
             if (databaseObjectType == DatabaseObjectType.Function)
             {
-                this.AddTreeNodes(parentNode, databaseObjectType, DatabaseObjectType.Function, schemaInfo.Functions, createFolderNode);
+                this.AddTreeItems(parentItem, databaseObjectType, DatabaseObjectType.Function, schemaInfo.Functions, createFolderItem);
             }
 
             if (databaseObjectType == DatabaseObjectType.Procedure)
             {
-                this.AddTreeNodes(parentNode, databaseObjectType, DatabaseObjectType.Procedure, schemaInfo.Procedures, createFolderNode);
+                this.AddTreeItems(parentItem, databaseObjectType, DatabaseObjectType.Procedure, schemaInfo.Procedures, createFolderItem);
             }
 
             if (databaseObjectType == DatabaseObjectType.Type)
@@ -321,122 +361,124 @@ namespace DatabaseManager.Controls
 
                     string text = $"{userDefinedType.Name}{strDataType}";
 
-                    string imageKeyName = nameof(userDefinedType);
+                    var treeItem = DbObjectsAntdTreeHelper.CreateTreeItem(userDefinedType.Name, text, nameof(userDefinedType));
+                    treeItem.Tag = userDefinedType;
 
-                    TreeNode node = DbObjectsTreeHelper.CreateTreeNode(userDefinedType.Name, text, imageKeyName);
-                    node.Tag = userDefinedType;
-
-                    parentNode.Nodes.Add(node);
+                    parentItem.Sub.Add(treeItem);
                 }
             }
 
             if (databaseObjectType == DatabaseObjectType.Sequence)
             {
-                this.AddTreeNodes(parentNode, databaseObjectType, DatabaseObjectType.Sequence, schemaInfo.Sequences, createFolderNode);
+                this.AddTreeItems(parentItem, databaseObjectType, DatabaseObjectType.Sequence, schemaInfo.Sequences, createFolderItem);
             }
         }
 
-        private TreeNodeCollection AddTreeNodes<T>(TreeNode node, DatabaseObjectType types, DatabaseObjectType type, List<T> dbObjects, bool createFolderNode = true, bool createFakeNode = false)
+        private void AddTreeItems<T>(AntdUI.TreeItem item, DatabaseObjectType types, DatabaseObjectType type, List<T> dbObjects, bool createFolderItem = true, bool createFakeItem = false)
             where T : DatabaseObject
         {
-            TreeNode targetNode = node;
+            AntdUI.TreeItem targetItem = item;
 
             if (types.HasFlag(type))
             {
-                bool showSchemaName = this.NeedShowSchema(node, dbObjects);
+                bool showSchemaName = this.NeedShowSchema(item, dbObjects);
 
-                if (createFolderNode)
+                if (createFolderItem)
                 {
-                    targetNode = node.AddDbObjectFolderNode(dbObjects);
+                    targetItem = item.AddDbObjectFolderItem(dbObjects);
                 }
                 else
                 {
-                    targetNode = node.AddDbObjectNodes(dbObjects, showSchemaName);
+                    item.AddDbObjectItems(dbObjects, showSchemaName);
                 }
             }
 
-            if (createFakeNode && targetNode != null)
+            if (createFakeItem && targetItem != null)
             {
-                foreach (TreeNode child in targetNode.Nodes)
+                foreach (var child in targetItem.Sub)
                 {
-                    child.Nodes.Add(DbObjectsTreeHelper.CreateFakeNode());
+                    child.Sub.Add(DbObjectsAntdTreeHelper.CreateFakeItem());
                 }
             }
-
-            return node.Nodes;
         }
 
-        private bool NeedShowSchema<T>(TreeNode node, IEnumerable<T> dbObjects) where T : DatabaseObject
+        private bool NeedShowSchema<T>(AntdUI.TreeItem item, IEnumerable<T> dbObjects) where T : DatabaseObject
         {
-            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseNode(node).Name, true);
+            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseItem(item).Name, true);
 
-            return DbObjectsTreeHelper.NeedShowSchema(dbInterpreter, dbObjects);
+            return DbObjectsAntdTreeHelper.NeedShowSchema(dbInterpreter, dbObjects);
         }
 
-        private void AddTableFakeNodes(TreeNode tableNode, Table table)
+        private void AddTableFakeItems(AntdUI.TreeItem tableItem, Table table)
         {
-            this.ClearNodes(tableNode);
+            this.ClearItems(tableItem);
 
-            tableNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Columns), nameof(DbObjectTreeFolderType.Columns), true));
-            tableNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Triggers), nameof(DbObjectTreeFolderType.Triggers), true));
-            tableNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Indexes), nameof(DbObjectTreeFolderType.Indexes), true));
-            tableNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Keys), nameof(DbObjectTreeFolderType.Keys), true));
-            tableNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Constraints), nameof(DbObjectTreeFolderType.Constraints), true));
+            var columnsItem = DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Columns), nameof(DbObjectTreeFolderType.Columns), true);
+            var triggersItem = DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Triggers), nameof(DbObjectTreeFolderType.Triggers), true);
+            var indexesItem = DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Indexes), nameof(DbObjectTreeFolderType.Indexes), true);
+            var keysItem = DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Keys), nameof(DbObjectTreeFolderType.Keys), true);
+            var constraintsItem = DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Constraints), nameof(DbObjectTreeFolderType.Constraints), true);
+
+            tableItem.Sub.Add(columnsItem);
+            tableItem.Sub.Add(triggersItem);
+            tableItem.Sub.Add(indexesItem);
+            tableItem.Sub.Add(keysItem);
+            tableItem.Sub.Add(constraintsItem);
         }
 
-        private void AddViewFakeNodes(TreeNode viewNode, View view)
+        private void AddViewFakeItems(AntdUI.TreeItem viewItem, View view)
         {
-            this.ClearNodes(viewNode);
+            this.ClearItems(viewItem);
 
-            viewNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Columns), nameof(DbObjectTreeFolderType.Columns), true));
+            viewItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Columns), nameof(DbObjectTreeFolderType.Columns), true));
 
             if (this.databaseType == DatabaseType.SqlServer || this.databaseType == DatabaseType.Sqlite)
             {
-                viewNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Triggers), nameof(DbObjectTreeFolderType.Triggers), true));
+                viewItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Triggers), nameof(DbObjectTreeFolderType.Triggers), true));
             }
 
             if (this.databaseType == DatabaseType.SqlServer)
             {
-                viewNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Indexes), nameof(DbObjectTreeFolderType.Indexes), true));
+                viewItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Indexes), nameof(DbObjectTreeFolderType.Indexes), true));
             }
         }
 
-        private void AddDatabaseFakeNodes(TreeNode databaseNode, Database database)
+        private void AddDatabaseFakeItems(AntdUI.TreeItem databaseItem, Database database)
         {
-            this.ClearNodes(databaseNode);
+            this.ClearItems(databaseItem);
 
             DbInterpreter dbInterpreter = this.GetDbInterpreter(database.Name, true);
 
             DatabaseObjectType supportDbObjectType = dbInterpreter.SupportDbObjectType;
 
-            databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Tables), nameof(DbObjectTreeFolderType.Tables), true));
-            databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Views), nameof(DbObjectTreeFolderType.Views), true));
+            databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Tables), nameof(DbObjectTreeFolderType.Tables), true));
+            databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Views), nameof(DbObjectTreeFolderType.Views), true));
 
             if (supportDbObjectType.HasFlag(DatabaseObjectType.Function))
             {
-                databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Functions), nameof(DbObjectTreeFolderType.Functions), true));
+                databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Functions), nameof(DbObjectTreeFolderType.Functions), true));
             }
 
             if (supportDbObjectType.HasFlag(DatabaseObjectType.Procedure))
             {
-                databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Procedures), nameof(DbObjectTreeFolderType.Procedures), true));
+                databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Procedures), nameof(DbObjectTreeFolderType.Procedures), true));
             }
 
             if (supportDbObjectType.HasFlag(DatabaseObjectType.Type))
             {
-                databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Types), nameof(DbObjectTreeFolderType.Types), true));
+                databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Types), nameof(DbObjectTreeFolderType.Types), true));
             }
 
             if (supportDbObjectType.HasFlag(DatabaseObjectType.Sequence))
             {
-                databaseNode.Nodes.Add(DbObjectsTreeHelper.CreateFolderNode(nameof(DbObjectTreeFolderType.Sequences), nameof(DbObjectTreeFolderType.Sequences), true));
+                databaseItem.Sub.Add(DbObjectsAntdTreeHelper.CreateFolderItem(nameof(DbObjectTreeFolderType.Sequences), nameof(DbObjectTreeFolderType.Sequences), true));
             }
         }
 
-        private async Task AddTableObjectNodes(TreeNode treeNode, Table table, DatabaseObjectType databaseObjectType, bool isForView = false)
+        private async Task AddTableObjectItems(AntdUI.TreeItem treeItem, Table table, DatabaseObjectType databaseObjectType, bool isForView = false)
         {
-            string nodeName = treeNode.Name;
-            string database = this.GetDatabaseNode(treeNode).Name;
+            string itemName = treeItem.Name;
+            string database = this.GetDatabaseItem(treeItem).Name;
             DbInterpreter dbInterpreter = this.GetDbInterpreter(database, false);
 
             dbInterpreter.Subscribe(this);
@@ -451,10 +493,10 @@ namespace DatabaseManager.Controls
 
             SchemaInfo schemaInfo = await dbInterpreter.GetSchemaInfoAsync(filter);
 
-            this.ClearNodes(treeNode);
+            this.ClearItems(treeItem);
 
             #region Columns           
-            if (nodeName == nameof(DbObjectTreeFolderType.Columns))
+            if (itemName == nameof(DbObjectTreeFolderType.Columns))
             {
                 foreach (TableColumn column in schemaInfo.TableColumns)
                 {
@@ -463,23 +505,23 @@ namespace DatabaseManager.Controls
                     bool isForeignKey = schemaInfo.TableForeignKeys.Any(item => item.Columns.Any(t => t.ColumnName == column.Name));
                     string imageKeyName = isPrimaryKey ? nameof(TablePrimaryKey) : (isForeignKey ? nameof(TableForeignKey) : nameof(TableColumn));
 
-                    TreeNode node = DbObjectsTreeHelper.CreateTreeNode(column.Name, text, imageKeyName);
+                    var node = DbObjectsAntdTreeHelper.CreateTreeItem(column.Name, text, imageKeyName);
                     node.Tag = column;
 
-                    treeNode.Nodes.Add(node);
+                    treeItem.Sub.Add(node);
                 }
             }
             #endregion
 
-            if (nodeName == nameof(DbObjectTreeFolderType.Triggers))
+            if (itemName == nameof(DbObjectTreeFolderType.Triggers))
             {
-                treeNode.AddDbObjectNodes(schemaInfo.TableTriggers);
+                treeItem.AddDbObjectItems(schemaInfo.TableTriggers);
             }
 
             if (!isForView)
             {
                 #region Indexes
-                if (nodeName == nameof(DbObjectTreeFolderType.Indexes) && schemaInfo.TableIndexes.Any())
+                if (itemName == nameof(DbObjectTreeFolderType.Indexes) && schemaInfo.TableIndexes.Any())
                 {
                     foreach (TableIndex index in schemaInfo.TableIndexes)
                     {
@@ -490,21 +532,20 @@ namespace DatabaseManager.Controls
                                         : (isUnique ? "(Unique)" : "");
 
                         string text = $"{index.Name}{content}";
-                        string imageKeyName = nameof(TableIndex);
 
-                        TreeNode node = DbObjectsTreeHelper.CreateTreeNode(index.Name, text, imageKeyName);
+                        var node = DbObjectsAntdTreeHelper.CreateTreeItem(index.Name, text, nameof(TableIndex));
                         node.Tag = index;
 
-                        treeNode.Nodes.Add(node);
+                        treeItem.Sub.Add(node);
                     }
                 }
                 #endregion
 
-                if (nodeName == nameof(DbObjectTreeFolderType.Keys))
+                if (itemName == nameof(DbObjectTreeFolderType.Keys))
                 {
                     foreach (TablePrimaryKey key in schemaInfo.TablePrimaryKeys)
                     {
-                        TreeNode node = DbObjectsTreeHelper.CreateTreeNode(key);
+                        var node = DbObjectsAntdTreeHelper.CreateTreeItem(key);
 
                         if (string.IsNullOrEmpty(node.Text))
                         {
@@ -513,12 +554,12 @@ namespace DatabaseManager.Controls
                             node.Text = $"{defaultName}(unnamed)";
                         }
 
-                        treeNode.Nodes.Add(node);
+                        treeItem.Sub.Add(node);
                     }
 
                     foreach (TableForeignKey key in schemaInfo.TableForeignKeys)
                     {
-                        TreeNode node = DbObjectsTreeHelper.CreateTreeNode(key);
+                        var node = DbObjectsAntdTreeHelper.CreateTreeItem(key);
 
                         if (string.IsNullOrEmpty(node.Text))
                         {
@@ -527,17 +568,17 @@ namespace DatabaseManager.Controls
                             node.Text = $"{defaultName}(unnamed)";
                         }
 
-                        treeNode.Nodes.Add(node);
+                        treeItem.Sub.Add(node);
                     }
                 }
 
                 #region Constraints
-                if (nodeName == nameof(DbObjectTreeFolderType.Constraints) && schemaInfo.TableConstraints.Any())
+                if (itemName == nameof(DbObjectTreeFolderType.Constraints) && schemaInfo.TableConstraints.Any())
                 {
                     foreach (TableConstraint constraint in schemaInfo.TableConstraints)
                     {
-                        TreeNode node = DbObjectsTreeHelper.CreateTreeNode(constraint);
-                        treeNode.Nodes.Add(node);
+                        var node = DbObjectsAntdTreeHelper.CreateTreeItem(constraint);
+                        treeItem.Sub.Add(node);
                     }
                 }
                 #endregion
@@ -562,93 +603,80 @@ namespace DatabaseManager.Controls
             return $"{column.Name} ({displayText.ToLower().Trim()})";
         }
 
-        private async void tvDbObjects_BeforeExpand(object sender, TreeViewCancelEventArgs e)
+        private void ClearItems(AntdUI.TreeItem item)
         {
-            TreeNode node = e.Node;
-
-            if (!this.IsOnlyHasFakeChild(node))
-            {
-                return;
-            }
-
-            this.tvDbObjects.BeginInvoke(new Action(async () => await this.LoadChildNodes(node)));
+            item.Sub.Clear();
         }
 
-        private void ClearNodes(TreeNode node)
+        private void ShowLoading(AntdUI.TreeItem item)
         {
-            node.Nodes.Clear();
-        }
-
-        private void ShowLoading(TreeNode node)
-        {
-            string loadingImageKey = "Loading.gif";
             string loadingText = "loading...";
 
-            if (this.IsOnlyHasFakeChild(node))
+            if (this.IsOnlyHasFakeChild(item))
             {
-                node.Nodes[0].ImageKey = loadingImageKey;
-                node.Nodes[0].Text = loadingText;
+                item.Sub[0].Text = loadingText;
             }
             else
             {
-                node.Nodes.Add(DbObjectsTreeHelper.CreateTreeNode("Loading", loadingText, loadingImageKey));
+                var loadingItem = DbObjectsAntdTreeHelper.CreateTreeItem("Loading", loadingText, "Loading");
+                item.Sub.Add(loadingItem);
             }
         }
 
-        private async Task LoadChildNodes(TreeNode node)
+        private async Task LoadChildItems(AntdUI.TreeItem item)
         {
-            this.ShowLoading(node);
+            this.ShowLoading(item);
 
-            object tag = node.Tag;
+            object tag = item.Tag;
 
             if (tag is Database)
             {
                 Database database = tag as Database;
 
-                this.AddDatabaseFakeNodes(node, database);
+                this.AddDatabaseFakeItems(item, database);
             }
             else if (tag is Table)
             {
                 Table table = tag as Table;
-                this.AddTableFakeNodes(node, table);
+                this.AddTableFakeItems(item, table);
             }
             else if (tag is View)
             {
                 View view = tag as View;
-                this.AddViewFakeNodes(node, view);
+                this.AddViewFakeItems(item, view);
             }
             else if (tag == null)
             {
-                string name = node.Name;
+                string name = item.Name;
 
-                TreeNode parentNode = node.Parent;
+                var parentItem = GetParentItem(item);
 
-                if (parentNode.Tag is Database)
+                if (parentItem.Tag is Database)
                 {
-                    string databaseName = parentNode.Name;
+                    string databaseName = parentItem.Name;
 
-                    DatabaseObjectType databaseObjectType = DbObjectsTreeHelper.GetDbObjectTypeByFolderName(name);
+                    DatabaseObjectType databaseObjectType = DbObjectsAntdTreeHelper.GetDbObjectTypeByFolderName(name);
 
                     if (databaseObjectType != DatabaseObjectType.None)
                     {
-                        await this.AddDbObjectNodes(node, databaseName, databaseObjectType, false);
+                        await this.AddDbObjectItems(item, databaseName, databaseObjectType, false);
 
-                        this.ShowChildrenCount(node);
+                        this.ShowChildrenCount(item);
                     }
                 }
-                else if (parentNode.Tag is Table)
+                else if (parentItem.Tag is Table)
                 {
                     DatabaseObjectType databaseObjectType = this.GetDatabaseObjectTypeByFolderNames(name);
 
-                    await this.AddTableObjectNodes(node, parentNode.Tag as Table, databaseObjectType);
+                    await this.AddTableObjectItems(item, parentItem.Tag as Table, databaseObjectType);
                 }
-                else if (parentNode.Tag is View)
+                else if (parentItem.Tag is View)
                 {
-                    Table table = ObjectHelper.CloneObject<Table>(parentNode.Tag as View);
+                    Table table = ObjectHelper.CloneObject<Table>(parentItem.Tag as View);
 
                     DatabaseObjectType databaseObjectType = this.GetDatabaseObjectTypeByFolderNames(name);
 
-                    await this.AddTableObjectNodes(node, table, databaseObjectType, true);
+                    await this.AddTableObjectItems(item, table, databaseObjectType, true);
                 }
             }
         }
@@ -679,58 +707,58 @@ namespace DatabaseManager.Controls
             return databaseObjectType;
         }
 
-        private void ShowChildrenCount(TreeNode node)
+        private void ShowChildrenCount(AntdUI.TreeItem item)
         {
-            node.Text = $"{node.Name} ({node.Nodes.Count})";
+            item.Text = $"{item.Name} ({item.Sub.Count})";
         }
 
         private async void tsmiRefresh_Click(object sender, EventArgs e)
         {
-            await this.RefreshNode();
+            await this.RefreshItem();
         }
 
-        private async Task RefreshNode()
+        private async Task RefreshItem()
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            if (this.CanRefresh(node))
+            if (this.CanRefresh(item))
             {
-                await this.LoadChildNodes(node);
+                await this.LoadChildItems(item);
             }
         }
 
-        private bool IsValidSelectedNode()
+        private bool IsValidSelectedItem()
         {
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            return node != null;
+            return item != null;
         }
 
-        private TreeNode GetSelectedNode()
+        private AntdUI.TreeItem GetSelectedItem()
         {
-            return this.tvDbObjects.SelectedNode;
+            return this.tvDbObjects.SelectItem;
         }
 
         private async void GenerateScripts(ScriptAction scriptAction)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            await this.GenerateScripts(node, scriptAction);
+            await this.GenerateScripts(item, scriptAction);
         }
 
-        private async Task GenerateScripts(TreeNode node, ScriptAction scriptAction)
+        private async Task GenerateScripts(AntdUI.TreeItem item, ScriptAction scriptAction)
         {
-            object tag = node.Tag;
+            object tag = item.Tag;
 
             if (tag is Database)
             {
@@ -741,7 +769,7 @@ namespace DatabaseManager.Controls
             }
             else if (tag is DatabaseObject)
             {
-                string databaseName = this.GetDatabaseNode(node).Name;
+                string databaseName = this.GetDatabaseItem(item).Name;
 
                 await this.GenerateObjectScript(databaseName, tag as DatabaseObject, scriptAction);
             }
@@ -778,19 +806,19 @@ namespace DatabaseManager.Controls
 
         private void tsmiConvert_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            this.ConvertDatabase(node);
+            this.ConvertDatabase(item);
         }
 
-        private void ConvertDatabase(TreeNode node)
+        private void ConvertDatabase(AntdUI.TreeItem item)
         {
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             frmConvert frmConvert = new frmConvert(this.databaseType, this.GetConnectionInfo(database.Name));
             frmConvert.ShowDialog();
@@ -798,16 +826,16 @@ namespace DatabaseManager.Controls
 
         private async void tsmiClearData_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
             if (MessageBox.Show($"Are you sure to clear all data of the database?{Environment.NewLine}Please handle this operation carefully!", "Confirm", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
-                TreeNode node = this.GetSelectedNode();
+                var item = this.GetSelectedItem();
 
-                await this.ClearData(node.Name);
+                await this.ClearData(item.Name);
             }
         }
 
@@ -842,24 +870,24 @@ namespace DatabaseManager.Controls
 
         private async void tsmiEmptyDatabase_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
             if (MessageBox.Show($"Are you sure to delete all objects of the database?{Environment.NewLine}Please handle this operation carefully!", "Confirm", MessageBoxButtons.YesNo) == DialogResult.Yes)
             {
-                var dbInterpreter = this.GetDbInterpreter((this.GetSelectedNode().Tag as Database).Name, true);
+                var dbInterpreter = this.GetDbInterpreter((this.GetSelectedItem().Tag as Database).Name, true);
 
                 frmItemsSelector selector = new frmItemsSelector("Select Database Object Types", ItemsSelectorHelper.GetDatabaseObjectTypeItems(this.databaseType, dbInterpreter.SupportDbObjectType, true));
 
                 if (selector.ShowDialog() == DialogResult.OK)
                 {
-                    TreeNode node = this.GetSelectedNode();
+                    var item = this.GetSelectedItem();
 
-                    await this.EmptyDatabase(node.Name, ItemsSelectorHelper.GetDatabaseObjectTypeByCheckItems(selector.CheckedItem));
+                    await this.EmptyDatabase(item.Name, ItemsSelectorHelper.GetDatabaseObjectTypeByCheckItems(selector.CheckedItem));
 
-                    await this.LoadChildNodes(node);
+                    await this.LoadChildItems(item);
 
                     this.Feedback("");
                 }
@@ -887,11 +915,11 @@ namespace DatabaseManager.Controls
         {
             if (e.KeyCode == Keys.F5)
             {
-                await this.RefreshNode();
+                await this.RefreshItem();
             }
             else if (e.KeyCode == Keys.Delete)
             {
-                this.DeleteNode();
+                this.DeleteItem();
             }
 
             if (e.Control)
@@ -902,47 +930,49 @@ namespace DatabaseManager.Controls
                 }
                 else if (e.KeyCode == Keys.C)
                 {
-                    this.CopyNodeText();
+                    this.CopyItemText();
                 }
             }
         }
 
-        private void CopyNodeText()
+        private void CopyItemText()
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            Clipboard.SetDataObject(node.Text);
+            Clipboard.SetDataObject(item.Text);
         }
 
-        private bool IsEmptyTreeNode(TreeNode node)
+        private bool IsEmptyTreeItem(AntdUI.TreeItem item)
         {
-            return node.Nodes.Count == 0 || (node.Nodes.Count == 1 && node.Nodes[0].Tag == null);
+            return item.Sub.Count == 0 || (item.Sub.Count == 1 && item.Sub[0].Tag == null);
         }
 
-        private bool IsTreeNodeHasDbObjectChildren(TreeNode node)
+        private bool IsTreeItemHasDbObjectChildren(AntdUI.TreeItem item)
         {
-            return !(this.IsEmptyTreeNode(node) || node.Nodes.Cast<TreeNode>().All(item => item.Tag == null && this.IsEmptyTreeNode(item)));
+            return !(this.IsEmptyTreeItem(item) || item.Sub.All(subItem => subItem.Tag == null && this.IsEmptyTreeItem(subItem)));
         }
 
         private void FindChild()
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
+            int level = GetItemLevel(item);
 
-            if (node.Level >= 1)
+            if (level >= 1)
             {
-                var targetNodes = this.IsTreeNodeHasDbObjectChildren(node) ? node.Nodes : node.Parent.Nodes;
+                var parentItem = GetParentItem(item);
+                var targetItems = this.IsTreeItemHasDbObjectChildren(item) ? item.Sub : parentItem.Sub;
 
-                if (targetNodes.Count <= 1)
+                if (targetItems.Count <= 1)
                 {
                     return;
                 }
@@ -958,12 +988,11 @@ namespace DatabaseManager.Controls
                 {
                     string word = findBox.FindWord;
 
-                    TreeNode foundNode = this.FindTreeNode(targetNodes, word);
+                    var foundItem = this.FindTreeItem(targetItems, word);
 
-                    if (foundNode != null)
+                    if (foundItem != null)
                     {
-                        this.tvDbObjects.SelectedNode = foundNode;
-                        foundNode.EnsureVisible();
+                        this.tvDbObjects.SelectItem = foundItem;
                     }
                     else
                     {
@@ -973,52 +1002,50 @@ namespace DatabaseManager.Controls
             }
         }
 
-        private TreeNode FindTreeNode(TreeNodeCollection nodes, string word)
+        private AntdUI.TreeItem FindTreeItem(AntdUI.TreeItemCollection items, string word)
         {
-            foreach (TreeNode node in nodes)
+            foreach (var item in items)
             {
-                object tag = node.Tag;
-
-                if (node.Tag != null)
+                if (item.Tag != null)
                 {
-                    string text = node.Text.Split('.').LastOrDefault()?.Split('(')?.FirstOrDefault()?.Trim();
+                    string text = item.Text.Split('.').LastOrDefault()?.Split('(')?.FirstOrDefault()?.Trim();
 
                     if (text.ToUpper() == word.ToUpper())
                     {
-                        return node;
+                        return item;
                     }
                 }
-                else if (node.Nodes.Count >= 1)
+                else if (item.Sub.Count >= 1)
                 {
-                    return this.FindTreeNode(node.Nodes, word);
+                    return this.FindTreeItem(item.Sub, word);
                 }
             }
 
             return null;
         }
 
-        private void DeleteNode()
+        private void DeleteItem()
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            if (this.CanDelete(node))
+            if (this.CanDelete(item))
             {
                 if (MessageBox.Show("Are you sure to delete this object?", "Confirm", MessageBoxButtons.YesNo) == DialogResult.Yes)
                 {
-                    this.DropDbObject(node);
+                    this.DropDbObject(item);
                 }
             }
         }
 
-        private async void DropDbObject(TreeNode node)
+        private async void DropDbObject(AntdUI.TreeItem item)
         {
-            string database = this.GetDatabaseNode(node).Name;
-            DatabaseObject dbObject = node.Tag as DatabaseObject;
+            string database = this.GetDatabaseItem(item).Name;
+            DatabaseObject dbObject = item.Tag as DatabaseObject;
 
             DbInterpreter dbInterpreter = this.GetDbInterpreter(database, true, true);
             dbInterpreter.Subscribe(this);
@@ -1032,25 +1059,24 @@ namespace DatabaseManager.Controls
 
             if (success)
             {
-                bool parentIsChildFolderOfDatabase = node.Parent?.Parent?.Tag is Database;
-                TreeNode parentNode = node.Parent;
+                var parentItem = GetParentItem(item);
+                bool parentIsChildFolderOfDatabase = GetItemLevel(item) == 3;
 
-                node.Parent.Nodes.Remove(node);
+                parentItem.Sub.Remove(item);
 
                 if (parentIsChildFolderOfDatabase)
                 {
-                    this.ShowChildrenCount(parentNode);
+                    this.ShowChildrenCount(parentItem);
                 }
             }
             else
             {
-                //MessageBox.Show("Not drop the database object.");
             }
         }
 
         private void tsmiDelete_Click(object sender, EventArgs e)
         {
-            this.DeleteNode();
+            this.DeleteItem();
         }
 
         private void tsmiViewData_Click(object sender, EventArgs e)
@@ -1065,15 +1091,15 @@ namespace DatabaseManager.Controls
 
         private void ProcessData(DatabaseObjectDisplayType type)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            string database = this.GetDatabaseNode(node).Name;
-            DatabaseObject dbObject = node.Tag as DatabaseObject;
+            string database = this.GetDatabaseItem(item).Name;
+            DatabaseObject dbObject = item.Tag as DatabaseObject;
 
             this.ShowContent(new DatabaseObjectDisplayInfo() { Name = dbObject.Name, Schema = dbObject.Schema, DatabaseType = this.databaseType, DatabaseObject = dbObject, DisplayType = type, ConnectionInfo = this.GetConnectionInfo(database) });
         }
@@ -1091,23 +1117,18 @@ namespace DatabaseManager.Controls
         {
         }
 
-        private void tvDbObjects_AfterExpand(object sender, TreeViewEventArgs e)
-        {
-            this.Feedback("");
-        }
-
         private void tsmiTranslate_MouseEnter(object sender, EventArgs e)
         {
             this.tsmiTranslate.DropDownItems.Clear();
 
-            var node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            if (node == null || node.Tag == null)
+            if (item == null || item.Tag == null)
             {
                 return;
             }
 
-            DatabaseObjectType dbObjectType = DbObjectHelper.GetDatabaseObjectType(node.Tag as DatabaseObject);
+            DatabaseObjectType dbObjectType = DbObjectHelper.GetDatabaseObjectType(item.Tag as DatabaseObject);
 
             var dbTypes = DbInterpreterHelper.GetDisplayDatabaseTypes();
 
@@ -1119,10 +1140,10 @@ namespace DatabaseManager.Controls
 
                     if (dbInterpreter.SupportDbObjectType.HasFlag(dbObjectType))
                     {
-                        ToolStripMenuItem item = new ToolStripMenuItem(dbType.ToString());
-                        item.Click += TranslateItem_Click;
+                        ToolStripMenuItem menuItem = new ToolStripMenuItem(dbType.ToString());
+                        menuItem.Click += TranslateItem_Click;
 
-                        this.tsmiTranslate.DropDownItems.Add(item);
+                        this.tsmiTranslate.DropDownItems.Add(menuItem);
                     }
                 }
             }
@@ -1132,22 +1153,22 @@ namespace DatabaseManager.Controls
         {
             DatabaseType dbType = ManagerUtil.GetDatabaseType((sender as ToolStripMenuItem).Text);
 
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
-            this.tvDbObjects.SelectedNode = node;
+            var item = this.GetSelectedItem();
+            this.tvDbObjects.SelectItem = item;
 
-            await this.Translate(node, dbType);
+            await this.Translate(item, dbType);
         }
 
-        private async Task Translate(TreeNode node, DatabaseType targetDbType)
+        private async Task Translate(AntdUI.TreeItem item, DatabaseType targetDbType)
         {
-            object tag = node.Tag;
+            object tag = item.Tag;
 
-            ConnectionInfo connectionInfo = this.GetConnectionInfo((this.GetDatabaseNode(node).Tag as Database).Name);
+            ConnectionInfo connectionInfo = this.GetConnectionInfo((this.GetDatabaseItem(item).Tag as Database).Name);
 
             if (tag is DatabaseObject)
             {
@@ -1184,50 +1205,25 @@ namespace DatabaseManager.Controls
             }
         }
 
-        private void tvDbObjects_ItemDrag(object sender, ItemDragEventArgs e)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                TreeNode treeNode = e.Item as TreeNode;
-
-                if (treeNode != null && treeNode.Tag is DatabaseObject)
-                {
-                    string text = treeNode.Text;
-                    int index = text.IndexOf('(');
-
-                    if (index > 0)
-                    {
-                        text = text.Substring(0, index);
-                    }
-
-                    DbInterpreter dbInterpreter = this.GetDbInterpreter(this.GetDatabaseNode(treeNode).Name);
-
-                    var items = text.Trim().Split('.').Select(item => dbInterpreter.GetQuotedString(item));
-
-                    DoDragDrop(string.Join(".", items), DragDropEffects.Move);
-                }
-            }
-        }
-
         public DatabaseObjectDisplayInfo GetDisplayInfo()
         {
-            TreeNode node = this.tvDbObjects.SelectedNode;
+            var item = this.tvDbObjects.SelectItem;
 
             DatabaseObjectDisplayInfo info = new DatabaseObjectDisplayInfo() { DatabaseType = this.DatabaseType };
 
-            if (node != null)
+            if (item != null)
             {
-                if (node.Tag is DatabaseObject dbObject)
+                if (item.Tag is DatabaseObject dbObject)
                 {
                     info.Name = dbObject.Name;
                     info.DatabaseObject = dbObject;
                 }
 
-                TreeNode databaseNode = this.GetDatabaseNode(node);
+                var databaseItem = this.GetDatabaseItem(item);
 
-                if (databaseNode != null)
+                if (databaseItem != null)
                 {
-                    info.ConnectionInfo = this.GetConnectionInfo(databaseNode.Name);
+                    info.ConnectionInfo = this.GetConnectionInfo(databaseItem.Name);
                 }
                 else
                 {
@@ -1257,7 +1253,7 @@ namespace DatabaseManager.Controls
 
             if (!isNew)
             {
-                DatabaseObject dbObject = this.tvDbObjects.SelectedNode.Tag as DatabaseObject;
+                DatabaseObject dbObject = this.tvDbObjects.SelectItem?.Tag as DatabaseObject;
 
                 if (dbObject != null)
                 {
@@ -1305,7 +1301,7 @@ namespace DatabaseManager.Controls
 
             if (databaseObjectType == DatabaseObjectType.Trigger)
             {
-                dbObj = this.GetSelectedNode().Parent?.Tag as Table;
+                dbObj = GetParentItem(this.GetSelectedItem())?.Tag as Table;
             }
 
             displayInfo.Content = scriptTemplate.GetTemplateContent(databaseObjectType, scriptAction, dbObj);
@@ -1331,37 +1327,37 @@ namespace DatabaseManager.Controls
 
         private async void RefreshFolderNode()
         {
-            TreeNode node = this.tvDbObjects.SelectedNode;
+            var item = this.tvDbObjects.SelectItem;
 
-            if (node == null)
+            if (item == null)
             {
                 return;
             }
 
-            if (node.Tag is DatabaseObject && node.Parent != null && this.CanRefresh(node.Parent))
+            if (item.Tag is DatabaseObject && GetParentItem(item) != null && this.CanRefresh(GetParentItem(item)))
             {
-                string selectedName = node.Name;
+                string selectedName = item.Name;
 
-                TreeNode parentNode = node.Parent;
+                var parentItem = GetParentItem(item);
 
-                await this.LoadChildNodes(parentNode);
+                await this.LoadChildItems(parentItem);
 
-                foreach (TreeNode child in parentNode.Nodes)
+                foreach (var child in parentItem.Sub)
                 {
                     if (child.Name == selectedName)
                     {
-                        this.tvDbObjects.SelectedNode = child;
+                        this.tvDbObjects.SelectItem = child;
                         break;
                     }
                 }
 
-                this.tvDbObjects.SelectedNode = parentNode;
+                this.tvDbObjects.SelectItem = parentItem;
             }
-            else if (!(node.Tag is DatabaseObject) && this.CanRefresh(node))
+            else if (!(item.Tag is DatabaseObject) && this.CanRefresh(item))
             {
-                this.tvDbObjects.SelectedNode = node;
+                this.tvDbObjects.SelectItem = item;
 
-                await this.LoadChildNodes(node);
+                await this.LoadChildItems(item);
             }
         }
 
@@ -1399,7 +1395,7 @@ namespace DatabaseManager.Controls
 
             if (this.databaseType == DatabaseType.Oracle)
             {
-                schema = this.GetDatabaseNode(this.GetSelectedNode()).Name;
+                schema = this.GetDatabaseItem(this.GetSelectedItem()).Name;
             }
 
             frmDiagnose form = new frmDiagnose(databaseType, connectionInfo, schema);
@@ -1414,7 +1410,7 @@ namespace DatabaseManager.Controls
             {
                 DatabaseType = this.databaseType,
                 ConnectionInfo = this.GetCurrentConnectionInfo(),
-                Table = this.tvDbObjects.SelectedNode.Tag as Table
+                Table = this.tvDbObjects.SelectItem?.Tag as Table
             };
 
             form.OnFeedback += this.Feedback;
@@ -1424,19 +1420,19 @@ namespace DatabaseManager.Controls
 
         private void tsmiCompareSchema_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            this.CompareSchema(node);
+            this.CompareSchema(item);
         }
 
-        private void CompareSchema(TreeNode node)
+        private void CompareSchema(AntdUI.TreeItem item)
         {
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             frmSchemaCompare frmCompare = new frmSchemaCompare(this.databaseType, this.GetConnectionInfo(database.Name));
             frmCompare.ShowDialog();
@@ -1469,14 +1465,14 @@ namespace DatabaseManager.Controls
 
         private void tsmiViewDependency_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            var tag = node.Tag;
+            var tag = item.Tag;
             Database database = null;
 
             if (tag is Database)
@@ -1489,7 +1485,7 @@ namespace DatabaseManager.Controls
             }
             else if (tag is DatabaseObject dbObj)
             {
-                database = this.GetDatabaseNode(node).Tag as Database;
+                database = this.GetDatabaseItem(item).Tag as Database;
 
                 frmDbObjectDependency dbOjectDependency = new frmDbObjectDependency(this.databaseType, this.GetConnectionInfo(database.Name), dbObj);
 
@@ -1499,20 +1495,20 @@ namespace DatabaseManager.Controls
 
         private void tsmiCopyChildrenNames_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            if (node != null)
+            if (item != null)
             {
-                var dbObjects = node.Nodes.Cast<TreeNode>().Select(item => item.Tag as DatabaseObject);
+                var dbObjects = item.Sub.Select(subItem => subItem.Tag as DatabaseObject).Where(x => x != null);
 
-                bool showSchema = this.NeedShowSchema(node, dbObjects);
+                bool showSchema = this.NeedShowSchema(item, dbObjects);
 
-                var names = dbObjects.Select(item => (showSchema ? $"{item.Schema}.{item.Name}" : item.Name));
+                var names = dbObjects.Select(dbObj => (showSchema ? $"{dbObj.Schema}.{dbObj.Name}" : dbObj.Name));
 
                 string content = string.Join(Environment.NewLine, names);
 
@@ -1534,7 +1530,7 @@ namespace DatabaseManager.Controls
 
             if (this.databaseType == DatabaseType.Oracle)
             {
-                schema = this.GetDatabaseNode(this.GetSelectedNode()).Name;
+                schema = this.GetDatabaseItem(this.GetSelectedItem()).Name;
             }
 
             frmStatistic form = new frmStatistic(this.databaseType, connectionInfo, schema);
@@ -1551,11 +1547,11 @@ namespace DatabaseManager.Controls
 
         private void ExportData()
         {
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            DatabaseObject tableOrView = node.Tag as DatabaseObject;
+            DatabaseObject tableOrView = item.Tag as DatabaseObject;
 
-            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseNode(node).Name, true);
+            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseItem(item).Name, true);
 
             frmExportData frm = new frmExportData(dbInterpreter, tableOrView, null, false);
 
@@ -1571,34 +1567,32 @@ namespace DatabaseManager.Controls
 
         private void ImportData()
         {
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            Table table = node.Tag as Table;
+            Table table = item.Tag as Table;
 
-            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseNode(node).Name, true);
+            var dbInterpreter = this.GetDbInterpreter(this.GetDatabaseItem(item).Name, true);
 
             frmImportData frm = new frmImportData(dbInterpreter, table);
-
-            //frm.OnFeedback += this.Feedback;
 
             DialogResult result = frm.ShowDialog();
         }
 
         private void tsmiCompareData_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            this.CompareData(node);
+            this.CompareData(item);
         }
 
-        private void CompareData(TreeNode node)
+        private void CompareData(AntdUI.TreeItem item)
         {
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             frmDataCompare frm = new frmDataCompare(this.databaseType, this.GetConnectionInfo(database.Name));
             frm.ShowDialog();
@@ -1606,19 +1600,19 @@ namespace DatabaseManager.Controls
 
         private void tsmiGenerateColumnDocumentation_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            this.GenerateColumnDocumentation(node);
+            this.GenerateColumnDocumentation(item);
         }
 
-        private void GenerateColumnDocumentation(TreeNode node)
+        private void GenerateColumnDocumentation(AntdUI.TreeItem item)
         {
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             frmGenerateColumnDocumentation frm = new frmGenerateColumnDocumentation(this.databaseType, this.GetConnectionInfo(database.Name));
             frm.ShowDialog();
@@ -1626,14 +1620,14 @@ namespace DatabaseManager.Controls
 
         private void tsmiDatabaseDiagram_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             DbInterpreter dbInterpreter = this.GetDbInterpreter(database.Name, false, true);
 
@@ -1658,24 +1652,24 @@ namespace DatabaseManager.Controls
 
         public bool HasSelectedNode()
         {
-            return this.tvDbObjects.SelectedNode != null;
+            return this.tvDbObjects.SelectItem != null;
         }
 
         public void SelectNone()
         {
-            this.tvDbObjects.SelectedNode = null;
+            this.tvDbObjects.SelectItem = null;
         }
 
         private void tsmiIndexFragmentation_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             frmIndexFragmentation frm = new frmIndexFragmentation(this.GetDbInterpreter(database.Name, true, true));
             frm.Show();
@@ -1683,21 +1677,21 @@ namespace DatabaseManager.Controls
 
         private async void tsmiOptimize_Click(object sender, EventArgs e)
         {
-            if (!this.IsValidSelectedNode())
+            if (!this.IsValidSelectedItem())
             {
                 return;
             }
 
             var confirmResult = MessageBox.Show("Are you sure to optimize the database?", "Confirm", MessageBoxButtons.YesNo);
 
-            if(confirmResult != DialogResult.Yes)
+            if (confirmResult != DialogResult.Yes)
             {
                 return;
             }
 
-            TreeNode node = this.GetSelectedNode();
+            var item = this.GetSelectedItem();
 
-            Database database = node.Tag as Database;
+            Database database = item.Tag as Database;
 
             Optimizer optimizer = new Optimizer(this.GetDbInterpreter(database.Name, true, true));
 
@@ -1718,53 +1712,22 @@ namespace DatabaseManager.Controls
             }
         }
 
-        private void LoadImageList(ImageList imageList)
+        private void tsmiDisconnect_Click(object sender, EventArgs e)
         {
-            var imageNames = new string[]
+            if (!this.IsValidSelectedItem())
             {
-                "tree_Fake.png",
-                "tree_Database.png",
-                "tree_Folder.png",
-                "tree_TableForeignKey.png",
-                "tree_Procedure.png",
-                "tree_View.png",
-                "tree_TableIndex.png",
-                "tree_TablePrimaryKey.png",
-                "tree_Table.png",
-                "tree_TableConstraint.png",
-                "tree_TableTrigger.png",
-                "Loading.gif",
-                "tree_Function.png",
-                "tree_TableColumn.png",
-                "tree_UserDefinedType.png",
-                "tree_Sequence.png",
-                "tree_Function_Trigger.png"
-            };
-
-            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            var baseName = "DatabaseManager.Resources.";
-
-            imageList.Images.Clear();
-
-            foreach (var name in imageNames)
-            {
-                try
-                {
-                    var resourceName = baseName + name;
-                    using var stream = assembly.GetManifestResourceStream(resourceName);
-                    if (stream != null)
-                    {
-                        imageList.Images.Add(System.Drawing.Image.FromStream(stream));
-                    }
-                }
-                catch
-                {
-                }
+                return;
             }
 
-            for (int i = 0; i < imageList.Images.Count; i++)
+            var item = this.GetSelectedItem();
+
+            if (item.Tag is Database)
             {
-                imageList.Images.SetKeyName(i, imageNames[i].Replace(".png", "").Replace(".gif", ""));
+                if (MessageBox.Show("Are you sure to disconnect from this database?", "Confirm", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                {
+                    this.tvDbObjects.Items.Remove(item);
+                    FormEventCenter.OnDatabaseDisconnected?.Invoke(this.connectionInfo);
+                }
             }
         }
     }
