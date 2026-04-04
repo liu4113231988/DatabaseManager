@@ -65,6 +65,8 @@ namespace DatabaseManager.Controls
             tsmiEmptyDatabase = new System.Windows.Forms.ToolStripMenuItem();
             documentationToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             tsmiGenerateColumnDocumentation = new System.Windows.Forms.ToolStripMenuItem();
+            tsmiNewColumn = new System.Windows.Forms.ToolStripMenuItem();
+            tsmiModifyColumn = new System.Windows.Forms.ToolStripMenuItem();
             contextMenuStrip1.SuspendLayout();
             SuspendLayout();
 
@@ -82,7 +84,7 @@ namespace DatabaseManager.Controls
             tvDbObjects.IconRatio = 1.5F;
             tvDbObjects.ContextMenuStrip = contextMenuStrip1;
 
-            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiNewQuery, tsmiNewTable, tsmiNewView, tsmiNewFunction, tsmiNewProcedure, tsmiNewTrigger, tsmiAlter, tsmiDesign, tsmiRefresh, tsmiViewData, tsmiEditData, tsmiExportData, tsmiImportData, tsmiConvert, tsmiCompareSchema, tsmiCompareData, tsmiGenerateScripts, tsmiTranslate, tsmiCopy, tsmiDelete, tsmiDatabaseDiagram, tsmiViewDependency, tsmiCopyChildrenNames, tsmiMore, tsmiDisconnect });
+            contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] { tsmiNewQuery, tsmiNewTable, tsmiNewView, tsmiNewFunction, tsmiNewProcedure, tsmiNewTrigger, tsmiAlter, tsmiDesign, tsmiNewColumn, tsmiModifyColumn, tsmiRefresh, tsmiViewData, tsmiEditData, tsmiExportData, tsmiImportData, tsmiConvert, tsmiCompareSchema, tsmiCompareData, tsmiGenerateScripts, tsmiTranslate, tsmiCopy, tsmiDelete, tsmiDatabaseDiagram, tsmiViewDependency, tsmiCopyChildrenNames, tsmiMore, tsmiDisconnect });
             contextMenuStrip1.Name = "contextMenuStrip1";
             contextMenuStrip1.Size = new System.Drawing.Size(204, 532);
             contextMenuStrip1.Opening += contextMenuStrip1_Opening;
@@ -312,6 +314,16 @@ namespace DatabaseManager.Controls
             tsmiGenerateColumnDocumentation.Text = "Generate column documentation";
             tsmiGenerateColumnDocumentation.Click += tsmiGenerateColumnDocumentation_Click;
 
+            tsmiNewColumn.Name = "tsmiNewColumn";
+            tsmiNewColumn.Size = new System.Drawing.Size(203, 22);
+            tsmiNewColumn.Text = "New Column";
+            tsmiNewColumn.Click += tsmiNewColumn_Click;
+
+            tsmiModifyColumn.Name = "tsmiModifyColumn";
+            tsmiModifyColumn.Size = new System.Drawing.Size(203, 22);
+            tsmiModifyColumn.Text = "Modify Column";
+            tsmiModifyColumn.Click += tsmiModifyColumn_Click;
+
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 17F);
             AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             Controls.Add(tvDbObjects);
@@ -371,5 +383,7 @@ namespace DatabaseManager.Controls
         private System.Windows.Forms.ToolStripMenuItem tsmiAnalysis;
         private System.Windows.Forms.ToolStripMenuItem tsmiIndexFragmentation;
         private System.Windows.Forms.ToolStripMenuItem tsmiOptimize;
+        private System.Windows.Forms.ToolStripMenuItem tsmiNewColumn;
+        private System.Windows.Forms.ToolStripMenuItem tsmiModifyColumn;
     }
 }

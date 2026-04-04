@@ -4,6 +4,7 @@ using DatabaseManager.Core;
 using DatabaseManager.Model;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 
 namespace DatabaseManager.Helper
@@ -13,6 +14,8 @@ namespace DatabaseManager.Helper
         public static readonly string FakeNodeName = "_FakeNode_";
         public static DatabaseObjectType DefaultObjectType = DatabaseObjectType.Type | DatabaseObjectType.Sequence | DatabaseObjectType.Table
                                                            | DatabaseObjectType.View | DatabaseObjectType.Procedure | DatabaseObjectType.Function | DatabaseObjectType.Trigger;
+
+        private static Dictionary<string, Image> iconCache = new Dictionary<string, Image>();
 
         public static string GetFolderNameByDbObjectType(DatabaseObjectType databaseObjectType)
         {
@@ -41,13 +44,49 @@ namespace DatabaseManager.Helper
 
         public static string GetIconName(string name)
         {
-            return $"tree_{name}.png";
+            return $"tree_{name}";
+        }
+
+        public static Image GetIconFromResources(string iconName)
+        {
+            if (string.IsNullOrEmpty(iconName))
+            {
+                return null;
+            }
+
+            if (iconCache.ContainsKey(iconName))
+            {
+                return iconCache[iconName];
+            }
+
+            try
+            {
+                string resourceKey = GetIconName(iconName);
+                var image = (Image)Resources.ResourceManager.GetObject(resourceKey);
+                if (image != null)
+                {
+                    iconCache[iconName] = image;
+                    return image;
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
         }
 
         public static AntdUI.TreeItem CreateTreeItem(string name, string text, string iconKeyName)
         {
             var item = new AntdUI.TreeItem(text);
             item.Name = name;
+            
+            var icon = GetIconFromResources(iconKeyName);
+            if (icon != null)
+            {
+                item.Icon = icon;
+            }
+            
             return item;
         }
 

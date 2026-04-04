@@ -1,4 +1,4 @@
-﻿﻿using DatabaseConverter.Model;
+﻿﻿﻿﻿﻿using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -193,16 +193,10 @@ namespace DatabaseManager.Controls
 
         private void contextMenuStrip1_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            var pos = this.tvDbObjects.PointToClient(Cursor.Position);
-            var treeItem = this.tvDbObjects.HitTest(pos.X, pos.Y, out _);
-            if (treeItem != null)
+            var item = this.tvDbObjects.SelectItem;
+            if (item != null)
             {
-                this.tvDbObjects.SelectItem = treeItem;
-                this.SetMenuItemVisible(treeItem);
-            }
-            else
-            {
-                e.Cancel = true;
+                this.SetMenuItemVisible(item);
             }
         }
 
@@ -218,6 +212,8 @@ namespace DatabaseManager.Controls
             bool isFunction = item.Tag is Function;
             bool isTriggerFunction = isFunction && (item.Tag as Function).IsTriggerFunction;
             bool isProcedure = item.Tag is Procedure;
+            bool isColumn = item.Tag is TableColumn;
+            bool isColumnsFolder = item.Name == nameof(DbObjectTreeFolderType.Columns);
 
             this.tsmiNewQuery.Visible = isDatabase;
             this.tsmiNewTable.Visible = item.Name == nameof(DbObjectTreeFolderType.Tables) || isTable;
@@ -258,6 +254,9 @@ namespace DatabaseManager.Controls
             this.tsmiDisconnect.Visible = isDatabase;
 
             this.tsmiCopyChildrenNames.Visible = level == 1 && item.Sub.Count > 0 && (item.Sub[0].Tag != null);
+
+            this.tsmiNewColumn.Visible = isColumnsFolder;
+            this.tsmiModifyColumn.Visible = isColumn;
         }
 
         private ConnectionInfo GetConnectionInfo(string database)
@@ -1323,6 +1322,37 @@ namespace DatabaseManager.Controls
         private void tsmiDesign_Click(object sender, EventArgs e)
         {
             this.ShowContent(DatabaseObjectDisplayType.TableDesigner, false);
+        }
+
+        private void tsmiNewColumn_Click(object sender, EventArgs e)
+        {
+            this.ShowTableDesignerForColumns();
+        }
+
+        private void tsmiModifyColumn_Click(object sender, EventArgs e)
+        {
+            this.ShowTableDesignerForColumns();
+        }
+
+        private void ShowTableDesignerForColumns()
+        {
+            var item = this.tvDbObjects.SelectItem;
+            if (item == null)
+            {
+                return;
+            }
+
+            var tableItem = item;
+            while (tableItem != null && !(tableItem.Tag is Table))
+            {
+                tableItem = GetParentItem(tableItem);
+            }
+
+            if (tableItem != null)
+            {
+                this.tvDbObjects.SelectItem = tableItem;
+                this.ShowContent(DatabaseObjectDisplayType.TableDesigner, false);
+            }
         }
 
         private async void RefreshFolderNode()

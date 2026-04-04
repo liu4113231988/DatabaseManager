@@ -1,4 +1,4 @@
-﻿﻿namespace DatabaseManager.Controls
+﻿﻿﻿﻿namespace DatabaseManager.Controls
 {
     partial class UC_DbObjectsSimpleTree
     {
