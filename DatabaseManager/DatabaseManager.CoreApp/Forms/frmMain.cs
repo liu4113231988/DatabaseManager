@@ -1,4 +1,4 @@
-﻿using DatabaseInterpreter.Model;
+using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Controls;
 using DatabaseManager.Core;
@@ -595,7 +595,11 @@ namespace DatabaseManager.Forms
 
         private void tsmiObjectsExplorer_Click(object sender, EventArgs e)
         {
-            this.explorerForm.Show(this.dockPanelMain);
+            if (!this.explorerForm.IsDisposed)
+            {
+                this.explorerForm.Show(this.dockPanelMain, DockState.DockLeft);
+                this.explorerForm.Activate();
+            }
         }
 
 
