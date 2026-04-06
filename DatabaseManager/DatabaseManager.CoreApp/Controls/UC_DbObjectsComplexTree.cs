@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿using DatabaseConverter.Model;
+﻿﻿﻿using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -63,6 +63,8 @@ namespace DatabaseManager.Controls
             {
                 this.Feedback("");
             };
+
+            tvDbObjects.NodeMouseDoubleClick += tvDbObjects_NodeMouseDoubleClick;
         }
 
         public async Task LoadTree(DatabaseType dbType, ConnectionInfo connectionInfo)
@@ -1324,17 +1326,41 @@ namespace DatabaseManager.Controls
             this.ShowContent(DatabaseObjectDisplayType.TableDesigner, false);
         }
 
+        private void tvDbObjects_NodeMouseDoubleClick(object sender, EventArgs e)
+        {
+            var item = this.tvDbObjects.SelectItem;
+            if (item == null || item.Tag == null) return;
+
+            bool isTable = item.Tag is Table;
+            bool isView = item.Tag is View;
+            bool isProcedure = item.Tag is Procedure;
+            bool isFunction = item.Tag is Function;
+
+            if (isTable || isView)
+            {
+                this.ShowContent(DatabaseObjectDisplayType.ViewData, false);
+            }
+            else if (isFunction || isProcedure)
+            {
+                this.DoScript(item.Tag is Function ? DatabaseObjectType.Function : DatabaseObjectType.Procedure, ScriptAction.CREATE);
+            }
+            else if (item.Tag is TableTrigger)
+            {
+                this.tsmiAlter_Click(sender, e);
+            }
+        }
+
         private void tsmiNewColumn_Click(object sender, EventArgs e)
         {
-            this.ShowTableDesignerForColumns();
+            this.ShowTableDesignerForColumns(isModifyColumn: false);
         }
 
         private void tsmiModifyColumn_Click(object sender, EventArgs e)
         {
-            this.ShowTableDesignerForColumns();
+            this.ShowTableDesignerForColumns(isModifyColumn: true);
         }
 
-        private void ShowTableDesignerForColumns()
+        private void ShowTableDesignerForColumns(bool isModifyColumn)
         {
             var item = this.tvDbObjects.SelectItem;
             if (item == null)
@@ -1351,7 +1377,35 @@ namespace DatabaseManager.Controls
             if (tableItem != null)
             {
                 this.tvDbObjects.SelectItem = tableItem;
-                this.ShowContent(DatabaseObjectDisplayType.TableDesigner, false);
+
+                DatabaseObjectDisplayInfo info = new DatabaseObjectDisplayInfo()
+                {
+                    IsNew = false,
+                    DisplayType = DatabaseObjectDisplayType.TableDesigner,
+                    DatabaseType = this.DatabaseType,
+                    ConnectionInfo = this.GetCurrentConnectionInfo()
+                };
+
+                Table table = tableItem.Tag as Table;
+                if (table == null)
+                {
+                    return;
+                }
+
+                info.DatabaseObject = table;
+                info.Schema = table.Schema;
+                info.Name = table.Name;
+
+                if (isModifyColumn && item.Tag is TableColumn column)
+                {
+                    info.Content = $"MODIFY_COLUMN:{column.Name}";
+                }
+                else
+                {
+                    info.Content = "NEW_COLUMN";
+                }
+
+                this.ShowContent(info);
             }
         }
 
