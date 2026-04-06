@@ -65,6 +65,36 @@ namespace DatabaseManager.Controls
             };
 
             tvDbObjects.NodeMouseDoubleClick += tvDbObjects_NodeMouseDoubleClick;
+            tvDbObjects.KeyDown += TvDbObjects_KeyDown;
+        }
+
+        private void TvDbObjects_KeyDown(object sender, KeyEventArgs e)
+        {
+            switch (e.KeyCode)
+            {
+                case Keys.F5:
+                    this.RefreshFolderNode();
+                    break;
+                case Keys.Delete:
+                    if (this.CanDelete(this.tvDbObjects.SelectItem))
+                    {
+                        this.tsmiDelete_Click(sender, e);
+                    }
+                    break;
+                case Keys.F2:
+                    break;
+                case Keys.Enter:
+                    this.tvDbObjects_NodeMouseDoubleClick(sender, e);
+                    break;
+                case Keys.Control | Keys.C:
+                    var item = this.tvDbObjects.SelectItem;
+                    if (item != null)
+                    {
+                        Clipboard.SetText(item.Text);
+                        this.Feedback($"Copied: {item.Text}");
+                    }
+                    break;
+            }
         }
 
         public async Task LoadTree(DatabaseType dbType, ConnectionInfo connectionInfo)

@@ -70,6 +70,9 @@ namespace DatabaseManager.Controls
             contextMenuStrip1.SuspendLayout();
             SuspendLayout();
 
+            // 
+            // tvDbObjects
+            // 
             tvDbObjects.Dock = System.Windows.Forms.DockStyle.Fill;
             tvDbObjects.Location = new System.Drawing.Point(0, 0);
             tvDbObjects.Name = "tvDbObjects";
