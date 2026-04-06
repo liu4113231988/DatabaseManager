@@ -1,4 +1,4 @@
-﻿﻿﻿using DatabaseConverter.Model;
+using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -29,6 +29,8 @@ namespace DatabaseManager.Controls
     {
         private DatabaseType databaseType;
         private ConnectionInfo connectionInfo;
+        private List<AccessHistoryItem> accessHistory = new List<AccessHistoryItem>();
+        private const int MaxHistoryCount = 20;
         private DbInterpreterOption simpleInterpreterOption = new DbInterpreterOption() { ObjectFetchMode = DatabaseObjectFetchMode.Simple, ThrowExceptionWhenErrorOccurs = true };
 
         public ShowDbObjectContentHandler OnShowContent;
@@ -65,36 +67,6 @@ namespace DatabaseManager.Controls
             };
 
             tvDbObjects.NodeMouseDoubleClick += tvDbObjects_NodeMouseDoubleClick;
-            tvDbObjects.KeyDown += TvDbObjects_KeyDown;
-        }
-
-        private void TvDbObjects_KeyDown(object sender, KeyEventArgs e)
-        {
-            switch (e.KeyCode)
-            {
-                case Keys.F5:
-                    this.RefreshFolderNode();
-                    break;
-                case Keys.Delete:
-                    if (this.CanDelete(this.tvDbObjects.SelectItem))
-                    {
-                        this.tsmiDelete_Click(sender, e);
-                    }
-                    break;
-                case Keys.F2:
-                    break;
-                case Keys.Enter:
-                    this.tvDbObjects_NodeMouseDoubleClick(sender, e);
-                    break;
-                case Keys.Control | Keys.C:
-                    var item = this.tvDbObjects.SelectItem;
-                    if (item != null)
-                    {
-                        Clipboard.SetText(item.Text);
-                        this.Feedback($"Copied: {item.Text}");
-                    }
-                    break;
-            }
         }
 
         public async Task LoadTree(DatabaseType dbType, ConnectionInfo connectionInfo)
@@ -289,6 +261,11 @@ namespace DatabaseManager.Controls
 
             this.tsmiNewColumn.Visible = isColumnsFolder;
             this.tsmiModifyColumn.Visible = isColumn;
+
+            bool canRename = isTable || isView || isFunction || isProcedure || isColumn;
+            this.tsmiRename.Visible = canRename;
+            this.tsmiProperties.Visible = item.Tag != null;
+            this.tsmiHistory.Visible = isDatabase && accessHistory.Count > 0;
         }
 
         private ConnectionInfo GetConnectionInfo(string database)
@@ -952,6 +929,14 @@ namespace DatabaseManager.Controls
             {
                 this.DeleteItem();
             }
+            else if (e.KeyCode == Keys.F2)
+            {
+                this.tsmiRename_Click(sender, e);
+            }
+            else if (e.KeyCode == Keys.Enter)
+            {
+                this.tvDbObjects_NodeMouseDoubleClick(sender, e);
+            }
 
             if (e.Control)
             {
@@ -1360,6 +1345,8 @@ namespace DatabaseManager.Controls
         {
             var item = this.tvDbObjects.SelectItem;
             if (item == null || item.Tag == null) return;
+
+            this.RecordAccess(item);
 
             bool isTable = item.Tag is Table;
             bool isView = item.Tag is View;
@@ -1844,5 +1831,218 @@ namespace DatabaseManager.Controls
                 }
             }
         }
+
+        #region 新增功能：重命名、属性窗口、历史记录
+
+        private async void tsmiRename_Click(object sender, EventArgs e)
+        {
+            var item = this.tvDbObjects.SelectItem;
+            if (item?.Tag == null) return;
+
+            string oldName = item.Text;
+            string newName = Microsoft.VisualBasic.Interaction.InputBox($"Rename {GetObjectTypeDisplayName(item.Tag)}:", "Rename Object", oldName);
+
+            if (string.IsNullOrEmpty(newName) || newName.Trim() == oldName) return;
+
+            newName = newName.Trim();
+
+            var confirmResult = MessageBox.Show(
+                $"Are you sure you want to rename '{oldName}' to '{newName}'?\n\nThis operation requires ALTER permission.",
+                "Confirm Rename",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (confirmResult != DialogResult.Yes) return;
+
+            try
+            {
+                await this.RenameDatabaseObject(item, oldName, newName);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to rename object: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private async Task RenameDatabaseObject(AntdUI.TreeItem item, string oldName, string newName)
+        {
+            string database = this.GetDatabaseItem(item).Name;
+            DbInterpreter dbInterpreter = this.GetDbInterpreter(database, true, true);
+            dbInterpreter.Subscribe(this);
+
+            var scriptGenerator = DbScriptGeneratorHelper.GetDbScriptGenerator(dbInterpreter);
+            Script renameScript = null;
+            string schema = null;
+
+            if (item.Tag is Table table)
+            {
+                schema = table.Schema;
+                renameScript = scriptGenerator.RenameTable(new Table { Schema = schema, Name = oldName }, newName);
+            }
+            else if (item.Tag is View view)
+            {
+                schema = view.Schema;
+                renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "VIEW");
+            }
+            else if (item.Tag is Function func)
+            {
+                schema = func.Schema;
+                renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "FUNCTION");
+            }
+            else if (item.Tag is Procedure proc)
+            {
+                schema = proc.Schema;
+                renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "PROCEDURE");
+            }
+            else if (item.Tag is TableColumn column)
+            {
+                var tableItem = GetParentItem(item);
+                if (tableItem?.Tag is Table parentTable)
+                {
+                    schema = parentTable.Schema;
+                    renameScript = scriptGenerator.RenameTableColumn(parentTable, new TableColumn { Name = oldName }, newName);
+                }
+            }
+
+            if (renameScript == null)
+            {
+                MessageBox.Show("Rename is not supported for this object type.", "Not Supported", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            using (var connection = dbInterpreter.CreateConnection())
+            {
+                await connection.OpenAsync();
+                var commandInfo = new CommandInfo { CommandText = renameScript.Content };
+                await dbInterpreter.ExecuteNonQueryAsync(connection, commandInfo);
+            }
+
+            if (item.Tag is DatabaseObject dbObj)
+            {
+                dbObj.Name = newName;
+            }
+
+            item.Text = newName;
+            item.Name = newName;
+
+            MessageBox.Show($"Successfully renamed to '{newName}'.", "Rename Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private Script GenerateRenameScript(DbInterpreter dbInterpreter, string schema, string oldName, string newName, string objectType)
+        {
+            string fullOldName = dbInterpreter.GetQuotedString($"{schema}.{oldName}");
+            string script = $"EXEC sp_rename {fullOldName}, '{newName}', '{objectType}'";
+            return new Script { Content = script };
+        }
+
+        private void tsmiProperties_Click(object sender, EventArgs e)
+        {
+            var item = this.tvDbObjects.SelectItem;
+            if (item?.Tag == null) return;
+
+            string info = $"Object: {item.Text}\nType: {GetObjectTypeDisplayName(item.Tag)}\nPath: {BuildPath(item)}\n\n";
+
+            if (item.Tag is Table table)
+                info += $"Schema: {table.Schema}";
+            else if (item.Tag is View view)
+                info += $"Schema: {view.Schema}";
+            else if (item.Tag is TableColumn col)
+                info += $"Data Type: {col.DataType}\nNullable: {col.IsNullable}\nDefault: {col.DefaultValue}";
+            
+            MessageBox.Show(info, "Object Properties", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void tsmiHistory_Click(object sender, EventArgs e)
+        {
+            if (this.accessHistory.Count == 0)
+            {
+                MessageBox.Show("No access history recorded.", "Recent History", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string historyText = "Recent Access History:\n\n" + string.Join("\n",
+                this.accessHistory.Select((h, i) => $"{i + 1}. [{h.AccessTime:HH:mm:ss}] {h.ObjectType}: {h.ObjectName}").Take(20));
+
+            MessageBox.Show(historyText, "Recent History", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private AntdUI.TreeItem FindNodeByName(string path)
+        {
+            foreach (var root in this.tvDbObjects.Items)
+            {
+                var found = FindNodeRecursive(root, path);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private AntdUI.TreeItem FindNodeRecursive(AntdUI.TreeItem node, string path)
+        {
+            if (node.Text == path || BuildPath(node) == path) return node;
+
+            foreach (var child in node.Sub)
+            {
+                var found = FindNodeRecursive(child, path);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        private string BuildPath(AntdUI.TreeItem node)
+        {
+            List<string> parts = new List<string>();
+            var current = node;
+            while (current != null)
+            {
+                parts.Insert(0, current.Text);
+                current = GetParentItem(current);
+            }
+            return string.Join(" > ", parts);
+        }
+
+        public void RecordAccess(AntdUI.TreeItem item)
+        {
+            if (item?.Tag == null) return;
+
+            AccessHistoryItem historyItem = new AccessHistoryItem
+            {
+                ObjectName = item.Text,
+                ObjectType = GetObjectTypeDisplayName(item.Tag),
+                ObjectPath = BuildPath(item),
+                AccessTime = DateTime.Now
+            };
+
+            accessHistory.RemoveAll(h => h.ObjectPath == historyItem.ObjectPath);
+            accessHistory.Insert(0, historyItem);
+
+            if (accessHistory.Count > MaxHistoryCount)
+            {
+                accessHistory.RemoveAt(accessHistory.Count - 1);
+            }
+        }
+
+        private string GetObjectTypeDisplayName(object obj)
+        {
+            switch (obj)
+            {
+                case Table _: return "Table";
+                case View _: return "View";
+                case Function _: return "Function";
+                case Procedure _: return "Procedure";
+                case TableColumn _: return "Column";
+                case TableTrigger _: return "Trigger";
+                default: return obj.GetType().Name;
+            }
+        }
+
+        #endregion
+    }
+
+    public class AccessHistoryItem
+    {
+        public string ObjectName { get; set; }
+        public string ObjectType { get; set; }
+        public string ObjectPath { get; set; }
+        public DateTime AccessTime { get; set; }
     }
 }
