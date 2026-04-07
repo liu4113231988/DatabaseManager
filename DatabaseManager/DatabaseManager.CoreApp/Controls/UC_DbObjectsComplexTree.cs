@@ -262,7 +262,7 @@ namespace DatabaseManager.Controls
             this.tsmiNewColumn.Visible = isColumnsFolder;
             this.tsmiModifyColumn.Visible = isColumn;
 
-            bool canRename = isTable || isView || isFunction || isProcedure || isColumn;
+            bool canRename = (isTable || isView || isFunction || isProcedure || isColumn) && this.databaseType == DatabaseType.SqlServer;
             this.tsmiRename.Visible = canRename;
             this.tsmiProperties.Visible = item.Tag != null;
             this.tsmiHistory.Visible = isDatabase && accessHistory.Count > 0;
@@ -1931,7 +1931,8 @@ namespace DatabaseManager.Controls
         private Script GenerateRenameScript(DbInterpreter dbInterpreter, string schema, string oldName, string newName, string objectType)
         {
             string fullOldName = dbInterpreter.GetQuotedString($"{schema}.{oldName}");
-            string script = $"EXEC sp_rename {fullOldName}, '{newName}', '{objectType}'";
+            string quotedNewName = dbInterpreter.GetQuotedString(newName);
+            string script = $"EXEC sp_rename {fullOldName}, {quotedNewName}, '{objectType}'";
             return new Script { Content = script };
         }
 
