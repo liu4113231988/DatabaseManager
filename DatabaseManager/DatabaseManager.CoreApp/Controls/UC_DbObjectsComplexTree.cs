@@ -262,7 +262,9 @@ namespace DatabaseManager.Controls
             this.tsmiNewColumn.Visible = isColumnsFolder;
             this.tsmiModifyColumn.Visible = isColumn;
 
-            bool canRename = (isTable || isView || isFunction || isProcedure || isColumn) && this.databaseType == DatabaseType.SqlServer;
+            bool canRenameTableOrColumn = (isTable || isColumn);
+            bool canRenameViewOrRoutine = (isView || isFunction || isProcedure) && this.databaseType == DatabaseType.SqlServer;
+            bool canRename = canRenameTableOrColumn || canRenameViewOrRoutine;
             this.tsmiRename.Visible = canRename;
             this.tsmiProperties.Visible = item.Tag != null;
             this.tsmiHistory.Visible = isDatabase && accessHistory.Count > 0;
@@ -1882,16 +1884,31 @@ namespace DatabaseManager.Controls
             else if (item.Tag is View view)
             {
                 schema = view.Schema;
+                if (this.databaseType != DatabaseType.SqlServer)
+                {
+                    MessageBox.Show("Rename is only supported for SQL Server databases.", "Not Supported", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "VIEW");
             }
             else if (item.Tag is Function func)
             {
                 schema = func.Schema;
+                if (this.databaseType != DatabaseType.SqlServer)
+                {
+                    MessageBox.Show("Rename is only supported for SQL Server databases.", "Not Supported", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "FUNCTION");
             }
             else if (item.Tag is Procedure proc)
             {
                 schema = proc.Schema;
+                if (this.databaseType != DatabaseType.SqlServer)
+                {
+                    MessageBox.Show("Rename is only supported for SQL Server databases.", "Not Supported", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 renameScript = GenerateRenameScript(dbInterpreter, schema, oldName, newName, "PROCEDURE");
             }
             else if (item.Tag is TableColumn column)
