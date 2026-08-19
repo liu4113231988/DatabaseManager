@@ -152,17 +152,21 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 
 ### 阶段 0：环境与骨架（1-2 天） — 里程碑 M0：跨平台空窗口
 
+> ✅ **本 PR 已完成**（`DatabaseManager.Avalonia` 目录，详见 [docs/migration-progress.md](../DatabaseManager.Avalonia/docs/migration-progress.md)）
+
 **任务**
-- [ ] 安装模板：`dotnet new install Avalonia.Templates`
-- [ ] 新建 `DatabaseManager.Avalonia.sln`，创建 `DatabaseManager.AppCore`（`net8.0`）与 `DatabaseManager.Avalonia`（`net8.0`）项目
-- [ ] 添加核心库 `ProjectReference`（Interpreter / Converter / Core / FileUtility / Profile）
-- [ ] 引入 NuGet：`CommunityToolkit.Mvvm`、`Microsoft.Extensions.DependencyInjection`、`AtomUI`、`Ursa.Avalonia`、`Dock`、`AvaloniaEdit`、`OxyPlot.Avalonia`、`MessageBox.Avalonia`、`Icons.Avalonia.FontAwesome`
-- [ ] 配置 `Program.cs`（Avalonia AppBuilder + DI 容器 + 主题）
-- [ ] 建立 MVVM 基类（`ViewModelBase`）、`IDbConnectionService` 等空接口、服务注册
-- [ ] 基础 `MainWindow`（含 `Dock` 布局骨架，空停靠区）
+- [x] 安装模板：`dotnet new install Avalonia.Templates`
+- [x] 新建 `DatabaseManager.Avalonia.sln`，创建 `DatabaseManager.AppCore`（`net8.0`）与 `DatabaseManager.Avalonia`（`net8.0`）项目
+- [x] 添加核心库 `ProjectReference`（Interpreter / Converter / Core / FileUtility / Profile）
+- [x] 引入 NuGet：`CommunityToolkit.Mvvm`、`Microsoft.Extensions.DependencyInjection`、`AtomUI`、`Dock`、`MessageBox.Avalonia`（`Ursa.Avalonia`/`AvaloniaEdit`/`OxyPlot`/`Icons` 按阶段计划后续接入）
+- [x] 配置 `Program.cs`（Avalonia AppBuilder + DI 容器 + 主题）
+- [x] 建立 MVVM 基类（`ViewModelBase`）、`IDbConnectionService` 等空接口、服务注册
+- [x] 基础 `MainWindow`（现代三栏布局骨架；Dock 停靠完整接入在阶段 1）
 - [ ] **验收**：三平台（Win/Linux/macOS）可启动空窗口；`AppCore` 能调用核心库完成一次 `DatabaseType` 枚举
 
-**风险与应对**：AtomUI 与 Ursa 版本兼容性 → 在 MVP 阶段锁定版本组合并记录到 `docs/package-versions.md`。
+> 验收说明：`AppCore` 已在 Linux 环境验证可枚举 `DatabaseType`（SqlServer/MySql/Oracle/Postgres/Sqlite）；三平台 GUI 启动需在对应 OS 上验证。
+
+**风险与应对**：AtomUI 与 Ursa 版本兼容性 → 已在 MVP 阶段锁定版本组合并记录到 [`docs/package-versions.md`](../DatabaseManager.Avalonia/docs/package-versions.md)。
 
 ---
 

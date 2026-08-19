@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Avalonia 11.3.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 11） -->
+    <PackageReference Include="Avalonia" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+
+    <!-- MVVM / DI -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+
+    <!-- 主题：AtomUI（Ant Design 风格，对齐原 AntdUI 视觉） -->
+    <PackageReference Include="AtomUI" Version="5.0.2" />
+
+    <!-- 停靠布局：Dock -->
+    <PackageReference Include="Dock.Avalonia" Version="11.3.12.1" />
+
+    <!-- 消息框 -->
+    <PackageReference Include="MessageBox.Avalonia" Version="3.3.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AppCore 业务层（UI 无关） -->
+    <ProjectReference Include="..\DatabaseManager.AppCore\DatabaseManager.AppCore.csproj" />
+  </ItemGroup>
+
+</Project>

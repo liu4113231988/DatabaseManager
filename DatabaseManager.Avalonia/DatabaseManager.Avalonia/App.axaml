@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DatabaseManager.Avalonia.App"
+             xmlns:local="using:DatabaseManager.Avalonia"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.DataTemplates>
+        <local:ViewLocator />
+    </Application.DataTemplates>
+
+    <Application.Styles>
+        <!-- 基础主题；AtomUI 在 App.OnFrameworkInitializationCompleted 中通过 UseAtomUI 覆盖为 Ant Design 风格 -->
+        <FluentTheme />
+    </Application.Styles>
+
+</Application>

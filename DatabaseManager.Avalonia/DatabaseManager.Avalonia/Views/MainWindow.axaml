@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
+        x:Class="DatabaseManager.Avalonia.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="DatabaseManager (Avalonia)"
+        Width="1200" Height="750"
+        WindowStartupLocation="CenterScreen">
+
+    <!-- 阶段 0 主框架骨架：现代三栏布局（左：对象树；中：内容区；下：结果区）
+         阶段 1 将替换为 Dock 停靠布局。 -->
+    <DockPanel>
+        <Grid DockPanel.Dock="Top">
+            <TextBlock Text="DatabaseManager" FontSize="16" FontWeight="Bold"
+                       VerticalAlignment="Center" Margin="12,6" />
+        </Grid>
+
+        <Grid DockPanel.Dock="Bottom">
+            <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,4" />
+        </Grid>
+
+        <!-- 左：对象树区 -->
+        <Border DockPanel.Dock="Left" Width="280" BorderBrush="#33000000" BorderThickness="0,0,1,0">
+            <TextBlock Text="对象浏览器（阶段 1 接入 Dock）" VerticalAlignment="Top" Margin="12" />
+        </Border>
+
+        <!-- 中：内容区 -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="220" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Margin="8">
+                <TextBlock Text="{Binding SupportedDatabases}"
+                           TextWrapping="Wrap"
+                           VerticalAlignment="Center"
+                           HorizontalAlignment="Center" />
+            </Border>
+
+            <GridSplitter Grid.Row="1" Height="4" Background="#22000000" />
+
+            <Border Grid.Row="2" Margin="8" BorderBrush="#22000000" BorderThickness="1">
+                <TextBlock Text="结果区" VerticalAlignment="Top" Margin="8" />
+            </Border>
+        </Grid>
+    </DockPanel>
+
+</Window>

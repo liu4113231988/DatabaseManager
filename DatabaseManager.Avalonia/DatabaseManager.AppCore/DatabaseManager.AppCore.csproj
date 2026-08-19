@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DatabaseManager.AppCore</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 复用原 WinForms 版本的核心引擎（零 UI 依赖） -->
+    <ProjectReference Include="..\..\DatabaseInterpreter\DatabaseInterpreter.Core\DatabaseInterpreter.Core.csproj" />
+    <ProjectReference Include="..\..\DatabaseInterpreter\DatabaseInterpreter.Model\DatabaseInterpreter.Model.csproj" />
+    <ProjectReference Include="..\..\DatabaseInterpreter\DatabaseInterpreter.Utility\DatabaseInterpreter.Utility.csproj" />
+    <ProjectReference Include="..\..\DatabaseConverter\DatabaseConverter.Core\DatabaseConverter.Core.csproj" />
+    <ProjectReference Include="..\..\DatabaseManager\DatabaseManager.Core\DatabaseManager.Core.csproj" />
+    <ProjectReference Include="..\..\DatabaseManager\DatabaseManager.FileUtility\DatabaseManager.FileUtility.csproj" />
+    <ProjectReference Include="..\..\DatabaseManager\DatabaseManager.Profile\DatabaseManager.Profile.csproj" />
+  </ItemGroup>
+
+</Project>
