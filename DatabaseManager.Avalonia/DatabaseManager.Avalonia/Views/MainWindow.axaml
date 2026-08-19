@@ -1,6 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
@@ -11,24 +13,46 @@
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen">
 
-    <!-- 阶段 0 主框架骨架：现代三栏布局（左：对象树；中：内容区；下：结果区）
-         阶段 1 将替换为 Dock 停靠布局。 -->
     <DockPanel>
-        <Grid DockPanel.Dock="Top">
-            <TextBlock Text="DatabaseManager" FontSize="16" FontWeight="Bold"
-                       VerticalAlignment="Center" Margin="12,6" />
+
+        <!-- 顶部标题栏 -->
+        <Grid DockPanel.Dock="Top" Height="36" Background="#1A000000">
+            <TextBlock Text="DatabaseManager" FontSize="15" FontWeight="Bold"
+                       VerticalAlignment="Center" Margin="12,0" />
         </Grid>
 
-        <Grid DockPanel.Dock="Bottom">
-            <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,4" />
-        </Grid>
+        <!-- 菜单栏 -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="文件">
+                <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
+                <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
+                <Separator />
+                <MenuItem Header="退出" Click="MenuExit_Click" />
+            </MenuItem>
+            <MenuItem Header="连接">
+                <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
+                <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
+            </MenuItem>
+            <MenuItem Header="视图">
+                <MenuItem Header="刷新" IsEnabled="False" />
+            </MenuItem>
+            <MenuItem Header="帮助">
+                <MenuItem Header="关于" IsEnabled="False" />
+            </MenuItem>
+        </Menu>
 
-        <!-- 左：对象树区 -->
-        <Border DockPanel.Dock="Left" Width="280" BorderBrush="#33000000" BorderThickness="0,0,1,0">
-            <TextBlock Text="对象浏览器（阶段 1 接入 Dock）" VerticalAlignment="Top" Margin="12" />
+        <!-- 工具栏 -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="12,8">
+            <atom:Button Content="新建连接" ButtonType="Primary" Click="MenuNewConnection_Click" />
+            <atom:Button Content="连接管理" Click="MenuConnectionManager_Click" />
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <Border DockPanel.Dock="Bottom" Height="26" Background="#1A000000">
+            <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,0" />
         </Border>
 
-        <!-- 中：内容区 -->
+        <!-- 主内容三栏：左对象树 / 中内容区 / 下结果区 -->
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
@@ -36,17 +60,49 @@
                 <RowDefinition Height="220" />
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Margin="8">
-                <TextBlock Text="{Binding SupportedDatabases}"
-                           TextWrapping="Wrap"
-                           VerticalAlignment="Center"
-                           HorizontalAlignment="Center" />
+            <!-- 左：对象浏览器（连接列表 + 数据库类型信息） -->
+            <Border Grid.Row="0" Width="300" HorizontalAlignment="Left"
+                    BorderBrush="#22000000" BorderThickness="0,0,1,0" Margin="0,0,0,4">
+                <DockPanel Margin="8">
+                    <TextBlock DockPanel.Dock="Top" Text="对象浏览器" FontWeight="Bold" Margin="4,4,4,8" />
+                    <TextBlock DockPanel.Dock="Top" Text="{Binding SupportedDatabases}"
+                               FontSize="11" Opacity="0.6" Margin="4,0,4,8" TextWrapping="Wrap" />
+                    <ListBox ItemsSource="{Binding Connections}"
+                             SelectedItem="{Binding SelectedConnection}"
+                             Margin="4">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:ConnectionItem">
+                                <StackPanel Spacing="2" Margin="2">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Description}" FontSize="11" Opacity="0.6" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
             </Border>
+
+            <!-- 中：内容区（Tab 容器，为阶段 2 查询/表设计预留） -->
+            <Grid Grid.Row="0" Margin="8,0,8,4">
+                <TabControl>
+                    <TabItem Header="欢迎">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                            <TextBlock Text="DatabaseManager (Avalonia)"
+                                       FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding SupportedDatabases}"
+                                       TextWrapping="Wrap" HorizontalAlignment="Center" Opacity="0.7" />
+                            <TextBlock Text="使用顶部菜单或工具栏新建 / 管理数据库连接。"
+                                       HorizontalAlignment="Center" Opacity="0.7" />
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Grid>
 
             <GridSplitter Grid.Row="1" Height="4" Background="#22000000" />
 
-            <Border Grid.Row="2" Margin="8" BorderBrush="#22000000" BorderThickness="1">
-                <TextBlock Text="结果区" VerticalAlignment="Top" Margin="8" />
+            <!-- 下：结果区 -->
+            <Border Grid.Row="2" Margin="8,4,8,8" BorderBrush="#22000000" BorderThickness="1">
+                <TextBlock Text="结果区" VerticalAlignment="Top" Margin="8" Opacity="0.7" />
             </Border>
         </Grid>
     </DockPanel>

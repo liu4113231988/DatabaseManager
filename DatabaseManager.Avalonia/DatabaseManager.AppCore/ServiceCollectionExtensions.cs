@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
+        services.AddTransient<ConnectionManagerViewModel>();
 
         return services;
     }

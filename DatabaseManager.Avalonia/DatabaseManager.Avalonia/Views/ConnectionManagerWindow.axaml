@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.ConnectionManagerWindow"
+        x:DataType="vm:ConnectionManagerViewModel"
+        Title="连接管理"
+        Width="760" Height="520"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部工具栏 -->
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto"
+              Margin="0,0,0,10">
+            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="数据库类型" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboDatabaseType" Width="160" MinWidth="160"
+                               SelectionChanged="ComboDatabaseType_SelectionChanged" />
+            </StackPanel>
+
+            <atom:Button Grid.Column="3" Content="刷新" Margin="6,0,0,0"
+                         Click="BtnRefresh_Click" />
+            <atom:Button Grid.Column="4" Content="新增" ButtonType="Primary" Margin="6,0,0,0"
+                         Click="BtnAdd_Click" />
+            <atom:Button Grid.Column="5" Content="编辑" Margin="6,0,0,0"
+                         Click="BtnEdit_Click" />
+            <atom:Button Grid.Column="6" Content="删除" Margin="6,0,0,0"
+                         Click="BtnDelete_Click" />
+        </Grid>
+
+        <!-- 连接列表 -->
+        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,10">
+            <ListBox x:Name="ConnectionList" ItemsSource="{Binding Connections}"
+                     SelectedItem="{Binding SelectedConnection}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:ConnectionItem">
+                        <StackPanel Spacing="2" Margin="4">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Description}" FontSize="12" Opacity="0.7" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.7" />
+
+        <!-- 底部按钮 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <atom:Button Content="关闭" Click="BtnClose_Click" />
+        </StackPanel>
+
+    </DockPanel>
+</Window>

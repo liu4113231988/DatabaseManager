@@ -173,10 +173,10 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 ### 阶段 1：连接管理 + 主框架（3-5 天） — 里程碑 M1：连接可用、布局停靠
 
 **任务**
-- [ ] `ConnectionManagerViewModel`：连接增删改查（复用 `DatabaseManager.Profile`）
-- [ ] 视图：`frmDbConnect`→`ConnectWindow`、`frmDbConnectionManage`→`ConnectionManagerWindow`、`UC_DbConnectionProfile`/`UC_DbAccountInfo`/`UC_FileConnectionInfo`→ `ConnectionProfileControl`
-- [ ] 主框架：`frmMain` 用 **Dock** 重建布局（左：对象树；中：内容区 Tab；下：输出/结果），保留原停靠体验
-- [ ] 菜单/工具栏：`MenuStrip`/`ToolStrip`→`Menu`/`ToolBar`（用 AtomUI 样式）
+- [x] `ConnectionManagerViewModel`：连接增删改查（复用 `DatabaseManager.Profile`）
+- [x] 视图：`frmDbConnect`→`ConnectWindow`、`frmDbConnectionManage`→`ConnectionManagerWindow`（`UC_DbAccountInfo` 等账号信息收敛进 `ConnectWindow`）
+- [ ] 主框架：`frmMain` 用 **Dock** 重建布局（左：对象树；中：内容区 Tab；下：输出/结果），保留原停靠体验（当前以三栏 `Grid`+`TabControl` 实现等价布局；完整拖拽/浮动 Dock 待实机接入）
+- [x] 菜单/工具栏：`MenuStrip`/`ToolStrip`→`Menu`/`ToolBar`（用 AtomUI 样式）
 - [ ] `frmSetting`→`SettingsWindow`（含数据源类型映射、可见性等设置项）
 - [ ] **验收**：可新建/管理多库连接（连接串/账号/SSH），主界面可拖拽停靠、切换主题
 
