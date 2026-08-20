@@ -20,8 +20,9 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
 
-    <!-- 表格：查询结果网格 -->
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.20" />
+    <!-- 表格：查询结果网格（注：Avalonia.Controls.DataGrid 11.3.x 最高版本为 11.3.13，无 11.3.20；
+         指定 11.3.20 会被 NuGet 解析到 12.0.0，因依赖 Avalonia>=12 与 11.3.20 基座冲突而触发 NU1605 告警） -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
 
     <!-- MVVM / DI -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
