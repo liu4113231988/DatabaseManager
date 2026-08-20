@@ -1,0 +1,196 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.TableDesignerWindow"
+        x:DataType="vm:TableDesignerViewModel"
+        Title="表设计器"
+        Width="920" Height="640"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="10">
+
+        <!-- 顶部：表信息 + 工具栏 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <!-- 表信息行 -->
+            <Grid ColumnDefinitions="Auto,120,Auto,*,Auto,160,Auto,*,Auto,220">
+                <TextBlock Text="表名：" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding TableName}" VerticalContentAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Schema：" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBox Grid.Column="3" Text="{Binding Schema}" VerticalContentAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="注释：" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBox Grid.Column="5" Text="{Binding Comment}" VerticalContentAlignment="Center" />
+                <TextBlock Grid.Column="6" Text="数据库：" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBox Grid.Column="7" Text="{Binding DatabaseName}" VerticalContentAlignment="Center"
+                         IsReadOnly="True" />
+                <TextBlock Grid.Column="8" Text="状态：" Margin="12,0,0,0" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="9" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" Opacity="0.8" />
+            </Grid>
+
+            <!-- 工具栏 -->
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <atom:Button Content="＋ 新增列" Command="{Binding AddColumnCommand}" />
+                <Separator Margin="4,0" />
+                <atom:Button Content="👁 预览脚本" Command="{Binding GeneratePreviewCommand}" />
+                <atom:Button Content="✓ 保存结构" ButtonType="Primary" Command="{Binding SaveCommand}" />
+                <Separator Margin="4,0" />
+                <TextBlock Text="新建表：" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding IsNew}" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 底部：状态提示 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+            <atom:Button Content="关闭" HorizontalAlignment="Left" Click="BtnClose_Click" />
+            <TextBlock Text="提示：修改结构后点击「预览脚本」查看生成的 DDL，确认无误后点击「保存结构」执行。"
+                       VerticalAlignment="Center" Opacity="0.6" />
+        </StackPanel>
+
+        <!-- 主体：Tabs -->
+        <TabControl x:Name="DesignTabs">
+
+            <!-- 列 Tab -->
+            <TabItem Header="列 (Columns)">
+                <Grid RowDefinitions="*,Auto">
+                    <DataGrid Grid.Row="0"
+                              ItemsSource="{Binding Columns}"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="All"
+                              Margin="0,0,0,4">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="列名" Binding="{Binding Name}" Width="1*" />
+                            <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="1*" />
+                            <DataGridTextColumn Header="长度" Binding="{Binding MaxLength}" Width="0.6*" />
+                            <DataGridTextColumn Header="精度" Binding="{Binding Precision}" Width="0.6*" />
+                            <DataGridTextColumn Header="小数位" Binding="{Binding Scale}" Width="0.6*" />
+                            <DataGridCheckBoxColumn Header="可空" Binding="{Binding IsNullable}" Width="0.5*" />
+                            <DataGridCheckBoxColumn Header="自增" Binding="{Binding IsIdentity}" Width="0.5*" />
+                            <DataGridTextColumn Header="默认值" Binding="{Binding DefaultValue}" Width="1*" />
+                            <DataGridTextColumn Header="注释" Binding="{Binding Comment}" Width="1*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                        <atom:Button Content="新增列" Command="{Binding AddColumnCommand}" />
+                        <atom:Button Content="删除选中列" Click="BtnRemoveColumn_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 主键 Tab -->
+            <TabItem Header="主键 (Primary Key)">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                        <TextBlock Text="主键名称：" VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1" Text="{Binding PrimaryKey.Name}"
+                                 VerticalContentAlignment="Center" Margin="6,0,0,0" />
+                    </Grid>
+
+                    <Border Grid.Row="1" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,8">
+                        <ListBox x:Name="PkColumnList"
+                                 ItemsSource="{Binding PrimaryKey.Columns}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                        <atom:Button Content="＋ 添加主键列" Click="BtnPkAddColumn_Click" />
+                        <atom:Button Content="－ 移除选中列" Click="BtnPkRemoveColumn_Click" />
+                        <atom:Button Content="清除主键" Click="BtnPkClear_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 索引 Tab -->
+            <TabItem Header="索引 (Indexes)">
+                <Grid RowDefinitions="*,Auto">
+                    <DataGrid Grid.Row="0"
+                              ItemsSource="{Binding Indexes}"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="All"
+                              Margin="0,0,0,4">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="索引名" Binding="{Binding Name}" Width="1.5*" />
+                            <DataGridCheckBoxColumn Header="唯一" Binding="{Binding IsUnique}" Width="0.6*" />
+                            <DataGridTextColumn Header="列" Binding="{Binding ColumnsDisplay}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                        <atom:Button Content="新增索引" Command="{Binding AddIndexCommand}" />
+                        <atom:Button Content="删除选中" Click="BtnRemoveIndex_Click" />
+                        <TextBlock Text="（列以英文逗号分隔填写）" VerticalAlignment="Center" Opacity="0.6" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 外键 Tab -->
+            <TabItem Header="外键 (Foreign Keys)">
+                <Grid RowDefinitions="*,Auto">
+                    <DataGrid Grid.Row="0"
+                              ItemsSource="{Binding ForeignKeys}"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="All"
+                              Margin="0,0,0,4">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="外键名" Binding="{Binding Name}" Width="1.2*" />
+                            <DataGridTextColumn Header="引用表" Binding="{Binding ReferencedTableName}" Width="1.5*" />
+                            <DataGridCheckBoxColumn Header="更新级联" Binding="{Binding UpdateCascade}" Width="0.7*" />
+                            <DataGridCheckBoxColumn Header="删除级联" Binding="{Binding DeleteCascade}" Width="0.7*" />
+                            <DataGridTextColumn Header="列映射" Binding="{Binding ColumnsDisplay}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                        <atom:Button Content="新增外键" Command="{Binding AddForeignKeyCommand}" />
+                        <atom:Button Content="删除选中" Click="BtnRemoveForeignKey_Click" />
+                        <TextBlock Text="（列映射格式：本表列=引用列，多组用英文逗号分隔）"
+                                   VerticalAlignment="Center" Opacity="0.6" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 约束 Tab -->
+            <TabItem Header="约束 (Constraints)">
+                <Grid RowDefinitions="*,Auto">
+                    <DataGrid Grid.Row="0"
+                              ItemsSource="{Binding Constraints}"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="All"
+                              Margin="0,0,0,4">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="约束名" Binding="{Binding Name}" Width="1.5*" />
+                            <DataGridTextColumn Header="检查表达式" Binding="{Binding Definition}" Width="3*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="6">
+                        <atom:Button Content="新增约束" Command="{Binding AddConstraintCommand}" />
+                        <atom:Button Content="删除选中" Click="BtnRemoveConstraint_Click" />
+                        <TextBlock Text="（如：[Age]&gt;=0）" VerticalAlignment="Center" Opacity="0.6" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 脚本预览 Tab -->
+            <TabItem Header="脚本预览">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <TextBox Text="{Binding PreviewScript}"
+                             AcceptsReturn="True"
+                             TextWrapping="NoWrap"
+                             FontFamily="Consolas, monospace"
+                             IsReadOnly="True"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                </Border>
+            </TabItem>
+        </TabControl>
+
+    </DockPanel>
+</Window>

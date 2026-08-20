@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDbSchemaService, DefaultDbSchemaService>();
         services.AddSingleton<IQueryService, DefaultQueryService>();
         services.AddSingleton<IDataEditService, DefaultDataEditService>();
+        services.AddSingleton<ITableDesignService, DefaultTableDesignService>();
         services.AddSingleton<IConvertService, DefaultConvertService>();
         services.AddSingleton<IExportImportService, DefaultExportImportService>();
 
@@ -27,6 +28,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ObjectsExplorerViewModel>();
         services.AddTransient<QueryEditorViewModel>();
         services.AddTransient<DataEditorViewModel>();
+        services.AddTransient<TableDesignerViewModel>();
 
         return services;
     }
