@@ -11,7 +11,7 @@
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
-| 4 | 转换/对比/诊断 | 🚧 进行中（转换完成）/ 对比·诊断·优化待续 | M4 转换对比诊断 |
+| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比完成）/ 数据对比·诊断·优化待续 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
@@ -217,4 +217,33 @@
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 + 阶段4转换（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换）*
+## 阶段 4 第二步：结构对比（Schema Compare）✅
+
+> 阶段 4 第二步增量：完成**结构对比**（对应原 WinForms `frmSchemaCompare`），复用 `DatabaseManager.Core.SchemaCompare`。
+> 数据对比 / 诊断 / 优化 / 依赖分析留待后续迭代。
+
+### 1. 对比服务（AppCore）
+- `Services/ICompareService.cs` / `DefaultCompareService.cs`：
+  - `CompareSchemaAsync(source, target, databaseObjectType, onFeedback, ct)`：构建源/目标 `DbInterpreter`（Details 模式 + 按引用排序），读取两端 `SchemaInfo`，构造 `SchemaCompare` 执行结构差异对比。
+  - 将扁平的 `SchemaCompareDifference` 列表整理为可展示的差异树（按对象类型分组，Table 展开列/索引/主键/外键/约束/触发器子文件夹）。
+  - 校验：源/目标类型必须相同、数据库不能相同。
+
+### 2. 对比 ViewModel
+- `Models/SchemaCompareModels.cs`：`SchemaCompareItem` — 差异树节点（Text/变更类型/源目标名/详情/子节点）。
+- `ViewModels/SchemaCompareViewModel.cs`：源/目标连接选择、对象类型选择（表/视图/函数/存储过程/全部）、`ExecuteCommand`、差异树集合、日志与状态、选中差异详情。
+
+### 3. 对比 UI
+- `Converters/DiffColorConverter.cs`：差异类型 → 颜色（新增绿/修改橙/删除红）。
+- `Views/SchemaCompareWindow.axaml(.cs)`：源/目标连接下拉、对象类型下拉、执行按钮、左侧差异树 + 右侧详情/日志分栏。
+- `MainWindow` 菜单「工具」→「结构对比...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+- 可在两个同类型已保存连接间对比表/视图/函数/存储过程结构差异并查看差异树。
+
+**遗留 / 说明**
+- 数据对比（Data Compare）、诊断、优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4转换与结构对比（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比）*

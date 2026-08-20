@@ -162,6 +162,17 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开结构对比窗口（阶段 4）。</summary>
+    private async void MenuSchemaCompare_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var compareVm = _services.GetRequiredService<SchemaCompareViewModel>();
+        var window = new SchemaCompareWindow(compareVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {
