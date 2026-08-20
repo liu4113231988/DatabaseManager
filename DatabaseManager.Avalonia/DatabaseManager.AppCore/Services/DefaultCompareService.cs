@@ -1,5 +1,7 @@
+using System.Data;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
+using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
@@ -228,6 +230,238 @@ public class DefaultCompareService : ICompareService
 
     private static DatabaseType ParseDatabaseType(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;
+
+    // ---------- 数据对比（Data Compare） ----------
+
+    public async Task<IReadOnlyList<TableItem>> GetTablesAsync(
+        ConnectionItem connection,
+        CancellationToken cancellationToken = default)
+    {
+        var dbType = ParseDatabaseType(connection.DatabaseType);
+        if (dbType == DatabaseType.Unknown || string.IsNullOrEmpty(connection.Database))
+        {
+            throw new InvalidOperationException("连接或数据库无效。");
+        }
+
+        var interpreter = CreateDataInterpreter(connection, dbType);
+
+        var schemaInfo = await interpreter.GetSchemaInfoAsync(new SchemaInfoFilter
+        {
+            DatabaseObjectType = DatabaseObjectType.Table,
+        });
+
+        return schemaInfo.Tables
+            .OrderBy(t => t.Schema)
+            .ThenBy(t => t.Name)
+            .Select(t => new TableItem(t.Name, t.Schema, FormatTableName(t)))
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<DataCompareResultItem>> CompareDataAsync(
+        ConnectionItem source,
+        ConnectionItem target,
+        IReadOnlyList<string> tableNames,
+        DataCompareDisplayMode displayMode = DataCompareDisplayMode.None,
+        Action<string>? onFeedback = null,
+        CancellationToken cancellationToken = default)
+    {
+        onFeedback?.Invoke("正在校验源/目标连接...");
+
+        if (string.IsNullOrEmpty(source.Database) || string.IsNullOrEmpty(target.Database))
+        {
+            throw new InvalidOperationException("源/目标数据库不能为空。");
+        }
+
+        var sourceDbType = ParseDatabaseType(source.DatabaseType);
+        var targetDbType = ParseDatabaseType(target.DatabaseType);
+
+        if (sourceDbType == DatabaseType.Unknown || targetDbType == DatabaseType.Unknown)
+        {
+            throw new InvalidOperationException("源/目标数据库类型无效。");
+        }
+
+        if (sourceDbType != targetDbType)
+        {
+            throw new InvalidOperationException("数据对比要求源与目标数据库类型相同。");
+        }
+
+        if (IsSameDatabase(source, target))
+        {
+            throw new InvalidOperationException("源数据库与目标数据库不能相同。");
+        }
+
+        if (tableNames is null || tableNames.Count == 0)
+        {
+            throw new InvalidOperationException("请至少选择一张表进行对比。");
+        }
+
+        var sourceInterpreter = CreateDataInterpreter(source, sourceDbType);
+        var targetInterpreter = CreateDataInterpreter(target, targetDbType);
+
+        // 构造含所选表的 SchemaInfo。
+        var schemaInfo = new SchemaInfo();
+        var sourceFilter = new SchemaInfoFilter { DatabaseObjectType = DatabaseObjectType.Table, TableNames = tableNames.ToArray() };
+        var sourceSchemaInfo = await sourceInterpreter.GetSchemaInfoAsync(sourceFilter);
+        schemaInfo.Tables.AddRange(sourceSchemaInfo.Tables);
+
+        onFeedback?.Invoke("开始对比数据差异...");
+
+        var dataCompare = new DataCompare(sourceInterpreter, targetInterpreter, schemaInfo, new DataCompareOption
+        {
+            DisplayMode = displayMode == DataCompareDisplayMode.None
+                ? DataCompareDisplayMode.Different | DataCompareDisplayMode.OnlyInSource | DataCompareDisplayMode.OnlyInTarget
+                : displayMode,
+        });
+
+        dataCompare.Subscribe(new FeedbackObserver(onFeedback));
+
+        var result = await dataCompare.Compare(cancellationToken);
+
+        onFeedback?.Invoke("对比完成。");
+
+        return result.Details
+            .OrderBy(d => d.Order)
+            .Select(d => new DataCompareResultItem(d))
+            .ToList();
+    }
+
+    public async Task<(DataTable Data, Dictionary<int, List<DataCompareValueInfo>> ValueInfos)> GetTableDataAsync(
+        ConnectionItem source,
+        ConnectionItem target,
+        DataCompareResultDetail detail,
+        string category,
+        int pageSize,
+        long pageNumber,
+        CancellationToken cancellationToken = default)
+    {
+        var sourceDbType = ParseDatabaseType(source.DatabaseType);
+        var targetDbType = ParseDatabaseType(target.DatabaseType);
+        var sourceInterpreter = CreateDataInterpreter(source, sourceDbType);
+        var targetInterpreter = CreateDataInterpreter(target, targetDbType);
+
+        // Different：展示源/目标两侧不同列值的对比表格。
+        if (string.Equals(category, "Different", StringComparison.OrdinalIgnoreCase))
+        {
+            return await DataCompare.GetDifferentData(sourceInterpreter, targetInterpreter, detail, pageSize, pageNumber);
+        }
+
+        // 其余分类：从源/目标库分页读取关键行对应的完整数据。
+        var rows = category switch
+        {
+            "OnlyInSource" => detail.OnlyInSourceKeyRows,
+            "OnlyInTarget" => detail.OnlyInTargetKeyRows,
+            "Identical" => detail.IdenticalKeyRows,
+            _ => detail.IdenticalKeyRows,
+        };
+
+        var pagedKeyRows = DataCompare.GetPagedKeyRows(rows, pageSize, pageNumber);
+        var whereCondition = DataCompare.GetKeyColumnWhereCondition(sourceInterpreter, pagedKeyRows, detail.KeyColumns);
+
+        bool useSource = category switch
+        {
+            "OnlyInSource" or "Identical" => true,
+            _ => false,
+        };
+
+        var interpreter = useSource ? sourceInterpreter : targetInterpreter;
+        var table = useSource ? detail.SourceTable : detail.TargetTable;
+        var columns = useSource ? detail.SourceTableColumns : detail.TargetTableColumns;
+
+        var dataTable = await interpreter.GetPagedDataTableAsync(
+            interpreter.CreateConnection(),
+            table,
+            columns,
+            null,
+            pageSize,
+            pageNumber,
+            cancellationToken,
+            whereCondition);
+
+        return (dataTable, new Dictionary<int, List<DataCompareValueInfo>>());
+    }
+
+    public async Task<string> GenerateSyncScriptsAsync(
+        ConnectionItem source,
+        ConnectionItem target,
+        IReadOnlyList<DataCompareResultDetail> details,
+        Action<string>? onFeedback = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (details is null || details.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var sourceDbType = ParseDatabaseType(source.DatabaseType);
+        var targetDbType = ParseDatabaseType(target.DatabaseType);
+        var sourceInterpreter = CreateDataInterpreter(source, sourceDbType);
+        var targetInterpreter = CreateDataInterpreter(target, targetDbType);
+
+        var dataCompare = new DataCompare(sourceInterpreter, targetInterpreter, new SchemaInfo());
+        dataCompare.Subscribe(new FeedbackObserver(onFeedback));
+
+        onFeedback?.Invoke("开始生成数据同步脚本...");
+        var scripts = await dataCompare.GenerateScripts(details.ToList(), cancellationToken);
+        onFeedback?.Invoke("脚本生成完成。");
+
+        return scripts;
+    }
+
+    private static string FormatTableName(Table t)
+        => string.IsNullOrEmpty(t.Schema) ? t.Name : $"{t.Schema}.{t.Name}";
+
+    private static DbInterpreter CreateDataInterpreter(ConnectionItem connection, DatabaseType dbType)
+    {
+        var connectionInfo = new ConnectionInfo
+        {
+            Server = connection.Server,
+            Port = connection.Port,
+            ServerVersion = connection.ServerVersion,
+            Database = connection.Database,
+            IntegratedSecurity = connection.IntegratedSecurity,
+            UserId = connection.UserId,
+            Password = connection.Password,
+            IsDba = connection.IsDba,
+            UseSsl = connection.UseSsl,
+        };
+
+        var option = new DbInterpreterOption
+        {
+            ObjectFetchMode = DatabaseObjectFetchMode.Details,
+            ScriptOutputMode = GenerateScriptOutputMode.WriteToString,
+            SortObjectsByReference = true,
+            GetTableAllObjects = true,
+            ThrowExceptionWhenErrorOccurs = true,
+        };
+
+        return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
+    }
+
+    /// <summary>
+    /// 对比反馈观察者：将 <see cref="FeedbackInfo"/> 消息转发到回调。
+    /// </summary>
+    private sealed class FeedbackObserver : IObserver<FeedbackInfo>
+    {
+        private readonly Action<string>? _onFeedback;
+
+        public FeedbackObserver(Action<string>? onFeedback)
+        {
+            _onFeedback = onFeedback;
+        }
+
+        public void OnCompleted() { }
+
+        public void OnError(Exception error)
+            => _onFeedback?.Invoke($"错误：{error.Message}");
+
+        public void OnNext(FeedbackInfo value)
+        {
+            if (!string.IsNullOrWhiteSpace(value.Message))
+            {
+                _onFeedback?.Invoke(value.Message);
+            }
+        }
+    }
 
     private static DbInterpreter CreateInterpreter(ConnectionItem connection, DatabaseType dbType, DatabaseObjectType objectType)
     {

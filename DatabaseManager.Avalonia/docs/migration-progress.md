@@ -11,7 +11,7 @@
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
-| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比完成）/ 数据对比·诊断·优化待续 | M4 转换对比诊断 |
+| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比+数据对比完成）/ 诊断·优化待续 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
@@ -246,4 +246,33 @@
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 + 阶段4转换与结构对比（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比）*
+## 阶段 4 第三步：数据对比（Data Compare）✅
+
+> 阶段 4 第三步增量：完成**数据对比**（对应原 WinForms `frmDataCompare`），复用 `DatabaseManager.Core.DataCompare`。
+> 诊断 / 优化 / 依赖分析留待后续迭代。
+
+### 1. 对比服务（AppCore）
+- `Services/ICompareService.cs` 扩展数据对比能力：
+  - `GetTablesAsync`：读取源库表列表（供选择要对比的表）。
+  - `CompareDataAsync`：构建源/目标 `DbInterpreter`，构造含所选表的 `SchemaInfo`，复用 `DataCompare` 对比数据差异，返回各表差异概览。
+  - `GetTableDataAsync`：按分类（Different/OnlyInSource/OnlyInTarget/Identical）分页读取明细数据；Different 复用 `DataCompare.GetDifferentData` 展示源/目标两侧不同列值。
+  - `GenerateSyncScriptsAsync`：复用 `DataCompare.GenerateScripts` 生成目标库同步脚本（DELETE/UPDATE/INSERT）。
+- `Models/DataCompareModels.cs`：`DataCompareResultItem`（表级差异概览，UI 友好）。
+
+### 2. 数据对比 ViewModel
+- `ViewModels/DataCompareViewModel.cs`：源/目标连接选择、表列表（复选）、展示模式选择、`ExecuteCommand` 对比、结果列表、选中表明细分页查看、`GenerateScriptsCommand` 生成同步脚本、日志与状态。
+
+### 3. 数据对比 UI
+- `Views/DataCompareWindow.axaml(.cs)`：源/目标连接下拉、展示模式下拉、表复选列表、对比结果列表、明细 DataGrid（动态列）、同步脚本 Tab；动态重建明细列（`[i]` 索引器绑定）。
+- `MainWindow` 菜单「工具」→「数据对比...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+- AppCore 冒烟测试（SQLite 双库）：表列表加载、数据对比（差异/仅源/仅目标/一致计数）、差异明细分页、同步脚本生成均通过。
+
+**遗留 / 说明**
+- 诊断、优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4转换/结构对比/数据对比（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比 / 数据对比）*

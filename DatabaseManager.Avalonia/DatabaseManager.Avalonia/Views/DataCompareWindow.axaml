@@ -1,0 +1,161 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        xmlns:svc="using:DatabaseManager.AppCore.Services"
+        x:Class="DatabaseManager.Avalonia.Views.DataCompareWindow"
+        x:DataType="vm:DataCompareViewModel"
+        Title="数据对比 (Data Compare)"
+        Width="1080" Height="720"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：源/目标连接、模式与操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+
+            <!-- 源/目标连接 -->
+            <Grid ColumnDefinitions="110,*,40,110,*">
+                <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" />
+
+                <TextBlock Grid.Column="2" Text="⇄" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 展示模式 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="展示模式" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboMode" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 操作按钮 -->
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="执行对比" ButtonType="Primary" Command="{Binding ExecuteCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成同步脚本" Command="{Binding GenerateScriptsCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：TabControl（结果 / 脚本） -->
+        <atom:TabControl x:Name="MainTabs">
+
+            <!-- 结果页 -->
+            <TabItem Header="对比结果">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左：表选择 + 结果列表 -->
+                    <DockPanel Grid.Column="0" Margin="0,0,0,6">
+                        <TextBlock DockPanel.Dock="Top" Text="选择要对比的表" FontWeight="Bold" Margin="2,0,0,4" />
+                        <ListBox x:Name="TableList" DockPanel.Dock="Top" MaxHeight="160"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 Margin="0,0,0,8">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:TableItem">
+                                    <CheckBox IsChecked="{Binding IsSelected}">
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <TextBlock DockPanel.Dock="Top" Text="对比结果" FontWeight="Bold" Margin="2,0,0,4" />
+                        <Border BorderBrush="#22000000" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding Results}"
+                                     SelectedItem="{Binding SelectedResult}"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:DataCompareResultItem">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.8">
+                                                <TextBlock Text="{Binding SourceRecordCount, StringFormat='源:{0}'}" FontSize="11" />
+                                                <TextBlock Text="{Binding TargetRecordCount, StringFormat='目标:{0}'}" FontSize="11" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding DifferentCount, StringFormat='差异:{0}'}" Foreground="#C0392B" FontSize="11" />
+                                                <TextBlock Text="{Binding OnlyInSourceCount, StringFormat='仅源:{0}'}" Foreground="#E67E22" FontSize="11" />
+                                                <TextBlock Text="{Binding OnlyInTargetCount, StringFormat='仅目标:{0}'}" Foreground="#2980B9" FontSize="11" />
+                                                <TextBlock Text="{Binding IdenticalCount, StringFormat='一致:{0}'}" Foreground="#27AE60" FontSize="11" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </DockPanel>
+
+                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+
+                    <!-- 右：明细 + 日志 -->
+                    <DockPanel Grid.Column="2" Margin="0,0,0,6">
+                        <TextBlock DockPanel.Dock="Top" Text="数据明细" FontWeight="Bold" Margin="2,0,0,4" />
+                        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,6">
+                            <DataGrid x:Name="DetailGrid" AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      ItemsSource="{Binding DetailRows}"
+                                      GridLinesVisibility="All"
+                                      CanUserResizeColumns="True"
+                                      HeadersVisibility="Column"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                      MinHeight="200" />
+                        </Border>
+
+                        <TextBlock DockPanel.Dock="Top" Text="日志" FontWeight="Bold" Margin="2,0,0,4" />
+                        <Border BorderBrush="#22000000" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                                   FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 脚本页 -->
+            <TabItem Header="同步脚本">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                        <TextBlock Text="生成的目标库同步脚本（DELETE/UPDATE/INSERT）" VerticalAlignment="Center" Opacity="0.8" />
+                    </StackPanel>
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <ListBox ItemsSource="{Binding Scripts}" IsHitTestVisible="False"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="NoWrap" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>
