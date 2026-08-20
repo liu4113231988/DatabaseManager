@@ -62,6 +62,14 @@
                 <MenuItem Header="结构对比..." Click="MenuSchemaCompare_Click" />
                 <MenuItem Header="数据对比..." Click="MenuDataCompare_Click" />
                 <MenuItem Header="数据库诊断..." Click="MenuDiagnose_Click" />
+                <MenuItem Header="数据库优化..." Click="MenuOptimize_Click" />
+                <MenuItem Header="依赖分析..." Click="MenuDependency_Click" />
+                <Separator />
+                <MenuItem Header="统计..." Click="MenuStatistic_Click" />
+                <MenuItem Header="索引碎片..." Click="MenuIndexFragmentation_Click" />
+                <MenuItem Header="数据库备份..." Click="MenuBackup_Click" />
+                <MenuItem Header="代码生成..." Click="MenuCodeGenerate_Click" />
+                <MenuItem Header="文档生成..." Click="MenuColumnDocumentation_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" IsEnabled="False" />

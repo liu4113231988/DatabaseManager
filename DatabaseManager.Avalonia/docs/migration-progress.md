@@ -11,8 +11,8 @@
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
-| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比+数据对比+诊断完成）/ 优化·依赖分析待续 | M4 转换对比诊断 |
-| 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
+| 4 | 转换/对比/诊断 | ✅ 已完成（转换+结构对比+数据对比+诊断+优化+依赖分析完成） | M4 转换对比诊断 |
+| 5 | 统计/备份/图表/生成 | 🚧 进行中（统计+索引碎片+备份+代码生成+文档生成完成）/ 数据库关系图待续 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
 
@@ -302,4 +302,144 @@
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 + 阶段4转换/结构对比/数据对比/数据库诊断（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比 / 数据对比 / 数据库诊断）*
+## 阶段 4 第五步：数据库优化（Optimize）✅
+
+> 阶段 4 增量：完成**数据库优化**（对应原 WinForms `frmOpitimizeResult`），复用 `DatabaseManager.Core.Optimizer`。
+
+### 1. 优化服务（AppCore）
+- `Services/IOptimizeService.cs` / `DefaultOptimizeService.cs`：构建 `DbInterpreter`，复用 `Optimizer.Optimize()` 执行数据库优化（SQLite `VACUUM` / MySQL InnoDB 表整理），返回各对象优化前后数据长度。
+
+### 2. 优化 ViewModel
+- `Models/OptimizeModels.cs`：`OptimizeResultItem`（对象类型/对象名/是否成功/优化前后长度/错误信息）。
+- `ViewModels/OptimizeViewModel.cs`：连接选择、执行命令、结果集合、日志与状态。
+
+### 3. 优化 UI
+- `Views/OptimizeWindow.axaml(.cs)`：连接下拉 + 执行按钮 + 优化结果 DataGrid + 日志。
+- `MainWindow` 菜单「工具」→「数据库优化...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 4 第六步：依赖分析（Dependency）✅
+
+> 阶段 4 增量：完成**依赖分析**（对应原 WinForms `frmDbObjectDependency`/`frmTableDependency`），复用 `DatabaseManager.Core.DepencencyFetcher`。
+
+### 1. 依赖服务（AppCore）
+- `Services/IDependencyService.cs` / `DefaultDependencyService.cs`：构建 `DbInterpreter` + 目标 `DatabaseObject`（表/视图/函数/存储过程），复用 `DepencencyFetcher.Fetch` 分析依赖关系（`dependOnThis` 区分入/出方向），整理为依赖节点列表。
+
+### 2. 依赖 ViewModel
+- `Models/DependencyModels.cs`：`DependencyNode`（对象类型/Schema/对象名）、`DependencyDirectionOption`（入/出方向）。
+- `ViewModels/DependencyViewModel.cs`：连接/对象类型/Schema/对象名/方向选择、分析命令、结果与日志。
+
+### 3. 依赖 UI
+- `Views/DependencyWindow.axaml(.cs)`：连接/对象类型/Schema/对象名/方向下拉输入 + 分析按钮 + 依赖对象列表 + 日志。
+- `MainWindow` 菜单「工具」→「依赖分析...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 5 第一步：统计（Statistic）✅
+
+> 阶段 5 增量：完成**统计**（对应原 WinForms `frmStatistic`/`frmTableRecordCount`/`frmTableColumnContentMaxLength`），复用 `DatabaseManager.Core.DbStatistic`。
+
+### 1. 统计服务（AppCore）
+- `Services/IStatisticService.cs` / `DefaultStatisticService.cs`：复用 `DbStatistic` 的 `CountTableRecords`（表记录数）与 `GetTableColumnContentLengths`（字符列内容最大长度）。
+
+### 2. 统计 ViewModel
+- `Models/StatisticModels.cs`：`StatisticTypeOption`、`RecordCountItem`、`ColumnLengthItem`。
+- `ViewModels/StatisticViewModel.cs`：连接/统计类型选择、执行命令、两类结果集合、日志与状态。
+
+### 3. 统计 UI
+- `Views/StatisticWindow.axaml(.cs)`：连接/统计类型下拉 + 执行按钮 + 多 Tab（表记录数 / 列内容最大长度 / 日志）。
+- `MainWindow` 菜单「工具」→「统计...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 5 第二步：索引碎片（Index Fragmentation）✅
+
+> 阶段 5 增量：完成**索引碎片分析**（对应原 WinForms `Analysis/frmIndexFragmentation`），复用 `DatabaseManager.Core.Analysiser`。
+
+### 1. 索引碎片服务（AppCore）
+- `Services/IIndexFragmentationService.cs` / `DefaultIndexFragmentationService.cs`：复用 `Analysiser.GetIndexFragmentations`（碎片率）与 `RebuildIndex`（重建索引）。
+
+### 2. 索引碎片 ViewModel
+- `Models/IndexFragmentationModels.cs`：`IndexFragmentationItem`（Schema/表/索引名/碎片率）。
+- `ViewModels/IndexFragmentationViewModel.cs`：连接选择、分析命令、重建命令、结果集合、日志与状态。
+
+### 3. 索引碎片 UI
+- `Views/IndexFragmentationWindow.axaml(.cs)`：连接下拉 + 分析/重建按钮 + 碎片索引 DataGrid + 日志。
+- `MainWindow` 菜单「工具」→「索引碎片...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 5 第三步：数据库备份（Backup）✅
+
+> 阶段 5 增量：完成**数据库备份**（对应原 WinForms `frmBackupSetting`/`frmBackupSettingRedefine`），复用 `DatabaseManager.Core.DbBackup` 各适配器。
+
+### 1. 备份服务（AppCore）
+- `Services/IBackupService.cs` / `DefaultBackupService.cs`：按数据库类型 `DbBackup.GetInstance` 构建备份器，配置保存文件夹/客户端工具路径/是否压缩后执行备份，返回备份文件路径。
+
+### 2. 备份 ViewModel
+- `Models/BackupModels.cs`：`BackupResultItem`（是否成功/消息/备份文件路径）。
+- `ViewModels/BackupViewModel.cs`：连接/保存文件夹/工具路径/压缩选择、备份命令、日志与状态。
+
+### 3. 备份 UI
+- `Views/BackupWindow.axaml(.cs)`：连接下拉 + 保存文件夹/工具路径（文件选择）+ 压缩勾选 + 备份按钮 + 日志。
+- `MainWindow` 菜单「工具」→「数据库备份...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 5 第四步：代码生成（Code Generator）✅
+
+> 阶段 5 增量：完成**代码生成**（对应原 WinForms `frmCodeGenerator`），复用 `DatabaseManager.Core.CodeGenerator`。
+
+### 1. 代码生成服务（AppCore）
+- `Services/ICodeGenerateService.cs` / `DefaultCodeGenerateService.cs`：加载表/视图目标，复用 `CodeGenerator.Generate`（C# / Java）生成实体类代码到输出文件夹。
+
+### 2. 代码生成 ViewModel
+- `Models/CodeGenerateModels.cs`：`CodeGenerateLanguageOption`、`CodeGenerateTarget`（可勾选）、`CodeGenerateResultItem`。
+- `ViewModels/CodeGenerateViewModel.cs`：连接/语言/命名空间/输出文件夹选择、加载对象命令、生成命令、日志与状态。
+
+### 3. 代码生成 UI
+- `Views/CodeGenerateWindow.axaml(.cs)`：连接/语言下拉 + 命名空间/输出文件夹（文件选择）+ 可勾选对象 DataGrid + 生成按钮 + 日志。
+- `MainWindow` 菜单「工具」→「代码生成...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+## 阶段 5 第五步：文档生成（Column Documentation）✅
+
+> 阶段 5 增量：完成**列结构文档生成**（对应原 WinForms `Documentation/frmGenerateColumnDocumentation`），复用 `DatabaseManager.Core.DocumentationGenerator`。
+
+### 1. 文档生成服务（AppCore）
+- `Services/IColumnDocumentationService.cs` / `DefaultColumnDocumentationService.cs`：复用 `DocumentationGenerator.Generate` 生成列结构 Word 文档，支持选择列属性（名称/类型/可空/主键/自增/默认值/注释）与表注释。
+
+### 2. 文档生成 ViewModel
+- `Models/ColumnDocumentationModels.cs`：`ColumnDocumentationProperty`（可勾选）、`ColumnDocumentationResultItem`。
+- `ViewModels/ColumnDocumentationViewModel.cs`：连接/输出文件/表注释选择、列属性勾选、生成命令、日志与状态。
+
+### 3. 文档生成 UI
+- `Views/ColumnDocumentationWindow.axaml(.cs)`：连接下拉 + 输出文件（文件选择）+ 可勾选列属性 DataGrid + 生成按钮 + 日志。
+- `MainWindow` 菜单「工具」→「文档生成...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4（转换/结构对比/数据对比/诊断/优化/依赖分析）+ 阶段5（统计/索引碎片/备份/代码生成/文档生成）；数据库关系图留待后续*

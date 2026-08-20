@@ -1,0 +1,72 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.IndexFragmentationWindow"
+        x:DataType="vm:IndexFragmentationViewModel"
+        Title="索引碎片分析 (Index Fragmentation)"
+        Width="920" Height="620"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接与操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="分析索引碎片" ButtonType="Primary" Command="{Binding AnalyzeCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="重建选中索引" ButtonType="Default" Command="{Binding RebuildCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：结果 + 日志 -->
+        <atom:TabControl x:Name="MainTabs">
+            <TabItem Header="碎片索引">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="选中行后点击「重建选中索引」整理碎片" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding Results}" AutoGenerateColumns="False"
+                                  SelectedItem="{Binding SelectedResult}"
+                                  IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="表名" Binding="{Binding DisplayTableName}" Width="1.6*" />
+                                <DataGridTextColumn Header="索引名" Binding="{Binding IndexName}" Width="1.6*" />
+                                <DataGridTextColumn Header="碎片率 (%)" Binding="{Binding FragmentationPercent}" Width="0.8*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>

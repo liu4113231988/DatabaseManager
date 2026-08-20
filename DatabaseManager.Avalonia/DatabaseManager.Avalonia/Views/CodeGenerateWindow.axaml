@@ -1,0 +1,88 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.CodeGenerateWindow"
+        x:DataType="vm:CodeGenerateViewModel"
+        Title="代码生成 (Code Generator)"
+        Width="940" Height="660"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接、语言与配置 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*,90,*">
+                <TextBlock Grid.Column="0" Text="语言" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboLanguage" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <TextBlock Grid.Column="2" Text="命名空间" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <atom:TextBox Grid.Column="3" Text="{Binding NamespaceName}" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*,Auto">
+                <TextBlock Grid.Column="0" Text="输出文件夹" VerticalAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding OutputFolder}" HorizontalAlignment="Stretch" />
+                <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseOutput_Click" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <atom:CheckBox Content="生成列注释" IsChecked="{Binding GenerateComments}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="加载对象" ButtonType="Default" Command="{Binding LoadTargetsCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成代码" ButtonType="Primary" Command="{Binding GenerateCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：目标列表 + 日志 -->
+        <atom:TabControl x:Name="MainTabs">
+            <TabItem Header="选择对象 (表/视图)">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="勾选要生成代码的表或视图，然后点击「生成代码」" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
+                                  IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsChecked, Mode=TwoWay}" />
+                                <DataGridTextColumn Header="类型" Binding="{Binding ObjectType}" Width="0.7*" />
+                                <DataGridTextColumn Header="对象名" Binding="{Binding DisplayName}" Width="2*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>

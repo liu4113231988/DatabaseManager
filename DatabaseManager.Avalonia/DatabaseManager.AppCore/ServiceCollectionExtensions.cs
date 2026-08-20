@@ -23,6 +23,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICompareService, DefaultCompareService>();
         services.AddSingleton<IDiagnoseService, DefaultDiagnoseService>();
         services.AddSingleton<IExportImportService, DefaultExportImportService>();
+        services.AddSingleton<IOptimizeService, DefaultOptimizeService>();
+        services.AddSingleton<IDependencyService, DefaultDependencyService>();
+        services.AddSingleton<IStatisticService, DefaultStatisticService>();
+        services.AddSingleton<IIndexFragmentationService, DefaultIndexFragmentationService>();
+        services.AddSingleton<IBackupService, DefaultBackupService>();
+        services.AddSingleton<ICodeGenerateService, DefaultCodeGenerateService>();
+        services.AddSingleton<IColumnDocumentationService, DefaultColumnDocumentationService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -35,6 +42,13 @@ public static class ServiceCollectionExtensions
         services.AddTransient<SchemaCompareViewModel>();
         services.AddTransient<DataCompareViewModel>();
         services.AddTransient<DiagnoseViewModel>();
+        services.AddTransient<OptimizeViewModel>();
+        services.AddTransient<DependencyViewModel>();
+        services.AddTransient<StatisticViewModel>();
+        services.AddTransient<IndexFragmentationViewModel>();
+        services.AddTransient<BackupViewModel>();
+        services.AddTransient<CodeGenerateViewModel>();
+        services.AddTransient<ColumnDocumentationViewModel>();
 
         return services;
     }

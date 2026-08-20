@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.DependencyWindow"
+        x:DataType="vm:DependencyViewModel"
+        Title="依赖分析 (Dependency)"
+        Width="920" Height="640"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接、对象与操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*,90,*">
+                <TextBlock Grid.Column="0" Text="对象类型" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboObjectType" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <TextBlock Grid.Column="2" Text="Schema" VerticalAlignment="Center" Margin="10,0,0,0" />
+                <atom:TextBox Grid.Column="3" Text="{Binding Schema}" Watermark="可留空" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="对象名" VerticalAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding ObjectName}" Watermark="输入表 / 视图 / 函数 / 存储过程名"
+                              HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="依赖方向" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboDirection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="分析依赖" ButtonType="Primary" Command="{Binding AnalyzeCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：依赖树 + 日志 -->
+        <atom:TabControl x:Name="MainTabs">
+            <TabItem Header="依赖关系">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="依赖对象（对象类型 / 完整对象名）" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <ListBox ItemsSource="{Binding Nodes}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:DependencyNode">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
+                                        <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="#2980B9" />
+                                        <TextBlock Text="{Binding DisplayName}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>
