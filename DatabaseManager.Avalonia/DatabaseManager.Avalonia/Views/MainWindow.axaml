@@ -23,6 +23,17 @@
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="文件">
+                <MenuItem Header="新建查询" Command="{Binding NewQueryCommand}" />
+                <MenuItem Header="打开脚本..." Click="MenuOpenScript_Click" />
+                <MenuItem Header="保存脚本..." Click="MenuSaveScript_Click" />
+                <MenuItem Header="最近脚本" ItemsSource="{Binding RecentScripts}">
+                    <MenuItem.ItemTemplate>
+                        <DataTemplate>
+                            <MenuItem Header="{Binding}" Click="MenuOpenRecent_Click" Tag="{Binding}" />
+                        </DataTemplate>
+                    </MenuItem.ItemTemplate>
+                </MenuItem>
+                <Separator />
                 <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
                 <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
                 <Separator />
@@ -31,6 +42,17 @@
             <MenuItem Header="连接">
                 <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
                 <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
+                <Separator />
+                <MenuItem Header="连接" Command="{Binding ConnectCommand}" />
+                <MenuItem Header="重连" Command="{Binding ReconnectCommand}" />
+                <MenuItem Header="断开" Command="{Binding DisconnectCommand}" />
+            </MenuItem>
+            <MenuItem Header="数据库">
+                <MenuItem Header="自动提交" ToggleType="CheckBox"
+                          IsChecked="{Binding QueryEditor.AutoCommit}" />
+                <MenuItem Header="开始事务" Command="{Binding QueryEditor.BeginTransactionCommand}" />
+                <MenuItem Header="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
+                <MenuItem Header="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
@@ -113,8 +135,30 @@
                         <TextBlock Text="SQL：" VerticalAlignment="Center" />
                         <TextBlock Text="{Binding QueryEditor.ConnectionName}"
                                    VerticalAlignment="Center" Opacity="0.6" />
+                        <atom:Button Content="连接" Command="{Binding ConnectCommand}" />
+                        <atom:Button Content="重连" Command="{Binding ReconnectCommand}" />
+                        <atom:Button Content="断开" Command="{Binding DisconnectCommand}" />
+                        <Separator Margin="4,0" />
                         <atom:Button Content="执行" ButtonType="Primary"
                                      Command="{Binding QueryEditor.ExecuteCommand}" />
+                        <Separator Margin="4,0" />
+                        <!-- 自动提交开关 -->
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="自动提交" VerticalAlignment="Center" />
+                            <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
+                        </StackPanel>
+                        <atom:Button Content="事务" ButtonType="Default"
+                                     Command="{Binding QueryEditor.BeginTransactionCommand}" />
+                        <atom:Button Content="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
+                        <atom:Button Content="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
+                        <!-- Schema 选择器（多 Schema 数据库时显示） -->
+                        <StackPanel Orientation="Horizontal" Spacing="4"
+                                    VerticalAlignment="Center"
+                                    IsVisible="{Binding SchemaSelectorVisible}">
+                            <TextBlock Text="Schema:" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding CurrentSchema}" Width="120"
+                                     VerticalContentAlignment="Center" />
+                        </StackPanel>
                     </StackPanel>
                     <TextBox Grid.Row="1"
                              Text="{Binding QueryEditor.SqlText}"

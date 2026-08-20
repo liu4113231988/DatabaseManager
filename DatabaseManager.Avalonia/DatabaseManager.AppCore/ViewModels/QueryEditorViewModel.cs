@@ -10,7 +10,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 
 /// <summary>
 /// 查询编辑器 ViewModel（AppCore 层）。
-/// 阶段 2：管理 SQL 输入、执行查询、展示结果集与执行状态。
+/// 阶段 2/3：管理 SQL 输入、执行查询、结果展示，以及事务核心（Auto-commit / Commit / Rollback）。
 /// </summary>
 public partial class QueryEditorViewModel : ViewModelBase
 {
@@ -38,6 +38,14 @@ public partial class QueryEditorViewModel : ViewModelBase
     [ObservableProperty]
     private bool _showNoResult = true;
 
+    /// <summary>是否自动提交（true=每条 SQL 自动提交；false=手动事务）。</summary>
+    [ObservableProperty]
+    private bool _autoCommit = true;
+
+    /// <summary>当前是否处于活动事务中。</summary>
+    [ObservableProperty]
+    private bool _isTransactionActive;
+
     public QueryEditorViewModel(IQueryService queryService)
     {
         _queryService = queryService;
@@ -45,6 +53,25 @@ public partial class QueryEditorViewModel : ViewModelBase
 
     /// <summary>当前执行的连接名。</summary>
     public string ConnectionName { get; set; } = string.Empty;
+
+    partial void OnAutoCommitChanged(bool value)
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionName))
+            return;
+
+        _queryService.SetAutoCommit(ConnectionName, value);
+
+        if (value)
+        {
+            // 切换回自动提交时刷新事务状态（可能已提交）。
+            IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+            StatusMessage = "已切换为自动提交模式。";
+        }
+        else
+        {
+            StatusMessage = "已切换为手动事务模式（执行后将由你手动提交/回滚）。";
+        }
+    }
 
     /// <summary>执行当前 SQL。</summary>
     [RelayCommand]
@@ -59,7 +86,7 @@ public partial class QueryEditorViewModel : ViewModelBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_sqlText))
+        if (string.IsNullOrWhiteSpace(SqlText))
         {
             StatusMessage = "请输入要执行的 SQL 语句。";
             return;
@@ -70,9 +97,24 @@ public partial class QueryEditorViewModel : ViewModelBase
 
         try
         {
-            var result = await _queryService.ExecuteAsync(ConnectionName, _sqlText);
+            // 手动事务模式下且尚未开启事务：自动开启事务（对齐 dbeaver 手动提交行为）。
+            if (!AutoCommit && !_queryService.IsTransactionActive(ConnectionName))
+            {
+                bool began = await _queryService.BeginTransactionAsync(ConnectionName);
+                if (!began)
+                {
+                    StatusMessage = "无法自动开启事务，请检查连接。";
+                    return;
+                }
+                IsTransactionActive = true;
+            }
+
+            var result = await _queryService.ExecuteAsync(ConnectionName, SqlText);
 
             ApplyResult(result);
+
+            // 执行后同步事务状态（手动模式下开启事务、或执行后未自动提交）。
+            IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
         }
         catch (Exception ex)
         {
@@ -83,6 +125,84 @@ public partial class QueryEditorViewModel : ViewModelBase
         {
             IsExecuting = false;
         }
+    }
+
+    /// <summary>开启事务（进入手动事务模式）。</summary>
+    [RelayCommand]
+    public async Task BeginTransactionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionName))
+        {
+            StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        if (IsTransactionActive)
+        {
+            StatusMessage = "已处于事务中。";
+            return;
+        }
+
+        bool ok = await _queryService.BeginTransactionAsync(ConnectionName);
+        if (ok)
+        {
+            AutoCommit = false;
+            IsTransactionActive = true;
+            StatusMessage = "事务已开启。执行 SQL 后请手动提交或回滚。";
+        }
+        else
+        {
+            StatusMessage = "事务开启失败。";
+        }
+    }
+
+    /// <summary>提交当前事务。</summary>
+    [RelayCommand]
+    public async Task CommitTransactionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionName))
+        {
+            StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        if (!IsTransactionActive)
+        {
+            StatusMessage = "当前没有可提交的事务。";
+            return;
+        }
+
+        bool ok = await _queryService.CommitAsync(ConnectionName);
+        IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        StatusMessage = ok ? "事务已提交。" : "事务提交失败。";
+    }
+
+    /// <summary>回滚当前事务。</summary>
+    [RelayCommand]
+    public async Task RollbackTransactionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionName))
+        {
+            StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        if (!IsTransactionActive)
+        {
+            StatusMessage = "当前没有可回滚的事务。";
+            return;
+        }
+
+        bool ok = await _queryService.RollbackAsync(ConnectionName);
+        IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        StatusMessage = ok ? "事务已回滚。" : "事务回滚失败。";
+    }
+
+    /// <summary>连接切换/断开时重置事务状态。</summary>
+    public void OnConnectionChanged()
+    {
+        IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        AutoCommit = !IsTransactionActive;
     }
 
     private void ApplyResult(QueryResult result)

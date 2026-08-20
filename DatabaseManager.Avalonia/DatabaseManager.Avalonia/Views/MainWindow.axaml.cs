@@ -37,6 +37,21 @@ public partial class MainWindow : Window
 
             // 通过路由事件监听 TreeViewItem 展开，实现点击展开箭头时的按需懒加载（对齐 dbeaver）。
             ObjectsTree.AddHandler(TreeViewItem.ExpandedEvent, ObjectsTree_Item_Expanded);
+
+            // 监听对象树选中变化，更新 Schema 选择器上下文。
+            ObjectsTree.SelectionChanged += ObjectsTree_SelectionChanged;
+        }
+    }
+
+    /// <summary>对象树选中变化时更新当前数据库/Schema 上下文（供 Schema 选择器展示）。</summary>
+    private void ObjectsTree_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (ObjectsTree.SelectedItem is DbObjectTreeNode node)
+        {
+            vm.OnDatabaseNodeSelected(node);
         }
     }
 
@@ -103,6 +118,59 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
 
         (DataContext as MainWindowViewModel)?.RefreshConnections();
+    }
+
+    /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
+    private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        var storage = StorageProvider;
+        var files = await storage.OpenFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "打开 SQL 脚本",
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new global::Avalonia.Platform.Storage.FilePickerFileType("SQL 脚本") { Patterns = new[] { "*.sql" } } },
+        });
+
+        if (files.Count > 0)
+        {
+            vm.OpenScript(files[0].Path?.LocalPath ?? string.Empty);
+        }
+    }
+
+    /// <summary>保存当前 SQL 到脚本文件。</summary>
+    private async void MenuSaveScript_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        var storage = StorageProvider;
+        var file = await storage.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "保存 SQL 脚本",
+            SuggestedFileName = "query.sql",
+            DefaultExtension = "sql",
+            FileTypeChoices = new[] { new global::Avalonia.Platform.Storage.FilePickerFileType("SQL 脚本") { Patterns = new[] { "*.sql" } } },
+        });
+
+        if (file is not null)
+        {
+            vm.SaveScript(file.Path?.LocalPath ?? string.Empty);
+        }
+    }
+
+    /// <summary>打开最近脚本。</summary>
+    private void MenuOpenRecent_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (sender is MenuItem item && item.Tag is string path)
+        {
+            vm.OpenScript(path);
+        }
     }
 
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
