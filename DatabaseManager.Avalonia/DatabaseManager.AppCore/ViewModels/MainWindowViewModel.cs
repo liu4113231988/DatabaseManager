@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -90,5 +91,48 @@ public partial class MainWindowViewModel : ViewModelBase
     public void TestSelectedConnection()
     {
         // 连接测试在 ConnectWindow 中交互式进行；此处预留快速入口。
+    }
+
+    /// <summary>根据选中的表/视图生成 SELECT 脚本并填充到查询编辑器。</summary>
+    public void GenerateSelectScript(DbObjectTreeNode node)
+    {
+        if (node?.DbObject is not (Table or View))
+            return;
+
+        QueryEditor.SqlText = BuildSelectSql(node.DbObject);
+        QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
+    }
+
+    /// <summary>清空查询编辑器内容。</summary>
+    public void NewQuery()
+    {
+        QueryEditor.SqlText = string.Empty;
+        QueryEditor.StatusMessage = "新建查询。";
+    }
+
+    /// <summary>刷新指定节点（重新懒加载其子节点）。</summary>
+    public async Task RefreshNodeAsync(DbObjectTreeNode node)
+    {
+        if (node is null)
+            return;
+
+        if (node.NodeType == DbObjectTreeNodeType.Folder && SelectedConnection is not null)
+        {
+            await ObjectsExplorer.LoadFolderChildrenAsync(node, SelectedConnection.Name);
+        }
+        else if (node.NodeType == DbObjectTreeNodeType.ChildFolder && SelectedConnection is not null)
+        {
+            await ObjectsExplorer.LoadTableChildFolderAsync(node, SelectedConnection.Name);
+        }
+    }
+
+    private static string BuildSelectSql(DatabaseObject dbObj)
+    {
+        string name = dbObj.Name;
+        if (!string.IsNullOrEmpty(dbObj.Schema))
+        {
+            name = $"{dbObj.Schema}.{name}";
+        }
+        return $"SELECT * FROM {name};";
     }
 }

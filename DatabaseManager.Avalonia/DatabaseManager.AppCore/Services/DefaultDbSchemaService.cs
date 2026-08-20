@@ -6,7 +6,7 @@ namespace DatabaseManager.AppCore.Services;
 
 /// <summary>
 /// 基于 <see cref="DbInterpreter"/> 的 Schema 服务实现。
-/// 阶段 2：真正接入核心引擎，提供对象树（数据库 → Schema → 类型 → 对象）的浏览能力。
+/// 对象浏览功能：完整实现「连接 → 数据库 → Schema → 类型文件夹 → 对象 → 表/视图子对象」的懒加载层级。
 /// </summary>
 public class DefaultDbSchemaService : IDbSchemaService
 {
@@ -41,26 +41,74 @@ public class DefaultDbSchemaService : IDbSchemaService
                 Name = db.Name,
                 Text = db.Name,
                 NodeType = DbObjectTreeNodeType.Database,
+                DatabaseObjectType = DatabaseObjectType.None,
+                DatabaseName = db.Name,
                 DbObject = db,
             };
 
-            // 类型文件夹（阶段 2：表/视图/存储过程/函数/序列）
-            foreach (var folder in GetTypeFolders())
+            // 判断是否为多 Schema 结构（Oracle/Postgres 等）。
+            var schemas = await TryGetSchemasAsync(connection, interpreter, db.Name);
+            if (schemas.Count > 1)
             {
-                var folderNode = new DbObjectTreeNode
+                foreach (var schema in schemas.OrderBy(s => s.Name))
                 {
-                    Name = folder.Key,
-                    Text = folder.Key,
-                    NodeType = DbObjectTreeNodeType.Folder,
-                    DatabaseObjectType = folder.Value,
-                };
-                dbNode.AddChild(folderNode);
+                    var schemaNode = new DbObjectTreeNode
+                    {
+                        Name = schema.Name,
+                        Text = schema.Name,
+                        NodeType = DbObjectTreeNodeType.Schema,
+                        DatabaseObjectType = DatabaseObjectType.None,
+                        DatabaseName = db.Name,
+                        Schema = schema.Name,
+                        DbObject = schema,
+                    };
+                    AddTypeFolders(schemaNode, interpreter, db.Name, schema.Name);
+                    dbNode.AddChild(schemaNode);
+                }
+            }
+            else
+            {
+                // 单 Schema（或无法枚举）直接挂类型文件夹。
+                AddTypeFolders(dbNode, interpreter, db.Name, null);
             }
 
             result.Add(dbNode);
         }
 
         return result;
+    }
+
+    public async Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+            return false;
+
+        var interpreter = CreateInterpreter(connection, databaseName);
+        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName);
+        return schemas.Count > 1;
+    }
+
+    public async Task<IReadOnlyList<DbObjectTreeNode>> GetSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+            return new List<DbObjectTreeNode>();
+
+        var interpreter = CreateInterpreter(connection, databaseName);
+        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName);
+
+        return schemas.OrderBy(s => s.Name)
+                      .Select(s => new DbObjectTreeNode
+                      {
+                          Name = s.Name,
+                          Text = s.Name,
+                          NodeType = DbObjectTreeNodeType.Schema,
+                          DatabaseName = databaseName,
+                          Schema = s.Name,
+                          DbObject = s,
+                      })
+                      .ToList<DbObjectTreeNode>();
     }
 
     public async Task<IReadOnlyList<DbObjectTreeNode>> GetDbObjectNodesAsync(
@@ -83,36 +131,315 @@ public class DefaultDbSchemaService : IDbSchemaService
         };
 
         List<DbObjectTreeNode> nodes = new();
-        if (objectType == DatabaseObjectType.Table)
+        switch (objectType)
         {
-            var tables = await interpreter.GetTablesAsync(filter);
-            nodes.AddRange(tables.OrderBy(t => t.Name).Select(t => ToNode(t)));
-        }
-        else if (objectType == DatabaseObjectType.View)
-        {
-            var views = await interpreter.GetViewsAsync(filter);
-            nodes.AddRange(views.OrderBy(v => v.Name).Select(v => ToNode(v)));
-        }
-        else if (objectType == DatabaseObjectType.Procedure)
-        {
-            var procedures = await interpreter.GetProceduresAsync(filter);
-            nodes.AddRange(procedures.OrderBy(p => p.Name).Select(p => ToNode(p)));
-        }
-        else if (objectType == DatabaseObjectType.Function)
-        {
-            var functions = await interpreter.GetFunctionsAsync(filter);
-            nodes.AddRange(functions.OrderBy(f => f.Name).Select(f => ToNode(f)));
-        }
-        else if (objectType == DatabaseObjectType.Sequence)
-        {
-            var sequences = await interpreter.GetSequencesAsync(filter);
-            nodes.AddRange(sequences.OrderBy(s => s.Name).Select(s => ToNode(s)));
+            case DatabaseObjectType.Table:
+                var tables = await interpreter.GetTablesAsync(filter);
+                nodes.AddRange(tables.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
+                break;
+            case DatabaseObjectType.View:
+                var views = await interpreter.GetViewsAsync(filter);
+                nodes.AddRange(views.OrderBy(v => v.Name).Select(v => ToNode(v, databaseName, schema)));
+                break;
+            case DatabaseObjectType.Procedure:
+                var procedures = await interpreter.GetProceduresAsync(filter);
+                nodes.AddRange(procedures.OrderBy(p => p.Name).Select(p => ToNode(p, databaseName, schema)));
+                break;
+            case DatabaseObjectType.Function:
+                var functions = await interpreter.GetFunctionsAsync(filter);
+                nodes.AddRange(functions.OrderBy(f => f.Name).Select(f => ToNode(f, databaseName, schema)));
+                break;
+            case DatabaseObjectType.Sequence:
+                var sequences = await interpreter.GetSequencesAsync(filter);
+                nodes.AddRange(sequences.OrderBy(s => s.Name).Select(s => ToNode(s, databaseName, schema)));
+                break;
+            case DatabaseObjectType.Type:
+                var types = await interpreter.GetUserDefinedTypesAsync(filter);
+                nodes.AddRange(types.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
+                break;
         }
 
         return nodes;
     }
 
-    /// <summary>创建数据库解释器（带目标数据库）。</summary>
+    public async Task<IReadOnlyList<DbObjectTreeNode>> GetTableChildNodesAsync(
+        string connectionName,
+        string databaseName,
+        DbObjectChildType childFolderType,
+        DatabaseObject tableOrView,
+        bool isForView = false,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+            return new List<DbObjectTreeNode>();
+
+        var interpreter = CreateInterpreter(connection, databaseName);
+        var schema = tableOrView.Schema;
+
+        var filter = new SchemaInfoFilter
+        {
+            Strict = true,
+            Schema = schema,
+            TableNames = new[] { tableOrView.Name },
+            DatabaseObjectType = childFolderType switch
+            {
+                DbObjectChildType.Column => DatabaseObjectType.Column,
+                DbObjectChildType.Trigger => DatabaseObjectType.Trigger,
+                DbObjectChildType.Index => DatabaseObjectType.Index,
+                DbObjectChildType.PrimaryKey => DatabaseObjectType.PrimaryKey | DatabaseObjectType.ForeignKey,
+                DbObjectChildType.Constraint => DatabaseObjectType.Constraint,
+                _ => DatabaseObjectType.None,
+            },
+        };
+
+        if (isForView)
+        {
+            filter.ColumnType = ColumnType.ViewColumn;
+            filter.IsForView = true;
+        }
+
+        var schemaInfo = await interpreter.GetSchemaInfoAsync(filter);
+
+        List<DbObjectTreeNode> nodes = new();
+
+        switch (childFolderType)
+        {
+            case DbObjectChildType.Column:
+                nodes.AddRange(schemaInfo.TableColumns
+                    .OrderBy(c => c.Order)
+                    .Select(c => CreateChildNode(c, c.Name, GetColumnText(c), DbObjectChildType.Column)));
+                break;
+            case DbObjectChildType.Trigger:
+                nodes.AddRange(schemaInfo.TableTriggers
+                    .OrderBy(t => t.Name)
+                    .Select(t => CreateChildNode(t, t.Name, t.Name, DbObjectChildType.Trigger)));
+                break;
+            case DbObjectChildType.Index:
+                nodes.AddRange(schemaInfo.TableIndexes
+                    .OrderBy(i => i.Name)
+                    .Select(i => CreateChildNode(i, i.Name, GetIndexText(i), DbObjectChildType.Index)));
+                break;
+            case DbObjectChildType.PrimaryKey:
+                foreach (var pk in schemaInfo.TablePrimaryKeys.OrderBy(k => k.Name))
+                {
+                    string text = string.IsNullOrEmpty(pk.Name)
+                        ? $"PK_{tableOrView.Name}(unnamed)"
+                        : GetKeyText(pk);
+                    nodes.Add(CreateChildNode(pk, string.IsNullOrEmpty(pk.Name) ? $"PK_{tableOrView.Name}" : pk.Name, text, DbObjectChildType.PrimaryKey));
+                }
+                foreach (var fk in schemaInfo.TableForeignKeys.OrderBy(k => k.Name))
+                {
+                    string text = string.IsNullOrEmpty(fk.Name)
+                        ? $"FK_{tableOrView.Name}(unnamed)"
+                        : GetForeignKeyText(fk);
+                    nodes.Add(CreateChildNode(fk, string.IsNullOrEmpty(fk.Name) ? $"FK_{tableOrView.Name}" : fk.Name, text, DbObjectChildType.ForeignKey));
+                }
+                break;
+            case DbObjectChildType.Constraint:
+                nodes.AddRange(schemaInfo.TableConstraints
+                    .OrderBy(c => c.Name)
+                    .Select(c => CreateChildNode(c, c.Name, c.Name, DbObjectChildType.Constraint)));
+                break;
+        }
+
+        return nodes;
+    }
+
+    private void AddTypeFolders(DbObjectTreeNode parent, DbInterpreter interpreter, string databaseName, string? schema)
+    {
+        var supported = interpreter.SupportDbObjectType;
+
+        AddFolder(parent, "Tables", DatabaseObjectType.Table, databaseName, schema);
+        AddFolder(parent, "Views", DatabaseObjectType.View, databaseName, schema);
+
+        if (supported.HasFlag(DatabaseObjectType.Function))
+            AddFolder(parent, "Functions", DatabaseObjectType.Function, databaseName, schema);
+
+        if (supported.HasFlag(DatabaseObjectType.Procedure))
+            AddFolder(parent, "Procedures", DatabaseObjectType.Procedure, databaseName, schema);
+
+        if (supported.HasFlag(DatabaseObjectType.Type))
+            AddFolder(parent, "Types", DatabaseObjectType.Type, databaseName, schema);
+
+        if (supported.HasFlag(DatabaseObjectType.Sequence))
+            AddFolder(parent, "Sequences", DatabaseObjectType.Sequence, databaseName, schema);
+    }
+
+    private static void AddFolder(DbObjectTreeNode parent, string text, DatabaseObjectType type, string databaseName, string? schema)
+    {
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = text,
+            Text = text,
+            NodeType = DbObjectTreeNodeType.Folder,
+            DatabaseObjectType = type,
+            DatabaseName = databaseName,
+            Schema = schema,
+        });
+    }
+
+    private async Task<List<DatabaseSchema>> TryGetSchemasAsync(ConnectionItem connection, DbInterpreter interpreter, string databaseName)
+    {
+        try
+        {
+            // 仅对支持多 Schema 的数据库（Oracle/Postgres）枚举；其余返回空。
+            if (connection.DatabaseType is "Oracle" or "Postgres")
+            {
+                return await interpreter.GetDatabaseSchemasAsync();
+            }
+        }
+        catch
+        {
+            // 忽略枚举失败，退化为单 Schema。
+        }
+
+        return new List<DatabaseSchema>();
+    }
+
+    private static DbObjectTreeNode ToNode(DatabaseObject dbObject, string databaseName, string? schema)
+    {
+        var node = new DbObjectTreeNode
+        {
+            Name = dbObject.Name,
+            Text = string.IsNullOrEmpty(dbObject.Schema) ? dbObject.Name : $"{dbObject.Schema}.{dbObject.Name}",
+            NodeType = DbObjectTreeNodeType.DbObject,
+            DatabaseObjectType = GetObjectType(dbObject),
+            DatabaseName = databaseName,
+            Schema = dbObject.Schema ?? schema,
+            DbObject = dbObject,
+        };
+
+        // 表/视图拥有可展开的子节点（列/索引/键/约束/触发器）。
+        if (dbObject is Table or View)
+        {
+            AddTableChildFolders(node);
+        }
+
+        return node;
+    }
+
+    private static void AddTableChildFolders(DbObjectTreeNode parent)
+    {
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = "Columns",
+            Text = "Columns",
+            NodeType = DbObjectTreeNodeType.ChildFolder,
+            DatabaseObjectType = DatabaseObjectType.Column,
+            DatabaseName = parent.DatabaseName,
+            Schema = parent.Schema,
+        });
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = "Triggers",
+            Text = "Triggers",
+            NodeType = DbObjectTreeNodeType.ChildFolder,
+            DatabaseObjectType = DatabaseObjectType.Trigger,
+            DatabaseName = parent.DatabaseName,
+            Schema = parent.Schema,
+        });
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = "Indexes",
+            Text = "Indexes",
+            NodeType = DbObjectTreeNodeType.ChildFolder,
+            DatabaseObjectType = DatabaseObjectType.Index,
+            DatabaseName = parent.DatabaseName,
+            Schema = parent.Schema,
+        });
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = "Keys",
+            Text = "Keys",
+            NodeType = DbObjectTreeNodeType.ChildFolder,
+            DatabaseObjectType = DatabaseObjectType.PrimaryKey,
+            DatabaseName = parent.DatabaseName,
+            Schema = parent.Schema,
+        });
+        parent.AddChild(new DbObjectTreeNode
+        {
+            Name = "Constraints",
+            Text = "Constraints",
+            NodeType = DbObjectTreeNodeType.ChildFolder,
+            DatabaseObjectType = DatabaseObjectType.Constraint,
+            DatabaseName = parent.DatabaseName,
+            Schema = parent.Schema,
+        });
+    }
+
+    private static DbObjectTreeNode CreateChildNode(DatabaseObject obj, string name, string text, DbObjectChildType childType)
+    {
+        return new DbObjectTreeNode
+        {
+            Name = name,
+            Text = text,
+            NodeType = DbObjectTreeNodeType.ChildObject,
+            DatabaseObjectType = childType switch
+            {
+                DbObjectChildType.Column => DatabaseObjectType.Column,
+                DbObjectChildType.Trigger => DatabaseObjectType.Trigger,
+                DbObjectChildType.Index => DatabaseObjectType.Index,
+                DbObjectChildType.PrimaryKey => DatabaseObjectType.PrimaryKey,
+                DbObjectChildType.ForeignKey => DatabaseObjectType.ForeignKey,
+                DbObjectChildType.Constraint => DatabaseObjectType.Constraint,
+                _ => DatabaseObjectType.None,
+            },
+            DbObject = obj,
+            Schema = obj.Schema,
+        };
+    }
+
+    /// <summary>生成表/视图列显示文本（名称 + 类型/可空等）。</summary>
+    private static string GetColumnText(TableColumn column)
+    {
+        var sb = new System.Text.StringBuilder(column.Name);
+
+        string dataType = column.DataType;
+        if (!string.IsNullOrEmpty(column.DataTypeSchema))
+        {
+            dataType = $"{column.DataTypeSchema}.{dataType}";
+        }
+
+        sb.Append($" ({dataType}");
+
+        if (column.IsNullable)
+            sb.Append(", nullable");
+        else
+            sb.Append(", not null");
+
+        if (column.IsIdentity)
+            sb.Append(", identity");
+
+        sb.Append(')');
+
+        return sb.ToString();
+    }
+
+    private static string GetIndexText(TableIndex index)
+    {
+        string columns = string.Join(",", index.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName));
+        string content = index.Columns.Count > 0 ? (index.IsUnique ? $"(Unique, {columns})" : $"({columns})")
+                                                 : (index.IsUnique ? "(Unique)" : "");
+        return $"{index.Name}{content}";
+    }
+
+    private static string GetKeyText(TablePrimaryKey key)
+    {
+        string columns = string.Join(",", key.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName));
+        return $"{key.Name} ({columns})";
+    }
+
+    private static string GetForeignKeyText(TableForeignKey key)
+    {
+        var sb = new System.Text.StringBuilder(string.IsNullOrEmpty(key.Name) ? "FK" : key.Name);
+        string columns = string.Join(",", key.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName));
+        string refColumns = string.Join(",", key.Columns.OrderBy(c => c.Order).Select(c => c.ReferencedColumnName));
+        string refTable = string.IsNullOrEmpty(key.ReferencedSchema) ? key.ReferencedTableName : $"{key.ReferencedSchema}.{key.ReferencedTableName}";
+        sb.Append($" ({columns}) → {refTable}({refColumns})");
+        return sb.ToString();
+    }
+
     private DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseOverride = null)
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
@@ -142,16 +469,6 @@ public class DefaultDbSchemaService : IDbSchemaService
         => _connectionService.GetConnections().FirstOrDefault(c =>
             string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
-    private static DbObjectTreeNode ToNode(DatabaseObject dbObject)
-        => new()
-        {
-            Name = dbObject.Name,
-            Text = string.IsNullOrEmpty(dbObject.Schema) ? dbObject.Name : $"{dbObject.Schema}.{dbObject.Name}",
-            NodeType = DbObjectTreeNodeType.DbObject,
-            DatabaseObjectType = GetObjectType(dbObject),
-            DbObject = dbObject,
-        };
-
     private static DatabaseObjectType GetObjectType(DatabaseObject obj)
         => obj switch
         {
@@ -160,17 +477,9 @@ public class DefaultDbSchemaService : IDbSchemaService
             Procedure => DatabaseObjectType.Procedure,
             Function => DatabaseObjectType.Function,
             Sequence => DatabaseObjectType.Sequence,
+            UserDefinedType => DatabaseObjectType.Type,
             _ => DatabaseObjectType.None,
         };
-
-    private static IEnumerable<KeyValuePair<string, DatabaseObjectType>> GetTypeFolders()
-    {
-        yield return new("Tables", DatabaseObjectType.Table);
-        yield return new("Views", DatabaseObjectType.View);
-        yield return new("Procedures", DatabaseObjectType.Procedure);
-        yield return new("Functions", DatabaseObjectType.Function);
-        yield return new("Sequences", DatabaseObjectType.Sequence);
-    }
 
     private static DatabaseType ParseDatabaseType(string databaseType)
     {

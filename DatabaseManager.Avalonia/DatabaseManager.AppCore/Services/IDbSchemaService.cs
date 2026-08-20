@@ -1,3 +1,4 @@
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -31,7 +32,36 @@ public interface IDbSchemaService
     Task<IReadOnlyList<DbObjectTreeNode>> GetDbObjectNodesAsync(
         string connectionName,
         string databaseName,
-        DatabaseInterpreter.Model.DatabaseObjectType objectType,
+        DatabaseObjectType objectType,
         string? schema = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 判断当前连接下的数据库是否为多 Schema 结构（Oracle/Postgres 等）。
+    /// </summary>
+    /// <param name="databaseName">数据库名。</param>
+    /// <param name="connectionName">连接名称。</param>
+    Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 获取指定数据库下的 Schema 列表（Oracle/Postgres 等）。
+    /// </summary>
+    Task<IReadOnlyList<DbObjectTreeNode>> GetSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 加载表/视图的子类型文件夹下的具体子对象（列/索引/键/约束/触发器）。
+    /// </summary>
+    /// <param name="connectionName">连接名称。</param>
+    /// <param name="databaseName">数据库名。</param>
+    /// <param name="childFolderType">子类型文件夹类型（列/索引/键/约束/触发器）。</param>
+    /// <param name="tableOrView">所属表或视图。</param>
+    /// <param name="isForView">是否为视图（列类型不同）。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<IReadOnlyList<DbObjectTreeNode>> GetTableChildNodesAsync(
+        string connectionName,
+        string databaseName,
+        DbObjectChildType childFolderType,
+        DatabaseObject tableOrView,
+        bool isForView = false,
         CancellationToken cancellationToken = default);
 }

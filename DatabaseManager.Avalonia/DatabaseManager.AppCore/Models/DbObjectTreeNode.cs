@@ -24,6 +24,12 @@ public class DbObjectTreeNode
     /// <summary>节点关联的数据库对象（表/视图/存储过程等）。</summary>
     public DatabaseObject? DbObject { get; set; }
 
+    /// <summary>所属数据库名（懒加载子节点时用于定位目标库）。</summary>
+    public string? DatabaseName { get; set; }
+
+    /// <summary>所属 Schema 名（用于过滤多 Schema 场景）。</summary>
+    public string? Schema { get; set; }
+
     /// <summary>子节点。</summary>
     public ObservableCollection<DbObjectTreeNode> Children { get; } = new();
 
@@ -33,12 +39,31 @@ public class DbObjectTreeNode
     /// <summary>是否已懒加载子节点（用于按需展开加载）。</summary>
     public bool IsLoaded { get; set; }
 
+    /// <summary>是否为「占位/假」子节点（用于懒加载前展示 loading 占位）。</summary>
+    public bool IsPlaceholder { get; set; }
+
     /// <summary>向父节点注册子节点（自动维护 Parent 引用）。</summary>
     public void AddChild(DbObjectTreeNode child)
     {
         child.Parent = this;
         Children.Add(child);
     }
+
+    /// <summary>清空并释放所有子节点。</summary>
+    public void ClearChildren()
+    {
+        foreach (var child in Children)
+        {
+            child.Parent = null;
+        }
+        Children.Clear();
+        IsLoaded = false;
+    }
+
+    /// <summary>查找指定子节点（按名称与类型）。</summary>
+    public DbObjectTreeNode? FindChild(string name, DbObjectTreeNodeType? nodeType = null)
+        => Children.FirstOrDefault(c =>
+            c.Name == name && (nodeType is null || c.NodeType == nodeType));
 }
 
 /// <summary>对象树节点类型。</summary>
@@ -56,6 +81,24 @@ public enum DbObjectTreeNodeType
     /// <summary>类型文件夹（表/视图等）。</summary>
     Folder,
 
-    /// <summary>具体数据库对象。</summary>
+    /// <summary>具体数据库对象（表/视图/存储过程等）。</summary>
     DbObject,
+
+    /// <summary>表/视图的子类型文件夹（列/索引/键/约束/触发器）。</summary>
+    ChildFolder,
+
+    /// <summary>表/视图的子对象（列/索引/键/约束/触发器）。</summary>
+    ChildObject,
+}
+
+/// <summary>表/视图子对象类型（用于图标与右键菜单路由）。</summary>
+public enum DbObjectChildType
+{
+    None,
+    Column,
+    PrimaryKey,
+    ForeignKey,
+    Index,
+    Constraint,
+    Trigger,
 }
