@@ -151,6 +151,17 @@ public partial class MainWindow : Window
         (DataContext as MainWindowViewModel)?.RefreshConnections();
     }
 
+    /// <summary>打开数据库转换窗口（阶段 4）。</summary>
+    private async void MenuConvert_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var convertVm = _services.GetRequiredService<ConvertViewModel>();
+        var window = new ConvertWindow(convertVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {

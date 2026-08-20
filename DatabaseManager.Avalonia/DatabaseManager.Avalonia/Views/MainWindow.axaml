@@ -57,6 +57,9 @@
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
             </MenuItem>
+            <MenuItem Header="工具">
+                <MenuItem Header="数据库转换..." Click="MenuConvert_Click" />
+            </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" IsEnabled="False" />
             </MenuItem>
