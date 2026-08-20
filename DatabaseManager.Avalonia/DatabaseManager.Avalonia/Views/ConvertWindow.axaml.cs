@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
