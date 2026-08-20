@@ -15,13 +15,7 @@
 
     <DockPanel>
 
-        <!-- 顶部标题栏 -->
-        <Grid DockPanel.Dock="Top" Height="36" Background="#1A000000">
-            <TextBlock Text="DatabaseManager" FontSize="15" FontWeight="Bold"
-                       VerticalAlignment="Center" Margin="12,0" />
-        </Grid>
-
-        <!-- 菜单栏 -->
+        <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="文件">
                 <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
