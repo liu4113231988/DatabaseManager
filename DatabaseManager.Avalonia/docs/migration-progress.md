@@ -137,4 +137,27 @@
 
 ---
 
-*最后更新：完成 P0 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器）*
+## P1 功能（DBeaver 计划表次高优先级项）✅
+
+> 依据 Issue #13 DBeaver 截图功能计划表中的 P1 项（数据编辑），在 P0 基础上补齐表数据的查看与编辑能力。
+
+### 1. 数据查看与编辑（数据编辑）
+- **数据加载**：对象树右键「编辑数据」打开表/视图数据，按页加载（默认每页 100 行），读取列/主键/标识列/计算列元数据。
+- **可编辑网格**：`DataEditorViewModel` + 动态 `DataGrid`（双向绑定），自增/计算/二进制/几何列只读。
+- **增删改**：新增行 / 删除行（标记删除）/ 还原 / 保存，脏列追踪（`DataEditRow` 维护原始值快照与脏列）。
+- **事务保存**：`IDataEditService.SaveChangesAsync` 生成 INSERT/UPDATE/DELETE 脚本并在单事务内顺序执行（先删、再改、后插）。
+
+### 2. 新增文件
+- `Models/DataTableInfo.cs` — 表元数据（列定义、主键、标识列）。
+- `Models/DataEditRow.cs` — 可编辑行（原始值 + 当前值 + 脏列 + 行状态）。
+- `Services/IDataEditService.cs` / `DefaultDataEditService.cs` — 数据加载与增删改保存。
+- `ViewModels/DataEditorViewModel.cs` — 数据编辑 ViewModel（分页/增删改/保存/还原）。
+
+### 3. UI 接线
+- `MainWindow.axaml` — 内容区改为「查询 / 数据编辑」双标签；数据编辑标签含工具栏（新增/删除/还原/保存/分页）与可编辑网格。
+- `MainWindow.axaml.cs` — 动态重建数据编辑列、删除行处理、切换数据编辑标签。
+- 对象树右键表/视图新增「编辑数据」菜单项。
+
+---
+
+*最后更新：完成 P0 + P1 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器 / 数据查看与编辑）*
