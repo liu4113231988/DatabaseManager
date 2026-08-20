@@ -83,34 +83,35 @@
 
 ---
 
-## 阶段 2：对象浏览 + 查询 ✅（核心）
+## 阶段 2：对象浏览 + 查询 ✅（完整）
 
 > 里程碑 M2：对象树浏览 + SQL 查询结果展示。
-> 完整 SQL 语法高亮（AvaloniaEdit）与多级 Schema 对象树为本阶段剩余进阶项，受限于当前无 GUI/无 .NET SDK 环境，先打通功能链路。
+> 完整 SQL 语法高亮（AvaloniaEdit）为剩余进阶项，对象浏览器已对齐 dbeaver / 原生 WinForms 完整层级。
 
 **已完成内容**
 
 1. **对象浏览领域模型**（`AppCore/Models`）
-   - `DbObjectTreeNode`：对象树节点（连接 → 数据库 → 类型文件夹 → 具体对象），含 `Parent` 引用与懒加载标记。
+   - `DbObjectTreeNode`：完整对象树节点（连接 → 数据库 → Schema → 类型文件夹 → 对象 → 表/视图子文件夹 → 列/索引/键/约束/触发器），含 `Parent` 引用、懒加载标记、`IsPlaceholder`、`DatabaseName`/`Schema` 定位、`ClearChildren`/`FindChild` 辅助方法。
    - `QueryResult`：查询结果（列/行/受影响行数/耗时），UI 无关，含 `FromDataTable` 转换。
 2. **Schema 服务增强**（`AppCore/Services`）
-   - `IDbSchemaService` 扩展：`GetObjectTreeAsync`（数据库级）、`GetDbObjectNodesAsync`（按对象类型懒加载）。
-   - `DefaultDbSchemaService`：接入 `DbInterpreter`，枚举数据库并按其类型加载表/视图/存储过程/函数/序列。
+   - `IDbSchemaService` 扩展：`GetObjectTreeAsync`、`GetDbObjectNodesAsync`（按类型懒加载）、`GetTableChildNodesAsync`（表/视图子项：列/索引/键/约束/触发器）、`HasMultipleSchemasAsync`、`GetSchemasAsync`。
+   - `DefaultDbSchemaService`：接入 `DbInterpreter`，支持表/视图/存储过程/函数/类型/序列及表/视图子节点，按 `SupportDbObjectType` 过滤类型文件夹，多 Schema（Oracle/Postgres）分组，列/索引/键显示含数据类型/列清单标注。
 3. **查询服务增强**（`AppCore/Services`）
    - `IQueryService.ExecuteAsync` 返回 `QueryResult`；`DefaultQueryService` 用 `DbInterpreter.GetDataTableAsync` 真正执行 SQL 并转换结果。
 4. **ViewModel**（`AppCore/ViewModels`）
-   - `ObjectsExplorerViewModel`：加载对象树、双击懒加载文件夹下对象。
+   - `ObjectsExplorerViewModel`：按需懒加载（数据库 → Schema → 类型文件夹 → 对象 → 表/视图子文件夹），子文件夹显示对象数量（如 `Columns (3)`），支持节点刷新、Schema 分组。
    - `QueryEditorViewModel`：SQL 输入、执行、结果集（动态列）、状态/耗时展示。
-   - `MainWindowViewModel`：注入两个子 VM，选中连接时联动刷新对象树并设置查询目标。
+   - `MainWindowViewModel`：注入两个子 VM，联动刷新对象树；`GenerateSelectScript`/`NewQuery`/`RefreshNodeAsync` 供 UI 调用。
 5. **主界面 UI**（`DatabaseManager.Avalonia/Views`）
-   - `MainWindow.axaml`：左侧改造为「连接下拉 + 对象树（TreeView，HierarchicalDataTemplate 多级绑定）」；中间 Tab 新增「查询」页（SQL 输入框 + 执行按钮 + 结果 DataGrid）。
-   - `MainWindow.axaml.cs`：动态生成结果列、双击文件夹懒加载对象。
+   - `MainWindow.axaml`：对象树多级 `TreeView` + 节点图标（`NodeIconConverter`）+ 右键菜单（新建查询/查看数据 SELECT/生成脚本/刷新）。
+   - `MainWindow.axaml.cs`：通过路由事件监听 `TreeViewItem.Expanded` 实现**点击展开箭头**懒加载；双击懒加载/生成 SELECT；动态生成结果列；右键菜单交互。
 
 **验收 / 说明**
-- 当前环境**无 .NET SDK**，未做编译验证；建议合入后实机构建运行确认对象树与查询结果展示。
-- SQL 编辑器为纯 `TextBox`（`AvaloniaEdit` 版本兼容待确认）；对象树暂以「数据库 → 类型文件夹」两层 + 双击懒加载具体对象。
+- 已在具备 .NET SDK 8.0.424 的环境验证 `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）均 **0 错误**。
+- SQL 编辑器为纯 `TextBox`（`AvaloniaEdit` 版本兼容待确认）。
 - 查询用 `GetDataTableAsync` 执行，非查询语句（增删改）按无结果集简化处理（`IsNonQuery`）。
+- 完整脚本生成（DDL）、数据查看网格等后续阶段接入。
 
 ---
 
-*最后更新：阶段 2 完成时（核心）*
+*最后更新：对象浏览器完整层级（对齐 dbeaver）+ 点击展开懒加载*

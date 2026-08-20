@@ -34,6 +34,29 @@ public partial class MainWindow : Window
 
             // 监听查询结果列变化，动态重建 DataGrid 列。
             _queryEditor.Columns.CollectionChanged += QueryEditor_ColumnsChanged;
+
+            // 通过路由事件监听 TreeViewItem 展开，实现点击展开箭头时的按需懒加载（对齐 dbeaver）。
+            ObjectsTree.AddHandler(TreeViewItem.ExpandedEvent, ObjectsTree_Item_Expanded);
+        }
+    }
+
+    /// <summary>对象树节点展开时按需懒加载子级。</summary>
+    private async void ObjectsTree_Item_Expanded(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || vm.SelectedConnection is null)
+            return;
+
+        if (e.Source is not TreeViewItem item || item.DataContext is not DbObjectTreeNode node)
+            return;
+
+        switch (node.NodeType)
+        {
+            case DbObjectTreeNodeType.Folder:
+                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, vm.SelectedConnection.Name);
+                break;
+            case DbObjectTreeNodeType.ChildFolder:
+                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, vm.SelectedConnection.Name);
+                break;
         }
     }
 
