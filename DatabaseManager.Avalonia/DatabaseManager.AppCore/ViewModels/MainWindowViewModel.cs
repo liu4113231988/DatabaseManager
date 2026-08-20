@@ -8,7 +8,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 
 /// <summary>
 /// 主窗口 ViewModel（AppCore 层）。
-/// 阶段 1：注入连接服务，展示受支持数据库类型、已保存连接数量；负责主界面状态展示。
+/// 阶段 2：整合对象浏览器与查询编辑器子 ViewModel，负责主界面状态与连接选择联动。
 /// </summary>
 public partial class MainWindowViewModel : ViewModelBase
 {
@@ -17,6 +17,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
+
+    /// <summary>对象浏览器子 ViewModel。</summary>
+    public ObjectsExplorerViewModel ObjectsExplorer { get; }
+
+    /// <summary>查询编辑器子 ViewModel。</summary>
+    public QueryEditorViewModel QueryEditor { get; }
 
     [ObservableProperty]
     private string _supportedDatabases = string.Empty;
@@ -27,10 +33,37 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
-    public MainWindowViewModel(IDbSchemaService schemaService, IDbConnectionService connectionService)
+    public MainWindowViewModel(
+        IDbSchemaService schemaService,
+        IDbConnectionService connectionService,
+        ObjectsExplorerViewModel objectsExplorer,
+        QueryEditorViewModel queryEditor)
     {
         _schemaService = schemaService;
         _connectionService = connectionService;
+        ObjectsExplorer = objectsExplorer;
+        QueryEditor = queryEditor;
+
+        PropertyChanged += MainWindowViewModel_PropertyChanged;
+    }
+
+    private void MainWindowViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // 选中连接变化时，联动刷新对象树与查询目标连接。
+        if (e.PropertyName == nameof(SelectedConnection))
+        {
+            OnSelectedConnectionChanged();
+        }
+    }
+
+    private async void OnSelectedConnectionChanged()
+    {
+        var connection = SelectedConnection;
+        if (connection is null)
+            return;
+
+        QueryEditor.ConnectionName = connection.Name;
+        await ObjectsExplorer.LoadAsync(connection.Name);
     }
 
     /// <summary>初始化：枚举受支持的数据库类型，并加载已保存连接。</summary>

@@ -1,3 +1,5 @@
+using DatabaseManager.AppCore.Models;
+
 namespace DatabaseManager.AppCore.Services;
 
 /// <summary>
@@ -5,6 +7,6 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public interface IQueryService
 {
-    /// <summary>执行一条 SQL 语句，返回受影响的记录数（或结果描述）。</summary>
-    Task<string> ExecuteAsync(string connectionName, string sql, CancellationToken cancellationToken = default);
+    /// <summary>执行一条 SQL 语句，返回查询结果（含列、行数据、受影响行数与耗时）。</summary>
+    Task<QueryResult> ExecuteAsync(string connectionName, string sql, CancellationToken cancellationToken = default);
 }

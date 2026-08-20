@@ -9,7 +9,7 @@
 |:---:|------|:---:|------|
 | 0 | 环境与骨架 | ✅ 已完成 | M0 跨平台空窗口 |
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
-| 2 | 对象浏览 + 查询 | ⬜ 待执行 | M2 浏览/查询/脚本 |
+| 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ⬜ 待执行 | M3 数据编辑/表设计 |
 | 4 | 转换/对比/诊断 | ⬜ 待执行 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
@@ -83,4 +83,34 @@
 
 ---
 
-*最后更新：阶段 1 完成时（核心）*
+## 阶段 2：对象浏览 + 查询 ✅（核心）
+
+> 里程碑 M2：对象树浏览 + SQL 查询结果展示。
+> 完整 SQL 语法高亮（AvaloniaEdit）与多级 Schema 对象树为本阶段剩余进阶项，受限于当前无 GUI/无 .NET SDK 环境，先打通功能链路。
+
+**已完成内容**
+
+1. **对象浏览领域模型**（`AppCore/Models`）
+   - `DbObjectTreeNode`：对象树节点（连接 → 数据库 → 类型文件夹 → 具体对象），含 `Parent` 引用与懒加载标记。
+   - `QueryResult`：查询结果（列/行/受影响行数/耗时），UI 无关，含 `FromDataTable` 转换。
+2. **Schema 服务增强**（`AppCore/Services`）
+   - `IDbSchemaService` 扩展：`GetObjectTreeAsync`（数据库级）、`GetDbObjectNodesAsync`（按对象类型懒加载）。
+   - `DefaultDbSchemaService`：接入 `DbInterpreter`，枚举数据库并按其类型加载表/视图/存储过程/函数/序列。
+3. **查询服务增强**（`AppCore/Services`）
+   - `IQueryService.ExecuteAsync` 返回 `QueryResult`；`DefaultQueryService` 用 `DbInterpreter.GetDataTableAsync` 真正执行 SQL 并转换结果。
+4. **ViewModel**（`AppCore/ViewModels`）
+   - `ObjectsExplorerViewModel`：加载对象树、双击懒加载文件夹下对象。
+   - `QueryEditorViewModel`：SQL 输入、执行、结果集（动态列）、状态/耗时展示。
+   - `MainWindowViewModel`：注入两个子 VM，选中连接时联动刷新对象树并设置查询目标。
+5. **主界面 UI**（`DatabaseManager.Avalonia/Views`）
+   - `MainWindow.axaml`：左侧改造为「连接下拉 + 对象树（TreeView，HierarchicalDataTemplate 多级绑定）」；中间 Tab 新增「查询」页（SQL 输入框 + 执行按钮 + 结果 DataGrid）。
+   - `MainWindow.axaml.cs`：动态生成结果列、双击文件夹懒加载对象。
+
+**验收 / 说明**
+- 当前环境**无 .NET SDK**，未做编译验证；建议合入后实机构建运行确认对象树与查询结果展示。
+- SQL 编辑器为纯 `TextBox`（`AvaloniaEdit` 版本兼容待确认）；对象树暂以「数据库 → 类型文件夹」两层 + 双击懒加载具体对象。
+- 查询用 `GetDataTableAsync` 执行，非查询语句（增删改）按无结果集简化处理（`IsNonQuery`）。
+
+---
+
+*最后更新：阶段 2 完成时（核心）*

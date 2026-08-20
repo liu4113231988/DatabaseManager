@@ -20,6 +20,9 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
 
+    <!-- 表格：查询结果网格 -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.20" />
+
     <!-- MVVM / DI -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
