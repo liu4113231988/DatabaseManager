@@ -131,6 +131,32 @@ public partial class ConnectWindow : Window
         return connection;
     }
 
+    private async void BtnLoadDatabases_Click(object? sender, RoutedEventArgs e)
+    {
+        var connection = BuildConnection();
+
+        if (string.IsNullOrEmpty(connection.Server))
+        {
+            await ShowErrorAsync("请填写服务器地址（Server）。");
+            return;
+        }
+
+        BtnLoadDatabases.IsEnabled = false;
+        try
+        {
+            var databases = await _vm.TestConnectionAsync(connection);
+            PopulateDatabases(databases, connection);
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync($"加载数据库失败：{ex.Message}");
+        }
+        finally
+        {
+            BtnLoadDatabases.IsEnabled = true;
+        }
+    }
+
     private async void BtnTestConnection_Click(object? sender, RoutedEventArgs e)
     {
         var connection = BuildConnection();
@@ -148,12 +174,7 @@ public partial class ConnectWindow : Window
         try
         {
             var databases = await _vm.TestConnectionAsync(connection);
-            ComboDatabase.ItemsSource = databases;
-            if (databases.Count > 0 && string.IsNullOrEmpty(ComboDatabase.Text))
-            {
-                ComboDatabase.Text = databases.FirstOrDefault(d => string.Equals(d, connection.Database, StringComparison.OrdinalIgnoreCase))
-                                   ?? databases[0];
-            }
+            PopulateDatabases(databases, connection);
 
             await ShowInfoAsync($"连接成功，共发现 {databases.Count} 个数据库。");
         }
@@ -164,6 +185,17 @@ public partial class ConnectWindow : Window
         finally
         {
             BtnTestConnection.IsEnabled = true;
+        }
+    }
+
+    /// <summary>将加载到的数据库列表填充到下拉框，供用户选择。</summary>
+    private void PopulateDatabases(IReadOnlyList<string> databases, ConnectionItem connection)
+    {
+        ComboDatabase.ItemsSource = databases;
+        if (databases.Count > 0 && string.IsNullOrEmpty(ComboDatabase.Text))
+        {
+            ComboDatabase.Text = databases.FirstOrDefault(d => string.Equals(d, connection.Database, StringComparison.OrdinalIgnoreCase))
+                               ?? databases[0];
         }
     }
 

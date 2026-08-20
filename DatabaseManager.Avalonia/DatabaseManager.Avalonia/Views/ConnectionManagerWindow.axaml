@@ -30,8 +30,17 @@
                          Click="BtnDelete_Click" />
         </Grid>
 
-        <!-- 连接列表 -->
-        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,10">
+        <!-- 底部按钮（先 Dock 到底部，位于状态栏上方） -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,0,0,8">
+            <atom:Button Content="关闭" Click="BtnClose_Click" />
+        </StackPanel>
+
+        <!-- 状态栏（Dock 到最底，位于按钮下方） -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,0,0,0" Opacity="0.7" />
+
+        <!-- 连接列表（Fill：填满工具栏与底部之间的剩余空间，避免下边错位） -->
+        <Border BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,10">
             <ListBox x:Name="ConnectionList" ItemsSource="{Binding Connections}"
                      SelectedItem="{Binding SelectedConnection}"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
@@ -45,15 +54,6 @@
                 </ListBox.ItemTemplate>
             </ListBox>
         </Border>
-
-        <!-- 状态栏 -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.7" />
-
-        <!-- 底部按钮 -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <atom:Button Content="关闭" Click="BtnClose_Click" />
-        </StackPanel>
 
     </DockPanel>
 </Window>
