@@ -1,0 +1,95 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.ImportWindow"
+        x:DataType="vm:ImportViewModel"
+        Title="数据导入"
+        Width="760" Height="640"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接/目标表/文件 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+
+            <!-- 连接 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="连接" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 目标表 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="目标表" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboTable" Grid.Column="1" HorizontalAlignment="Stretch"
+                               ItemsSource="{Binding Tables}" />
+            </Grid>
+
+            <!-- 文件路径 -->
+            <Grid ColumnDefinitions="110,*,Auto">
+                <TextBlock Grid.Column="0" Text="导入文件" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding FilePath}" VerticalContentAlignment="Center" />
+                <atom:Button Grid.Column="2" Content="浏览..." Margin="8,0,0,0" Click="BtnBrowseFile_Click" />
+            </Grid>
+
+            <!-- 选项 -->
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <atom:CheckBox Content="首行为列名" IsChecked="{Binding FirstRowIsColumnName}" />
+                <atom:CheckBox Content="使用列映射" IsChecked="{Binding UseColumnMapping}" x:Name="UseColumnMappingCheckBox" />
+            </StackPanel>
+
+            <!-- 操作按钮 -->
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="导入" ButtonType="Primary" Command="{Binding ImportCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 列映射区（可选） -->
+        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1"
+                Margin="0,0,0,8" IsVisible="{Binding UseColumnMapping}">
+            <Grid RowDefinitions="Auto,*" Margin="8">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                    <TextBlock Text="列映射（表列 → 文件列）" FontWeight="Bold" VerticalAlignment="Center" />
+                    <atom:Button Content="＋ 新增" Command="{Binding AddColumnMappingCommand}" />
+                    <atom:Button Content="－ 删除选中" Click="BtnRemoveMapping_Click" />
+                </StackPanel>
+                <DataGrid Grid.Row="1" x:Name="MappingGrid"
+                          ItemsSource="{Binding ColumnMappings}"
+                          AutoGenerateColumns="False"
+                          GridLinesVisibility="All"
+                          MinHeight="120"
+                          HeadersVisibility="Column"
+                          CanUserResizeColumns="True"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="表列" Binding="{Binding SourceColumn}" Width="1*" />
+                        <DataGridTextColumn Header="文件列" Binding="{Binding TargetColumn}" Width="1*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 日志区 -->
+        <Border BorderBrush="#22000000" BorderThickness="1">
+            <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+    </DockPanel>
+</Window>

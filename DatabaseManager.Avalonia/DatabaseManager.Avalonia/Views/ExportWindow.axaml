@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:svc="using:DatabaseManager.AppCore.Services"
+        x:Class="DatabaseManager.Avalonia.Views.ExportWindow"
+        x:DataType="vm:ExportViewModel"
+        Title="数据导出"
+        Width="760" Height="560"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接/对象/格式/文件 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+
+            <!-- 连接 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="连接" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 表/视图 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="表 / 视图" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboTable" Grid.Column="1" HorizontalAlignment="Stretch"
+                               ItemsSource="{Binding Tables}" />
+            </Grid>
+            <!-- 格式 -->
+            <Grid ColumnDefinitions="110,*">
+                <TextBlock Grid.Column="0" Text="导出格式" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboFormat" Grid.Column="1" HorizontalAlignment="Stretch"
+                               ItemsSource="{Binding Formats}" />
+            </Grid>
+
+            <!-- 文件路径 -->
+            <Grid ColumnDefinitions="110,*,Auto">
+                <TextBlock Grid.Column="0" Text="导出文件" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding FilePath}" VerticalContentAlignment="Center" />
+                <atom:Button Grid.Column="2" Content="浏览..." Margin="8,0,0,0" Click="BtnBrowseFile_Click" />
+            </Grid>
+
+            <!-- 选项 -->
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <atom:CheckBox Content="包含列名" IsChecked="{Binding ShowColumnNames}" />
+            </StackPanel>
+
+            <!-- 操作按钮 -->
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="导出" ButtonType="Primary" Command="{Binding ExportCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 日志区 -->
+        <Border BorderBrush="#22000000" BorderThickness="1">
+            <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+    </DockPanel>
+</Window>

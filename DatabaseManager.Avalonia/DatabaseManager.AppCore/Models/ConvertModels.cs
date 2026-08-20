@@ -1,3 +1,5 @@
+using DatabaseInterpreter.Model;
+
 namespace DatabaseManager.AppCore.Models;
 
 /// <summary>
@@ -23,8 +25,11 @@ public class ConvertOptions
     /// <summary>是否将 Nchar/Nvarchar 转为双字符宽度的 Char/Varchar。</summary>
     public bool NcharToDoubleChar { get; set; } = true;
 
-    /// <summary>是否在预览后执行转换（当前简化：直接执行）。</summary>
+    /// <summary>是否在预览后执行转换。</summary>
     public bool NeedPreview { get; set; }
+
+    /// <summary>Schema 映射（源 Schema → 目标 Schema）。</summary>
+    public List<SchemaMappingInfo> SchemaMappings { get; set; } = new();
 }
 
 /// <summary>
