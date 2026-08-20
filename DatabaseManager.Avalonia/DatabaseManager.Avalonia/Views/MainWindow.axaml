@@ -59,6 +59,7 @@
             </MenuItem>
             <MenuItem Header="工具">
                 <MenuItem Header="数据库转换..." Click="MenuConvert_Click" />
+                <MenuItem Header="结构对比..." Click="MenuSchemaCompare_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" IsEnabled="False" />

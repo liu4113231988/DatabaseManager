@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IDataEditService, DefaultDataEditService>();
         services.AddSingleton<ITableDesignService, DefaultTableDesignService>();
         services.AddSingleton<IConvertService, DefaultConvertService>();
+        services.AddSingleton<ICompareService, DefaultCompareService>();
         services.AddSingleton<IExportImportService, DefaultExportImportService>();
 
         // ViewModels
@@ -30,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<DataEditorViewModel>();
         services.AddTransient<TableDesignerViewModel>();
         services.AddTransient<ConvertViewModel>();
+        services.AddTransient<SchemaCompareViewModel>();
 
         return services;
     }
