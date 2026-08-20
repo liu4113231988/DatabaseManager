@@ -77,7 +77,8 @@ public partial class ConnectionManagerWindow : Window
             Password = selected.Password,
             IsDba = selected.IsDba,
             UseSsl = selected.UseSsl,
-            RememberPassword = true,
+            RememberPassword = selected.RememberPassword,
+            Priority = selected.Priority,
         };
 
         var dialog = new ConnectWindow(_vm, item) { DataContext = _vm };

@@ -5,7 +5,7 @@
         x:Class="DatabaseManager.Avalonia.Views.ConnectWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
-        Width="480" Height="620"
+        Width="560" Height="620"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
 
@@ -30,9 +30,9 @@
                 <TextBlock Text="端口" FontWeight="SemiBold" />
                 <atom:TextBox x:Name="TxtPort" Watermark="端口（留空则使用默认）" />
             </StackPanel>
-            <StackPanel Spacing="6" Grid.Column="1" Width="190">
+            <StackPanel Spacing="6" Grid.Column="1" Width="250">
                 <TextBlock Text="认证方式" FontWeight="SemiBold" />
-                <atom:ComboBox x:Name="ComboAuthentication">
+                <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch">
                     <ComboBoxItem>Password</ComboBoxItem>
                     <ComboBoxItem>Integrated Security</ComboBoxItem>
                 </atom:ComboBox>
@@ -58,10 +58,12 @@
 
         <StackPanel Spacing="6">
             <TextBlock Text="数据库" FontWeight="SemiBold" />
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto">
                 <atom:ComboBox x:Name="ComboDatabase" Grid.Column="0" Margin="0,0,8,0"
                                HorizontalAlignment="Stretch" IsEditable="True" />
-                <atom:Button x:Name="BtnTestConnection" Grid.Column="1" Content="测试连接"
+                <atom:Button x:Name="BtnLoadDatabases" Grid.Column="1" Content="加载数据库" Margin="0,0,8,0"
+                             Click="BtnLoadDatabases_Click" />
+                <atom:Button x:Name="BtnTestConnection" Grid.Column="2" Content="测试连接"
                              Click="BtnTestConnection_Click" />
             </Grid>
         </StackPanel>
