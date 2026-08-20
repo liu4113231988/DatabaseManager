@@ -79,7 +79,7 @@
             <!-- 中：内容区（Tab 容器，为阶段 2 查询/表设计预留） -->
             <Grid Grid.Row="0" Margin="8,0,8,4">
                 <TabControl>
-                    <TabItem Header="欢迎">
+                    <TabItem Header="">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
                             <TextBlock Text="DatabaseManager (Avalonia)"
                                        FontSize="20" FontWeight="Bold" HorizontalAlignment="Center" />
