@@ -35,12 +35,6 @@
             </MenuItem>
         </Menu>
 
-        <!-- 工具栏 -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="12,8">
-            <atom:Button Content="新建连接" ButtonType="Primary" Click="MenuNewConnection_Click" />
-            <atom:Button Content="连接管理" Click="MenuConnectionManager_Click" />
-        </StackPanel>
-
         <!-- 状态栏 -->
         <Border DockPanel.Dock="Bottom" Height="26" Background="#1A000000">
             <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,0" />
