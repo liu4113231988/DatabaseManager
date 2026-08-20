@@ -114,4 +114,27 @@
 
 ---
 
-*最后更新：对象浏览器完整层级（对齐 dbeaver）+ 点击展开懒加载*
+## P0 功能（DBeaver 计划表高优先级项）✅
+
+> 依据 Issue #13 DBeaver 截图功能计划表中的 P0 项，在阶段 2 基础上补齐事务核心与连接/脚本管理能力。
+
+### 1. 事务核心（本次重点）
+- Commit / Rollback / Auto-commit 切换（工具栏 + 数据库菜单）。
+- 手动事务模式下执行 SQL 自动开启事务，需手动提交/回滚。
+- `IQueryService` 扩展事务管理接口：`BeginTransactionAsync` / `CommitAsync` / `RollbackAsync` / `IsTransactionActive` / `SetAutoCommit` / `IsAutoCommit` / `CloseConnection`。
+- `DefaultQueryService` 通过 `ConcurrentDictionary` 维护每连接的事务上下文（连接 + 事务），保证跨多条 SQL 共享同一事务。
+
+### 2. 连接生命周期
+- Connect / Reconnect / Disconnect（工具栏 + 连接菜单）。
+- 断开时释放事务连接，重连自动清理旧连接状态。
+
+### 3. SQL 脚本管理
+- 新建查询 / 打开脚本 / 保存脚本 / 最近脚本（文件菜单）。
+- 基于 Avalonia `StorageProvider`（`FilePicker`）选择脚本文件。
+
+### 4. Schema 选择器
+- 选中对象树数据库/Schema 节点时，工具栏展示当前 schema 上下文（多 Schema 数据库如 `public@console`）。
+
+---
+
+*最后更新：完成 P0 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器）*
