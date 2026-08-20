@@ -173,6 +173,17 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开数据对比窗口（阶段 4）。</summary>
+    private async void MenuDataCompare_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var dataCompareVm = _services.GetRequiredService<DataCompareViewModel>();
+        var window = new DataCompareWindow(dataCompareVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {

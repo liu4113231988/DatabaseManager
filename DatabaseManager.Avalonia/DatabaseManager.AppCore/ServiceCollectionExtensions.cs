@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<TableDesignerViewModel>();
         services.AddTransient<ConvertViewModel>();
         services.AddTransient<SchemaCompareViewModel>();
+        services.AddTransient<DataCompareViewModel>();
 
         return services;
     }

@@ -1,0 +1,390 @@
+using System.Collections.ObjectModel;
+using System.Data;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using DatabaseManager.AppCore.Common;
+using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
+using DatabaseManager.Core;
+using DatabaseManager.Core.Model;
+
+namespace DatabaseManager.AppCore.ViewModels;
+
+/// <summary>
+/// 数据对比 ViewModel（阶段 4）。
+/// 对比两个同类型数据库的表数据差异：选择源/目标连接、表与展示模式，执行对比并查看明细/生成同步脚本。
+/// </summary>
+public partial class DataCompareViewModel : ViewModelBase
+{
+    private readonly IDbConnectionService _connectionService;
+    private readonly ICompareService _compareService;
+
+    private ConnectionItem? _effectiveSource;
+    private ConnectionItem? _effectiveTarget;
+    private IReadOnlyList<DataCompareResultItem>? _lastResults;
+
+    /// <summary>全部已保存连接（源/目标下拉共用）。</summary>
+    public ObservableCollection<ConnectionItem> Connections { get; } = new();
+
+    /// <summary>源库表列表（可选择要对比的表）。</summary>
+    public ObservableCollection<TableItem> Tables { get; } = new();
+
+    /// <summary>数据对比结果（按表概览）。</summary>
+    public ObservableCollection<DataCompareResultItem> Results { get; } = new();
+
+    /// <summary>展示模式选项。</summary>
+    public IReadOnlyList<DataCompareModeOption> Modes { get; }
+
+    /// <summary>执行日志。</summary>
+    public ObservableCollection<string> Logs { get; } = new();
+
+    /// <summary>同步脚本。</summary>
+    public ObservableCollection<string> Scripts { get; } = new();
+
+    /// <summary>当前选中表的数据明细行（动态列）。</summary>
+    public ObservableCollection<DataRowItem> DetailRows { get; } = new();
+
+    [ObservableProperty]
+    private ConnectionItem? _sourceConnection;
+
+    [ObservableProperty]
+    private ConnectionItem? _targetConnection;
+
+    [ObservableProperty]
+    private DataCompareModeOption? _selectedMode;
+
+    [ObservableProperty]
+    private DataCompareResultItem? _selectedResult;
+
+    [ObservableProperty]
+    private bool _isBusy;
+
+    [ObservableProperty]
+    private bool _isTablesLoading;
+
+    [ObservableProperty]
+    private string _statusMessage = string.Empty;
+
+    /// <summary>当前明细的列标题（Dynamic 数据行用）。</summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _detailColumns = System.Array.Empty<string>();
+
+    public DataCompareViewModel(IDbConnectionService connectionService, ICompareService compareService)
+    {
+        _connectionService = connectionService;
+        _compareService = compareService;
+
+        Modes = new[]
+        {
+            new DataCompareModeOption(DataCompareDisplayMode.Different, "差异记录"),
+            new DataCompareModeOption(DataCompareDisplayMode.OnlyInSource, "仅在源库"),
+            new DataCompareModeOption(DataCompareDisplayMode.OnlyInTarget, "仅在目标库"),
+            new DataCompareModeOption(DataCompareDisplayMode.Indentical, "完全一致"),
+            new DataCompareModeOption(DataCompareDisplayMode.Different | DataCompareDisplayMode.OnlyInSource | DataCompareDisplayMode.OnlyInTarget, "全部"),
+        };
+
+        SelectedMode = Modes.Last();
+    }
+
+    /// <summary>加载已保存连接并刷新源/目标选择。</summary>
+    public void RefreshConnections()
+    {
+        var previousSourceId = SourceConnection?.Id;
+        var previousTargetId = TargetConnection?.Id;
+
+        Connections.Clear();
+        foreach (var item in _connectionService.GetConnections())
+        {
+            Connections.Add(item);
+        }
+
+        SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
+        TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
+
+        _effectiveSource = SourceConnection;
+        _effectiveTarget = TargetConnection;
+    }
+
+    private ConnectionItem? FindConnection(string? id)
+        => Connections.FirstOrDefault(c => c.Id == id);
+
+    partial void OnSourceConnectionChanged(ConnectionItem? value)
+    {
+        _effectiveSource = value;
+        // 源连接变化时重新加载表列表。
+        _ = LoadTablesAsync(value);
+    }
+
+    partial void OnTargetConnectionChanged(ConnectionItem? value)
+    {
+        _effectiveTarget = value;
+    }
+
+    private async Task LoadTablesAsync(ConnectionItem? connection)
+    {
+        if (connection is null)
+        {
+            Tables.Clear();
+            return;
+        }
+
+        IsTablesLoading = true;
+        try
+        {
+            var tables = await _compareService.GetTablesAsync(connection);
+            Tables.Clear();
+            foreach (var table in tables)
+            {
+                Tables.Add(table);
+            }
+            StatusMessage = $"已加载 {Tables.Count} 张表。";
+        }
+        catch (Exception ex)
+        {
+            Tables.Clear();
+            StatusMessage = $"加载表列表失败：{ex.Message}";
+        }
+        finally
+        {
+            IsTablesLoading = false;
+        }
+    }
+
+    /// <summary>当前选中结果的明细分类是否为空。</summary>
+    public bool CanShowDetail => SelectedResult is not null;
+
+    [RelayCommand]
+    private async Task ExecuteAsync()
+    {
+        if (SourceConnection is null || TargetConnection is null)
+        {
+            StatusMessage = "请选择源连接和目标连接。";
+            return;
+        }
+
+        var selectedTables = Tables.Where(t => t.IsSelected).Select(t => t.Name).ToList();
+        if (selectedTables.Count == 0)
+        {
+            StatusMessage = "请至少选择一张要对比的表。";
+            return;
+        }
+
+        var mode = SelectedMode?.Value ?? DataCompareDisplayMode.None;
+
+        IsBusy = true;
+        StatusMessage = string.Empty;
+        Logs.Clear();
+        Results.Clear();
+        DetailRows.Clear();
+        Scripts.Clear();
+
+        try
+        {
+            var feedbackBuffer = new List<string>();
+            void CollectFeedback(string message) => feedbackBuffer.Add(message);
+
+            AppendLog($"源：{SourceConnection.Description}");
+            AppendLog($"目标：{TargetConnection.Description}");
+            AppendLog($"对比表数：{selectedTables.Count}");
+            AppendLog($"展示模式：{SelectedMode?.DisplayName}");
+            AppendLog("开始对比...");
+
+            var results = await _compareService.CompareDataAsync(
+                SourceConnection,
+                TargetConnection,
+                selectedTables,
+                mode,
+                CollectFeedback);
+
+            _lastResults = results;
+
+            foreach (var line in feedbackBuffer)
+            {
+                AppendLog(line);
+            }
+
+            foreach (var result in results)
+            {
+                Results.Add(result);
+            }
+
+            var diffCount = results.Sum(r => r.DifferentCount);
+            var onlySource = results.Sum(r => r.OnlyInSourceCount);
+            var onlyTarget = results.Sum(r => r.OnlyInTargetCount);
+
+            StatusMessage = $"对比完成：{results.Count} 张表，差异 {diffCount} 条，仅源 {onlySource} 条，仅目标 {onlyTarget} 条。";
+            AppendLog(StatusMessage);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"对比失败：{ex.Message}";
+            AppendLog(StatusMessage);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    partial void OnSelectedResultChanged(DataCompareResultItem? value)
+    {
+        // 选中某张表时，默认展示该表的差异明细。
+        if (value is null)
+        {
+            DetailRows.Clear();
+            DetailColumns = System.Array.Empty<string>();
+            return;
+        }
+
+        _ = ShowDetailAsync(value, "Different", 1);
+    }
+
+    /// <summary>展示指定分类的明细数据（分页）。</summary>
+    public async Task ShowDetailAsync(DataCompareResultItem item, string category, long pageNumber)
+    {
+        if (_effectiveSource is null || _effectiveTarget is null)
+        {
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            var pageSize = 100;
+
+            var (data, valueInfos) = await _compareService.GetTableDataAsync(
+                _effectiveSource,
+                _effectiveTarget,
+                item.Detail,
+                category,
+                pageSize,
+                pageNumber);
+
+            PopulateDetailRows(data, valueInfos);
+            StatusMessage = $"表 {item.TableName} · {GetCategoryName(category)}：第 {pageNumber} 页。";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"加载明细失败：{ex.Message}";
+            DetailRows.Clear();
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void PopulateDetailRows(DataTable data, Dictionary<int, List<DataCompareValueInfo>> valueInfos)
+    {
+        DetailColumns = data.Columns.Cast<DataColumn>()
+            .Select(c => DataCompare.GetDifferentDataColumnDisplayText(c.ColumnName))
+            .ToList();
+
+        DetailRows.Clear();
+
+        foreach (DataRow row in data.Rows)
+        {
+            var values = new List<string>();
+            for (int i = 0; i < data.Columns.Count; i++)
+            {
+                var value = row[i];
+                values.Add(Convert.ToString(value));
+            }
+            DetailRows.Add(new DataRowItem(values));
+        }
+    }
+
+    [RelayCommand]
+    private async Task GenerateScriptsAsync()
+    {
+        if (_lastResults is null || _lastResults.Count == 0)
+        {
+            StatusMessage = "请先执行数据对比。";
+            return;
+        }
+
+        if (SourceConnection is null || TargetConnection is null)
+        {
+            StatusMessage = "源/目标连接无效。";
+            return;
+        }
+
+        // 仅对存在差异的表生成脚本。
+        var details = _lastResults
+            .Where(r => r.DifferentCount > 0 || r.OnlyInSourceCount > 0 || r.OnlyInTargetCount > 0)
+            .Select(r => r.Detail)
+            .ToList();
+
+        if (details.Count == 0)
+        {
+            StatusMessage = "没有需要同步的数据。";
+            return;
+        }
+
+        IsBusy = true;
+        Scripts.Clear();
+        try
+        {
+            var feedbackBuffer = new List<string>();
+            void CollectFeedback(string message) => feedbackBuffer.Add(message);
+
+            var scripts = await _compareService.GenerateSyncScriptsAsync(
+                SourceConnection,
+                TargetConnection,
+                details,
+                CollectFeedback);
+
+            foreach (var line in feedbackBuffer)
+            {
+                AppendLog(line);
+            }
+
+            foreach (var line in scripts.Split('\n'))
+            {
+                Scripts.Add(line);
+            }
+
+            StatusMessage = $"已生成同步脚本（{details.Count} 张表）。";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"生成脚本失败：{ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private static string GetCategoryName(string category) => category switch
+    {
+        "Different" => "差异记录",
+        "OnlyInSource" => "仅在源库",
+        "OnlyInTarget" => "仅在目标库",
+        "Identical" => "完全一致",
+        _ => category,
+    };
+
+    private void AppendLog(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        var time = DateTime.Now.ToString("HH:mm:ss");
+        Logs.Add($"[{time}] {message}");
+    }
+}
+
+/// <summary>动态列数据行（UI 绑定，支持按索引访问值）。</summary>
+public sealed class DataRowItem
+{
+    private readonly IReadOnlyList<string> _values;
+
+    public DataRowItem(IReadOnlyList<string> values)
+    {
+        _values = values;
+    }
+
+    /// <summary>按列索引取值（用于 DataGrid 的 [i] 绑定）。</summary>
+    public string this[int index] => index >= 0 && index < _values.Count ? _values[index] : string.Empty;
+}
