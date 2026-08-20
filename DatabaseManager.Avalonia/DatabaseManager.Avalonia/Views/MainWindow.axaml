@@ -135,8 +135,8 @@
                                          AcceptsReturn="True"
                                          TextWrapping="NoWrap"
                                          FontFamily="Consolas, monospace"
-                                         VerticalScrollBarVisibility="Auto"
-                                         HorizontalScrollBarVisibility="Auto"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                          Margin="4" />
                             </Grid>
 
@@ -151,9 +151,7 @@
                                               IsVisible="{Binding QueryEditor.HasResult}"
                                               ItemsSource="{Binding QueryEditor.Rows}"
                                               AutoGenerateColumns="False"
-                                              AreRowGroupHeadersVisible="False"
-                                              GridLinesVisibility="All"
-                                              CanUserAddRows="False" />
+                                              GridLinesVisibility="All" />
                                     <TextBlock Text="（无结果）" IsVisible="{Binding QueryEditor.ShowNoResult}"
                                                Opacity="0.5" Margin="4" />
                                 </StackPanel>
