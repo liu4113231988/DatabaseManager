@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.ColumnDocumentationWindow"
+        x:DataType="vm:ColumnDocumentationViewModel"
+        Title="数据库文档生成 (Column Documentation)"
+        Width="920" Height="640"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接、输出路径与操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <Grid ColumnDefinitions="90,*,Auto">
+                <TextBlock Grid.Column="0" Text="输出文件" VerticalAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding FilePath}" Watermark="生成的 Word 文档路径（.docx）"
+                              HorizontalAlignment="Stretch" />
+                <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseFile_Click" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <atom:CheckBox Content="显示表注释" IsChecked="{Binding ShowTableComment}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="生成文档" ButtonType="Primary" Command="{Binding GenerateCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：列属性 + 日志 -->
+        <atom:TabControl x:Name="MainTabs">
+            <TabItem Header="包含列属性">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="勾选文档中要包含的列属性" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding Properties}" AutoGenerateColumns="False"
+                                  IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsChecked, Mode=TwoWay}" />
+                                <DataGridTextColumn Header="列属性" Binding="{Binding DisplayName}" Width="2*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>

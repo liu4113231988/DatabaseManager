@@ -195,6 +195,83 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开数据库优化窗口（阶段 4）。</summary>
+    private async void MenuOptimize_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var optimizeVm = _services.GetRequiredService<OptimizeViewModel>();
+        var window = new OptimizeWindow(optimizeVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开依赖分析窗口（阶段 4）。</summary>
+    private async void MenuDependency_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var dependencyVm = _services.GetRequiredService<DependencyViewModel>();
+        var window = new DependencyWindow(dependencyVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开统计窗口（阶段 5）。</summary>
+    private async void MenuStatistic_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var statisticVm = _services.GetRequiredService<StatisticViewModel>();
+        var window = new StatisticWindow(statisticVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开索引碎片分析窗口（阶段 5）。</summary>
+    private async void MenuIndexFragmentation_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var fragVm = _services.GetRequiredService<IndexFragmentationViewModel>();
+        var window = new IndexFragmentationWindow(fragVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开数据库备份窗口（阶段 5）。</summary>
+    private async void MenuBackup_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var backupVm = _services.GetRequiredService<BackupViewModel>();
+        var window = new BackupWindow(backupVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开代码生成窗口（阶段 5）。</summary>
+    private async void MenuCodeGenerate_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var codeGenVm = _services.GetRequiredService<CodeGenerateViewModel>();
+        var window = new CodeGenerateWindow(codeGenVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开文档生成窗口（阶段 5）。</summary>
+    private async void MenuColumnDocumentation_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var docVm = _services.GetRequiredService<ColumnDocumentationViewModel>();
+        var window = new ColumnDocumentationWindow(docVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {
