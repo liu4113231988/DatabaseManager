@@ -11,7 +11,7 @@
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
-| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比+数据对比完成）/ 诊断·优化待续 | M4 转换对比诊断 |
+| 4 | 转换/对比/诊断 | 🚧 进行中（转换+结构对比+数据对比+诊断完成）/ 优化·依赖分析待续 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
@@ -271,8 +271,35 @@
 - AppCore 冒烟测试（SQLite 双库）：表列表加载、数据对比（差异/仅源/仅目标/一致计数）、差异明细分页、同步脚本生成均通过。
 
 **遗留 / 说明**
-- 诊断、优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
+- 优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 + 阶段4转换/结构对比/数据对比（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比 / 数据对比）*
+## 阶段 4 第四步：数据库诊断（Diagnose）✅
+
+> 阶段 4 第四步增量：完成**数据库诊断**（对应原 WinForms `frmDiagnose`），复用 `DatabaseManager.Core.Diagnosis`（DbDiagnosis 及 SqlServer/MySql/Oracle/Postgres/Sqlite 各实现）。
+> 优化 / 依赖分析留待后续迭代。
+
+### 1. 诊断服务（AppCore）
+- `Services/IDiagnoseService.cs` / `DefaultDiagnoseService.cs`：
+  - `DiagnoseTableAsync(connection, TableDiagnoseType, schema, onFeedback, ct)`：通过 `DbDiagnosis.GetInstance(...)` 构建诊断器，复用其 `DiagnoseTable(...)` 执行表诊断（非空字段空值 / 首尾空白 / 自引用外键 / 空值而非 NULL / 主键列可空），将扁平结果整理为 UI 友好列表（对象类型 / 表名 / 对象名 / 记录数 / 定位 SQL）。
+  - `DiagnoseScriptAsync(connection, ScriptDiagnoseType, schema, onFeedback, ct)`：复用 `DiagnoseScript(...)` 执行脚本诊断（视图列别名缺引号 / 脚本对象名不匹配），整理视图/函数/存储过程诊断明细。
+  - 通过 `DbDiagnosis.OnFeedback` 订阅反馈并转发到回调日志。
+
+### 2. 诊断 ViewModel
+- `Models/DiagnoseModels.cs`：`DiagnoseTypeOption`（诊断类型 + 类别）、`TableDiagnoseResultItem`、`ScriptDiagnoseResultItem`。
+- `ViewModels/DiagnoseViewModel.cs`：连接选择、诊断类型选择（表/脚本两大类）、`ExecuteCommand` 执行、表/脚本结果集合、日志与状态消息。
+
+### 3. 诊断 UI
+- `Views/DiagnoseWindow.axaml(.cs)`：连接下拉 + 诊断类型下拉 + 执行按钮 + 多 Tab（表诊断结果 DataGrid / 脚本诊断结果 ListBox / 日志）。
+- `MainWindow` 菜单「工具」→「数据库诊断...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+**遗留 / 说明**
+- 优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4转换/结构对比/数据对比/数据库诊断（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换 / 结构对比 / 数据对比 / 数据库诊断）*

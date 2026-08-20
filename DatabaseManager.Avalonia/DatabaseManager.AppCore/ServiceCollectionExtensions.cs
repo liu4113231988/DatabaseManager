@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITableDesignService, DefaultTableDesignService>();
         services.AddSingleton<IConvertService, DefaultConvertService>();
         services.AddSingleton<ICompareService, DefaultCompareService>();
+        services.AddSingleton<IDiagnoseService, DefaultDiagnoseService>();
         services.AddSingleton<IExportImportService, DefaultExportImportService>();
 
         // ViewModels
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ConvertViewModel>();
         services.AddTransient<SchemaCompareViewModel>();
         services.AddTransient<DataCompareViewModel>();
+        services.AddTransient<DiagnoseViewModel>();
 
         return services;
     }
