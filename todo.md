@@ -22,7 +22,7 @@
   - 自增/序列、默认值、注释的跨库映射；
   - 大表分页迁移的断点续传与失败重试；
   - 类型不兼容时的映射规则与告警。
-- [ ] **结构/数据对比**：`Compare` 模块需支持更多对象类型（函数、触发器、视图定义）的逐字对比，并输出可执行的差异同步脚本。
+- [x] **结构/数据对比**：`Compare` 模块已接入 Avalonia 版（`SchemaCompareWindow` 结构对比 + `DataCompareWindow` 数据对比，含差异树/明细分页与同步脚本生成，复用 `DatabaseManager.Core.SchemaCompare/DataCompare`）。仍待增强：支持更多对象类型（函数、触发器、视图定义）的逐字对比。
 - [ ] **诊断与优化**：`Diagnose` / `Opitimize` 当前较基础，需扩充规则库（缺失索引、统计信息过期、碎片整理等）并区分各数据库能力。
 - [ ] **统计功能**：`Statistic` 模块仅含记录数、列最大长度，建议补充空值率、基数（distinct）、数据类型分布等。
 - [ ] **依赖分析**：`DbObjectDependency` / `TableDependency` 需支持跨 Schema 依赖图与循环依赖检测。
