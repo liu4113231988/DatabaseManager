@@ -268,7 +268,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
     private static void AddFolder(DbObjectTreeNode parent, string text, DatabaseObjectType type, string databaseName, string? schema)
     {
-        parent.AddChild(new DbObjectTreeNode
+        var folder = new DbObjectTreeNode
         {
             Name = text,
             Text = text,
@@ -276,7 +276,16 @@ public class DefaultDbSchemaService : IDbSchemaService
             DatabaseObjectType = type,
             DatabaseName = databaseName,
             Schema = schema,
+        };
+        // 预置占位子节点以显示展开箭头，点击展开时再懒加载真实对象。
+        folder.AddChild(new DbObjectTreeNode
+        {
+            Name = "_Placeholder_",
+            Text = string.Empty,
+            NodeType = DbObjectTreeNodeType.Folder,
+            IsPlaceholder = true,
         });
+        parent.AddChild(folder);
     }
 
     private async Task<List<DatabaseSchema>> TryGetSchemasAsync(ConnectionItem connection, DbInterpreter interpreter, string databaseName)
@@ -321,51 +330,33 @@ public class DefaultDbSchemaService : IDbSchemaService
 
     private static void AddTableChildFolders(DbObjectTreeNode parent)
     {
-        parent.AddChild(new DbObjectTreeNode
+        AddChildFolder(parent, "Columns", DatabaseObjectType.Column);
+        AddChildFolder(parent, "Triggers", DatabaseObjectType.Trigger);
+        AddChildFolder(parent, "Indexes", DatabaseObjectType.Index);
+        AddChildFolder(parent, "Keys", DatabaseObjectType.PrimaryKey);
+        AddChildFolder(parent, "Constraints", DatabaseObjectType.Constraint);
+    }
+
+    /// <summary>添加表/视图子文件夹（带占位子节点以显示展开箭头，点击展开时懒加载）。</summary>
+    private static void AddChildFolder(DbObjectTreeNode parent, string name, DatabaseObjectType type)
+    {
+        var folder = new DbObjectTreeNode
         {
-            Name = "Columns",
-            Text = "Columns",
+            Name = name,
+            Text = name,
             NodeType = DbObjectTreeNodeType.ChildFolder,
-            DatabaseObjectType = DatabaseObjectType.Column,
+            DatabaseObjectType = type,
             DatabaseName = parent.DatabaseName,
             Schema = parent.Schema,
-        });
-        parent.AddChild(new DbObjectTreeNode
+        };
+        folder.AddChild(new DbObjectTreeNode
         {
-            Name = "Triggers",
-            Text = "Triggers",
+            Name = "_Placeholder_",
+            Text = string.Empty,
             NodeType = DbObjectTreeNodeType.ChildFolder,
-            DatabaseObjectType = DatabaseObjectType.Trigger,
-            DatabaseName = parent.DatabaseName,
-            Schema = parent.Schema,
+            IsPlaceholder = true,
         });
-        parent.AddChild(new DbObjectTreeNode
-        {
-            Name = "Indexes",
-            Text = "Indexes",
-            NodeType = DbObjectTreeNodeType.ChildFolder,
-            DatabaseObjectType = DatabaseObjectType.Index,
-            DatabaseName = parent.DatabaseName,
-            Schema = parent.Schema,
-        });
-        parent.AddChild(new DbObjectTreeNode
-        {
-            Name = "Keys",
-            Text = "Keys",
-            NodeType = DbObjectTreeNodeType.ChildFolder,
-            DatabaseObjectType = DatabaseObjectType.PrimaryKey,
-            DatabaseName = parent.DatabaseName,
-            Schema = parent.Schema,
-        });
-        parent.AddChild(new DbObjectTreeNode
-        {
-            Name = "Constraints",
-            Text = "Constraints",
-            NodeType = DbObjectTreeNodeType.ChildFolder,
-            DatabaseObjectType = DatabaseObjectType.Constraint,
-            DatabaseName = parent.DatabaseName,
-            Schema = parent.Schema,
-        });
+        parent.AddChild(folder);
     }
 
     private static DbObjectTreeNode CreateChildNode(DatabaseObject obj, string name, string text, DbObjectChildType childType)
