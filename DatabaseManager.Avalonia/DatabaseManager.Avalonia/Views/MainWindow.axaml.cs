@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -91,17 +92,63 @@ public partial class MainWindow : Window
         Close();
     }
 
-    /// <summary>双击对象树节点：若为类型文件夹节点则懒加载其下的具体对象。</summary>
+    /// <summary>双击对象树节点：类型文件夹懒加载具体对象；表/视图生成 SELECT 脚本。</summary>
     private async void ObjectsTree_DoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        if (ObjectsTree.SelectedItem is DbObjectTreeNode node &&
-            node.NodeType == DbObjectTreeNodeType.Folder &&
-            vm.SelectedConnection is not null)
+        if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
+            return;
+
+        if (vm.SelectedConnection is null)
+            return;
+
+        switch (node.NodeType)
         {
-            await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, vm.SelectedConnection.Name);
+            case DbObjectTreeNodeType.Folder:
+                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, vm.SelectedConnection.Name);
+                break;
+            case DbObjectTreeNodeType.ChildFolder:
+                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, vm.SelectedConnection.Name);
+                break;
+            case DbObjectTreeNodeType.DbObject when node.DbObject is Table or View:
+                vm.GenerateSelectScript(node);
+                break;
         }
+    }
+
+    /// <summary>对象树右键菜单：新建查询/查看数据(SELECT)/生成脚本/刷新。</summary>
+    private void ObjectsTree_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
+            return;
+
+        var menu = new ContextMenu();
+
+        var newQuery = new MenuItem { Header = "新建查询" };
+        newQuery.Click += (_, _) => vm.NewQuery();
+        menu.Items.Add(newQuery);
+
+        if (node.DbObject is Table or View)
+        {
+            var select = new MenuItem { Header = "查看数据 (SELECT)" };
+            select.Click += (_, _) => vm.GenerateSelectScript(node);
+            menu.Items.Add(select);
+        }
+
+        // 刷新（针对可懒加载的文件夹/子文件夹）。
+        if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
+        {
+            var refresh = new MenuItem { Header = "刷新" };
+            refresh.Click += async (_, _) => await vm.RefreshNodeAsync(node);
+            menu.Items.Add(refresh);
+        }
+
+        menu.Open(ObjectsTree);
+        e.Handled = true;
     }
 }

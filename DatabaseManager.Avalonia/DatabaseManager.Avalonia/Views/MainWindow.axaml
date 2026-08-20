@@ -3,6 +3,7 @@
         xmlns:atom="using:AtomUI.Controls"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
+        xmlns:conv="using:DatabaseManager.Avalonia.Converters"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
@@ -14,6 +15,10 @@
         WindowStartupLocation="CenterScreen">
 
     <DockPanel>
+
+        <DockPanel.Resources>
+            <conv:NodeIconConverter x:Key="NodeIconConverter" />
+        </DockPanel.Resources>
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
         <Menu DockPanel.Dock="Top">
@@ -73,11 +78,14 @@
                                   x:Name="ObjectsTree"
                                   ItemsSource="{Binding ObjectsExplorer.RootNodes}"
                                   DoubleTapped="ObjectsTree_DoubleTapped"
+                                  ContextRequested="ObjectsTree_ContextRequested"
                                   BorderThickness="0">
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <StackPanel Orientation="Horizontal" Spacing="4"
+                                                Tag="{Binding}">
+                                        <TextBlock Text="{Binding Converter={StaticResource NodeIconConverter}}" />
                                         <TextBlock Text="{Binding Text}" />
                                     </StackPanel>
                                 </TreeDataTemplate>
