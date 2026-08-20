@@ -184,6 +184,17 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开数据库诊断窗口（阶段 4）。</summary>
+    private async void MenuDiagnose_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var diagnoseVm = _services.GetRequiredService<DiagnoseViewModel>();
+        var window = new DiagnoseWindow(diagnoseVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {

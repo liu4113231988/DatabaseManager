@@ -1,0 +1,110 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.DiagnoseWindow"
+        x:DataType="vm:DiagnoseViewModel"
+        Title="数据库诊断 (Diagnose)"
+        Width="1000" Height="680"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：连接、诊断类型与操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
+
+            <!-- 连接 -->
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 诊断类型 -->
+            <Grid ColumnDefinitions="90,*">
+                <TextBlock Grid.Column="0" Text="诊断类型" VerticalAlignment="Center" />
+                <atom:ComboBox x:Name="ComboDiagnoseType" Grid.Column="1" HorizontalAlignment="Stretch" />
+            </Grid>
+
+            <!-- 操作按钮 -->
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="开始诊断" ButtonType="Primary" Command="{Binding ExecuteCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：TabControl（表诊断 / 脚本诊断 / 日志） -->
+        <atom:TabControl x:Name="MainTabs">
+
+            <!-- 表诊断页 -->
+            <TabItem Header="表诊断结果">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="检出异常对象（记录数 / 定位 SQL）" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <DataGrid ItemsSource="{Binding TableResults}" AutoGenerateColumns="True"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  HeadersVisibility="Column"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 脚本诊断页 -->
+            <TabItem Header="脚本诊断结果">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="检出异常的脚本对象及其明细" FontWeight="Bold" Margin="2,0,0,4" />
+                    <Border BorderBrush="#22000000" BorderThickness="1">
+                        <ListBox ItemsSource="{Binding ScriptResults}"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:ScriptDiagnoseResultItem">
+                                    <StackPanel Spacing="2" Margin="0,2">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="#2980B9" />
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding Details}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding}" FontSize="12" Opacity="0.85"
+                                                               FontFamily="Consolas,Menlo,monospace"
+                                                               TextWrapping="Wrap" Margin="12,0,0,0" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Border>
+                </DockPanel>
+            </TabItem>
+
+            <!-- 日志页 -->
+            <TabItem Header="日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
+
+    </DockPanel>
+</Window>
