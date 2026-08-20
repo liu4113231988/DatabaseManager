@@ -11,7 +11,7 @@
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
-| 4 | 转换/对比/诊断 | ⬜ 待执行 | M4 转换对比诊断 |
+| 4 | 转换/对比/诊断 | 🚧 进行中（转换完成）/ 对比·诊断·优化待续 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
@@ -190,4 +190,31 @@
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器 / 数据查看与编辑 / 表设计器）*
+## 阶段 4 起步：数据库转换（Convert）🚧
+
+> 阶段 4（转换/对比/诊断）第一步增量：完成**跨库结构/数据转换**（对应原 WinForms `frmConvert`），复用 `DatabaseConverter`。
+> 对比 / 诊断 / 优化 / 依赖分析留待后续迭代。
+
+### 1. 转换服务（AppCore）
+- `Models/ConvertModels.cs`：`ConvertOptions`（目标执行/事务/BulkCopy/出错继续/建Schema/Nchar转宽字符）、`ConvertResult`（结果类型/消息/日志/是否取消）、`ConvertMode`（Schema/Data/SchemaAndData）。
+- `Services/IConvertService.cs` / `DefaultConvertService.cs`：
+  - `ConvertAsync(source, target, mode, options, onFeedback, ct)`：构建源/目标 `DbInterpreter`（Details 模式 + 按引用排序），读取源库完整 Schema，构造 `DbConverter`，在单次调用内执行结构/数据转换。
+  - 通过 `IObserver<FeedbackInfo>` 订阅转换反馈并收集到日志。
+
+### 2. 转换 ViewModel
+- `ViewModels/ConvertViewModel.cs`：源/目标连接选择、转换模式、选项开关、`ExecuteCommand`、日志集合与状态消息；`ConvertModeOption` 下拉项。
+
+### 3. 转换 UI
+- `Views/ConvertWindow.axaml(.cs)`：源/目标连接下拉、模式下拉、选项勾选、执行按钮、反馈日志（只读 ListBox）。
+- `MainWindow` 菜单「工具」→「数据库转换...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln` ✅ 0 错误。
+- 可在已保存连接间跨库转换结构/数据，并实时查看反馈日志。
+
+**遗留 / 说明**
+- 对比（Schema/Data Compare）、诊断、优化、依赖分析、Schema 预览与列映射为阶段 4 后续迭代项。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4转换（事务核心 / 连接生命周期 / SQL脚本管理 / Schema选择器 / 数据查看与编辑 / 表设计器 / 跨库转换）*

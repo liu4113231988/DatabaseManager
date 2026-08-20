@@ -29,6 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<QueryEditorViewModel>();
         services.AddTransient<DataEditorViewModel>();
         services.AddTransient<TableDesignerViewModel>();
+        services.AddTransient<ConvertViewModel>();
 
         return services;
     }
