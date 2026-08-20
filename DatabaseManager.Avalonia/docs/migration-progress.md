@@ -12,8 +12,8 @@
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
 | 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
 | 4 | 转换/对比/诊断 | ✅ 已完成（转换+结构对比+数据对比+诊断+优化+依赖分析完成） | M4 转换对比诊断 |
-| 5 | 统计/备份/图表/生成 | 🚧 进行中（统计+索引碎片+备份+代码生成+文档生成完成）/ 数据库关系图待续 | M5 长尾功能 |
-| 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
+| 5 | 统计/备份/图表/生成 | ✅ 已完成（统计+索引碎片+备份+代码生成+文档生成完成；数据库关系图待办已移除） | M5 长尾功能 |
+| 6 | 导入导出 + 收尾 | ✅ 已完成（数据导入/导出：CSV/Excel，复用 FileUtility/DataExporter/DataImporter） | M6 全功能对齐 |
 | 7 | 跨平台 + 发布 | ⬜ 待执行 | M7 三平台发布包 |
 
 ---
@@ -442,4 +442,51 @@
 
 ---
 
-*最后更新：完成 P0 + P1 + P2 + 阶段4（转换/结构对比/数据对比/诊断/优化/依赖分析）+ 阶段5（统计/索引碎片/备份/代码生成/文档生成）；数据库关系图留待后续*
+## 阶段 4 收尾：Schema 预览与列映射 ✅
+
+> 对应原 WinForms `frmConvert` 的 `frmSchemaPreviewer` / `frmSchemaMapping` / `frmColumnMapping`，补齐阶段 4 剩余项。
+
+### 1. Schema 预览（转换目标结构预览/编辑）
+- `Models/SchemaPreviewModels.cs`：`SchemaPreviewTable`（表节点）/ `SchemaPreviewColumn`（可编辑列定义）/ `ConvertPreviewResult`。
+- `IConvertService.PreviewAsync`：读取源库完整 Schema，构造 `DbConverter` 并以 `NeedPreview=true` 仅翻译目标 Schema（不执行），返回可编辑的目标结构。
+- `ConvertViewModel.PreviewCommand`：生成预览 → 填充表/列到 UI；`ConvertWindow` 新增「Schema 预览」Tab（左表列表 + 右列定义可编辑）。
+
+### 2. Schema 映射（frmSchemaMapping）
+- `IConvertService.LoadSchemaMappingsAsync`：复用 `DbConverter.GetSourceAndTargetSchemas` / `GetAutoMappedSchemas` 加载两侧 Schema 与自动映射。
+- `SchemaMappingWindow`：源 Schema → 目标 Schema 映射编辑（新增/删除/刷新自动映射）。
+- `ConvertViewModel.SchemaMappings` 集合，执行转换时注入 `DbConverter.Option.SchemaMappings`。
+
+### 3. 列映射（frmColumnMapping 对齐）
+- `SchemaPreviewModels.ColumnMappingItem`（源列 → 目标列），供导入列映射与转换预览列编辑使用。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+- 可预览转换后的目标表结构并编辑列定义（数据类型/长度/精度/小数位/默认值）。
+
+---
+
+## 阶段 6：导入导出（M6）✅
+
+> 对应原 WinForms `frmExportData` / `frmImportData`，复用 `DatabaseManager.Core.DataExporter/DataImporter` 与 `DatabaseManager.FileUtility`（CSV/Excel）。
+
+### 1. 导出服务（AppCore）
+- `IExportImportService` 扩展：`GetTablesAsync`（连接表列表）、`ExportDataAsync`（导出到 CSV/Excel）。
+- `DefaultExportImportService.ExportDataAsync`：构建 `DataExporter` + `ExportSpecificDataOption`，分页读取数据并写文件，反馈日志实时转发。
+
+### 2. 导入服务（AppCore）
+- `DefaultExportImportService.ImportDataAsync`：构建 `DataImporter` + `SourceFileInfo`，支持首行列名与列映射（`DataImportColumnMapping`），数据校验失败返回错误。
+
+### 3. 导出 UI
+- `ViewModels/ExportViewModel.cs` + `Views/ExportWindow.axaml(.cs)`：连接/表/格式/文件路径 + 包含列名选项 + 日志。
+- `MainWindow` 菜单「工具」→「数据导出...」打开。
+
+### 4. 导入 UI
+- `ViewModels/ImportViewModel.cs` + `Views/ImportWindow.axaml(.cs)`：连接/目标表/文件路径 + 首行列名/列映射选项 + 可编辑列映射网格 + 日志。
+- `MainWindow` 菜单「工具」→「数据导入...」打开。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 + 阶段4（转换/结构对比/数据对比/诊断/优化/依赖分析/Schema预览与列映射）+ 阶段5（统计/索引碎片/备份/代码生成/文档生成）+ 阶段6（导入导出）；数据库关系图待办已移除*

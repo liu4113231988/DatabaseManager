@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="using:AtomUI.Controls"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.SchemaMappingWindow"
+        x:DataType="vm:ConvertViewModel"
+        Title="Schema 映射"
+        Width="640" Height="460"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <TextBlock DockPanel.Dock="Top" Text="配置源 Schema → 目标 Schema 映射（用于跨库结构转换）"
+                   FontWeight="SemiBold" Margin="0,0,0,10" />
+
+        <!-- 映射列表 -->
+        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,8">
+            <DataGrid ItemsSource="{Binding SchemaMappings}"
+                      AutoGenerateColumns="False"
+                      GridLinesVisibility="All"
+                      IsReadOnly="False"
+                      HeadersVisibility="Column"
+                      MinHeight="220"
+                      CanUserResizeColumns="True"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="源 Schema" Binding="{Binding SourceSchema}" Width="1*" />
+                    <DataGridTextColumn Header="目标 Schema" Binding="{Binding TargetSchema}" Width="1*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+
+        <!-- 操作按钮 -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+            <atom:Button Content="＋ 新增映射" Command="{Binding AddSchemaMappingCommand}" />
+            <atom:Button Content="－ 删除选中" Click="BtnRemoveMapping_Click" />
+            <atom:Button Content="刷新（自动映射）" Command="{Binding LoadSchemaMappingsCommand}" />
+        </StackPanel>
+
+        <!-- 底部：状态与关闭 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Opacity="0.8" TextWrapping="Wrap" />
+            <atom:Button Content="关闭" HorizontalAlignment="Right" Click="BtnClose_Click" />
+        </StackPanel>
+
+    </DockPanel>
+</Window>

@@ -28,11 +28,11 @@
 - [ ] **依赖分析**：`DbObjectDependency` / `TableDependency` 需支持跨 Schema 依赖图与循环依赖检测。
 - [ ] **代码生成**：`CodeGenerator` 需支持更多语言/ORM 模板（如 Dapper、EF Core、Java POJO），并提供模板自定义。
 - [ ] **文档生成**：`DatabaseDocumentation` 需支持更多输出格式（Markdown、Word、PDF）与字段级中文注释。
-- [ ] **连接管理**：`frmDbConnectionManage` 近期有改动，需完善：
+- [x] **连接管理**：`frmDbConnectionManage` 近期有改动，需完善：
   - SSH 隧道连接的稳定性与多跳；
   - 连接字符串解析与校验；
   - Profile 的加密存储与导入导出。
-- [ ] **数据库图表**：`frmDatabaseDiagram` 需支持拖拽布局、缩放、导出图片、自引用关系展示。
+- [x] ~~**数据库图表**~~：已移除（数据库关系图待办已从 Avalonia 迁移主线移除，见 `DatabaseManager/todo.md`）。
 
 ## 三、工程化与质量
 

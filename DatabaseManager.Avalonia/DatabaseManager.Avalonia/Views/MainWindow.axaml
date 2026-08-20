@@ -70,6 +70,9 @@
                 <MenuItem Header="数据库备份..." Click="MenuBackup_Click" />
                 <MenuItem Header="代码生成..." Click="MenuCodeGenerate_Click" />
                 <MenuItem Header="文档生成..." Click="MenuColumnDocumentation_Click" />
+                <Separator />
+                <MenuItem Header="数据导出..." Click="MenuExport_Click" />
+                <MenuItem Header="数据导入..." Click="MenuImport_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" IsEnabled="False" />

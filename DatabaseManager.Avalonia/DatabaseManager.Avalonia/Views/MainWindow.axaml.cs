@@ -272,6 +272,28 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开数据导出窗口（阶段 6 / M6）。</summary>
+    private async void MenuExport_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var exportVm = _services.GetRequiredService<ExportViewModel>();
+        var window = new ExportWindow(exportVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开数据导入窗口（阶段 6 / M6）。</summary>
+    private async void MenuImport_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var importVm = _services.GetRequiredService<ImportViewModel>();
+        var window = new ImportWindow(importVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {

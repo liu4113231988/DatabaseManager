@@ -49,6 +49,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<BackupViewModel>();
         services.AddTransient<CodeGenerateViewModel>();
         services.AddTransient<ColumnDocumentationViewModel>();
+        services.AddTransient<ExportViewModel>();
+        services.AddTransient<ImportViewModel>();
 
         return services;
     }

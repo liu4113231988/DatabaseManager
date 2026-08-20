@@ -70,15 +70,14 @@
 
 > 原 `SqlCodeEditor`（SQL 高亮编辑器）用 **AvaloniaEdit + SQL 语法** 替换，可支持高亮与基础智能提示。
 
-### 1.5 图表 / 数据库关系图（替代 Microsoft.Msagl）
+### 1.5 图表（统计）
 
 | 开源项目 | Star | 说明 | 选用 |
 |---------|:---:|------|:---:|
 | **OxyPlot.Avalonia** (`oxyplot/oxyplot-avalonia`) | 359 | 成熟稳定的绘图库，适合**统计图表**（记录数、占用等）。 | ✅ 统计图表 |
 | **Avalonia.Microcharts** | 192 | 轻量图表，适合简单仪表。 | 备选 |
-| 数据库关系图 `frmDatabaseDiagram` | - | Msagl 生成的**实体关系图**（ER 图）。Avalonia 生态无直接等价，采用 **自绘 Canvas + 节点连线**（定义 Graph 模型 + 渲染层），或用 **OxyPlot/GoDiagram** 思路重做。 | 🔧 需自研（见阶段 5） |
 
-> 统计类图表（柱状/饼图）用 **OxyPlot** 覆盖；`frmDatabaseDiagram` ER 关系图按"数据模型抽象 + 自绘渲染"重构，作为**重点攻坚项**，首版可简化为节点-连线视图。
+> 统计类图表（柱状/饼图）用 **OxyPlot** 覆盖；~~`frmDatabaseDiagram` ER 关系图~~ 已移除，不作为 Avalonia 迁移主线待办。
 
 ### 1.6 其它通用组件
 
@@ -221,38 +220,33 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 ### 阶段 4：转换、对比、诊断、优化（5-7 天） — 里程碑 M4：转换对比诊断
 
 **任务**
-- [ ] 转换：`frmConvert`/`UC_ConvertSetting`/`UC_ConvertResult`/`frmSchemaMapping`/`frmSchemaPreviewer` → `ConvertWindow`（复用 `DatabaseConverter.*`）
-- [ ] 列映射：`frmColumnMapping`→`ColumnMappingWindow`
-- [ ] 对比：`frmSchemaCompare`→`SchemaCompareWindow`、`frmDataCompare`/`frmDataCompareResult`→`DataCompareWindow`（复用 `DiffPlex`）
-- [ ] 诊断：`frmDiagnose`/`frmTableDiagnoseResult`/`frmScriptDiagnoseResult` → `DiagnoseWindow`
-- [ ] 优化：`frmOpitimizeResult`→`OptimizeResultWindow`
-- [ ] 依赖分析：`frmDbObjectDependency`/`frmTableDependency`→`DependencyWindow`
-- [ ] **验收**：跨库结构/数据转换、Schema/数据对比、诊断、优化流程可跑通
+- [x] 转换：`frmConvert`/`UC_ConvertSetting`/`UC_ConvertResult`/`frmSchemaMapping`/`frmSchemaPreviewer` → `ConvertWindow`（复用 `DatabaseConverter.*`）
+- [x] 列映射：`frmColumnMapping`→`ColumnMappingWindow`（对齐导入列映射与 Schema 预览列编辑）
+- [x] 对比：`frmSchemaCompare`→`SchemaCompareWindow`、`frmDataCompare`/`frmDataCompareResult`→`DataCompareWindow`（复用 `DiffPlex`）
+- [x] 诊断：`frmDiagnose`/`frmTableDiagnoseResult`/`frmScriptDiagnoseResult` → `DiagnoseWindow`
+- [x] 优化：`frmOpitimizeResult`→`OptimizeResultWindow`
+- [x] 依赖分析：`frmDbObjectDependency`/`frmTableDependency`→`DependencyWindow`
+- [x] **验收**：跨库结构/数据转换、Schema/数据对比、诊断、优化流程可跑通
 
 ---
 
 ### 阶段 5：统计、备份、图表、代码生成（5-7 天） — 里程碑 M5：长尾功能
 
 **任务**
-- [ ] 统计：`frmStatistic`→`StatisticWindow`、`frmTableRecordCount`→`RecordCountWindow`、`frmTableColumnContentMaxLength`→`ColumnLengthWindow`（统计图表用 **OxyPlot**）
-- [ ] 索引碎片：`Analysis/frmIndexFragmentation`→`IndexFragmentationWindow`
-- [ ] 备份：`frmBackupSetting`/`frmBackupSettingRedefine`→`BackupWindow`
-- [ ] **数据库关系图** `frmDatabaseDiagram`→`DatabaseDiagramWindow`（**重点攻坚**，见下）
-- [ ] 代码生成：`frmCodeGenerator`→`CodeGeneratorWindow`
-- [ ] 文档生成：`Documentation/frmGenerateColumnDocumentation`→`ColumnDocumentationWindow`
-- [ ] **验收**：统计、备份、依赖、关系图、代码/文档生成可用
-
-**关系图攻坚方案**（`frmDatabaseDiagram`，替代 Msagl）：
-1. 抽象 `DbDiagramModel`（表节点 + 外键连线数据），独立于渲染层；
-2. 用 **Avalonia Canvas + 自定义绘制**实现节点框、连线（Bezier/正交）、拖动布局；
-3. 可选引入 `GoDiagram`/`OxyPlot` 思路加速；首版支持"节点-连线 + 手动布局"，不追求自动布局引擎。
+- [x] 统计：`frmStatistic`→`StatisticWindow`、`frmTableRecordCount`→`RecordCountWindow`、`frmTableColumnContentMaxLength`→`ColumnLengthWindow`（统计图表用 **OxyPlot**）
+- [x] 索引碎片：`Analysis/frmIndexFragmentation`→`IndexFragmentationWindow`
+- [x] 备份：`frmBackupSetting`/`frmBackupSettingRedefine`→`BackupWindow`
+- [x] ~~**数据库关系图**~~ `frmDatabaseDiagram`→`DatabaseDiagramWindow`（已移除，不作为 Avalonia 迁移主线待办）
+- [x] 代码生成：`frmCodeGenerator`→`CodeGeneratorWindow`
+- [x] 文档生成：`Documentation/frmGenerateColumnDocumentation`→`ColumnDocumentationWindow`
+- [x] **验收**：统计、备份、依赖、代码/文档生成可用（关系图待办已移除）
 
 ---
 
 ### 阶段 6：导入导出 + 收尾（3-5 天） — 里程碑 M6：全功能对齐
 
 **任务**
-- [ ] 导入/导出：`Import/frmImportData`→`ImportWindow`、`Export/frmExportData`→`ExportWindow`、`frmExportData`（复用 `FileUtility`/`SharpZipLib`）
+- [x] 导入/导出：`Import/frmImportData`→`ImportWindow`、`Export/frmExportData`→`ExportWindow`（复用 `FileUtility`/`DataExporter`/`DataImporter`）
 - [ ] 通用对话框：`frmColumnSelect`/`frmDataFilter`/`frmDataFilterCondition`/`frmItemsSelector`/`frmItemsSimpleSelector`/`frmNumberSelector`/`frmInput`/`frmFindBox`/`frmTextContent`/`frmColumnMapping` → 统一 `CommonDialog` 集
 - [ ] 其余：`frmAccountInfo`、`frmFileConnection`、`frmDbObjectDependency`、`frmLockApp`、`frmObjectsExplorer`、`frmTableColumnDetails`/`frmTableColumnRelation`、`frmDatabaseVisibility`
 - [ ] 资源迁移：resx 图片/图标 → Avalonia 资源字典（`.axaml` + 嵌入资源）
@@ -282,7 +276,7 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 | 2 | 对象浏览 + 查询 | 5-8 | M2 浏览/查询/脚本 | TreeDataGrid/AvaloniaEdit |
 | 3 | 数据编辑 + 表设计 | 5-8 | M3 数据编辑/表设计 | DataGrid/ProDataGrid |
 | 4 | 转换/对比/诊断 | 5-7 | M4 转换对比诊断 | DiffPlex（复用） |
-| 5 | 统计/备份/图表/生成 | 5-7 | M5 长尾功能 | OxyPlot/自绘关系图 |
+| 5 | 统计/备份/图表/生成 | 5-7 | M5 长尾功能 | OxyPlot（关系图待办已移除） |
 | 6 | 导入导出 + 收尾 | 3-5 | M6 全功能对齐 | FileUtility（复用） |
 | 7 | 跨平台 + 发布 | 2-3 | M7 三平台发布包 | - |
 
@@ -299,7 +293,7 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 | `DataGridView`（450+ 处） | `DataGrid` / `ProDataGrid` | 用数据绑定 + 虚拟滚动替代手工列操作，布局更现代 |
 | `ObjectListView`（2 处） | `DataGrid` | 直接合并到 DataGrid 能力 |
 | `DockPanelSuite`（5 处） | `Dock` | 全新停靠体验，VS 风格 |
-| `Microsoft.Msagl`（关系图） | 自绘 Canvas | 首版简化，不追求自动布局引擎 |
+| `Microsoft.Msagl`（关系图） | ~~已移除~~ | 不作为 Avalonia 迁移主线待办 |
 | `PropertyGrid`（27 处） | `Avalonia.PropertyGrid` / 自研 ItemsControl | 属性编辑可改为表单/分组展示 |
 | `SqlCodeEditor` | `AvaloniaEdit` | 高亮对齐，自动完成后续迭代 |
 | 各 `Form` 对话框 | 统一 `CommonDialog` 集 | 合并重复对话框，减少界面数量 |
@@ -313,7 +307,7 @@ DatabaseManager.Avalonia.sln                    # 【新】独立解决方案
 | 风险 | 等级 | 应对 |
 |------|:---:|------|
 | DataGridView 深度使用（编辑/合并/右键） | **高** | 抽象数据模型，用 DataGrid 重构；大数据量启用虚拟化 |
-| 关系图 `frmDatabaseDiagram` 迁移 | **高** | 抽象模型 + 自绘；首版简化，不作为阻塞项 |
+| 关系图 `frmDatabaseDiagram` 迁移 | ~~已移除~~ | 不作为 Avalonia 迁移主线待办（用户要求移除） |
 | AtomUI/Ursa 版本兼容 | 中 | 阶段 0 锁定版本组合，写入 `docs/package-versions.md` |
 | 核心库隐式依赖 WinForms（如 `Bitmap`/`Image`，147 个文件涉及） | 中 | 排查 `System.Drawing`，替换为 `SkiaSharp` 或抽象 `IImageSource` |
 | 异步线程模型差异（`Invoke`→`Dispatcher`） | 中 | 统一 `Dispatcher.UIThread` |

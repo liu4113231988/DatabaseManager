@@ -2,10 +2,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:atom="using:AtomUI.Controls"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.ConvertWindow"
         x:DataType="vm:ConvertViewModel"
         Title="数据库转换"
-        Width="880" Height="620"
+        Width="980" Height="720"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -37,10 +38,14 @@
                 <atom:CheckBox Content="BulkCopy 批量" IsChecked="{Binding BulkCopy}" />
                 <atom:CheckBox Content="出错继续" IsChecked="{Binding ContinueWhenErrorOccurs}" />
                 <atom:CheckBox Content="自动建 Schema" IsChecked="{Binding CreateSchemaIfNotExists}" />
+                <atom:CheckBox Content="Schema 预览" IsChecked="{Binding NeedPreview}" />
             </StackPanel>
 
             <!-- 执行按钮 -->
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="Schema 映射" Click="BtnSchemaMapping_Click" />
+                <atom:Button Content="生成预览" Command="{Binding PreviewCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="执行转换" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
@@ -52,18 +57,88 @@
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
-        <!-- 日志区 -->
-        <Border BorderBrush="#22000000" BorderThickness="1">
-            <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Border>
+        <!-- 中部：TabControl（预览 / 日志） -->
+        <atom:TabControl x:Name="MainTabs">
+
+            <!-- Schema 预览页 -->
+            <TabItem Header="Schema 预览" IsEnabled="{Binding HasPreview}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左：表列表 -->
+                    <DockPanel Grid.Column="0" Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Top" Text="目标库表结构" FontWeight="Bold" Margin="2,0,0,4" />
+                        <Border BorderBrush="#22000000" BorderThickness="1">
+                            <ListBox ItemsSource="{Binding PreviewTables}"
+                                     SelectedItem="{Binding SelectedPreviewTable}"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="models:SchemaPreviewTable">
+                                        <StackPanel Spacing="1">
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                            <TextBlock FontSize="11" Opacity="0.6">
+                                                <TextBlock.Text>
+                                                    <MultiBinding StringFormat="{}{0} 列">
+                                                        <Binding Path="ColumnCount" />
+                                                    </MultiBinding>
+                                                </TextBlock.Text>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </DockPanel>
+
+                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+
+                    <!-- 右：列定义 -->
+                    <DockPanel Grid.Column="2" Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Top" Text="列定义（可编辑数据类型/长度/精度/小数位/默认值）"
+                                   FontWeight="Bold" Margin="2,0,0,4" />
+                        <Border BorderBrush="#22000000" BorderThickness="1">
+                            <DataGrid ItemsSource="{Binding SelectedPreviewTable.Columns}"
+                                      AutoGenerateColumns="False"
+                                      GridLinesVisibility="All"
+                                      IsReadOnly="False"
+                                      CanUserResizeColumns="True"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="列名" Binding="{Binding Name}" Width="1.2*" IsReadOnly="True" />
+                                    <DataGridTextColumn Header="数据类型" Binding="{Binding DataType}" Width="1.2*" />
+                                    <DataGridTextColumn Header="长度" Binding="{Binding MaxLength}" Width="0.7*" />
+                                    <DataGridTextColumn Header="精度" Binding="{Binding Precision}" Width="0.7*" />
+                                    <DataGridTextColumn Header="小数位" Binding="{Binding Scale}" Width="0.7*" />
+                                    <DataGridTextColumn Header="默认值" Binding="{Binding DefaultValue}" Width="1*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        <TextBlock Text="提示：编辑列定义后点击「执行转换」，将按调整后的目标结构执行转换。"
+                                   Margin="2,6,0,0" Opacity="0.6" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 日志页 -->
+            <TabItem Header="转换日志">
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" TextWrapping="Wrap" FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+            </TabItem>
+        </atom:TabControl>
 
     </DockPanel>
 </Window>
