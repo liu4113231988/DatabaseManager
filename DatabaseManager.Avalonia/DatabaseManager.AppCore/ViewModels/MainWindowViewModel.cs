@@ -32,6 +32,9 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>查询编辑器子 ViewModel。</summary>
     public QueryEditorViewModel QueryEditor { get; }
 
+    /// <summary>数据编辑器子 ViewModel。</summary>
+    public DataEditorViewModel DataEditor { get; }
+
     [ObservableProperty]
     private string _supportedDatabases = string.Empty;
 
@@ -62,13 +65,15 @@ public partial class MainWindowViewModel : ViewModelBase
         IDbConnectionService connectionService,
         IQueryService queryService,
         ObjectsExplorerViewModel objectsExplorer,
-        QueryEditorViewModel queryEditor)
+        QueryEditorViewModel queryEditor,
+        DataEditorViewModel dataEditor)
     {
         _schemaService = schemaService;
         _connectionService = connectionService;
         _queryService = queryService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
+        DataEditor = dataEditor;
 
         PropertyChanged += MainWindowViewModel_PropertyChanged;
     }
@@ -167,6 +172,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ObjectsExplorer.RootNodes.Clear();
+        DataEditor.Clear();
         IsConnected = false;
         CurrentDatabase = string.Empty;
         CurrentSchema = string.Empty;
@@ -313,6 +319,35 @@ public partial class MainWindowViewModel : ViewModelBase
 
         QueryEditor.SqlText = BuildSelectSql(node.DbObject);
         QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
+    }
+
+    /// <summary>在数据编辑器中打开指定表/视图进行查看/编辑。</summary>
+    public async Task<bool> OpenDataEditor(DbObjectTreeNode node)
+    {
+        if (node?.DbObject is not Table and not View)
+            return false;
+
+        if (SelectedConnection is null)
+        {
+            QueryEditor.StatusMessage = "请先选择一个连接。";
+            return false;
+        }
+
+        var table = node.DbObject as Table ?? (DatabaseObject)(node.DbObject as View)!;
+        bool isView = node.DbObject is View;
+        bool ok = await DataEditor.LoadAsync(
+            SelectedConnection.Name,
+            node.DatabaseName ?? CurrentDatabase,
+            table.Name,
+            node.Schema,
+            isView);
+
+        if (ok)
+        {
+            QueryEditor.StatusMessage = $"已打开数据编辑：{table.Name}。";
+        }
+
+        return ok;
     }
 
     /// <summary>刷新指定节点（重新懒加载其子节点）。</summary>

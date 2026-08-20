@@ -15,6 +15,7 @@ public partial class MainWindow : Window
 {
     private IServiceProvider? _services;
     private QueryEditorViewModel? _queryEditor;
+    private DataEditorViewModel? _dataEditor;
 
     public MainWindow()
     {
@@ -30,10 +31,14 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel vm)
         {
             _queryEditor = vm.QueryEditor;
+            _dataEditor = vm.DataEditor;
             vm.Initialize();
 
             // 监听查询结果列变化，动态重建 DataGrid 列。
             _queryEditor.Columns.CollectionChanged += QueryEditor_ColumnsChanged;
+
+            // 监听数据编辑列变化，动态重建可编辑 DataGrid 列。
+            _dataEditor.Columns.CollectionChanged += DataEditor_ColumnsChanged;
 
             // 通过路由事件监听 TreeViewItem 展开，实现点击展开箭头时的按需懒加载（对齐 dbeaver）。
             ObjectsTree.AddHandler(TreeViewItem.ExpandedEvent, ObjectsTree_Item_Expanded);
@@ -92,6 +97,31 @@ public partial class MainWindow : Window
                 Header = _queryEditor.Columns[i],
                 Binding = new Binding($"[{i}]"),
                 IsReadOnly = true,
+            });
+        }
+    }
+
+    /// <summary>数据编辑列变化时，动态重建可编辑 DataGrid 列。</summary>
+    private void DataEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        var grid = DataEditGrid;
+        if (grid is null || _dataEditor is null)
+            return;
+
+        grid.Columns.Clear();
+
+        foreach (var col in _dataEditor.Columns)
+        {
+            var isReadOnly = col.IsReadOnly || _dataEditor.IsView;
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = col.Name,
+                // 双向绑定以支持单元格编辑写入到 DataEditRow。
+                Binding = new Binding($"Item[{col.Name}]")
+                {
+                    Mode = BindingMode.TwoWay,
+                },
+                IsReadOnly = isReadOnly,
             });
         }
     }
@@ -229,6 +259,14 @@ public partial class MainWindow : Window
             var select = new MenuItem { Header = "查看数据 (SELECT)" };
             select.Click += (_, _) => vm.GenerateSelectScript(node);
             menu.Items.Add(select);
+
+            var editData = new MenuItem { Header = "编辑数据" };
+            editData.Click += async (_, _) =>
+            {
+                await vm.OpenDataEditor(node);
+                OpenDataEditorTab();
+            };
+            menu.Items.Add(editData);
         }
 
         // 刷新（针对可懒加载的文件夹/子文件夹）。
@@ -241,5 +279,30 @@ public partial class MainWindow : Window
 
         menu.Open(ObjectsTree);
         e.Handled = true;
+    }
+
+    /// <summary>切换到「数据编辑」标签页（索引 1）。</summary>
+    private void OpenDataEditorTab()
+    {
+        if (ContentTabs.Items.Count > 1)
+        {
+            ContentTabs.SelectedIndex = 1;
+        }
+    }
+
+    /// <summary>处理「删除」按钮：删除数据网格中当前选中的行。</summary>
+    private void DataEditorRemove_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm || _dataEditor is null)
+            return;
+
+        var selected = DataEditGrid.SelectedItem as DataEditRow;
+        if (selected is null)
+        {
+            _dataEditor.StatusMessage = "请先在网格中选中要删除的行。";
+            return;
+        }
+
+        _dataEditor.RemoveRowCommand.Execute(selected);
     }
 }

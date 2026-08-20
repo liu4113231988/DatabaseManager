@@ -117,76 +117,133 @@
                 </DockPanel>
             </Border>
 
-            <!-- 右：查询内容区（单一视图，无需多 Tab） -->
-            <Grid Grid.Column="1" Margin="8,0,8,4">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
+            <!-- 右：查询 / 数据编辑 多标签区 -->
+            <TabControl Grid.Column="1" Margin="8,0,8,4" x:Name="ContentTabs">
 
-                <!-- SQL 输入 -->
-                <Grid Grid.Row="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4">
-                        <TextBlock Text="SQL：" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding QueryEditor.ConnectionName}"
-                                   VerticalAlignment="Center" Opacity="0.6" />
-                        <atom:Button Content="连接" Command="{Binding ConnectCommand}" />
-                        <atom:Button Content="重连" Command="{Binding ReconnectCommand}" />
-                        <atom:Button Content="断开" Command="{Binding DisconnectCommand}" />
-                        <Separator Margin="4,0" />
-                        <atom:Button Content="执行" ButtonType="Primary"
-                                     Command="{Binding QueryEditor.ExecuteCommand}" />
-                        <Separator Margin="4,0" />
-                        <!-- 自动提交开关 -->
-                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="自动提交" VerticalAlignment="Center" />
-                            <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
+                <!-- 查询编辑器标签 -->
+                <TabItem Header="查询">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- SQL 输入 -->
+                        <Grid Grid.Row="0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4">
+                                <TextBlock Text="SQL：" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding QueryEditor.ConnectionName}"
+                                           VerticalAlignment="Center" Opacity="0.6" />
+                                <atom:Button Content="连接" Command="{Binding ConnectCommand}" />
+                                <atom:Button Content="重连" Command="{Binding ReconnectCommand}" />
+                                <atom:Button Content="断开" Command="{Binding DisconnectCommand}" />
+                                <Separator Margin="4,0" />
+                                <atom:Button Content="执行" ButtonType="Primary"
+                                             Command="{Binding QueryEditor.ExecuteCommand}" />
+                                <Separator Margin="4,0" />
+                                <!-- 自动提交开关 -->
+                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                    <TextBlock Text="自动提交" VerticalAlignment="Center" />
+                                    <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
+                                </StackPanel>
+                                <atom:Button Content="事务" ButtonType="Default"
+                                             Command="{Binding QueryEditor.BeginTransactionCommand}" />
+                                <atom:Button Content="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
+                                <atom:Button Content="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
+                                <!-- Schema 选择器（多 Schema 数据库时显示） -->
+                                <StackPanel Orientation="Horizontal" Spacing="4"
+                                            VerticalAlignment="Center"
+                                            IsVisible="{Binding SchemaSelectorVisible}">
+                                    <TextBlock Text="Schema:" VerticalAlignment="Center" />
+                                    <TextBox Text="{Binding CurrentSchema}" Width="120"
+                                             VerticalContentAlignment="Center" />
+                                </StackPanel>
+                            </StackPanel>
+                            <TextBox Grid.Row="1"
+                                     Text="{Binding QueryEditor.SqlText}"
+                                     AcceptsReturn="True"
+                                     TextWrapping="NoWrap"
+                                     FontFamily="Consolas, monospace"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                     Margin="4" />
+                        </Grid>
+
+                        <GridSplitter Grid.Row="1" Height="4" Background="#22000000" />
+
+                        <!-- 查询结果 -->
+                        <Grid Grid.Row="2" Margin="4">
+                            <StackPanel>
+                                <TextBlock Text="{Binding QueryEditor.StatusMessage}"
+                                           Margin="2,0,0,4" Opacity="0.8" />
+                                <DataGrid x:Name="QueryResultGrid"
+                                          IsVisible="{Binding QueryEditor.HasResult}"
+                                          ItemsSource="{Binding QueryEditor.Rows}"
+                                          AutoGenerateColumns="False"
+                                          GridLinesVisibility="All" />
+                                <TextBlock Text="（无结果）" IsVisible="{Binding QueryEditor.ShowNoResult}"
+                                           Opacity="0.5" Margin="4" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- 数据编辑器标签 -->
+                <TabItem Header="数据编辑" IsEnabled="{Binding DataEditor.IsLoaded}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- 工具栏 -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="4">
+                            <TextBlock Text="{Binding DataEditor.TableName}" FontWeight="Bold"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DataEditor.DatabaseName}" Opacity="0.6"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DataEditor.StatusMessage}" Opacity="0.8"
+                                       VerticalAlignment="Center" Margin="8,0,0,0" />
+                            <Separator Margin="4,0" />
+                            <atom:Button Content="＋ 新增" Command="{Binding DataEditor.AddRowCommand}"
+                                         IsEnabled="{Binding DataEditor.IsEditable}" />
+                            <atom:Button Content="－ 删除" Click="DataEditorRemove_Click" />
+                            <Separator Margin="4,0" />
+                            <atom:Button Content="↺ 还原" Command="{Binding DataEditor.RevertCommand}" />
+                            <atom:Button Content="✓ 保存" ButtonType="Primary"
+                                         Command="{Binding DataEditor.SaveCommand}"
+                                         IsEnabled="{Binding DataEditor.HasChanges}" />
+                            <Separator Margin="4,0" />
+                            <!-- 分页 -->
+                            <TextBlock Text="第" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DataEditor.PageNumber}" VerticalAlignment="Center" />
+                            <TextBlock Text="/" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding DataEditor.PageCount}" VerticalAlignment="Center" />
+                            <TextBlock Text="页" VerticalAlignment="Center" />
+                            <atom:Button Content="上一页" Command="{Binding DataEditor.PreviousPageCommand}" />
+                            <atom:Button Content="下一页" Command="{Binding DataEditor.NextPageCommand}" />
                         </StackPanel>
-                        <atom:Button Content="事务" ButtonType="Default"
-                                     Command="{Binding QueryEditor.BeginTransactionCommand}" />
-                        <atom:Button Content="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
-                        <atom:Button Content="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
-                        <!-- Schema 选择器（多 Schema 数据库时显示） -->
-                        <StackPanel Orientation="Horizontal" Spacing="4"
-                                    VerticalAlignment="Center"
-                                    IsVisible="{Binding SchemaSelectorVisible}">
-                            <TextBlock Text="Schema:" VerticalAlignment="Center" />
-                            <TextBox Text="{Binding CurrentSchema}" Width="120"
-                                     VerticalContentAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
-                    <TextBox Grid.Row="1"
-                             Text="{Binding QueryEditor.SqlText}"
-                             AcceptsReturn="True"
-                             TextWrapping="NoWrap"
-                             FontFamily="Consolas, monospace"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                             Margin="4" />
-                </Grid>
 
-                <GridSplitter Grid.Row="1" Height="4" Background="#22000000" />
-
-                <!-- 查询结果 -->
-                <Grid Grid.Row="2" Margin="4">
-                    <StackPanel>
-                        <TextBlock Text="{Binding QueryEditor.StatusMessage}"
-                                   Margin="2,0,0,4" Opacity="0.8" />
-                        <DataGrid x:Name="QueryResultGrid"
-                                  IsVisible="{Binding QueryEditor.HasResult}"
-                                  ItemsSource="{Binding QueryEditor.Rows}"
+                        <!-- 数据网格（可编辑） -->
+                        <DataGrid Grid.Row="1" x:Name="DataEditGrid"
+                                  ItemsSource="{Binding DataEditor.Rows}"
                                   AutoGenerateColumns="False"
-                                  GridLinesVisibility="All" />
-                        <TextBlock Text="（无结果）" IsVisible="{Binding QueryEditor.ShowNoResult}"
+                                  GridLinesVisibility="All"
+                                  SelectionMode="Extended"
+                                  IsReadOnly="{Binding DataEditor.IsView}"
+                                  Margin="4" />
+
+                        <TextBlock Grid.Row="2" Text="提示：视图为只读；自增/计算/二进制列不可编辑。"
                                    Opacity="0.5" Margin="4" />
-                    </StackPanel>
-                </Grid>
-            </Grid>
+                    </Grid>
+                </TabItem>
+            </TabControl>
         </Grid>
     </DockPanel>
 
