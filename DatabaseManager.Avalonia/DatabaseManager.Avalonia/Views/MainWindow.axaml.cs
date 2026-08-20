@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -267,6 +268,21 @@ public partial class MainWindow : Window
                 OpenDataEditorTab();
             };
             menu.Items.Add(editData);
+
+            // 表：设计表（新建表时在 Tables 文件夹上提供）。
+            if (node.DbObject is Table)
+            {
+                var design = new MenuItem { Header = "设计表" };
+                design.Click += async (_, _) => await OpenTableDesignerAsync(node);
+                menu.Items.Add(design);
+            }
+        }
+        else if (node.NodeType == DbObjectTreeNodeType.Folder && node.DatabaseObjectType == DatabaseObjectType.Table)
+        {
+            // Tables 文件夹：新建表。
+            var newTable = new MenuItem { Header = "新建表" };
+            newTable.Click += async (_, _) => await OpenNewTableDesignerAsync(node);
+            menu.Items.Add(newTable);
         }
 
         // 刷新（针对可懒加载的文件夹/子文件夹）。
@@ -288,6 +304,75 @@ public partial class MainWindow : Window
         {
             ContentTabs.SelectedIndex = 1;
         }
+    }
+
+    /// <summary>打开表设计器（修改已有表结构）。</summary>
+    private async Task OpenTableDesignerAsync(DbObjectTreeNode node)
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (node?.DbObject is not Table table)
+            return;
+
+        if (vm.SelectedConnection is null)
+        {
+            vm.QueryEditor.StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        var designerVm = _services.GetRequiredService<TableDesignerViewModel>();
+        bool ok = await designerVm.LoadAsync(
+            vm.SelectedConnection.Name,
+            node.DatabaseName ?? vm.CurrentDatabase,
+            table.Name,
+            node.Schema,
+            isNew: false);
+
+        if (!ok)
+        {
+            vm.QueryEditor.StatusMessage = designerVm.StatusMessage;
+            return;
+        }
+
+        var window = new TableDesignerWindow(designerVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开表设计器（在 Tables 文件夹上新建表）。</summary>
+    private async Task OpenNewTableDesignerAsync(DbObjectTreeNode folderNode)
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (folderNode?.NodeType != DbObjectTreeNodeType.Folder || folderNode.DatabaseObjectType != DatabaseObjectType.Table)
+            return;
+
+        if (vm.SelectedConnection is null)
+        {
+            vm.QueryEditor.StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        var designerVm = _services.GetRequiredService<TableDesignerViewModel>();
+        bool ok = await designerVm.LoadAsync(
+            vm.SelectedConnection.Name,
+            folderNode.DatabaseName ?? vm.CurrentDatabase,
+            "NewTable",
+            folderNode.Schema,
+            isNew: true);
+
+        if (!ok)
+        {
+            vm.QueryEditor.StatusMessage = designerVm.StatusMessage;
+            return;
+        }
+
+        var window = new TableDesignerWindow(designerVm);
+        await window.ShowDialog<object?>(this);
+
+        // 新建/修改后刷新节点，展示最新表结构。
+        await vm.RefreshNodeAsync(folderNode);
     }
 
     /// <summary>处理「删除」按钮：删除数据网格中当前选中的行。</summary>

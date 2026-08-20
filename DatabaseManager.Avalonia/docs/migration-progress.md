@@ -10,7 +10,7 @@
 | 0 | 环境与骨架 | ✅ 已完成 | M0 跨平台空窗口 |
 | 1 | 连接管理 + 主框架 | ✅ 已完成（核心）/ Dock 停靠待实机 | M1 连接可用、布局停靠 |
 | 2 | 对象浏览 + 查询 | ✅ 已完成（核心）/ SQL 高亮·完整对象树待迭代 | M2 浏览/查询/脚本 |
-| 3 | 数据编辑 + 表设计 | ⬜ 待执行 | M3 数据编辑/表设计 |
+| 3 | 数据编辑 + 表设计 | ✅ 已完成（核心）/ 分区管理待迭代 | M3 数据编辑/表设计 |
 | 4 | 转换/对比/诊断 | ⬜ 待执行 | M4 转换对比诊断 |
 | 5 | 统计/备份/图表/生成 | ⬜ 待执行 | M5 长尾功能 |
 | 6 | 导入导出 + 收尾 | ⬜ 待执行 | M6 全功能对齐 |
@@ -160,4 +160,34 @@
 
 ---
 
-*最后更新：完成 P0 + P1 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器 / 数据查看与编辑）*
+## P2 功能（表设计）✅
+
+> 依据 Issue #15 待办任务，在 P1 数据编辑基础上补齐**表设计器**能力（对应阶段 3 剩余部分）。
+
+### 1. 表设计领域模型
+- `Models/TableDesignInfo.cs` — 表结构完整描述：列 / 主键 / 索引 / 外键 / 约束，含 UI 展示辅助属性。
+
+### 2. 表设计服务
+- `Services/ITableDesignService.cs` / `DefaultTableDesignService.cs`：
+  - `LoadTableAsync`：通过 `GetSchemaInfoAsync` 加载表列/主键/索引/外键/约束；新建表返回空壳。
+  - `GenerateScriptsAsync`：新建表走 `CreateTable(...)` 生成完整 CREATE；修改表对旧/新结构做 diff 生成 ALTER（列增删改、主键/索引/外键/约束差异）。
+  - `SaveAsync`：将生成脚本拆分后在单事务内顺序执行。
+
+### 3. 表设计 ViewModel
+- `ViewModels/TableDesignerViewModel.cs`：列/主键/索引/外键/约束编辑集合，增删改命令，脚本预览与保存。
+
+### 4. 表设计 UI
+- `Views/TableDesignerWindow.axaml(.cs)`：表信息（表名/Schema/注释/数据库）+ 工具栏 + 多 Tab（列/主键/索引/外键/约束/脚本预览）。
+- 对象树右键表节点新增「设计表」，Tables 文件夹右键新增「新建表」。
+
+### 验收
+- `dotnet build DatabaseManager.Avalonia.sln`（Debug/Release）✅ 0 错误。
+- 可查看/编辑表结构，生成 CREATE/ALTER DDL，并在事务内保存。
+
+**遗留 / 说明**
+- 分区管理（`UC_TablePartition_*`）与列选择器内联编辑为后续迭代项。
+- 主键列通过简单多选对话框选择；索引/外键列以逗号分隔文本编辑。
+
+---
+
+*最后更新：完成 P0 + P1 + P2 级功能（事务核心 / 连接生命周期 / SQL 脚本管理 / Schema 选择器 / 数据查看与编辑 / 表设计器）*
