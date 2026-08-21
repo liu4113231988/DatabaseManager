@@ -110,7 +110,7 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshRecentScripts();
     }
 
-    /// <summary>刷新左侧对象浏览器的连接列表。</summary>
+    /// <summary>刷新左侧对象浏览器的连接列表（dbeaver 风格：所有连接作为对象树根节点展示）。</summary>
     public void RefreshConnections()
     {
         Connections.Clear();
@@ -120,6 +120,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Connections.Add(item);
         }
+
+        // 将全部连接加载为对象树根节点。
+        ObjectsExplorer.LoadConnections(items);
 
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
     }
@@ -135,6 +138,23 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        await ConnectConnectionAsync(connection);
+    }
+
+    /// <summary>连接指定的连接节点（dbeaver 风格：双击或右键连接）。</summary>
+    public async Task ConnectConnectionNodeAsync(DbObjectTreeNode connectionNode)
+    {
+        if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection || connectionNode.Connection is null)
+            return;
+
+        // 同步 SelectedConnection，保证查询编辑器 / 对象操作上下文一致。
+        SelectedConnection = connectionNode.Connection;
+        await ConnectConnectionAsync(connectionNode.Connection);
+    }
+
+    /// <summary>建立指定连接并加载其对象树。</summary>
+    private async Task ConnectConnectionAsync(ConnectionItem connection)
+    {
         QueryEditor.StatusMessage = $"正在连接 {connection.Name}...";
 
         try
@@ -165,13 +185,44 @@ public partial class MainWindowViewModel : ViewModelBase
         var connection = SelectedConnection;
         if (connection is not null)
         {
-            _queryService.CloseConnection(connection.Name);
-            QueryEditor.ConnectionName = connection.Name;
+            DisconnectConnectionNode(ObjectsExplorer.FindConnectionNode(connection.Name), connection.Name);
+        }
+        else
+        {
+            DisconnectConnectionNode(null, string.Empty);
+        }
+    }
+
+    /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
+    public void DisconnectConnectionNode(DbObjectTreeNode connectionNode)
+    {
+        if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection || connectionNode.Connection is null)
+            return;
+
+        DisconnectConnectionNode(connectionNode, connectionNode.Name);
+    }
+
+    /// <summary>断开指定连接并卸载其对象树。</summary>
+    private void DisconnectConnectionNode(DbObjectTreeNode? connectionNode, string connectionName)
+    {
+        if (!string.IsNullOrEmpty(connectionName))
+        {
+            _queryService.CloseConnection(connectionName);
+            QueryEditor.ConnectionName = connectionName;
             QueryEditor.OnConnectionChanged();
-            QueryEditor.StatusMessage = $"已断开 {connection.Name}。";
+            QueryEditor.StatusMessage = $"已断开 {connectionName}。";
         }
 
-        ObjectsExplorer.RootNodes.Clear();
+        // 卸载对应连接节点的对象树（若指定）。
+        if (connectionNode is not null)
+        {
+            ObjectsExplorer.Disconnect(connectionNode);
+        }
+        else
+        {
+            ObjectsExplorer.RootNodes.Clear();
+        }
+
         DataEditor.Clear();
         IsConnected = false;
         CurrentDatabase = string.Empty;
@@ -190,6 +241,16 @@ public partial class MainWindowViewModel : ViewModelBase
         // 先断开，再连接。
         Disconnect();
         await ConnectAsync();
+    }
+
+    /// <summary>重连指定连接节点。</summary>
+    public async Task ReconnectConnectionNodeAsync(DbObjectTreeNode connectionNode)
+    {
+        if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection)
+            return;
+
+        DisconnectConnectionNode(connectionNode);
+        await ConnectConnectionNodeAsync(connectionNode);
     }
 
     /// <summary>当用户在对象树中选中数据库节点时，更新当前数据库上下文。</summary>
@@ -327,16 +388,17 @@ public partial class MainWindowViewModel : ViewModelBase
         if (node?.DbObject is not Table and not View)
             return false;
 
-        if (SelectedConnection is null)
+        var connectionName = FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
         {
-            QueryEditor.StatusMessage = "请先选择一个连接。";
+            QueryEditor.StatusMessage = "请先连接对应连接。";
             return false;
         }
 
         var table = node.DbObject as Table ?? (DatabaseObject)(node.DbObject as View)!;
         bool isView = node.DbObject is View;
         bool ok = await DataEditor.LoadAsync(
-            SelectedConnection.Name,
+            connectionName,
             node.DatabaseName ?? CurrentDatabase,
             table.Name,
             node.Schema,
@@ -356,14 +418,31 @@ public partial class MainWindowViewModel : ViewModelBase
         if (node is null)
             return;
 
-        if (node.NodeType == DbObjectTreeNodeType.Folder && SelectedConnection is not null)
+        var connectionName = FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
+            return;
+
+        if (node.NodeType == DbObjectTreeNodeType.Folder)
         {
-            await ObjectsExplorer.LoadFolderChildrenAsync(node, SelectedConnection.Name);
+            await ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
         }
-        else if (node.NodeType == DbObjectTreeNodeType.ChildFolder && SelectedConnection is not null)
+        else if (node.NodeType == DbObjectTreeNodeType.ChildFolder)
         {
-            await ObjectsExplorer.LoadTableChildFolderAsync(node, SelectedConnection.Name);
+            await ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
         }
+    }
+
+    /// <summary>向上查找节点所属连接名称。</summary>
+    private string? FindNodeConnectionName(DbObjectTreeNode node)
+    {
+        var current = node.Parent;
+        while (current is not null)
+        {
+            if (current.NodeType == DbObjectTreeNodeType.Connection)
+                return current.Name;
+            current = current.Parent;
+        }
+        return null;
     }
 
     /// <summary>向上查找指定类型的祖先节点。</summary>

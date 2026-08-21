@@ -42,6 +42,12 @@ public class DbObjectTreeNode
     /// <summary>是否为「占位/假」子节点（用于懒加载前展示 loading 占位）。</summary>
     public bool IsPlaceholder { get; set; }
 
+    /// <summary>关联的连接项（当节点为 Connection 类型时有效）。</summary>
+    public ConnectionItem? Connection { get; set; }
+
+    /// <summary>该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。</summary>
+    public bool IsConnectionActive { get; set; }
+
     /// <summary>向父节点注册子节点（自动维护 Parent 引用）。</summary>
     public void AddChild(DbObjectTreeNode child)
     {
