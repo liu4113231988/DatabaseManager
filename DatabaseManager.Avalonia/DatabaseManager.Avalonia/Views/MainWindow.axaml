@@ -79,6 +79,72 @@
             </MenuItem>
         </Menu>
 
+        <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 dbeaver 工具栏布局） -->
+        <Border DockPanel.Dock="Top" Background="#F5F5F5" BorderBrush="#22000000" BorderThickness="0,0,0,1" Padding="6,4">
+            <StackPanel Orientation="Horizontal" Spacing="12">
+
+                <!-- 文件组 -->
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <atom:Button Content="新建查询" Click="ToolNewQuery_Click" Padding="6,2" />
+                    <atom:Button Content="打开脚本" Click="MenuOpenScript_Click" Padding="6,2" />
+                    <atom:Button Content="保存脚本" Click="MenuSaveScript_Click" Padding="6,2" />
+                </StackPanel>
+
+                <Separator />
+
+                <!-- 连接组 -->
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <atom:Button Content="连接" Command="{Binding ConnectCommand}" Padding="6,2" />
+                    <atom:Button Content="重连" Command="{Binding ReconnectCommand}" Padding="6,2" />
+                    <atom:Button Content="断开" Command="{Binding DisconnectCommand}" Padding="6,2" />
+                    <Separator Margin="6,0" />
+                    <atom:Button Content="新建连接" Click="MenuNewConnection_Click" Padding="6,2" />
+                    <atom:Button Content="连接管理" Click="MenuConnectionManager_Click" Padding="6,2" />
+                </StackPanel>
+
+                <Separator />
+
+                <!-- SQL 执行组 -->
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <atom:Button Content="执行" ButtonType="Primary" Command="{Binding QueryEditor.ExecuteCommand}" Padding="6,2" />
+                    <Separator Margin="6,0" />
+                    <!-- 事务组 -->
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="自动提交" VerticalAlignment="Center" />
+                            <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
+                        </StackPanel>
+                        <atom:Button Content="事务" ButtonType="Default" Command="{Binding QueryEditor.BeginTransactionCommand}" Padding="6,2" />
+                        <atom:Button Content="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" Padding="6,2" />
+                        <atom:Button Content="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" Padding="6,2" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Separator />
+
+                <!-- Schema 选择组（多 Schema 数据库时显示） -->
+                <StackPanel Orientation="Horizontal" Spacing="4"
+                            VerticalAlignment="Center"
+                            IsVisible="{Binding SchemaSelectorVisible}">
+                    <TextBlock Text="Schema:" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding CurrentSchema}" Width="120"
+                             VerticalContentAlignment="Center" />
+                </StackPanel>
+
+                <Separator />
+
+                <!-- 工具组 -->
+                <StackPanel Orientation="Horizontal" Spacing="2">
+                    <atom:Button Content="数据对比" Click="MenuDataCompare_Click" Padding="6,2" />
+                    <atom:Button Content="结构对比" Click="MenuSchemaCompare_Click" Padding="6,2" />
+                    <atom:Button Content="数据库转换" Click="MenuConvert_Click" Padding="6,2" />
+                    <atom:Button Content="诊断" Click="MenuDiagnose_Click" Padding="6,2" />
+                    <atom:Button Content="备份" Click="MenuBackup_Click" Padding="6,2" />
+                </StackPanel>
+
+            </StackPanel>
+        </Border>
+
         <!-- 状态栏 -->
         <Border DockPanel.Dock="Bottom" Height="26" Background="#1A000000">
             <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,0" />
@@ -105,14 +171,7 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- 连接下拉 -->
-                        <ComboBox Grid.Row="0"
-                                  ItemsSource="{Binding Connections}"
-                                  SelectedItem="{Binding SelectedConnection}"
-                                  DisplayMemberBinding="{Binding Name}"
-                                  Margin="0,0,0,6" />
-
-                        <!-- 对象树 -->
+                        <!-- 对象树：所有连接平铺展示（dbeaver 风格），双击或右键连接 -->
                         <TreeView Grid.Row="1"
                                   x:Name="ObjectsTree"
                                   ItemsSource="{Binding ObjectsExplorer.RootNodes}"
@@ -124,8 +183,9 @@
                                                   ItemsSource="{Binding Children}">
                                     <StackPanel Orientation="Horizontal" Spacing="4"
                                                 Tag="{Binding}">
-                                        <TextBlock Text="{Binding Converter={StaticResource NodeIconConverter}}" />
-                                        <TextBlock Text="{Binding Text}" />
+                                        <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
+                                               Width="16" Height="16" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </TreeDataTemplate>
                             </TreeView.ItemTemplate>
@@ -156,30 +216,8 @@
                                 <TextBlock Text="SQL：" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding QueryEditor.ConnectionName}"
                                            VerticalAlignment="Center" Opacity="0.6" />
-                                <atom:Button Content="连接" Command="{Binding ConnectCommand}" />
-                                <atom:Button Content="重连" Command="{Binding ReconnectCommand}" />
-                                <atom:Button Content="断开" Command="{Binding DisconnectCommand}" />
-                                <Separator Margin="4,0" />
-                                <atom:Button Content="执行" ButtonType="Primary"
-                                             Command="{Binding QueryEditor.ExecuteCommand}" />
-                                <Separator Margin="4,0" />
-                                <!-- 自动提交开关 -->
-                                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                    <TextBlock Text="自动提交" VerticalAlignment="Center" />
-                                    <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
-                                </StackPanel>
-                                <atom:Button Content="事务" ButtonType="Default"
-                                             Command="{Binding QueryEditor.BeginTransactionCommand}" />
-                                <atom:Button Content="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
-                                <atom:Button Content="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
-                                <!-- Schema 选择器（多 Schema 数据库时显示） -->
-                                <StackPanel Orientation="Horizontal" Spacing="4"
-                                            VerticalAlignment="Center"
-                                            IsVisible="{Binding SchemaSelectorVisible}">
-                                    <TextBlock Text="Schema:" VerticalAlignment="Center" />
-                                    <TextBox Text="{Binding CurrentSchema}" Width="120"
-                                             VerticalContentAlignment="Center" />
-                                </StackPanel>
+                                <TextBlock Text="{Binding QueryEditor.StatusMessage}"
+                                           VerticalAlignment="Center" Opacity="0.8" />
                             </StackPanel>
                             <TextBox Grid.Row="1"
                                      Text="{Binding QueryEditor.SqlText}"

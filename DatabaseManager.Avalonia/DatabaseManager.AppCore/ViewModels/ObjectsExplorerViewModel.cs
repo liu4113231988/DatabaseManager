@@ -30,11 +30,110 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         _schemaService = schemaService;
     }
 
-    /// <summary>加载指定连接下的对象树。</summary>
+    /// <summary>当前已建立连接的连接名称集合（用于区分各连接节点的连接状态）。</summary>
+    private readonly HashSet<string> _activeConnections = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>加载全部已保存连接为对象树根节点（dbeaver 风格：所有连接平铺展示）。</summary>
+    public void LoadConnections(IEnumerable<ConnectionItem> connections)
+    {
+        // 保留已连接的连接节点（避免切换连接列表时丢失连接状态）。
+        var activeNames = RootNodes
+            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
+            .Select(n => n.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        RootNodes.Clear();
+        _activeConnections.Clear();
+        _activeConnections.UnionWith(activeNames);
+
+        foreach (var item in connections)
+        {
+            var node = new DbObjectTreeNode
+            {
+                Name = item.Name,
+                Text = item.Name,
+                NodeType = DbObjectTreeNodeType.Connection,
+                Connection = item,
+                DatabaseObjectType = DatabaseObjectType.None,
+                IsConnectionActive = _activeConnections.Contains(item.Name),
+            };
+            RootNodes.Add(node);
+        }
+    }
+
+    /// <summary>建立指定连接并加载其对象树（连接节点展开浏览）。</summary>
+    public async Task ConnectAsync(DbObjectTreeNode connectionNode)
+    {
+        if (connectionNode is null || connectionNode.NodeType != DbObjectTreeNodeType.Connection)
+            return;
+
+        var connection = connectionNode.Connection;
+        if (connection is null)
+            return;
+
+        IsLoading = true;
+        StatusMessage = $"正在连接 {connection.Name}...";
+
+        try
+        {
+            var nodes = await _schemaService.GetObjectTreeAsync(connection.Name);
+            connectionNode.ClearChildren();
+            foreach (var node in nodes)
+            {
+                connectionNode.AddChild(node);
+            }
+
+            connectionNode.IsConnectionActive = true;
+            connectionNode.IsLoaded = true;
+            _activeConnections.Add(connection.Name);
+            StatusMessage = nodes.Count == 0 ? $"已连接 {connection.Name}，暂无数据库。" : $"已连接 {connection.Name}，加载 {nodes.Count} 个数据库。";
+        }
+        catch (Exception ex)
+        {
+            connectionNode.IsConnectionActive = false;
+            StatusMessage = $"连接失败：{ex.Message}";
+            throw;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>断开指定连接节点，卸载其对象树。</summary>
+    public void Disconnect(DbObjectTreeNode connectionNode)
+    {
+        if (connectionNode is null || connectionNode.NodeType != DbObjectTreeNodeType.Connection)
+            return;
+
+        var name = connectionNode.Name;
+        connectionNode.ClearChildren();
+        connectionNode.IsConnectionActive = false;
+        connectionNode.IsLoaded = false;
+        _activeConnections.Remove(name);
+    }
+
+    /// <summary>判断指定连接是否已连接。</summary>
+    public bool IsConnected(string connectionName)
+        => _activeConnections.Contains(connectionName);
+
+    /// <summary>根据连接名查找连接根节点。</summary>
+    public DbObjectTreeNode? FindConnectionNode(string connectionName)
+        => RootNodes.FirstOrDefault(n => n.NodeType == DbObjectTreeNodeType.Connection && string.Equals(n.Name, connectionName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>加载指定连接下的对象树（兼容旧调用，加载到对应连接节点下）。</summary>
     public async Task LoadAsync(string connectionName)
     {
         if (string.IsNullOrWhiteSpace(connectionName))
             return;
+
+        // 若已存在对应连接节点则连接之；否则仍走旧逻辑直接加载到根。
+        var connNode = FindConnectionNode(connectionName);
+        if (connNode is not null)
+        {
+            await ConnectAsync(connNode);
+            return;
+        }
 
         IsLoading = true;
         StatusMessage = $"正在加载 {connectionName} 的对象树...";

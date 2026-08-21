@@ -64,21 +64,50 @@ public partial class MainWindow : Window
     /// <summary>对象树节点展开时按需懒加载子级。</summary>
     private async void ObjectsTree_Item_Expanded(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MainWindowViewModel vm || vm.SelectedConnection is null)
+        if (DataContext is not MainWindowViewModel vm)
             return;
 
         if (e.Source is not TreeViewItem item || item.DataContext is not DbObjectTreeNode node)
             return;
 
+        // 连接节点展开：若尚未连接或对象树已被卸载则自动建立连接并加载对象树。
+        if (node.NodeType == DbObjectTreeNodeType.Connection)
+        {
+            if (!node.IsConnectionActive || node.Children.Count == 0)
+            {
+                await vm.ConnectConnectionNodeAsync(node);
+            }
+            return;
+        }
+
+        // 找到所属连接节点，以确定使用的连接。
+        var connectionNode = FindConnectionNode(node);
+        if (connectionNode is null || connectionNode.Connection is null)
+            return;
+        string connectionName = connectionNode.Name;
+
         switch (node.NodeType)
         {
             case DbObjectTreeNodeType.Folder:
-                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, vm.SelectedConnection.Name);
+                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
                 break;
             case DbObjectTreeNodeType.ChildFolder:
-                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, vm.SelectedConnection.Name);
+                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
         }
+    }
+
+    /// <summary>向上查找节点所属的连接根节点。</summary>
+    private static DbObjectTreeNode? FindConnectionNode(DbObjectTreeNode node)
+    {
+        var current = node.Parent;
+        while (current is not null)
+        {
+            if (current.NodeType == DbObjectTreeNodeType.Connection)
+                return current;
+            current = current.Parent;
+        }
+        return null;
     }
 
     private void QueryEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -140,6 +169,10 @@ public partial class MainWindow : Window
     }
 
     private async void MenuConnectionManager_Click(object? sender, RoutedEventArgs e)
+        => await OpenConnectionManagerAsync();
+
+    /// <summary>打开连接管理窗口，关闭后刷新连接列表。</summary>
+    private async Task OpenConnectionManagerAsync()
     {
         if (_services is null)
             return;
@@ -347,6 +380,12 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>主工具栏：新建查询。</summary>
+    private void ToolNewQuery_Click(object? sender, RoutedEventArgs e)
+    {
+        (DataContext as MainWindowViewModel)?.NewQuery();
+    }
+
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
     {
         (DataContext as MainWindowViewModel)?.RefreshConnections();
@@ -357,7 +396,7 @@ public partial class MainWindow : Window
         Close();
     }
 
-    /// <summary>双击对象树节点：类型文件夹懒加载具体对象；表/视图生成 SELECT 脚本。</summary>
+    /// <summary>双击对象树节点：连接节点建立连接；类型文件夹懒加载具体对象；表/视图生成 SELECT 脚本。</summary>
     private async void ObjectsTree_DoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
@@ -366,16 +405,38 @@ public partial class MainWindow : Window
         if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
             return;
 
-        if (vm.SelectedConnection is null)
+        // 连接节点：双击连接/断开。
+        if (node.NodeType == DbObjectTreeNodeType.Connection)
+        {
+            if (node.IsConnectionActive)
+            {
+                vm.DisconnectConnectionNode(node);
+            }
+            else
+            {
+                await vm.ConnectConnectionNodeAsync(node);
+                // 连接后自动展开连接节点以浏览对象。
+                if (ObjectsTree.ContainerFromItem(node) is TreeViewItem tvi)
+                {
+                    tvi.IsExpanded = true;
+                }
+            }
             return;
+        }
+
+        // 找到所属连接节点以确定连接。
+        var connectionNode = FindConnectionNode(node);
+        if (connectionNode is null || !connectionNode.IsConnectionActive)
+            return;
+        string connectionName = connectionNode.Name;
 
         switch (node.NodeType)
         {
             case DbObjectTreeNodeType.Folder:
-                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, vm.SelectedConnection.Name);
+                await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
                 break;
             case DbObjectTreeNodeType.ChildFolder:
-                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, vm.SelectedConnection.Name);
+                await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
             case DbObjectTreeNodeType.DbObject when node.DbObject is Table or View:
                 vm.GenerateSelectScript(node);
@@ -393,6 +454,50 @@ public partial class MainWindow : Window
             return;
 
         var menu = new ContextMenu();
+
+        // 连接节点右键：连接 / 重连 / 断开 / 连接管理。
+        if (node.NodeType == DbObjectTreeNodeType.Connection)
+        {
+            var connect = new MenuItem { Header = "连接" };
+            connect.Click += async (_, _) =>
+            {
+                await vm.ConnectConnectionNodeAsync(node);
+                if (ObjectsTree.ContainerFromItem(node) is TreeViewItem tvi)
+                {
+                    tvi.IsExpanded = true;
+                }
+            };
+            connect.IsEnabled = !node.IsConnectionActive;
+            menu.Items.Add(connect);
+
+            var reconnect = new MenuItem { Header = "重新连接" };
+            reconnect.Click += async (_, _) => await vm.ReconnectConnectionNodeAsync(node);
+            reconnect.IsEnabled = node.IsConnectionActive;
+            menu.Items.Add(reconnect);
+
+            var disconnect = new MenuItem { Header = "断开" };
+            disconnect.Click += (_, _) => vm.DisconnectConnectionNode(node);
+            disconnect.IsEnabled = node.IsConnectionActive;
+            menu.Items.Add(disconnect);
+
+            menu.Items.Add(new Separator());
+
+            var newQuery2 = new MenuItem { Header = "新建查询" };
+            newQuery2.Click += (_, _) => vm.NewQuery();
+            menu.Items.Add(newQuery2);
+
+            var manage = new MenuItem { Header = "连接管理..." };
+            manage.Click += async (_, _) =>
+            {
+                await OpenConnectionManagerAsync();
+                vm.RefreshConnections();
+            };
+            menu.Items.Add(manage);
+
+            menu.Open(ObjectsTree);
+            e.Handled = true;
+            return;
+        }
 
         var newQuery = new MenuItem { Header = "新建查询" };
         newQuery.Click += (_, _) => vm.NewQuery();
@@ -458,15 +563,16 @@ public partial class MainWindow : Window
         if (node?.DbObject is not Table table)
             return;
 
-        if (vm.SelectedConnection is null)
+        var connectionNode = FindConnectionNode(node);
+        if (connectionNode is null || connectionNode.Connection is null)
         {
-            vm.QueryEditor.StatusMessage = "请先选择一个连接。";
+            vm.QueryEditor.StatusMessage = "请先连接对应连接。";
             return;
         }
 
         var designerVm = _services.GetRequiredService<TableDesignerViewModel>();
         bool ok = await designerVm.LoadAsync(
-            vm.SelectedConnection.Name,
+            connectionNode.Name,
             node.DatabaseName ?? vm.CurrentDatabase,
             table.Name,
             node.Schema,
@@ -491,15 +597,16 @@ public partial class MainWindow : Window
         if (folderNode?.NodeType != DbObjectTreeNodeType.Folder || folderNode.DatabaseObjectType != DatabaseObjectType.Table)
             return;
 
-        if (vm.SelectedConnection is null)
+        var connectionNode = FindConnectionNode(folderNode);
+        if (connectionNode is null || connectionNode.Connection is null)
         {
-            vm.QueryEditor.StatusMessage = "请先选择一个连接。";
+            vm.QueryEditor.StatusMessage = "请先连接对应连接。";
             return;
         }
 
         var designerVm = _services.GetRequiredService<TableDesignerViewModel>();
         bool ok = await designerVm.LoadAsync(
-            vm.SelectedConnection.Name,
+            connectionNode.Name,
             folderNode.DatabaseName ?? vm.CurrentDatabase,
             "NewTable",
             folderNode.Schema,
