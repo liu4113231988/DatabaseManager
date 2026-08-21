@@ -9,7 +9,7 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
         x:Class="DatabaseManager.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/_dbManager.ico"
         Title="DatabaseManager (Avalonia)"
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen">
