@@ -10,7 +10,7 @@
         x:Class="DatabaseManager.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/_dbManager.ico"
-        Title="DatabaseManager (Avalonia)"
+        Title="DatabaseManager"
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen">
 
@@ -81,70 +81,70 @@
 
         <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 dbeaver 工具栏布局） -->
         <Border DockPanel.Dock="Top" Background="#F5F5F5" BorderBrush="#22000000" BorderThickness="0,0,0,1" Padding="6,4">
-            <StackPanel Orientation="Horizontal" Spacing="12">
+            <StackPanel Orientation="Horizontal" Spacing="4">
 
                 <!-- 文件组 -->
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <atom:Button Click="ToolNewQuery_Click" Padding="6,2" ToolTip.Tip="新建查询">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/AddQuery.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuOpenScript_Click" Padding="6,2" ToolTip.Tip="打开脚本">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/OpenFile.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuSaveScript_Click" Padding="6,2" ToolTip.Tip="保存脚本">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                    <Button Click="ToolNewQuery_Click" Padding="4,2" ToolTip.Tip="新建查询">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/AddQuery.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuOpenScript_Click" Padding="4,2" ToolTip.Tip="打开脚本">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/OpenFile.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuSaveScript_Click" Padding="4,2" ToolTip.Tip="保存脚本">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
 
-                <Separator />
+                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- 连接组 -->
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <atom:Button Command="{Binding ConnectCommand}" Padding="6,2" ToolTip.Tip="连接">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Command="{Binding ReconnectCommand}" Padding="6,2" ToolTip.Tip="重连">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Command="{Binding DisconnectCommand}" Padding="6,2" ToolTip.Tip="断开">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Database16.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <Separator Margin="6,0" />
-                    <atom:Button Click="MenuNewConnection_Click" Padding="6,2" ToolTip.Tip="新建连接">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuConnectionManager_Click" Padding="6,2" ToolTip.Tip="连接管理">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Edit.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                    <Button Command="{Binding ConnectCommand}" Padding="4,2" ToolTip.Tip="连接">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Command="{Binding ReconnectCommand}" Padding="4,2" ToolTip.Tip="重连">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Command="{Binding DisconnectCommand}" Padding="4,2" ToolTip.Tip="断开">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Database16.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
+                    <Button Click="MenuNewConnection_Click" Padding="4,2" ToolTip.Tip="新建连接">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuConnectionManager_Click" Padding="4,2" ToolTip.Tip="连接管理">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Edit.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
 
-                <Separator />
+                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- SQL 执行组 -->
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <atom:Button ButtonType="Primary" Command="{Binding QueryEditor.ExecuteCommand}" Padding="6,2" ToolTip.Tip="执行">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Run.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <Separator Margin="6,0" />
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                    <Button Classes="Primary" Command="{Binding QueryEditor.ExecuteCommand}" Padding="4,2" ToolTip.Tip="执行">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Run.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
                     <!-- 事务组 -->
-                    <StackPanel Orientation="Horizontal" Spacing="2">
+                    <StackPanel Orientation="Horizontal" Spacing="1">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="自动提交" VerticalAlignment="Center" />
                             <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
                         </StackPanel>
-                        <atom:Button ButtonType="Default" Command="{Binding QueryEditor.BeginTransactionCommand}" Padding="6,2" ToolTip.Tip="开始事务">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/DbScripts.png" Width="16" Height="16" Stretch="Uniform" />
-                        </atom:Button>
-                        <atom:Button Command="{Binding QueryEditor.CommitTransactionCommand}" Padding="6,2" ToolTip.Tip="提交">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="16" Height="16" Stretch="Uniform" />
-                        </atom:Button>
-                        <atom:Button Command="{Binding QueryEditor.RollbackTransactionCommand}" Padding="6,2" ToolTip.Tip="回滚">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Translate.png" Width="16" Height="16" Stretch="Uniform" />
-                        </atom:Button>
+                        <Button Classes="Default" Command="{Binding QueryEditor.BeginTransactionCommand}" Padding="4,2" ToolTip.Tip="开始事务">
+                            <Image Source="avares://DatabaseManager.Avalonia/Assets/DbScripts.png" Width="18" Height="18" Stretch="Uniform" />
+                        </Button>
+                        <Button Command="{Binding QueryEditor.CommitTransactionCommand}" Padding="4,2" ToolTip.Tip="提交">
+                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="18" Height="18" Stretch="Uniform" />
+                        </Button>
+                        <Button Command="{Binding QueryEditor.RollbackTransactionCommand}" Padding="4,2" ToolTip.Tip="回滚">
+                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Translate.png" Width="18" Height="18" Stretch="Uniform" />
+                        </Button>
                     </StackPanel>
                 </StackPanel>
 
-                <Separator />
+                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- Schema 选择组（多 Schema 数据库时显示） -->
                 <StackPanel Orientation="Horizontal" Spacing="4"
@@ -155,25 +155,25 @@
                              VerticalContentAlignment="Center" />
                 </StackPanel>
 
-                <Separator />
+                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- 工具组 -->
-                <StackPanel Orientation="Horizontal" Spacing="2">
-                    <atom:Button Click="MenuDataCompare_Click" Padding="6,2" ToolTip.Tip="数据对比">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DataCompare32.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuSchemaCompare_Click" Padding="6,2" ToolTip.Tip="结构对比">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Compare32.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuConvert_Click" Padding="6,2" ToolTip.Tip="数据库转换">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConvert.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuDiagnose_Click" Padding="6,2" ToolTip.Tip="诊断">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Tool16.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
-                    <atom:Button Click="MenuBackup_Click" Padding="6,2" ToolTip.Tip="备份">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbBackup.png" Width="16" Height="16" Stretch="Uniform" />
-                    </atom:Button>
+                <StackPanel Orientation="Horizontal" Spacing="1">
+                    <Button Click="MenuDataCompare_Click" Padding="4,2" ToolTip.Tip="数据对比">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DataCompare32.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuSchemaCompare_Click" Padding="4,2" ToolTip.Tip="结构对比">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Compare32.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuConvert_Click" Padding="4,2" ToolTip.Tip="数据库转换">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConvert.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuDiagnose_Click" Padding="4,2" ToolTip.Tip="诊断">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Tool16.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="MenuBackup_Click" Padding="4,2" ToolTip.Tip="备份">
+                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbBackup.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
 
             </StackPanel>
@@ -187,17 +187,15 @@
         <!-- 主内容：左对象浏览器 / 右查询内容区（两栏分离，避免重叠） -->
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="400" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- 左：对象浏览器（连接列表 + 对象树） -->
             <Border Grid.Column="0"
                     BorderBrush="#22000000" BorderThickness="0,0,1,0" Margin="0,0,0,4">
-                <DockPanel Margin="8">
-                    <TextBlock DockPanel.Dock="Top" Text="对象浏览器" FontWeight="Bold" Margin="4,4,4,8" />
-                    <TextBlock DockPanel.Dock="Top" Text="{Binding SupportedDatabases}"
-                               FontSize="11" Opacity="0.6" Margin="4,0,4,8" TextWrapping="Wrap" />
+                <DockPanel Margin="4">
+                    <TextBlock DockPanel.Dock="Top" Text="对象浏览器" FontWeight="Bold" Margin="2,2,2,4" />
 
                     <Grid>
                         <Grid.RowDefinitions>
@@ -211,15 +209,36 @@
                                   ItemsSource="{Binding ObjectsExplorer.RootNodes}"
                                   DoubleTapped="ObjectsTree_DoubleTapped"
                                   ContextRequested="ObjectsTree_ContextRequested"
-                                  BorderThickness="0">
+                                  BorderThickness="0"
+                                  Padding="0"
+                                  Margin="2,0,0,0"
+                                  FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
+                                  FontSize="12">
+                            <TreeView.Styles>
+                                <Style Selector="TreeViewItem">
+                                    <Setter Property="Padding" Value="0,0" />
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="MinHeight" Value="18" />
+                                </Style>
+                                <!-- 减少子级缩进量 -->
+                                <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
+                                    <Setter Property="Margin" Value="-10,0,0,0" />
+                                </Style>
+                            </TreeView.Styles>
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4"
-                                                Tag="{Binding}">
+                                    <StackPanel Orientation="Horizontal" Spacing="1"
+                                                Tag="{Binding}"
+                                                VerticalAlignment="Center">
                                         <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
-                                               Width="16" Height="16" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding Text}" VerticalAlignment="Center" />
+                                               Width="14" Height="14" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Text}"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
+                                                   FontSize="12"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   MaxWidth="280" />
                                     </StackPanel>
                                 </TreeDataTemplate>
                             </TreeView.ItemTemplate>

@@ -6,7 +6,9 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -444,7 +446,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>对象树右键菜单：新建查询/查看数据(SELECT)/生成脚本/刷新。</summary>
+    /// <summary>对象树右键菜单：使用 ObjectTreeContextMenuBuilder 按节点类型分发构建。</summary>
     private void ObjectsTree_ContextRequested(object? sender, ContextRequestedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm)
@@ -453,96 +455,105 @@ public partial class MainWindow : Window
         if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
             return;
 
-        var menu = new ContextMenu();
+        // 使用构建器模式按节点类型分发右键菜单（P2增强：含Compare/Migrate回调）
+        var connectionService = _services?.GetService<IDbConnectionService>();
+        var builder = new ObjectTreeContextMenuBuilder(
+            vm,
+            ObjectsTree,
+            asyncAction: async (action) => action(),
+            connectionService: connectionService,
+            openConnectionManager: () => _ = OpenConnectionManagerAsync(),
+            openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
+            openDataEditorTab: OpenDataEditorTab,
+            openExportWindow: (n) => _ = OpenExportWindowForTableAsync(n),
+            openImportWindow: (n) => _ = OpenImportWindowForTableAsync(n),
+            openSchemaCompare: (n) => _ = OpenSchemaCompareForNodeAsync(n),
+            openDataCompare: (n) => _ = OpenDataCompareForNodeAsync(n),
+            openConvert: (n) => _ = OpenConvertForNodeAsync(n));
 
-        // 连接节点右键：连接 / 重连 / 断开 / 连接管理。
-        if (node.NodeType == DbObjectTreeNodeType.Connection)
-        {
-            var connect = new MenuItem { Header = "连接" };
-            connect.Click += async (_, _) =>
-            {
-                await vm.ConnectConnectionNodeAsync(node);
-                if (ObjectsTree.ContainerFromItem(node) is TreeViewItem tvi)
-                {
-                    tvi.IsExpanded = true;
-                }
-            };
-            connect.IsEnabled = !node.IsConnectionActive;
-            menu.Items.Add(connect);
+        builder.BuildAndShow(node, e);
+    }
 
-            var reconnect = new MenuItem { Header = "重新连接" };
-            reconnect.Click += async (_, _) => await vm.ReconnectConnectionNodeAsync(node);
-            reconnect.IsEnabled = node.IsConnectionActive;
-            menu.Items.Add(reconnect);
+    /// <summary>P2: 为节点打开结构对比窗口。</summary>
+    private async Task OpenSchemaCompareForNodeAsync(DbObjectTreeNode node)
+    {
+        if (_services is null) return;
+        
+        var compareVm = _services.GetRequiredService<SchemaCompareViewModel>();
+        var window = new SchemaCompareWindow(compareVm);
+        await window.ShowDialog<object?>(this);
+    }
 
-            var disconnect = new MenuItem { Header = "断开" };
-            disconnect.Click += (_, _) => vm.DisconnectConnectionNode(node);
-            disconnect.IsEnabled = node.IsConnectionActive;
-            menu.Items.Add(disconnect);
+    /// <summary>P2: 为节点打开数据对比窗口。</summary>
+    private async Task OpenDataCompareForNodeAsync(DbObjectTreeNode node)
+    {
+        if (_services is null) return;
+        
+        var dataCompareVm = _services.GetRequiredService<DataCompareViewModel>();
+        var window = new DataCompareWindow(dataCompareVm);
+        await window.ShowDialog<object?>(this);
+    }
 
-            menu.Items.Add(new Separator());
+    /// <summary>P2: 为节点打开数据库转换窗口。</summary>
+    private async Task OpenConvertForNodeAsync(DbObjectTreeNode node)
+    {
+        if (_services is null) return;
+        
+        var convertVm = _services.GetRequiredService<ConvertViewModel>();
+        var window = new ConvertWindow(convertVm);
+        await window.ShowDialog<object?>(this);
+    }
 
-            var newQuery2 = new MenuItem { Header = "新建查询" };
-            newQuery2.Click += (_, _) => vm.NewQuery();
-            menu.Items.Add(newQuery2);
-
-            var manage = new MenuItem { Header = "连接管理..." };
-            manage.Click += async (_, _) =>
-            {
-                await OpenConnectionManagerAsync();
-                vm.RefreshConnections();
-            };
-            menu.Items.Add(manage);
-
-            menu.Open(ObjectsTree);
-            e.Handled = true;
+    /// <summary>打开导出窗口并预填表信息（P1：表节点右键导出数据）。</summary>
+    private async Task OpenExportWindowForTableAsync(DbObjectTreeNode node)
+    {
+        if (_services is null || node.DbObject is not Table)
             return;
-        }
 
-        var newQuery = new MenuItem { Header = "新建查询" };
-        newQuery.Click += (_, _) => vm.NewQuery();
-        menu.Items.Add(newQuery);
-
-        if (node.DbObject is Table or View)
+        var exportVm = _services.GetRequiredService<ExportViewModel>();
+        
+        // 预填充连接和表信息
+        var connectionNode = FindConnectionNode(node);
+        if (connectionNode?.Connection is not null)
         {
-            var select = new MenuItem { Header = "查看数据 (SELECT)" };
-            select.Click += (_, _) => vm.GenerateSelectScript(node);
-            menu.Items.Add(select);
-
-            var editData = new MenuItem { Header = "编辑数据" };
-            editData.Click += async (_, _) =>
+            exportVm.RefreshConnections();
+            // 选中对应连接
+            var conn = exportVm.Connections.FirstOrDefault(c => 
+                string.Equals(c.Id, connectionNode.Connection.Id, StringComparison.OrdinalIgnoreCase));
+            if (conn is not null)
             {
-                await vm.OpenDataEditor(node);
-                OpenDataEditorTab();
-            };
-            menu.Items.Add(editData);
-
-            // 表：设计表（新建表时在 Tables 文件夹上提供）。
-            if (node.DbObject is Table)
-            {
-                var design = new MenuItem { Header = "设计表" };
-                design.Click += async (_, _) => await OpenTableDesignerAsync(node);
-                menu.Items.Add(design);
+                exportVm.SelectedConnection = conn;
             }
         }
-        else if (node.NodeType == DbObjectTreeNodeType.Folder && node.DatabaseObjectType == DatabaseObjectType.Table)
+
+        var window = new ExportWindow(exportVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开导入窗口并预填表信息（P1：表节点右键导入数据）。</summary>
+    private async Task OpenImportWindowForTableAsync(DbObjectTreeNode node)
+    {
+        if (_services is null || node.DbObject is not Table)
+            return;
+
+        var importVm = _services.GetRequiredService<ImportViewModel>();
+        
+        // 预填充连接和表信息
+        var connectionNode = FindConnectionNode(node);
+        if (connectionNode?.Connection is not null)
         {
-            // Tables 文件夹：新建表。
-            var newTable = new MenuItem { Header = "新建表" };
-            newTable.Click += async (_, _) => await OpenNewTableDesignerAsync(node);
-            menu.Items.Add(newTable);
+            importVm.RefreshConnections();
+            // 选中对应连接
+            var conn = importVm.Connections.FirstOrDefault(c => 
+                string.Equals(c.Id, connectionNode.Connection.Id, StringComparison.OrdinalIgnoreCase));
+            if (conn is not null)
+            {
+                importVm.SelectedConnection = conn;
+            }
         }
 
-        // 刷新（针对可懒加载的文件夹/子文件夹）。
-        if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
-        {
-            var refresh = new MenuItem { Header = "刷新" };
-            refresh.Click += async (_, _) => await vm.RefreshNodeAsync(node);
-            menu.Items.Add(refresh);
-        }
-
-        menu.Open(ObjectsTree);
-        e.Handled = true;
+        var window = new ImportWindow(importVm);
+        await window.ShowDialog<object?>(this);
     }
 
     /// <summary>切换到「数据编辑」标签页（索引 1）。</summary>

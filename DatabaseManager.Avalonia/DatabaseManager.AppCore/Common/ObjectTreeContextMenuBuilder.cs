@@ -1,0 +1,1344 @@
+using System;
+using System.Text;
+using Avalonia;                // <- 新增
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;  // <- 新增：IClassicDesktopStyleApplicationLifetime
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;          // <- 新增：TextWrapping
+using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
+using DatabaseManager.AppCore.ViewModels;
+
+namespace DatabaseManager.AppCore.Common;
+
+/// <summary>
+/// 对象树右键菜单构建器。
+/// 按节点类型分发，为不同类型的节点（连接/数据库/Schema/文件夹/对象/子对象）构建对应的右键菜单。
+/// P2 增强：菜单分组、快捷键提示、Generate SQL 扩展、Filter、Compare/Migrate、高级复制。
+/// </summary>
+public class ObjectTreeContextMenuBuilder
+{
+    private readonly MainWindowViewModel _viewModel;
+    private readonly TreeView _treeView;
+    private readonly Action<Func<Task>> _asyncAction;
+    private readonly Action? _openConnectionManager;
+    private readonly Action<DbObjectTreeNode, bool>? _openTableDesigner;
+    private readonly Action? _openDataEditorTab;
+    private readonly Action<DbObjectTreeNode>? _openExportWindow;
+    private readonly Action<DbObjectTreeNode>? _openImportWindow;
+    private readonly Action<DbObjectTreeNode>? _openSchemaCompare;
+    private readonly Action<DbObjectTreeNode>? _openDataCompare;
+    private readonly Action<DbObjectTreeNode>? _openConvert;
+
+    private readonly IDbConnectionService _connectionService; // <-  新增字段
+
+    /// <summary>创建右键菜单构建器。</summary>
+    public ObjectTreeContextMenuBuilder(
+        MainWindowViewModel viewModel,
+        TreeView treeView,
+        Action<Func<Task>> asyncAction,
+        IDbConnectionService connectionService, // <- 新增参数
+        Action? openConnectionManager = null,
+        Action<DbObjectTreeNode, bool>? openTableDesigner = null,
+        Action? openDataEditorTab = null,
+        Action<DbObjectTreeNode>? openExportWindow = null,
+        Action<DbObjectTreeNode>? openImportWindow = null,
+        Action<DbObjectTreeNode>? openSchemaCompare = null,
+        Action<DbObjectTreeNode>? openDataCompare = null,
+        Action<DbObjectTreeNode>? openConvert = null)
+    {
+        _viewModel = viewModel;
+        _treeView = treeView;
+        _asyncAction = asyncAction;
+        _connectionService = connectionService; // <- 赋值
+        _openConnectionManager = openConnectionManager;
+        _openTableDesigner = openTableDesigner;
+        _openDataEditorTab = openDataEditorTab;
+        _openExportWindow = openExportWindow;
+        _openImportWindow = openImportWindow;
+        _openSchemaCompare = openSchemaCompare;
+        _openDataCompare = openDataCompare;
+        _openConvert = openConvert;
+    }
+
+    /// <summary>根据节点类型构建并显示右键菜单。</summary>
+    public void BuildAndShow(DbObjectTreeNode node, ContextRequestedEventArgs e)
+    {
+        var menu = new ContextMenu();
+
+        switch (node.NodeType)
+        {
+            case DbObjectTreeNodeType.Connection:
+                BuildConnectionMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.Database:
+                BuildDatabaseMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.Schema:
+                BuildSchemaMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.Folder:
+                BuildFolderMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.DbObject:
+                BuildDbObjectMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.ChildFolder:
+            case DbObjectTreeNodeType.ChildObject:
+                BuildChildObjectMenu(menu, node);
+                break;
+            default:
+                BuildDefaultMenu(menu, node);
+                break;
+        }
+
+        menu.Open(_treeView);
+        e.Handled = true;
+    }
+
+    #region 连接节点右键菜单
+
+    private void BuildConnectionMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== Open/View 组 ====
+        var connect = CreateMenuItem("连接\tEnter", "打开连接");
+        connect.Click += (_, _) => _asyncAction(async () =>
+        {
+            await _viewModel.ConnectConnectionNodeAsync(node);
+            ExpandNode(node);
+        });
+        connect.IsEnabled = !node.IsConnectionActive;
+        menu.Items.Add(connect);
+
+        var reconnect = CreateMenuItem("重新连接\tF5", "重新建立连接");
+        reconnect.Click += (_, _) => _asyncAction(async () => await _viewModel.ReconnectConnectionNodeAsync(node));
+        reconnect.IsEnabled = node.IsConnectionActive;
+        menu.Items.Add(reconnect);
+
+        var disconnect = CreateMenuItem("断开", "断开当前连接");
+        disconnect.Click += (_, _) => _viewModel.DisconnectConnectionNode(node);
+        disconnect.IsEnabled = node.IsConnectionActive;
+        menu.Items.Add(disconnect);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 查询组 ====
+        var newQuery = CreateMenuItem("SQL Editor\tCtrl+N", "新建 SQL 查询");
+        newQuery.Click += (_, _) => _viewModel.NewQuery();
+        menu.Items.Add(newQuery);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var refreshConn = CreateMenuItem("刷新连接", "重新加载对象树");
+        refreshConn.Click += async (_, _) =>
+        {
+            if (node.IsConnectionActive)
+            {
+                _viewModel.DisconnectConnectionNode(node);
+            }
+            await _viewModel.ConnectConnectionNodeAsync(node);
+            ExpandNode(node);
+        };
+        menu.Items.Add(refreshConn);
+
+        var editConn = CreateMenuItem("编辑连接...", "打开连接管理并定位");
+        editConn.Click += (_, _) => _openConnectionManager?.Invoke();
+        menu.Items.Add(editConn);
+
+        var renameConn = CreateMenuItem("重命名连接...\tF2", "修改连接名称");
+        renameConn.Click += async (_, _) => await RenameConnectionAsync(node);
+        menu.Items.Add(renameConn);
+
+        var deleteConn = CreateMenuItem("删除连接\tDelete", "删除此连接配置");
+        deleteConn.Click += async (_, _) => await DeleteConnectionAsync(node);
+        menu.Items.Add(deleteConn);
+
+        menu.Items.Add(new Separator());
+
+        // ==== Compare/Migrate 组 ====
+        AddCompareMigrateMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node, advanced: true);
+    }
+
+    #endregion
+
+    #region 数据库节点右键菜单
+
+    private void BuildDatabaseMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== Open/View 组 ====
+        var setCurrent = CreateMenuItem("设为当前数据库", "将此数据库设为默认查询目标");
+        setCurrent.Click += (_, _) => SetCurrentDatabase(node);
+        menu.Items.Add(setCurrent);
+
+        var newQuery = CreateMenuItem("新建查询\tCtrl+N", "打开 SQL 编辑器");
+        newQuery.Click += (_, _) => _viewModel.NewQuery();
+        menu.Items.Add(newQuery);
+
+        menu.Items.Add(new Separator());
+
+        // ==== Compare/Migrate 组 ====
+        AddCompareMigrateMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region Schema 节点右键菜单
+
+    private void BuildSchemaMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== Open/View 组 ====
+        var setCurrent = CreateMenuItem("设为当前 Schema", "将此 Schema 设为默认查询目标");
+        setCurrent.Click += (_, _) => SetCurrentSchema(node);
+        menu.Items.Add(setCurrent);
+
+        var newQuery = CreateMenuItem("新建查询\tCtrl+N", "打开 SQL 编辑器");
+        newQuery.Click += (_, _) => _viewModel.NewQuery();
+        menu.Items.Add(newQuery);
+
+        menu.Items.Add(new Separator());
+
+        // ==== Compare/Migrate 组 ====
+        AddCompareMigrateMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region 辅助方法：设为当前数据库/Schema
+
+    private void SetCurrentDatabase(DbObjectTreeNode node)
+    {
+        if (node.NodeType == DbObjectTreeNodeType.Database)
+        {
+            _viewModel.CurrentDatabase = node.Name;
+            _viewModel.CurrentSchema = string.Empty;
+            _viewModel.SchemaSelectorVisible = false;
+            _viewModel.QueryEditor.StatusMessage = $"已设为当前数据库：{node.Name}";
+        }
+    }
+
+    private void SetCurrentSchema(DbObjectTreeNode node)
+    {
+        if (node.NodeType == DbObjectTreeNodeType.Schema)
+        {
+            _viewModel.CurrentDatabase = node.DatabaseName ?? _viewModel.CurrentDatabase;
+            _viewModel.CurrentSchema = node.Name;
+            _viewModel.SchemaSelectorVisible = true;
+            _viewModel.QueryEditor.StatusMessage = $"已设为当前 Schema：{node.Name}";
+        }
+    }
+
+    #endregion
+
+    #region 类型文件夹右键菜单
+
+    private void BuildFolderMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== DDL 组（新建对象）====
+        switch (node.DatabaseObjectType)
+        {
+            case DatabaseObjectType.Table:
+                var newTable = CreateMenuItem("新建表...", "在表设计器中创建新表");
+                newTable.Click += (_, _) => _openTableDesigner?.Invoke(node, true);
+                menu.Items.Add(newTable);
+                break;
+            case DatabaseObjectType.View:
+                var newView = CreateMenuItem("新建视图...", "创建新视图");
+                newView.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建视图功能开发中...";
+                menu.Items.Add(newView);
+                break;
+            case DatabaseObjectType.Procedure:
+                var newProc = CreateMenuItem("新建存储过程...", "创建新存储过程");
+                newProc.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建存储过程功能开发中...";
+                menu.Items.Add(newProc);
+                break;
+            case DatabaseObjectType.Function:
+                var newFunc = CreateMenuItem("新建函数...", "创建新函数");
+                newFunc.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建函数功能开发中...";
+                menu.Items.Add(newFunc);
+                break;
+        }
+
+        if (menu.Items.Count > 0)
+        {
+            menu.Items.Add(new Separator());
+        }
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region 数据库对象右键菜单（表 / 视图）
+
+    private void BuildDbObjectMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        if (node.DbObject is Table or View)
+        {
+            BuildTableOrViewMenu(menu, node);
+        }
+        else
+        {
+            BuildOtherDbObjectMenu(menu, node);
+        }
+    }
+
+    /// <summary>表/视图节点的完整右键菜单（P2增强版）。</summary>
+    private void BuildTableOrViewMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        bool isTable = node.DbObject is Table;
+
+        // ==== Open/View 组 ====
+        var select = CreateMenuItem("查看数据 (SELECT)\tF4", "生成 SELECT 查询并查看数据");
+        select.Click += (_, _) => _viewModel.GenerateSelectScript(node);
+        menu.Items.Add(select);
+
+        var editData = CreateMenuItem("编辑数据", "在数据编辑器中编辑表数据");
+        editData.Click += (_, _) => _asyncAction(async () =>
+        {
+            await _viewModel.OpenDataEditor(node);
+            _openDataEditorTab?.Invoke();
+        });
+        menu.Items.Add(editData);
+
+        if (isTable)
+        {
+            var design = CreateMenuItem("设计表...", "打开表设计器修改表结构");
+            design.Click += (_, _) => _openTableDesigner?.Invoke(node, false);
+            menu.Items.Add(design);
+        }
+
+        // P2: Filter 功能
+        var filter = CreateMenuItem("过滤数据...", "生成带 WHERE 的 SELECT 模板");
+        filter.Click += (_, _) => GenerateFilterTemplate(node);
+        menu.Items.Add(filter);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 数据导出/导入组（仅表）====
+        if (isTable)
+        {
+            var exportData = CreateMenuItem("导出数据...", "导出表数据到文件");
+            exportData.Click += (_, _) => _openExportWindow?.Invoke(node);
+            menu.Items.Add(exportData);
+
+            var importData = CreateMenuItem("导入数据...", "从文件导入数据到表");
+            importData.Click += (_, _) => _openImportWindow?.Invoke(node);
+            menu.Items.Add(importData);
+
+            menu.Items.Add(new Separator());
+        }
+
+        // ==== DDL 组（Generate SQL）====
+        var generateSql = CreateMenuItem("Generate SQL", "生成 SQL 脚本模板");
+        
+        // P2 扩展：SELECT * / SELECT TOP N
+        var genSelectAll = CreateMenuItem("SELECT *", "生成 SELECT * 查询");
+        genSelectAll.Click += (_, _) => _viewModel.GenerateSelectScript(node);
+        generateSql.Items.Add(genSelectAll);
+
+        var genSelectTopN = CreateMenuItem("SELECT TOP N", "生成 SELECT TOP N 查询");
+        genSelectTopN.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.SelectTopN);
+        generateSql.Items.Add(genSelectTopN);
+
+        var genInsert = CreateMenuItem("INSERT 模板", "生成 INSERT 语句模板");
+        genInsert.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Insert);
+        generateSql.Items.Add(genInsert);
+
+        var genUpdate = CreateMenuItem("UPDATE 模板", "生成 UPDATE 语句模板");
+        genUpdate.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Update);
+        generateSql.Items.Add(genUpdate);
+
+        var genDelete = CreateMenuItem("DELETE 模板", "生成 DELETE 语句模板");
+        genDelete.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Delete);
+        generateSql.Items.Add(genDelete);
+
+        var genCreate = CreateMenuItem(isTable ? "CREATE TABLE" : "CREATE VIEW", 
+            isTable ? "生成建表脚本" : "生成建视图脚本");
+        genCreate.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Create);
+        generateSql.Items.Add(genCreate);
+
+        menu.Items.Add(generateSql);
+
+        menu.Items.Add(new Separator());
+
+        // ==== Compare/Migrate 组 ====
+        AddCompareMigrateMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var renameObj = CreateMenuItem("重命名对象...\tF2", "修改对象名称");
+        renameObj.Click += async (_, _) => await RenameDbObjectAsync(node);
+        menu.Items.Add(renameObj);
+
+        var deleteObj = CreateMenuItem("删除对象\tDelete", "删除此数据库对象");
+        deleteObj.Click += async (_, _) => await DeleteDbObjectAsync(node);
+        menu.Items.Add(deleteObj);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node, advanced: true);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>其他数据库对象的右键菜单。</summary>
+    private void BuildOtherDbObjectMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region 子对象右键菜单（列 / 索引 / 键 / 约束 / 触发器）
+
+    private void BuildChildObjectMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var childType = GetChildObjectType(node);
+
+        switch (childType)
+        {
+            case DbObjectChildType.Column:
+                BuildColumnMenu(menu, node);
+                break;
+            case DbObjectChildType.Index:
+                BuildIndexMenu(menu, node);
+                break;
+            case DbObjectChildType.PrimaryKey:
+            case DbObjectChildType.ForeignKey:
+                BuildKeyMenu(menu, node, childType);
+                break;
+            case DbObjectChildType.Constraint:
+                BuildConstraintMenu(menu, node);
+                break;
+            case DbObjectChildType.Trigger:
+                BuildTriggerMenu(menu, node);
+                break;
+            default:
+                BuildGenericChildObjectMenu(menu, node);
+                break;
+        }
+    }
+
+    /// <summary>列节点右键菜单（P2增强版）。</summary>
+    private void BuildColumnMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== View 组 ====
+        var viewColumn = CreateMenuItem("查看列信息", "查看列的详细信息");
+        viewColumn.Click += (_, _) => ViewColumnInfo(node);
+        menu.Items.Add(viewColumn);
+
+        menu.Items.Add(new Separator());
+
+        // ==== DDL 组（列专用 SQL）====
+        var columnSql = CreateMenuItem("Generate SQL", "生成列相关 SQL");
+
+        var alterCol = CreateMenuItem("ALTER COLUMN 模板", "生成修改列语句模板");
+        alterCol.Click += (_, _) => GenerateColumnSqlTemplate(node, ColumnSqlTemplateType.Alter);
+        columnSql.Items.Add(alterCol);
+
+        var dropCol = CreateMenuItem("DROP COLUMN", "生成删除列语句");
+        dropCol.Click += (_, _) => GenerateColumnSqlTemplate(node, ColumnSqlTemplateType.Drop);
+        columnSql.Items.Add(dropCol);
+
+        menu.Items.Add(columnSql);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var renameCol = CreateMenuItem("重命名列...\tF2", "修改列名称");
+        renameCol.Click += async (_, _) => await RenameChildObjectAsync(node, "列");
+        menu.Items.Add(renameCol);
+
+        var deleteCol = CreateMenuItem("删除列\tDelete", "删除此列");
+        deleteCol.Click += async (_, _) => await DeleteChildObjectAsync(node, "列");
+        menu.Items.Add(deleteCol);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node, advanced: true);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>索引节点右键菜单（P2增强版）。</summary>
+    private void BuildIndexMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== View 组 ====
+        var viewIndex = CreateMenuItem("查看索引信息", "查看索引详细信息");
+        viewIndex.Click += (_, _) => ViewIndexInfo(node);
+        menu.Items.Add(viewIndex);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var renameIdx = CreateMenuItem("重命名索引...\tF2", "修改索引名称");
+        renameIdx.Click += async (_, _) => await RenameChildObjectAsync(node, "索引");
+        menu.Items.Add(renameIdx);
+
+        var deleteIdx = CreateMenuItem("删除索引\tDelete", "删除此索引");
+        deleteIdx.Click += async (_, _) => await DeleteChildObjectAsync(node, "索引");
+        menu.Items.Add(deleteIdx);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>主键/外键节点右键菜单（P2增强版）。</summary>
+    private void BuildKeyMenu(ContextMenu menu, DbObjectTreeNode node, DbObjectChildType keyType)
+    {
+        string keyName = keyType == DbObjectChildType.PrimaryKey ? "主键" : "外键";
+
+        // ==== View 组 ====
+        var viewKey = CreateMenuItem($"查看{keyName}信息", $"查看{keyName}详细信息");
+        viewKey.Click += (_, _) => ViewKeyInfo(node, keyType);
+        menu.Items.Add(viewKey);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var deleteKey = CreateMenuItem($"删除{keyName}\tDelete", $"删除此{keyName}");
+        deleteKey.Click += async (_, _) => await DeleteChildObjectAsync(node, keyName);
+        menu.Items.Add(deleteKey);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>约束节点右键菜单（P2增强版）。</summary>
+    private void BuildConstraintMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== View 组 ====
+        var viewConstraint = CreateMenuItem("查看约束信息", "查看约束详细信息");
+        viewConstraint.Click += (_, _) => ViewConstraintInfo(node);
+        menu.Items.Add(viewConstraint);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var renameCon = CreateMenuItem("重命名约束...\tF2", "修改约束名称");
+        renameCon.Click += async (_, _) => await RenameChildObjectAsync(node, "约束");
+        menu.Items.Add(renameCon);
+
+        var deleteCon = CreateMenuItem("删除约束\tDelete", "删除此约束");
+        deleteCon.Click += async (_, _) => await DeleteChildObjectAsync(node, "约束");
+        menu.Items.Add(deleteCon);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>触发器节点右键菜单（P2增强版）。</summary>
+    private void BuildTriggerMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== View 组 ====
+        var viewTrigger = CreateMenuItem("查看触发器脚本", "查看触发器定义");
+        viewTrigger.Click += (_, _) => ViewTriggerScript(node);
+        menu.Items.Add(viewTrigger);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var renameTrg = CreateMenuItem("重命名触发器...\tF2", "修改触发器名称");
+        renameTrg.Click += async (_, _) => await RenameChildObjectAsync(node, "触发器");
+        menu.Items.Add(renameTrg);
+
+        var deleteTrg = CreateMenuItem("删除触发器\tDelete", "删除此触发器");
+        deleteTrg.Click += async (_, _) => await DeleteChildObjectAsync(node, "触发器");
+        menu.Items.Add(deleteTrg);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>通用子对象右键菜单。</summary>
+    private void BuildGenericChildObjectMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // ==== View 组 ====
+        var viewObj = CreateMenuItem("查看详情", "查看对象详细信息");
+        viewObj.Click += (_, _) => ViewChildObjectInfo(node);
+        menu.Items.Add(viewObj);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 管理组 ====
+        var deleteObj = CreateMenuItem("删除\tDelete", "删除此对象");
+        deleteObj.Click += async (_, _) => await DeleteChildObjectAsync(node, "对象");
+        menu.Items.Add(deleteObj);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 剪贴板组 ====
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        // ==== 刷新组 ====
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region 默认右键菜单
+
+    private void BuildDefaultMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        AddCopyMenuItems(menu, node);
+        AddRefreshMenuItem(menu, node);
+    }
+
+    #endregion
+
+    #region P2: Compare / Migrate 菜单项
+
+    /// <summary>添加 Compare/Migrate 相关菜单项（连接/数据库/表节点）。</summary>
+    private void AddCompareMigrateMenuItems(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var hasCompare = _openSchemaCompare is not null;
+        var hasDataCompare = _openDataCompare is not null;
+        var hasConvert = _openConvert is not null;
+
+        if (!hasCompare && !hasDataCompare && !hasConvert)
+            return;
+
+        var compareMenu = CreateMenuItem("比较与迁移", "结构对比、数据对比、数据库转换");
+
+        if (hasCompare)
+        {
+            var schemaCmp = CreateMenuItem("结构对比...", "打开 Schema Compare 窗口");
+            schemaCmp.Click += (_, _) => _openSchemaCompare?.Invoke(node);
+            compareMenu.Items.Add(schemaCmp);
+        }
+
+        if (hasDataCompare)
+        {
+            var dataCmp = CreateMenuItem("数据对比...", "打开 Data Compare 窗口");
+            dataCmp.Click += (_, _) => _openDataCompare?.Invoke(node);
+            compareMenu.Items.Add(dataCmp);
+        }
+
+        if (hasConvert)
+        {
+            var convert = CreateMenuItem("数据库转换...", "打开 Convert 窗口");
+            convert.Click += (_, _) => _openConvert?.Invoke(node);
+            compareMenu.Items.Add(convert);
+        }
+
+        menu.Items.Add(compareMenu);
+    }
+
+    #endregion
+
+    #region P2: Copy Advanced Info（高级复制）
+
+    /// <summary>添加复制菜单项（基础 + 高级）。</summary>
+    private void AddCopyMenuItems(ContextMenu menu, DbObjectTreeNode node, bool advanced = false)
+    {
+        var copyName = CreateMenuItem("复制名称", "复制对象名称到剪贴板");
+        copyName.Click += (_, _) => CopyToClipboard(node.Name);
+        menu.Items.Add(copyName);
+
+        var copyFullPath = CreateMenuItem("复制完整路径", "复制 schema.name 格式路径");
+        copyFullPath.Click += (_, _) => CopyToClipboard(GetFullPath(node));
+        menu.Items.Add(copyFullPath);
+
+        // P2 高级复制
+        if (!advanced) return;
+
+        switch (node.NodeType)
+        {
+            case DbObjectTreeNodeType.Connection:
+                // 复制连接字符串
+                var copyConnStr = CreateMenuItem("复制连接字符串", "复制完整连接字符串");
+                copyConnStr.Click += (_, _) => CopyConnectionString(node);
+                menu.Items.Add(copyConnStr);
+                break;
+
+            case DbObjectTreeNodeType.DbObject when node.DbObject is Table or View:
+                // 复制 schema.table 格式
+                var copySchemaTable = CreateMenuItem("复制 Schema.Table", "复制 schema.table 格式名称");
+                copySchemaTable.Click += (_, _) => CopyToClipboard(GetQualifiedObjectName(node));
+                menu.Items.Add(copySchemaTable);
+                break;
+
+            case DbObjectTreeNodeType.ChildObject when node.DbObject is TableColumn:
+                // 列的高级复制已在 BuildColumnMenu 中通过 AddCopyColumnDefinition 处理
+                break;
+        }
+    }
+
+    /// <summary>复制连接字符串到剪贴板。</summary>
+    private void CopyConnectionString(DbObjectTreeNode node)
+    {
+        if (node.Connection is null) return;
+
+        // 构建连接字符串
+        var sb = new StringBuilder();
+        sb.Append("Server=").Append(node.Connection.Server);
+        if (!string.IsNullOrEmpty(node.Connection.Port))
+        {
+            sb.Append(',').Append(node.Connection.Port);
+        }
+        sb.Append(";Database=").Append(node.Connection.Database);
+        if (!string.IsNullOrEmpty(node.Connection.UserId))
+        {
+            sb.Append(";User Id=").Append(node.Connection.UserId);
+        }
+        // 注意：不复制密码到剪贴板出于安全考虑
+        
+        CopyToClipboard(sb.ToString());
+        _viewModel.QueryEditor.StatusMessage = "已复制连接字符串（不含密码）";
+    }
+
+    #endregion
+
+    #region P2: Generate SQL 扩展
+
+    private enum SqlTemplateType { Select, SelectTopN, Insert, Update, Delete, Create }
+
+    private void GenerateSqlTemplate(DbObjectTreeNode node, SqlTemplateType templateType)
+    {
+        if (node.DbObject is not (Table or View))
+            return;
+
+        string objectName = GetQualifiedObjectName(node);
+        string sql = templateType switch
+        {
+            SqlTemplateType.Select => $"SELECT * FROM {objectName};",
+            SqlTemplateType.SelectTopN => $"SELECT TOP 100 * FROM {objectName};",
+            SqlTemplateType.Insert => $"INSERT INTO {objectName} (column1, column2)\nVALUES (value1, value2);",
+            SqlTemplateType.Update => $"UPDATE {objectName}\nSET column1 = value1,\n    column2 = value2\nWHERE condition;",
+            SqlTemplateType.Delete => $"DELETE FROM {objectName}\nWHERE condition;",
+            SqlTemplateType.Create => node.DbObject is Table
+               ? $"CREATE TABLE {objectName} (\n    id INT PRIMARY KEY,\n    name VARCHAR(100),\n    created_at DATETIME DEFAULT GETDATE()\n);"
+                : $"CREATE VIEW {objectName} AS\nSELECT * FROM some_table;",
+            _ => string.Empty,
+        };
+
+        _viewModel.QueryEditor.SqlText = sql;
+        _viewModel.QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的{templateType}模板脚本。";
+    }
+
+    /// <summary>P2: Filter 模板 - 生成带 WHERE 的 SELECT。</summary>
+    private void GenerateFilterTemplate(DbObjectTreeNode node)
+    {
+        if (node.DbObject is not (Table or View))
+            return;
+
+        string objectName = GetQualifiedObjectName(node);
+        string sql = $"SELECT * FROM {objectName}\nWHERE /* 过滤条件 */\nORDER BY 1;";
+
+        _viewModel.QueryEditor.SqlText = sql;
+        _viewModel.QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的过滤查询模板，请编辑 WHERE 条件。";
+    }
+
+    #endregion
+
+    #region P2: 列 SQL 模板
+
+    private enum ColumnSqlTemplateType { Alter, Drop }
+
+    private void GenerateColumnSqlTemplate(DbObjectTreeNode node, ColumnSqlTemplateType templateType)
+    {
+        if (node.DbObject is not TableColumn column || node.Parent?.Parent?.DbObject is null)
+            return;
+
+        string tableName = GetQualifiedObjectName(node.Parent.Parent);
+        string sql = templateType switch
+        {
+            ColumnSqlTemplateType.Alter => $"ALTER TABLE {tableName}\nALTER COLUMN {column.Name} {column.DataType};",
+            ColumnSqlTemplateType.Drop => $"ALTER TABLE {tableName}\nDROP COLUMN {column.Name};",
+            _ => string.Empty,
+        };
+
+        _viewModel.QueryEditor.SqlText = sql;
+        _viewModel.QueryEditor.StatusMessage = $"已生成列 {column.Name} 的{templateType}模板脚本。";
+    }
+
+    #endregion
+
+    #region 通用菜单项：刷新
+
+    private void AddRefreshMenuItem(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var refresh = CreateMenuItem("刷新\tF5", "刷新此节点");
+        refresh.Click += (_, _) => _asyncAction(async () => await _viewModel.RefreshNodeAsync(node));
+        menu.Items.Add(refresh);
+    }
+
+    private void AddRefreshParentMenuItem(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var parent = node.Parent;
+        if (parent is null) return;
+
+        var refresh = CreateMenuItem("刷新\tF5", "刷新父节点");
+        refresh.Click += (_, _) => _asyncAction(async () => await _viewModel.RefreshNodeAsync(parent));
+        menu.Items.Add(refresh);
+    }
+
+    #endregion
+
+    #region 辅助方法：获取完整路径
+
+    internal static string GetFullPath(DbObjectTreeNode node)
+    {
+        var parts = new List<string>();
+        var current = node;
+
+        if (current.NodeType == DbObjectTreeNodeType.Connection)
+            return current.Name;
+
+        while (current is not null && current.NodeType != DbObjectTreeNodeType.Connection)
+        {
+            if (current.NodeType is DbObjectTreeNodeType.DbObject or DbObjectTreeNodeType.ChildObject
+                or DbObjectTreeNodeType.Schema)
+            {
+                parts.Insert(0, current.Name);
+            }
+            else if (current.NodeType == DbObjectTreeNodeType.Database && parts.Count > 0)
+            {
+                parts.Insert(0, current.Name);
+            }
+            current = current.Parent;
+        }
+
+        return string.Join(".", parts);
+    }
+
+    #endregion
+
+    #region 辅助方法：获取限定对象名
+
+    private string GetQualifiedObjectName(DbObjectTreeNode node)
+    {
+        var sb = new StringBuilder();
+        if (!string.IsNullOrEmpty(node.Schema))
+        {
+            sb.Append(node.Schema).Append('.');
+        }
+        sb.Append(node.DbObject!.Name);
+        return sb.ToString();
+    }
+
+    #endregion
+
+    #region 辅助方法：删除/重命名连接
+
+    private async Task DeleteConnectionAsync(DbObjectTreeNode node)
+    {
+        if (node.Connection is null || string.IsNullOrEmpty(node.Connection.Id))
+            return;
+
+        var result = await ShowConfirmDialog($"确定要删除连接 \"{node.Name}\" 吗？", "删除连接");
+        if (result != true)
+            return;
+
+        try
+        {
+            var connectionService = GetConnectionService();
+            await connectionService.DeleteAsync(new[] { node.Connection.Id });
+            _viewModel.QueryEditor.StatusMessage = $"已删除连接：{node.Name}";
+            _viewModel.RefreshConnections();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"删除连接失败：{ex.Message}";
+        }
+    }
+
+    private async Task RenameConnectionAsync(DbObjectTreeNode node)
+    {
+        if (node.Connection is null)
+            return;
+
+        var newName = await ShowInputDialog("请输入新的连接名称：", "重命名连接", node.Name);
+        if (string.IsNullOrWhiteSpace(newName) || newName == node.Name)
+            return;
+
+        try
+        {
+            node.Connection.Name = newName;
+            var connectionService = GetConnectionService();
+            await connectionService.SaveAsync(node.Connection);
+            _viewModel.QueryEditor.StatusMessage = $"已重命名连接为：{newName}";
+            _viewModel.RefreshConnections();
+        }
+        catch (Exception ex)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"重命名连接失败：{ex.Message}";
+        }
+    }
+
+    #endregion
+
+    #region 辅助方法：删除/重命名数据库对象
+
+    private async Task DeleteDbObjectAsync(DbObjectTreeNode node)
+    {
+        if (node.DbObject is null)
+            return;
+
+        string objType = node.DbObject.GetType().Name;
+        string confirmMsg = $"确定要删除{objType} \"{node.Name}\" 吗？\n此操作不可撤销！";
+
+        var result = await ShowConfirmDialog(confirmMsg, $"删除{objType}");
+        if (result != true)
+            return;
+
+        _viewModel.QueryEditor.StatusMessage = $"删除{objType}功能：后端接口开发中...";
+    }
+
+    private async Task RenameDbObjectAsync(DbObjectTreeNode node)
+    {
+        if (node.DbObject is null)
+            return;
+
+        var newName = await ShowInputDialog("请输入新的对象名称：", "重命名对象", node.Name);
+        if (string.IsNullOrWhiteSpace(newName) || newName == node.Name)
+            return;
+
+        string objType = node.DbObject.GetType().Name;
+        _viewModel.QueryEditor.StatusMessage = $"重命名{objType}功能：后端接口开发中...";
+    }
+
+    #endregion
+
+    #region 辅助方法：展开节点
+
+    private void ExpandNode(DbObjectTreeNode node)
+    {
+        var container = _treeView.ContainerFromItem(node);
+        if (container is TreeViewItem tvi)
+        {
+            tvi.IsExpanded = true;
+        }
+    }
+
+    #endregion
+
+    #region 辅助方法：创建带快捷键的菜单项
+
+    /// <summary>创建菜单项（带 Header 文本和 ToolTip）。</summary>
+    private static MenuItem CreateMenuItem(string header, string? toolTip = null)
+    {
+        var item = new MenuItem { Header = header };
+        if (toolTip is not null)
+        {
+            ToolTip.SetTip(item, toolTip);
+        }
+        return item;
+    }
+
+    #endregion
+
+    #region 辅助方法：剪贴板操作
+
+    private static void CopyToClipboard(string text)
+    {
+        var mainWindow = (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        mainWindow?.Clipboard?.SetTextAsync(text);
+    }
+
+    #endregion
+
+    #region 子对象辅助方法
+
+    private static DbObjectChildType GetChildObjectType(DbObjectTreeNode node)
+    {
+        if (node.Parent is null) return DbObjectChildType.None;
+
+        return node.Parent.Name switch
+        {
+            "Columns" => DbObjectChildType.Column,
+            "Triggers" => DbObjectChildType.Trigger,
+            "Indexes" => DbObjectChildType.Index,
+            "Keys" => node.DbObject switch
+            {
+                TablePrimaryKey => DbObjectChildType.PrimaryKey,
+                TableForeignKey => DbObjectChildType.ForeignKey,
+                _ => DbObjectChildType.PrimaryKey,
+            },
+            "Constraints" => DbObjectChildType.Constraint,
+            _ => DbObjectChildType.None,
+        };
+    }
+
+    #endregion
+
+    #region 子对象辅助方法：查看操作
+
+    private void ViewColumnInfo(DbObjectTreeNode node)
+    {
+        if (node.DbObject is not TableColumn column) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"列名: {column.Name}");
+        sb.AppendLine($"数据类型: {column.DataType}");
+        if (!string.IsNullOrEmpty(column.DataTypeSchema))
+            sb.AppendLine($"类型 Schema: {column.DataTypeSchema}");
+        sb.AppendLine($"可空: {(column.IsNullable ? "是" : "否")}");
+        if (column.IsIdentity)
+            sb.AppendLine($"自增列: 是");
+        if (column.MaxLength.HasValue && column.MaxLength.Value > 0)
+            sb.AppendLine($"长度: {column.MaxLength.Value}");
+        if (!string.IsNullOrEmpty(column.DefaultValue))
+            sb.AppendLine($"默认值: {column.DefaultValue}");
+
+        _viewModel.QueryEditor.StatusMessage = $"列信息: {column.Name} ({column.DataType})";
+        CopyToClipboard(sb.ToString());
+    }
+
+    private void ViewIndexInfo(DbObjectTreeNode node)
+    {
+        if (node.DbObject is not TableIndex index) return;
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"索引名: {index.Name}");
+        sb.AppendLine($"是否唯一: {(index.IsUnique ? "是" : "否")}");
+        sb.AppendLine($"列: {string.Join(", ", index.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName))}");
+
+        _viewModel.QueryEditor.StatusMessage = $"索引信息: {index.Name}";
+        CopyToClipboard(sb.ToString());
+    }
+
+    private void ViewKeyInfo(DbObjectTreeNode node, DbObjectChildType keyType)
+    {
+        var sb = new StringBuilder();
+        string keyName = keyType == DbObjectChildType.PrimaryKey ? "主键" : "外键";
+
+        switch (node.DbObject)
+        {
+            case TablePrimaryKey pk:
+                sb.AppendLine($"{keyName}名: {pk.Name}");
+                sb.AppendLine($"列: {string.Join(", ", pk.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName))}");
+                break;
+            case TableForeignKey fk:
+                sb.AppendLine($"{keyName}名: {fk.Name}");
+                sb.AppendLine($"列: {string.Join(", ", fk.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName))}");
+                var refTable = string.IsNullOrEmpty(fk.ReferencedSchema) 
+                    ? fk.ReferencedTableName 
+                    : $"{fk.ReferencedSchema}.{fk.ReferencedTableName}";
+                sb.AppendLine($"引用表: {refTable}");
+                break;
+        }
+
+        _viewModel.QueryEditor.StatusMessage = $"{keyName}信息: {node.Name}";
+        CopyToClipboard(sb.ToString());
+    }
+
+    private void ViewConstraintInfo(DbObjectTreeNode node)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"约束名: {node.Name}");
+        if (node.DbObject is not null)
+        {
+            sb.AppendLine($"类型: {node.DbObject.GetType().Name}");
+        }
+
+        _viewModel.QueryEditor.StatusMessage = $"约束信息: {node.Name}";
+        CopyToClipboard(sb.ToString());
+    }
+
+    private void ViewTriggerScript(DbObjectTreeNode node)
+    {
+        _viewModel.QueryEditor.StatusMessage = $"查看触发器脚本功能开发中: {node.Name}";
+    }
+
+    private void ViewChildObjectInfo(DbObjectTreeNode node)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"对象名: {node.Name}");
+        sb.AppendLine($"类型: {node.DatabaseObjectType}");
+        if (node.DbObject is not null)
+        {
+            sb.AppendLine($"详细类型: {node.DbObject.GetType().Name}");
+        }
+
+        _viewModel.QueryEditor.StatusMessage = $"对象信息: {node.Name}";
+        CopyToClipboard(sb.ToString());
+    }
+
+    #endregion
+
+    #region 子对象辅助方法：删除/重命名
+
+    private async Task DeleteChildObjectAsync(DbObjectTreeNode node, string objectTypeName)
+    {
+        string confirmMsg = $"确定要删除{objectTypeName} \"{node.Name}\" 吗？\n此操作不可撤销！";
+
+        var result = await ShowConfirmDialog(confirmMsg, $"删除{objectTypeName}");
+        if (result != true)
+            return;
+
+        _viewModel.QueryEditor.StatusMessage = $"删除{objectTypeName}功能：后端接口开发中...";
+    }
+
+    private async Task RenameChildObjectAsync(DbObjectTreeNode node, string objectTypeName)
+    {
+        var newName = await ShowInputDialog($"请输入新的{objectTypeName}名称：", $"重命名{objectTypeName}", node.Name);
+        if (string.IsNullOrWhiteSpace(newName) || newName == node.Name)
+            return;
+
+        _viewModel.QueryEditor.StatusMessage = $"重命名{objectTypeName}功能：后端接口开发中...";
+    }
+
+    #endregion
+
+    #region 子对象辅助方法：复制列定义
+
+    private void AddCopyColumnDefinition(ContextMenu menu, DbObjectTreeNode node)
+    {
+        if (node.DbObject is not TableColumn column) return;
+
+        var copyDef = CreateMenuItem("复制列定义", "复制 name type nullable 格式定义");
+        copyDef.Click += (_, _) =>
+        {
+            string def = FormatColumnDefinition(column);
+            CopyToClipboard(def);
+        };
+        menu.Items.Add(copyDef);
+    }
+
+    private static string FormatColumnDefinition(TableColumn column)
+    {
+        var sb = new StringBuilder();
+        sb.Append(column.Name);
+        sb.Append(' ');
+
+        if (!string.IsNullOrEmpty(column.DataTypeSchema))
+        {
+            sb.Append(column.DataTypeSchema).Append('.');
+        }
+        sb.Append(column.DataType);
+
+        if (column.MaxLength.HasValue && column.MaxLength.Value > 0)
+        {
+            sb.Append('(').Append(column.MaxLength.Value);
+            if (column.Precision.HasValue && column.Precision.Value > 0)
+            {
+                sb.Append(',').Append(column.Precision.Value);
+            }
+            sb.Append(')');
+        }
+
+        if (!column.IsNullable)
+            sb.Append(" NOT NULL");
+
+        if (column.IsIdentity)
+            sb.Append(" IDENTITY");
+
+        if (!string.IsNullOrEmpty(column.DefaultValue))
+            sb.Append(" DEFAULT ").Append(column.DefaultValue);
+
+        return sb.ToString();
+    }
+
+    #endregion
+
+    #region 对话框辅助方法
+
+    private static async Task<bool?> ShowConfirmDialog(string message, string title)
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
+            && lifetime.MainWindow is Window mainWindow)
+        {
+            var dialog = new ContentDialog
+            {
+                Title = title,
+                Content = message,
+                PrimaryButtonText = "确定",
+                SecondaryButtonText = "取消",
+            };
+            var result = await dialog.ShowAsync(mainWindow);
+            return result == ContentDialog.ContentDialogResult.Primary;
+        }
+        return null;
+    }
+
+    private static async Task<string?> ShowInputDialog(string message, string title, string defaultValue = "")
+    {
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
+            && lifetime.MainWindow is Window mainWindow)
+        {
+            var inputDialog = new InputDialog(title, message, defaultValue);
+            return await inputDialog.ShowAsync(mainWindow);
+        }
+        return null;
+    }
+
+    private IDbConnectionService GetConnectionService()
+    {
+        return _connectionService;
+    }
+
+    #endregion
+}
+
+#region 简单对话框实现
+
+internal class ContentDialog : Control
+{
+    public string Title { get; set; } = string.Empty;
+    public object? Content { get; set; }
+    public string PrimaryButtonText { get; set; } = "确定";
+    public string SecondaryButtonText { get; set; } = "取消";
+
+    public async Task<ContentDialogResult> ShowAsync(Window parent)
+    {
+        var window = new Window
+        {
+            Title = Title,
+            Width = 400,
+            Height = 200,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+        };
+
+        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
+
+        var textBlock = new TextBlock { Text = Content?.ToString(), TextWrapping = TextWrapping.Wrap };
+        panel.Children.Add(textBlock);
+
+        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
+
+        var okButton = new Button { Content = PrimaryButtonText, MinWidth = 80, Padding = new Thickness(12, 6) };
+        var cancelBtn = new Button { Content = SecondaryButtonText, MinWidth = 80, Padding = new Thickness(12, 6) };
+
+        ContentDialogResult result = ContentDialogResult.None;
+
+        okButton.Click += (_, _) => { result = ContentDialogResult.Primary; window.Close(); };
+        cancelBtn.Click += (_, _) => { result = ContentDialogResult.Secondary; window.Close(); };
+
+        buttonPanel.Children.Add(okButton);
+        buttonPanel.Children.Add(cancelBtn);
+        panel.Children.Add(buttonPanel);
+
+        window.Content = panel;
+        await window.ShowDialog(parent);
+
+        return result;
+    }
+
+    internal enum ContentDialogResult { None, Primary, Secondary }
+}
+
+internal class InputDialog : Window
+{
+    private readonly TextBox _textBox;
+    private string? _result;
+
+    public InputDialog(string title, string message, string defaultValue = "")
+    {
+        Title = title;
+        Width = 450;
+        Height = 200;
+        WindowStartupLocation = WindowStartupLocation.CenterOwner;
+        CanResize = false;
+
+        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
+
+        var textBlock = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap };
+        panel.Children.Add(textBlock);
+
+        _textBox = new TextBox { Text = defaultValue, MinWidth = 300 };
+        panel.Children.Add(_textBox);
+
+        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
+
+        var okButton = new Button { Content = "确定", MinWidth = 80, Padding = new Thickness(12, 6) };
+        var cancelBtn = new Button { Content = "取消", MinWidth = 80, Padding = new Thickness(12, 6) };
+
+        okButton.Click += (_, _) => { _result = _textBox.Text; Close(); };
+        cancelBtn.Click += (_, _) => { _result = null; Close(); };
+
+        buttonPanel.Children.Add(okButton);
+        buttonPanel.Children.Add(cancelBtn);
+        panel.Children.Add(buttonPanel);
+
+        Content = panel;
+    }
+
+    public new async Task<string?> ShowAsync(Window parent)
+    {
+        await ShowDialog(parent);
+        return _result;
+    }
+}
+
+#endregion
