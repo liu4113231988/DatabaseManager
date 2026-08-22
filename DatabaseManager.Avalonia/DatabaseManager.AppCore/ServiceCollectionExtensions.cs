@@ -51,6 +51,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ColumnDocumentationViewModel>();
         services.AddTransient<ExportViewModel>();
         services.AddTransient<ImportViewModel>();
+        services.AddTransient<SearchViewModel>();
 
         return services;
     }

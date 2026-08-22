@@ -48,6 +48,8 @@
                 <MenuItem Header="连接" Command="{Binding ConnectCommand}" />
                 <MenuItem Header="重连" Command="{Binding ReconnectCommand}" />
                 <MenuItem Header="断开" Command="{Binding DisconnectCommand}" />
+                <Separator />
+                <MenuItem Header="断开全部" Command="{Binding DisconnectAllCommand}" />
             </MenuItem>
             <MenuItem Header="数据库">
                 <MenuItem Header="自动提交" ToggleType="CheckBox"
@@ -55,6 +57,10 @@
                 <MenuItem Header="开始事务" Command="{Binding QueryEditor.BeginTransactionCommand}" />
                 <MenuItem Header="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
                 <MenuItem Header="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
+            </MenuItem>
+            <MenuItem Header="搜索">
+                <MenuItem Header="元数据搜索..." Click="MenuSearch_Click"
+                          ToolTip.Tip="按名称搜索表/视图/列/存储过程等（Ctrl+Shift+D / Ctrl+H）" />
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />

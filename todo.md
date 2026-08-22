@@ -70,3 +70,59 @@
 2. 补齐 P0：连接节点、表节点、类型文件夹、通用 Copy/Refresh。
 3. 补齐 P1：Database/Schema、列/索引/约束/触发器、导出导入入口。
 4. 最后做 P2：图标、快捷键、Generate SQL 子菜单、Filter 等体验项。
+
+---
+
+# 顶部菜单完善计划 · 2026-08-22
+
+> 参考 `resources/dbeaver-screenshot/` 下 `database-top-menu.png` / `navigate-top-menu.png` / `search-top-menu.png` 三张顶部菜单截图。
+> 与当前 Avalonia 版主窗口菜单（文件/连接/数据库/视图/工具/帮助）逐项对比，只补**常用高频**功能，不常用项明确不做。
+> 原则同上：不追求与 DBeaver 1:1 对齐。
+
+## 已实现（对比后确认无需重复建设）
+
+- [x] New Database Connection → 已有「新建连接」（文件/连接菜单、工具栏）
+- [x] Connect / Invalidate+Reconnect / Disconnect → 已有「连接 / 重连 / 断开」
+- [x] Commit / Rollback / Transaction mode → 已有「提交 / 回滚 / 自动提交」开关与事务命令
+- [x] Tools 类功能（Convert / Compare / Diagnose / Optimize / Statistic / Backup / Import / Export 等）→ 工具菜单均已实现
+
+## P0（核心常用，优先实现）
+
+- [ ] **元数据搜索（对应 Search > DB Metadata + Navigate > Open Database Object, Ctrl+Shift+D）**
+  - 全局搜索框：按关键字模糊搜索表 / 视图 / 列 / 存储过程 / 函数名
+  - 结果列表支持双击「在对象树中定位并选中」（需按路径逐级展开 TreeView 节点）
+  - 表/视图结果支持右键或按钮「生成 SELECT 并打开查询标签」
+  - 入口：顶部新增「搜索」菜单（Ctrl+H 打开对话框）；Ctrl+Shift+D 直达定位
+- [ ] **断开全部连接（对应 Database > Disconnect All）**
+  - 遍历 `ObjectsExplorer.RootNodes` 中所有 `IsConnectionActive` 的连接节点依次执行 `DisconnectConnectionNode`
+  - 放入「连接」菜单；工具栏可选加图标
+
+## P1（高频补齐）
+
+- [ ] **只读模式开关（对应 Database > Read-only connection）**
+  - 「数据库」菜单增加 ToggleSwitch；全局状态存于 MainWindowViewModel
+  - `QueryTabViewModel.ExecuteAsync` 执行前校验：非 SELECT / WITH / SHOW / EXPLAIN 开头的语句直接拒绝并提示
+  - 用途：连接生产库时防误改
+- [ ] **全库数据搜索（对应 Search > DB Full-Text）**
+  - 输入关键字，在指定数据库全部表的所有文本列中 `LIKE '%kw%'` 查找
+  - 结果展示 库.表.列 + 样例值；点击生成 `SELECT * FROM t WHERE col LIKE ...`
+  - 需控制成本：逐表顺序扫描 + LIMIT 保护 + 可取消；文本列仅限字符类型
+
+## P2（体验增强，可选）
+
+- [ ] **编辑器光标位置前进/后退（对应 Navigate > Previous/Next Edit Location, Alt+←/→）**
+  - SqlEditor 内维护光标位置历史栈（跳转阈值 >N 行才入栈），快捷键导航
+
+## 明确不实现（低频/平台特有）
+
+- JDBC URL 直连、Driver Manager（驱动由各 ADO.NET 包内置）
+- Transaction log / Pending transactions（依赖驱动级事务日志）
+- Open Dashboard（监控仪表盘）、Tasks / Context tools（任务调度）
+- Disconnect Others、Open Resource、File/Text Search、Quick Search、Data 导航子菜单
+
+## 依赖项（实现前需补齐）
+
+- [ ] `IDbSchemaService` 增加 `SearchMetadataAsync(connectionName, keyword)`：基于 INFORMATION_SCHEMA / pg_catalog / sqlite_master 等做名称模糊匹配（含列名），返回 类型+库+Schema+名称 列表
+- [ ] TreeView 定位辅助：MainWindow 中按 DbObjectTreeNode 路径逐级展开并选中目标节点的方法（元数据搜索「定位」用）
+- [ ] 只读拦截需要 QueryTabViewModel 能读到全局只读标志（构造注入回调或静态 App 状态，注意 DI 注册方式）
+

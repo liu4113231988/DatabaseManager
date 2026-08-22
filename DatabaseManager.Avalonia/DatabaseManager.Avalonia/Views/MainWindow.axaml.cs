@@ -13,6 +13,8 @@ using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 
 namespace DatabaseManager.Avalonia.Views;
 
@@ -191,6 +193,232 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
 
         (DataContext as MainWindowViewModel)?.RefreshConnections();
+    }
+
+    /// <summary>打开元数据搜索窗口（P0：DB Metadata Search / Open Database Object）。</summary>
+    private async void MenuSearch_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        // 仅提供已活动的连接供搜索；默认选中当前查询标签使用的连接。
+        var activeNames = vm.ObjectsExplorer.RootNodes
+            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
+            .Select(n => n.Name)
+            .ToList();
+
+        if (activeNames.Count == 0)
+        {
+            vm.QueryEditor.StatusMessage = "请先在对象浏览器中连接一个连接，再使用元数据搜索。";
+            return;
+        }
+
+        var searchVm = _services.GetRequiredService<SearchViewModel>();
+        var defaultConnection = vm.SelectedQueryTab?.ConnectionName;
+        searchVm.SetConnections(
+            activeNames,
+            string.IsNullOrEmpty(defaultConnection) ? activeNames[0] : defaultConnection);
+
+        var window = new SearchWindow(searchVm);
+        await window.ShowDialog<object?>(this);
+
+        var result = window.SelectedItemResult;
+        if (result is null)
+            return;
+
+        var locatedNode = await LocateNodeInTreeAsync(result);
+
+        if (window.GenerateSelectRequested)
+        {
+            if (locatedNode?.DbObject is Table or View)
+            {
+                vm.GenerateSelectScript(locatedNode);
+                return;
+            }
+
+            // 树中未找到对应节点（尚未加载等）时，按搜索结果直接构造对象生成 SELECT。
+            DatabaseObject obj = result.Kind == SearchObjectKind.View
+                ? new View { Name = result.Name, Schema = result.Schema }
+                : new Table { Name = result.Name, Schema = result.Schema };
+
+            vm.GenerateSelectScript(new DbObjectTreeNode
+            {
+                Name = result.Name,
+                Text = result.FullName,
+                NodeType = DbObjectTreeNodeType.DbObject,
+                DbObject = obj,
+                DatabaseName = result.DatabaseName,
+                Schema = result.Schema,
+            });
+        }
+        else if (locatedNode is null)
+        {
+            SetQueryStatus($"未能在对象树中定位「{result.DisplayText}」，请确认该连接已展开加载。");
+        }
+    }
+
+    /// <summary>
+    /// 在对象树中定位搜索结果对应的节点：逐级展开（触发懒加载）并选中目标。
+    /// 返回定位到的节点；失败时返回 null 并给出状态提示。
+    /// </summary>
+    private async Task<DbObjectTreeNode?> LocateNodeInTreeAsync(SearchResultItem item)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return null;
+
+        var connectionNode = vm.ObjectsExplorer.FindConnectionNode(item.ConnectionName);
+        if (connectionNode is null || !connectionNode.IsConnectionActive)
+        {
+            SetQueryStatus($"连接「{item.ConnectionName}」未激活，无法定位。");
+            return null;
+        }
+
+        await ExpandContainerAsync(connectionNode);
+
+        // 数据库节点
+        var dbNode = connectionNode.Children.FirstOrDefault(c =>
+            c.NodeType == DbObjectTreeNodeType.Database &&
+            string.Equals(c.Name, item.DatabaseName, StringComparison.OrdinalIgnoreCase));
+
+        if (dbNode is null)
+        {
+            SetQueryStatus($"未在对象树中找到数据库「{item.DatabaseName}」。");
+            return null;
+        }
+
+        await ExpandContainerAsync(dbNode);
+
+        // 多 Schema 数据库（Postgres/Kingbase 等）存在 Schema 层；单层结构直接是类型文件夹。
+        var schemaParent = dbNode;
+        if (!string.IsNullOrEmpty(item.Schema))
+        {
+            var schemaNode = dbNode.Children.FirstOrDefault(c =>
+                c.NodeType == DbObjectTreeNodeType.Schema &&
+                string.Equals(c.Name, item.Schema, StringComparison.OrdinalIgnoreCase));
+
+            if (schemaNode is not null)
+            {
+                await ExpandContainerAsync(schemaNode);
+                schemaParent = schemaNode;
+            }
+        }
+
+        // 类型文件夹（Tables / Views / Procedures / Functions / Sequences）
+        var folderName = item.Kind switch
+        {
+            SearchObjectKind.Table => "Tables",
+            SearchObjectKind.View => "Views",
+            SearchObjectKind.Procedure => "Procedures",
+            SearchObjectKind.Function => "Functions",
+            SearchObjectKind.Sequence => "Sequences",
+            _ => "Tables",
+        };
+
+        var folderNode = schemaParent.Children.FirstOrDefault(c =>
+            c.NodeType == DbObjectTreeNodeType.Folder &&
+            string.Equals(c.Name, folderName, StringComparison.OrdinalIgnoreCase));
+
+        if (folderNode is null)
+        {
+            SetQueryStatus($"未找到类型文件夹「{folderName}」。");
+            return null;
+        }
+
+        // 懒加载文件夹内容（已加载时内部会跳过）。
+        try
+        {
+            await vm.ObjectsExplorer.LoadFolderChildrenAsync(folderNode, connectionNode.Name);
+        }
+        catch
+        {
+            // 加载失败时继续尝试用现有子节点匹配。
+        }
+
+        await ExpandContainerAsync(folderNode);
+
+        // 对象节点（优先 名称+Schema 匹配，退化为仅名称匹配）。
+        var objectNode = folderNode.Children.FirstOrDefault(c =>
+            c.NodeType == DbObjectTreeNodeType.DbObject &&
+            string.Equals(c.Name, item.Name, StringComparison.OrdinalIgnoreCase) &&
+            (string.IsNullOrEmpty(item.Schema) ||
+             string.Equals(c.Schema, item.Schema, StringComparison.OrdinalIgnoreCase)))
+            ?? folderNode.Children.FirstOrDefault(c =>
+                c.NodeType == DbObjectTreeNodeType.DbObject &&
+                string.Equals(c.Name, item.Name, StringComparison.OrdinalIgnoreCase));
+
+        if (objectNode is null)
+        {
+            SetQueryStatus($"未在对象树中找到「{item.DisplayText}」。");
+            return null;
+        }
+
+        var target = objectNode;
+        await ExpandContainerAsync(objectNode);
+
+        // 列结果：继续深入 Columns 子文件夹定位列子节点。
+        if (item.Kind == SearchObjectKind.Column)
+        {
+            var columnsFolder = objectNode.Children.FirstOrDefault(c =>
+                c.NodeType == DbObjectTreeNodeType.ChildFolder &&
+                string.Equals(c.Name, "Columns", StringComparison.OrdinalIgnoreCase));
+
+            if (columnsFolder is not null)
+            {
+                try
+                {
+                    await vm.ObjectsExplorer.LoadTableChildFolderAsync(columnsFolder, connectionNode.Name);
+                }
+                catch
+                {
+                    // 忽略加载失败。
+                }
+
+                await ExpandContainerAsync(columnsFolder);
+
+                target = columnsFolder.Children.FirstOrDefault(c =>
+                    c.NodeType == DbObjectTreeNodeType.ChildObject &&
+                    string.Equals(c.Name, item.Name, StringComparison.OrdinalIgnoreCase)) ?? objectNode;
+            }
+        }
+
+        ObjectsTree.SelectedItem = target;
+
+        if (ObjectsTree.ContainerFromItem(target) is TreeViewItem targetContainer)
+        {
+            targetContainer.BringIntoView();
+        }
+
+        return target;
+    }
+
+    /// <summary>等待 TreeViewItem 容器生成并展开（容器可能因虚拟化延迟出现，轮询等待）。</summary>
+    private async Task<TreeViewItem?> ExpandContainerAsync(DbObjectTreeNode node)
+    {
+        TreeViewItem? container = null;
+
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            container = ObjectsTree.ContainerFromItem(node) as TreeViewItem;
+
+            if (container is not null)
+            {
+                container.IsExpanded = true;
+                break;
+            }
+
+            await Task.Delay(20);
+        }
+
+        return container;
+    }
+
+    /// <summary>向当前查询标签写入状态提示。</summary>
+    private void SetQueryStatus(string message)
+    {
+        if (DataContext is MainWindowViewModel vm && vm.SelectedQueryTab is not null)
+        {
+            vm.SelectedQueryTab.StatusMessage = message;
+        }
     }
 
     /// <summary>打开数据库转换窗口（阶段 4）。</summary>
@@ -888,6 +1116,18 @@ public partial class MainWindow : Window
                 // Ctrl+O：打开脚本
                 e.Handled = true;
                 MenuOpenScript_Click(sender, e);
+                break;
+
+            case Key.D when ctrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                // Ctrl+Shift+D：元数据搜索并定位（对齐 DBeaver Open Database Object）
+                e.Handled = true;
+                MenuSearch_Click(sender, e);
+                break;
+
+            case Key.H when ctrl:
+                // Ctrl+H：元数据搜索（对齐 DBeaver Search）
+                e.Handled = true;
+                MenuSearch_Click(sender, e);
                 break;
 
             case Key.F4:

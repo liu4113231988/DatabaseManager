@@ -246,6 +246,242 @@ public class DefaultDbSchemaService : IDbSchemaService
         return nodes;
     }
 
+    /// <summary>单个类别在搜索结果中的上限；列扫描的表数上限。</summary>
+    private const int MetadataSearchMaxColumnScanTables = 30;
+
+    /// <inheritdoc cref="IDbSchemaService.SearchMetadataAsync" />
+    public async Task<IReadOnlyList<SearchResultItem>> SearchMetadataAsync(
+        string connectionName,
+        string keyword,
+        int limitPerKind = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new List<SearchResultItem>();
+        keyword = keyword?.Trim() ?? string.Empty;
+        if (keyword.Length == 0)
+            return result;
+
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+            return result;
+
+        // 枚举该连接下的数据库（目标库优先，其余按名称排序），逐库搜索。
+        var databaseNames = await GetDatabaseNamesForSearchAsync(connection);
+        var counters = new Dictionary<SearchObjectKind, int>();
+
+        foreach (var dbName in databaseNames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // 全部类别都达到上限时提前结束。
+            if (counters.Count >= 6 && counters.Values.All(c => c >= limitPerKind))
+                break;
+
+            DbInterpreter interpreter;
+            try
+            {
+                interpreter = CreateInterpreter(connection, dbName);
+            }
+            catch
+            {
+                continue;
+            }
+
+            // 表 / 视图 / 过程 / 函数 / 序列：取全量后内存模糊过滤（跨库一致，不依赖方言 SQL）。
+            var matchedTables = new List<DatabaseObject>();
+
+            matchedTables.AddRange(await SafeFetchAsync(
+                () => interpreter.GetTablesAsync(new SchemaInfoFilter()),
+                item => MatchesKeyword(item.Name, keyword),
+                limitPerKind));
+
+            foreach (var t in matchedTables)
+            {
+                AddResult(result, counters, SearchObjectKind.Table,
+                    connection.Name, dbName, t.Schema, t.Name, null, limitPerKind);
+            }
+
+            var views = await SafeFetchAsync(
+                () => interpreter.GetViewsAsync(new SchemaInfoFilter()),
+                item => MatchesKeyword(item.Name, keyword),
+                limitPerKind);
+
+            foreach (var v in views)
+            {
+                AddResult(result, counters, SearchObjectKind.View,
+                    connection.Name, dbName, v.Schema, v.Name, null, limitPerKind);
+            }
+
+            if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Procedure))
+            {
+                var procedures = await SafeFetchAsync(
+                    () => interpreter.GetProceduresAsync(new SchemaInfoFilter()),
+                    item => MatchesKeyword(item.Name, keyword),
+                    limitPerKind);
+
+                foreach (var p in procedures)
+                {
+                    AddResult(result, counters, SearchObjectKind.Procedure,
+                        connection.Name, dbName, p.Schema, p.Name, null, limitPerKind);
+                }
+            }
+
+            if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Function))
+            {
+                var functions = await SafeFetchAsync(
+                    () => interpreter.GetFunctionsAsync(new SchemaInfoFilter()),
+                    item => MatchesKeyword(item.Name, keyword),
+                    limitPerKind);
+
+                foreach (var f in functions)
+                {
+                    AddResult(result, counters, SearchObjectKind.Function,
+                        connection.Name, dbName, f.Schema, f.Name, null, limitPerKind);
+                }
+            }
+
+            if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Sequence))
+            {
+                var sequences = await SafeFetchAsync(
+                    () => interpreter.GetSequencesAsync(new SchemaInfoFilter()),
+                    item => MatchesKeyword(item.Name, keyword),
+                    limitPerKind);
+
+                foreach (var s in sequences)
+                {
+                    AddResult(result, counters, SearchObjectKind.Sequence,
+                        connection.Name, dbName, s.Schema, s.Name, null, limitPerKind);
+                }
+            }
+
+            // 列搜索：仅扫描名称已命中的表（控制成本），一次查询取这些表的全部列后再过滤列名。
+            var tableNamesToScan = matchedTables
+                .Select(t => t.Name)
+                .Distinct()
+                .Take(MetadataSearchMaxColumnScanTables)
+                .ToList();
+
+            if (tableNamesToScan.Count > 0)
+            {
+                try
+                {
+                    var columnFilter = new SchemaInfoFilter
+                    {
+                        Strict = true,
+                        TableNames = tableNamesToScan.ToArray(),
+                        DatabaseObjectType = DatabaseObjectType.Column,
+                    };
+
+                    var schemaInfo = await interpreter.GetSchemaInfoAsync(columnFilter);
+
+                    foreach (var column in schemaInfo?.TableColumns ?? Enumerable.Empty<TableColumn>().ToList())
+                    {
+                        if (!MatchesKeyword(column.Name, keyword))
+                            continue;
+
+                        AddResult(result, counters, SearchObjectKind.Column,
+                            connection.Name, dbName, column.Schema,
+                            column.Name, column.TableName, limitPerKind);
+                    }
+                }
+                catch
+                {
+                    // 列搜索失败不影响其他结果。
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>枚举参与搜索的数据库列表：目标库优先，其余按名称排序。</summary>
+    private async Task<List<string>> GetDatabaseNamesForSearchAsync(ConnectionItem connection)
+    {
+        var names = new List<string>();
+        var targetDb = connection.Database;
+
+        try
+        {
+            var interpreter = CreateInterpreter(connection);
+            var databases = await interpreter.GetDatabasesAsync();
+            names.AddRange(databases.Select(d => d.Name).Where(n => !string.IsNullOrEmpty(n)));
+        }
+        catch
+        {
+            // 枚举失败则退化为仅搜索连接配置中的目标库。
+        }
+
+        if (!string.IsNullOrEmpty(targetDb) && !names.Contains(targetDb, StringComparer.OrdinalIgnoreCase))
+        {
+            names.Insert(0, targetDb);
+        }
+        else if (!string.IsNullOrEmpty(targetDb))
+        {
+            names.Remove(targetDb);
+            names.Insert(0, targetDb);
+        }
+
+        return names.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>安全获取对象列表：异常时返回空集合，避免单类型失败中断整个搜索。</summary>
+    private static async Task<List<T>> SafeFetchAsync<T>(
+        Func<Task<List<T>>> fetch,
+        Func<T, bool>? predicate = null,
+        int limit = int.MaxValue)
+    {
+        try
+        {
+            var items = await fetch() ?? Enumerable.Empty<T>().ToList();
+            IEnumerable<T> query = items;
+
+            if (predicate is not null)
+            {
+                query = items.Where(predicate);
+            }
+
+            return query.Take(limit).ToList();
+        }
+        catch
+        {
+            return new List<T>();
+        }
+    }
+
+    /// <summary>不区分大小写的包含匹配。</summary>
+    private static bool MatchesKeyword(string? name, string keyword)
+        => !string.IsNullOrEmpty(name)
+           && name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    /// <summary>添加一条搜索结果并累加对应类别的计数。</summary>
+    private static void AddResult(
+        List<SearchResultItem> result,
+        Dictionary<SearchObjectKind, int> counters,
+        SearchObjectKind kind,
+        string connectionName,
+        string databaseName,
+        string? schema,
+        string name,
+        string? parentName,
+        int limitPerKind)
+    {
+        counters.TryGetValue(kind, out var count);
+        if (count >= limitPerKind)
+            return;
+
+        counters[kind] = count + 1;
+        result.Add(new SearchResultItem
+        {
+            Kind = kind,
+            ConnectionName = connectionName,
+            DatabaseName = databaseName,
+            Schema = schema,
+            Name = name,
+            ParentName = parentName,
+        });
+    }
+
+    /// <summary>在父节点下添加类型文件夹（Tables / Views / Procedures 等）。</summary>
     private void AddTypeFolders(DbObjectTreeNode parent, DbInterpreter interpreter, string databaseName, string? schema)
     {
         var supported = interpreter.SupportDbObjectType;

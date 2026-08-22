@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DatabaseInterpreter.Model;
@@ -214,6 +215,20 @@ public partial class MainWindowViewModel : ViewModelBase
 
         DisconnectConnectionNode(connectionNode);
         await ConnectConnectionNodeAsync(connectionNode);
+    }
+
+    /// <summary>断开全部活动连接（对应 DBeaver 的 Database &gt; Disconnect All）。</summary>
+    [RelayCommand]
+    public void DisconnectAll()
+    {
+        var activeNodes = ObjectsExplorer.RootNodes
+            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
+            .ToList();
+
+        foreach (var node in activeNodes)
+        {
+            DisconnectConnectionNode(node);
+        }
     }
 
     /// <summary>将连接名同步到当前选中的查询标签页。</summary>
