@@ -4,6 +4,7 @@
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:conv="using:DatabaseManager.Avalonia.Converters"
+        xmlns:ctrl="using:DatabaseManager.Avalonia.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
@@ -12,7 +13,8 @@
         Icon="/Assets/_dbManager.ico"
         Title="DatabaseManager"
         Width="1200" Height="750"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        KeyDown="MainWindow_KeyDown">
 
     <DockPanel>
 
@@ -120,13 +122,14 @@
 
                 <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
 
-                <!-- SQL 执行组 -->
+                <!-- SQL 执行组（绑定到当前选中的查询标签） -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="Primary" Command="{Binding QueryEditor.ExecuteCommand}" Padding="4,2" ToolTip.Tip="执行">
+                    <Button Classes="Primary" Click="ToolExecute_Click" Padding="4,2" ToolTip.Tip="执行 (F5)"
+                            IsEnabled="{Binding SelectedQueryTab.IsExecuting, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
                         <Image Source="avares://DatabaseManager.Avalonia/Assets/Run.png" Width="18" Height="18" Stretch="Uniform" />
                     </Button>
                     <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
-                    <!-- 事务组 -->
+                    <!-- 事务组（绑定到当前标签） -->
                     <StackPanel Orientation="Horizontal" Spacing="1">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="自动提交" VerticalAlignment="Center" />
@@ -247,111 +250,128 @@
                 </DockPanel>
             </Border>
 
-            <!-- 右：查询 / 数据编辑 多标签区 -->
-            <TabControl Grid.Column="1" Margin="8,0,8,4" x:Name="ContentTabs">
+            <!-- 右：主内容区（对齐 DBeaver：多查询标签 + 查询/数据编辑子选项卡） -->
+            <DockPanel Grid.Column="1" Margin="4,0,4,4">
 
-                <!-- 查询编辑器标签 -->
-                <TabItem Header="查询">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                <!-- 顶部：多查询标签栏（对齐 DBeaver 标签页设计） -->
+                <TabControl DockPanel.Dock="Top"
+                            x:Name="QueryTabsControl"
+                            ItemsSource="{Binding QueryTabs}"
+                            SelectedItem="{Binding SelectedQueryTab}"
+                            TabStripPlacement="Top">
+                    <TabControl.DataTemplates>
+                        <!-- 查询标签页模板 -->
+                        <DataTemplate DataType="vm:QueryTabViewModel">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <!-- 状态栏 / 编辑器 / 分割条 / 结果区；编辑器与结果区按 2:1 分配，可拖动分割条调整 -->
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="2*" MinHeight="100" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" MinHeight="60" />
+                                </Grid.RowDefinitions>
 
-                        <!-- SQL 输入 -->
-                        <Grid Grid.Row="0">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4">
-                                <TextBlock Text="SQL：" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding QueryEditor.ConnectionName}"
-                                           VerticalAlignment="Center" Opacity="0.6" />
-                                <TextBlock Text="{Binding QueryEditor.StatusMessage}"
-                                           VerticalAlignment="Center" Opacity="0.8" />
-                            </StackPanel>
-                            <TextBox Grid.Row="1"
-                                     Text="{Binding QueryEditor.SqlText}"
-                                     AcceptsReturn="True"
-                                     TextWrapping="NoWrap"
-                                     FontFamily="Consolas, monospace"
-                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                     Margin="4" />
-                        </Grid>
+                                <!-- SQL 状态栏 -->
+                                <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2">
+                                    <TextBlock Text="SQL：" VerticalAlignment="Center" FontSize="11" />
+                                    <TextBlock Text="{Binding ConnectionName}"
+                                               VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
+                                    <TextBlock Text="{Binding StatusMessage}"
+                                               VerticalAlignment="Center" Opacity="0.8" FontSize="11" />
+                                </StackPanel>
 
-                        <GridSplitter Grid.Row="1" Height="4" Background="#22000000" />
+                                <!-- SQL 编辑器（带语法高亮） -->
+                                <ctrl:SqlEditor Grid.Row="1"
+                                                SqlText="{Binding SqlText, Mode=TwoWay}" />
 
-                        <!-- 查询结果 -->
-                        <Grid Grid.Row="2" Margin="4">
-                            <StackPanel>
-                                <TextBlock Text="{Binding QueryEditor.StatusMessage}"
-                                           Margin="2,0,0,4" Opacity="0.8" />
-                                <DataGrid x:Name="QueryResultGrid"
-                                          IsVisible="{Binding QueryEditor.HasResult}"
-                                          ItemsSource="{Binding QueryEditor.Rows}"
-                                          AutoGenerateColumns="False"
-                                          GridLinesVisibility="All" />
-                                <TextBlock Text="（无结果）" IsVisible="{Binding QueryEditor.ShowNoResult}"
-                                           Opacity="0.5" Margin="4" />
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </TabItem>
+                                <!-- 上下分割条（拖动调整编辑器/结果区高度比例） -->
+                                <GridSplitter Grid.Row="2"
+                                              HorizontalAlignment="Stretch"
+                                              Height="5" Margin="0,1"
+                                              ResizeDirection="Rows"
+                                              ResizeBehavior="PreviousAndNext"
+                                              Background="#E0E0E0" />
 
-                <!-- 数据编辑器标签 -->
-                <TabItem Header="数据编辑" IsEnabled="{Binding DataEditor.IsLoaded}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+                                <!-- 结果区 -->
+                                <Grid Grid.Row="3">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Grid.Row="0" Text="{Binding StatusMessage}"
+                                               Margin="4,2,0,2" Opacity="0.7" FontSize="11" />
+                                    <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}"
+                                              IsVisible="{Binding HasResult}"
+                                              AutoGenerateColumns="False"
+                                              GridLinesVisibility="All"
+                                              FontSize="11"
+                                              Margin="2" x:Name="QueryResultGrid">
+                                        <DataGrid.Columns>
+                                            <!-- 列由代码动态生成 -->
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <TextBlock Grid.Row="1" Text="（无结果）"
+                                               IsVisible="{Binding ShowNoResult}"
+                                               Opacity="0.4"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Margin="20" />
 
-                        <!-- 工具栏 -->
-                        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6" Margin="4">
-                            <TextBlock Text="{Binding DataEditor.TableName}" FontWeight="Bold"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding DataEditor.DatabaseName}" Opacity="0.6"
-                                       VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding DataEditor.StatusMessage}" Opacity="0.8"
-                                       VerticalAlignment="Center" Margin="8,0,0,0" />
-                            <Separator Margin="4,0" />
-                            <atom:Button Content="＋ 新增" Command="{Binding DataEditor.AddRowCommand}"
-                                         IsEnabled="{Binding DataEditor.IsEditable}" />
-                            <atom:Button Content="－ 删除" Click="DataEditorRemove_Click" />
-                            <Separator Margin="4,0" />
-                            <atom:Button Content="↺ 还原" Command="{Binding DataEditor.RevertCommand}" />
-                            <atom:Button Content="✓ 保存" ButtonType="Primary"
-                                         Command="{Binding DataEditor.SaveCommand}"
-                                         IsEnabled="{Binding DataEditor.HasChanges}" />
-                            <Separator Margin="4,0" />
-                            <!-- 分页 -->
-                            <TextBlock Text="第" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding DataEditor.PageNumber}" VerticalAlignment="Center" />
-                            <TextBlock Text="/" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding DataEditor.PageCount}" VerticalAlignment="Center" />
-                            <TextBlock Text="页" VerticalAlignment="Center" />
-                            <atom:Button Content="上一页" Command="{Binding DataEditor.PreviousPageCommand}" />
-                            <atom:Button Content="下一页" Command="{Binding DataEditor.NextPageCommand}" />
-                        </StackPanel>
+                                    <!-- 分页栏（大数据量分页显示） -->
+                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
+                                                Margin="4,2,4,4"
+                                                IsVisible="{Binding HasResult}">
+                                        <Button Command="{Binding FirstPageCommand}" Content="首页"
+                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <Button Command="{Binding PrevPageCommand}" Content="上一页"
+                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center"
+                                                   FontSize="11" Opacity="0.8" />
+                                        <Button Command="{Binding NextPageCommand}" Content="下一页"
+                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <Button Command="{Binding LastPageCommand}" Content="末页"
+                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <TextBlock Text="每页" VerticalAlignment="Center" FontSize="11"
+                                                   Opacity="0.6" Margin="8,0,0,0" />
+                                        <ComboBox SelectedItem="{Binding PageSize}"
+                                                  ItemsSource="{Binding PageSizeOptions}"
+                                                  FontSize="11" MinWidth="70" />
+                                        <TextBlock Text="行" VerticalAlignment="Center" FontSize="11"
+                                                   Opacity="0.6" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </TabControl.DataTemplates>
 
-                        <!-- 数据网格（可编辑） -->
-                        <DataGrid Grid.Row="1" x:Name="DataEditGrid"
-                                  ItemsSource="{Binding DataEditor.Rows}"
-                                  AutoGenerateColumns="False"
-                                  GridLinesVisibility="All"
-                                  SelectionMode="Extended"
-                                  IsReadOnly="{Binding DataEditor.IsView}"
-                                  Margin="4" />
+                    <!-- 标签头模板（带关闭按钮，右键菜单通过 ContextRequested 事件处理） -->
+                    <TabControl.ItemTemplate>
+                        <DataTemplate DataType="vm:QueryTabViewModel">
+                            <Border x:Name="TabHeaderBorder" 
+                                   Padding="4,2" 
+                                   Background="Transparent"
+                                   ContextRequested="TabHeader_ContextRequested"
+                                   Tag="{Binding}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="11" />
+                                    <Button Click="CloseTab_Click" Tag="{Binding}"
+                                            Width="16" Height="16" Padding="0"
+                                            Margin="0"
+                                            BorderThickness="0"
+                                            Background="Transparent"
+                                            VerticalAlignment="Center"
+                                            ToolTip.Tip="关闭标签">
+                                        <TextBlock Text="×" FontSize="10" VerticalAlignment="Center"
+                                                   HorizontalAlignment="Center" Foreground="#666" />
+                                    </Button>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </TabControl.ItemTemplate>
+                </TabControl>
 
-                        <TextBlock Grid.Row="2" Text="提示：视图为只读；自增/计算/二进制列不可编辑。"
-                                   Opacity="0.5" Margin="4" />
-                    </Grid>
-                </TabItem>
-            </TabControl>
+            </DockPanel>
         </Grid>
     </DockPanel>
 

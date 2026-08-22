@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- SQL 高亮定义：以托管嵌入资源形式打包（SqlEditor 通过 GetManifestResourceStream 加载） -->
+    <AvaloniaResource Remove="Assets\Sql.xshd" />
+    <EmbeddedResource Include="Assets\Sql.xshd" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +26,8 @@
     <!-- 表格：查询结果网格（注：Avalonia.Controls.DataGrid 11.3.x 最高版本为 11.3.13，无 11.3.20；
          指定 11.3.20 会被 NuGet 解析到 12.0.0，因依赖 Avalonia>=12 与 11.3.20 基座冲突而触发 NU1605 告警） -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <!-- SQL 编辑器：AvaloniaEdit（官方包已更名 Avalonia.AvaloniaEdit；0.10.x 仅兼容 Avalonia 0.10，必须用 11.x） -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
 
     <!-- MVVM / DI -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

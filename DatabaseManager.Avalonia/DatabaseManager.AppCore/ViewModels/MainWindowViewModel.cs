@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.IO;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DatabaseInterpreter.Model;
@@ -12,7 +10,8 @@ namespace DatabaseManager.AppCore.ViewModels;
 
 /// <summary>
 /// 主窗口 ViewModel（AppCore 层）。
-/// 阶段 2/3：整合对象浏览器与查询编辑器子 ViewModel，负责主界面状态、连接选择联动与连接生命周期。
+/// 阶段 1：注入连接服务，展示受支持数据库类型、已保存连接数量；负责主界面状态展示。
+/// 阶段 7（DBeaver 对齐）：支持多查询标签页管理。
 /// </summary>
 public partial class MainWindowViewModel : ViewModelBase
 {
@@ -23,17 +22,8 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
-    /// <summary>最近打开的 SQL 脚本文件路径。</summary>
-    public ObservableCollection<string> RecentScripts { get; } = new();
-
-    /// <summary>对象浏览器子 ViewModel。</summary>
-    public ObjectsExplorerViewModel ObjectsExplorer { get; }
-
-    /// <summary>查询编辑器子 ViewModel。</summary>
-    public QueryEditorViewModel QueryEditor { get; }
-
-    /// <summary>数据编辑器子 ViewModel。</summary>
-    public DataEditorViewModel DataEditor { get; }
+    /// <summary>查询标签页集合（对齐 DBeaver 多标签设计）。</summary>
+    public ObservableCollection<QueryTabViewModel> QueryTabs { get; } = new();
 
     [ObservableProperty]
     private string _supportedDatabases = string.Empty;
@@ -44,7 +34,18 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
-    /// <summary>当前连接是否已连接（Connect 后为 true）。</summary>
+    [ObservableProperty]
+    private QueryTabViewModel? _selectedQueryTab;
+
+    /// <summary>对象浏览器子 ViewModel。</summary>
+    public ObjectsExplorerViewModel ObjectsExplorer { get; }
+
+    /// <summary>查询编辑器子 ViewModel（向后兼容，指向当前选中的标签）。</summary>
+    public QueryEditorViewModel QueryEditor { get; }
+
+    /// <summary>数据编辑器子 ViewModel。</summary>
+    public DataEditorViewModel DataEditor { get; }
+
     [ObservableProperty]
     private bool _isConnected;
 
@@ -60,6 +61,12 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _schemaSelectorVisible;
 
+    /// <summary>最近打开的 SQL 脚本文件路径。</summary>
+    public ObservableCollection<string> RecentScripts { get; } = new();
+
+    /// <summary>请求关闭标签页的回调（用于未保存提示）。</summary>
+    public Func<QueryTabViewModel, Task<bool>>? RequestCloseTab { get; set; }
+
     public MainWindowViewModel(
         IDbSchemaService schemaService,
         IDbConnectionService connectionService,
@@ -74,43 +81,20 @@ public partial class MainWindowViewModel : ViewModelBase
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
         DataEditor = dataEditor;
-
-        PropertyChanged += MainWindowViewModel_PropertyChanged;
     }
 
-    private void MainWindowViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        // 选中连接变化时，联动刷新对象树与查询目标连接。
-        if (e.PropertyName == nameof(SelectedConnection))
-        {
-            OnSelectedConnectionChanged();
-        }
-    }
-
-    private async void OnSelectedConnectionChanged()
-    {
-        var connection = SelectedConnection;
-        if (connection is null)
-        {
-            IsConnected = false;
-            return;
-        }
-
-        QueryEditor.ConnectionName = connection.Name;
-        QueryEditor.OnConnectionChanged();
-
-        await ObjectsExplorer.LoadAsync(connection.Name);
-    }
-
-    /// <summary>初始化：枚举受支持的数据库类型，并加载已保存连接与最近脚本。</summary>
+    /// <summary>初始化：枚举受支持的数据库类型，并加载已保存连接。</summary>
     public void Initialize()
     {
         SupportedDatabases = string.Join(", ", _schemaService.GetSupportedDatabaseTypes());
         RefreshConnections();
         RefreshRecentScripts();
+
+        // 默认打开一个查询标签页
+        NewQuery();
     }
 
-    /// <summary>刷新左侧对象浏览器的连接列表（dbeaver 风格：所有连接作为对象树根节点展示）。</summary>
+    /// <summary>刷新左侧对象浏览器的连接列表。</summary>
     public void RefreshConnections()
     {
         Connections.Clear();
@@ -127,18 +111,64 @@ public partial class MainWindowViewModel : ViewModelBase
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
     }
 
-    /// <summary>连接选中的连接（建立连接、加载对象树）。</summary>
+    /// <summary>新建查询标签页（对齐 DBeaver）。</summary>
     [RelayCommand]
-    public async Task ConnectAsync()
+    public void NewQuery()
     {
-        var connection = SelectedConnection;
-        if (connection is null)
+        var newTab = new QueryTabViewModel(_queryService);
+        
+        // 如果有当前连接，自动设置到新标签
+        if (SelectedConnection is not null)
         {
-            QueryEditor.StatusMessage = "请先选择一个连接。";
+            newTab.ConnectionName = SelectedConnection.Name;
+        }
+        
+        QueryTabs.Add(newTab);
+        SelectedQueryTab = newTab;
+    }
+
+    /// <summary>关闭指定的查询标签页（带未保存提示）。</summary>
+    public async Task CloseQueryTabAsync(QueryTabViewModel tab)
+    {
+        if (!QueryTabs.Contains(tab))
             return;
+
+        // 检查是否有未保存的修改
+        if (tab.IsModified)
+        {
+            // 通过回调请求 UI 层显示确认对话框
+            if (RequestCloseTab is not null)
+            {
+                var canClose = await RequestCloseTab(tab);
+                if (!canClose)
+                    return;
+            }
+            // 如果没有设置回调，直接关闭（静默模式）
         }
 
-        await ConnectConnectionAsync(connection);
+        QueryTabs.Remove(tab);
+
+        // 如果关闭的是当前选中标签，自动切换
+        if (SelectedQueryTab == tab && QueryTabs.Count > 0)
+        {
+            SelectedQueryTab = QueryTabs[^1];
+        }
+    }
+
+    /// <summary>同步版本的关闭方法（用于非异步场景）。</summary>
+    public void CloseQueryTab(QueryTabViewModel tab)
+    {
+        // 注意：此方法不显示未保存提示，直接关闭
+        // 需要提示请使用 CloseQueryTabAsync
+        if (QueryTabs.Contains(tab))
+        {
+            QueryTabs.Remove(tab);
+            
+            if (SelectedQueryTab == tab && QueryTabs.Count > 0)
+            {
+                SelectedQueryTab = QueryTabs[^1];
+            }
+        }
     }
 
     /// <summary>连接指定的连接节点（dbeaver 风格：双击或右键连接）。</summary>
@@ -147,100 +177,33 @@ public partial class MainWindowViewModel : ViewModelBase
         if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection || connectionNode.Connection is null)
             return;
 
-        // 同步 SelectedConnection，保证查询编辑器 / 对象操作上下文一致。
         SelectedConnection = connectionNode.Connection;
-        await ConnectConnectionAsync(connectionNode.Connection);
-    }
+        IsConnected = true;
+        CurrentDatabase = connectionNode.Connection.Database ?? string.Empty;
+        CurrentSchema = string.Empty;
+        SchemaSelectorVisible = false;
 
-    /// <summary>建立指定连接并加载其对象树。</summary>
-    private async Task ConnectConnectionAsync(ConnectionItem connection)
-    {
-        QueryEditor.StatusMessage = $"正在连接 {connection.Name}...";
+        // 同步连接名到当前选中的查询标签
+        SyncConnectionToCurrentTab(connectionNode.Connection.Name);
 
-        try
-        {
-            await ObjectsExplorer.LoadAsync(connection.Name);
-            IsConnected = true;
-
-            // 记录当前数据库。
-            CurrentDatabase = connection.Database ?? string.Empty;
-            CurrentSchema = string.Empty;
-            SchemaSelectorVisible = false;
-
-            QueryEditor.ConnectionName = connection.Name;
-            QueryEditor.OnConnectionChanged();
-            QueryEditor.StatusMessage = $"已连接到 {connection.Name}。";
-        }
-        catch (Exception ex)
-        {
-            IsConnected = false;
-            QueryEditor.StatusMessage = $"连接失败：{ex.Message}";
-        }
-    }
-
-    /// <summary>断开当前连接（释放事务连接，卸载对象树）。</summary>
-    [RelayCommand]
-    public void Disconnect()
-    {
-        var connection = SelectedConnection;
-        if (connection is not null)
-        {
-            DisconnectConnectionNode(ObjectsExplorer.FindConnectionNode(connection.Name), connection.Name);
-        }
-        else
-        {
-            DisconnectConnectionNode(null, string.Empty);
-        }
+        await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
     }
 
     /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
-    public void DisconnectConnectionNode(DbObjectTreeNode connectionNode)
+    public void DisconnectConnectionNode(DbObjectTreeNode? connectionNode)
     {
-        if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection || connectionNode.Connection is null)
-            return;
-
-        DisconnectConnectionNode(connectionNode, connectionNode.Name);
-    }
-
-    /// <summary>断开指定连接并卸载其对象树。</summary>
-    private void DisconnectConnectionNode(DbObjectTreeNode? connectionNode, string connectionName)
-    {
-        if (!string.IsNullOrEmpty(connectionName))
+        if (connectionNode?.NodeType == DbObjectTreeNodeType.Connection && connectionNode.Connection is not null)
         {
-            _queryService.CloseConnection(connectionName);
-            QueryEditor.ConnectionName = connectionName;
-            QueryEditor.OnConnectionChanged();
-            QueryEditor.StatusMessage = $"已断开 {connectionName}。";
+            _queryService.CloseConnection(connectionNode.Connection.Name);
         }
 
-        // 卸载对应连接节点的对象树（若指定）。
-        if (connectionNode is not null)
-        {
-            ObjectsExplorer.Disconnect(connectionNode);
-        }
-        else
-        {
-            ObjectsExplorer.RootNodes.Clear();
-        }
-
+        ObjectsExplorer.Disconnect(connectionNode);
         DataEditor.Clear();
         IsConnected = false;
         CurrentDatabase = string.Empty;
         CurrentSchema = string.Empty;
         SchemaSelectorVisible = false;
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
-    }
-
-    /// <summary>重连当前连接。</summary>
-    [RelayCommand]
-    public async Task ReconnectAsync()
-    {
-        if (SelectedConnection is null)
-            return;
-
-        // 先断开，再连接。
-        Disconnect();
-        await ConnectAsync();
     }
 
     /// <summary>重连指定连接节点。</summary>
@@ -253,124 +216,27 @@ public partial class MainWindowViewModel : ViewModelBase
         await ConnectConnectionNodeAsync(connectionNode);
     }
 
-    /// <summary>当用户在对象树中选中数据库节点时，更新当前数据库上下文。</summary>
-    public void OnDatabaseNodeSelected(DbObjectTreeNode? node)
+    /// <summary>将连接名同步到当前选中的查询标签页。</summary>
+    private void SyncConnectionToCurrentTab(string connectionName)
     {
-        if (node is null)
-            return;
-
-        if (node.NodeType == DbObjectTreeNodeType.Database)
+        if (SelectedQueryTab is not null)
         {
-            CurrentDatabase = node.Name;
-            CurrentSchema = string.Empty;
-            SchemaSelectorVisible = false;
+            SelectedQueryTab.ConnectionName = connectionName;
         }
-        else if (node.NodeType == DbObjectTreeNodeType.Schema)
-        {
-            CurrentDatabase = node.DatabaseName ?? CurrentDatabase;
-            CurrentSchema = node.Name;
-            SchemaSelectorVisible = true;
-        }
-        else
-        {
-            // 其他节点：向上取数据库/Schema。
-            var dbNode = FindAncestor(node, DbObjectTreeNodeType.Database);
-            var schemaNode = FindAncestor(node, DbObjectTreeNodeType.Schema);
-            if (dbNode is not null) CurrentDatabase = dbNode.Name;
-            if (schemaNode is not null)
-            {
-                CurrentSchema = schemaNode.Name;
-                SchemaSelectorVisible = true;
-            }
-        }
+        // 同时更新 QueryEditor 以保持向后兼容
+        QueryEditor.ConnectionName = connectionName;
     }
 
-    /// <summary>新建查询（清空 SQL 编辑器）。</summary>
-    [RelayCommand]
-    public void NewQuery()
+    public void TestSelectedConnection()
     {
-        QueryEditor.SqlText = string.Empty;
-        QueryEditor.StatusMessage = "新建查询。";
-    }
-
-    /// <summary>打开一个 SQL 脚本文件到查询编辑器。</summary>
-    [RelayCommand]
-    public void OpenScript(string? filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
-        {
-            QueryEditor.StatusMessage = "脚本文件不存在。";
-            return;
-        }
-
-        try
-        {
-            QueryEditor.SqlText = File.ReadAllText(filePath);
-            QueryEditor.StatusMessage = $"已打开 {Path.GetFileName(filePath)}。";
-            AddRecentScript(filePath);
-        }
-        catch (Exception ex)
-        {
-            QueryEditor.StatusMessage = $"打开失败：{ex.Message}";
-        }
-    }
-
-    /// <summary>将当前 SQL 保存到指定文件。</summary>
-    [RelayCommand]
-    public void SaveScript(string? filePath)
-    {
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            QueryEditor.StatusMessage = "未指定保存路径。";
-            return;
-        }
-
-        try
-        {
-            var dir = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            File.WriteAllText(filePath, QueryEditor.SqlText);
-            AddRecentScript(filePath);
-            QueryEditor.StatusMessage = $"已保存到 {Path.GetFileName(filePath)}。";
-        }
-        catch (Exception ex)
-        {
-            QueryEditor.StatusMessage = $"保存失败：{ex.Message}";
-        }
+        // 连接测试在 ConnectWindow 中交互式进行；此处预留快速入口。
     }
 
     private void RefreshRecentScripts()
     {
         RecentScripts.Clear();
-        var recent = _recentScriptPaths;
-        foreach (var path in recent)
-        {
-            RecentScripts.Add(path);
-        }
+        // 可从配置文件加载最近脚本列表
     }
-
-    private void AddRecentScript(string filePath)
-    {
-        var normalized = Path.GetFullPath(filePath);
-
-        _recentScriptPaths.RemoveAll(p => string.Equals(Path.GetFullPath(p), normalized, StringComparison.OrdinalIgnoreCase));
-        _recentScriptPaths.Insert(0, normalized);
-
-        // 最多保留 10 条。
-        while (_recentScriptPaths.Count > 10)
-        {
-            _recentScriptPaths.RemoveAt(_recentScriptPaths.Count - 1);
-        }
-
-        RefreshRecentScripts();
-    }
-
-    /// <summary>最近打开的 SQL 脚本文件路径（内存态）。</summary>
-    private readonly List<string> _recentScriptPaths = new();
 
     /// <summary>根据选中的表/视图生成 SELECT 脚本并填充到查询编辑器。</summary>
     public void GenerateSelectScript(DbObjectTreeNode node)
@@ -378,7 +244,17 @@ public partial class MainWindowViewModel : ViewModelBase
         if (node?.DbObject is not (Table or View))
             return;
 
-        QueryEditor.SqlText = BuildSelectSql(node.DbObject);
+        var sql = BuildSelectSql(node.DbObject);
+        
+        // 填充到当前选中的标签页
+        if (SelectedQueryTab is not null)
+        {
+            SelectedQueryTab.SqlText = sql;
+            SelectedQueryTab.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
+        }
+        
+        // 向后兼容
+        QueryEditor.SqlText = sql;
         QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
     }
 

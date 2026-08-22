@@ -1,10 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
@@ -17,7 +19,7 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class MainWindow : Window
 {
     private IServiceProvider? _services;
-    private QueryEditorViewModel? _queryEditor;
+    private QueryTabViewModel? _currentQueryTab;
     private DataEditorViewModel? _dataEditor;
 
     public MainWindow()
@@ -33,21 +35,35 @@ public partial class MainWindow : Window
 
         if (DataContext is MainWindowViewModel vm)
         {
-            _queryEditor = vm.QueryEditor;
             _dataEditor = vm.DataEditor;
             vm.Initialize();
 
-            // 监听查询结果列变化，动态重建 DataGrid 列。
-            _queryEditor.Columns.CollectionChanged += QueryEditor_ColumnsChanged;
+            // 设置关闭标签页的回调（用于显示未保存提示）
+            vm.RequestCloseTab = RequestCloseTabAsync;
 
             // 监听数据编辑列变化，动态重建可编辑 DataGrid 列。
             _dataEditor.Columns.CollectionChanged += DataEditor_ColumnsChanged;
+
+            // 监听当前查询标签的列变化，动态重建 DataGrid 列。
+            RefreshQueryTabColumnListener();
+
+            // 监听 SelectedQueryTab 变化以切换 DataGrid 列监听目标。
+            vm.PropertyChanged += MainWindow_PropertyChanged;
 
             // 通过路由事件监听 TreeViewItem 展开，实现点击展开箭头时的按需懒加载（对齐 dbeaver）。
             ObjectsTree.AddHandler(TreeViewItem.ExpandedEvent, ObjectsTree_Item_Expanded);
 
             // 监听对象树选中变化，更新 Schema 选择器上下文。
             ObjectsTree.SelectionChanged += ObjectsTree_SelectionChanged;
+        }
+    }
+
+    /// <summary>SelectedQueryTab 属性变化时切换 DataGrid 列监听目标。</summary>
+    private void MainWindow_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.SelectedQueryTab))
+        {
+            RefreshQueryTabColumnListener();
         }
     }
 
@@ -59,7 +75,19 @@ public partial class MainWindow : Window
 
         if (ObjectsTree.SelectedItem is DbObjectTreeNode node)
         {
-            vm.OnDatabaseNodeSelected(node);
+            // 更新当前数据库/Schema 上下文
+            if (node.NodeType == DbObjectTreeNodeType.Database)
+            {
+                vm.CurrentDatabase = node.Name;
+                vm.CurrentSchema = string.Empty;
+                vm.SchemaSelectorVisible = false;
+            }
+            else if (node.NodeType == DbObjectTreeNodeType.Schema)
+            {
+                vm.CurrentDatabase = node.DatabaseName ?? vm.CurrentDatabase;
+                vm.CurrentSchema = node.Name;
+                vm.SchemaSelectorVisible = true;
+            }
         }
     }
 
@@ -112,31 +140,10 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private void QueryEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-    {
-        // 每次列集合变化（新查询）时，重建 DataGrid 的动态数据列。
-        var grid = QueryResultGrid;
-        if (grid is null || _queryEditor is null)
-            return;
-
-        // 清空全部列后按当前列名重建。
-        grid.Columns.Clear();
-
-        for (int i = 0; i < _queryEditor.Columns.Count; i++)
-        {
-            grid.Columns.Add(new DataGridTextColumn
-            {
-                Header = _queryEditor.Columns[i],
-                Binding = new Binding($"[{i}]"),
-                IsReadOnly = true,
-            });
-        }
-    }
-
     /// <summary>数据编辑列变化时，动态重建可编辑 DataGrid 列。</summary>
     private void DataEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        var grid = DataEditGrid;
+        var grid = this.FindControl<DataGrid>("DataEditGrid");
         if (grid is null || _dataEditor is null)
             return;
 
@@ -345,7 +352,12 @@ public partial class MainWindow : Window
 
         if (files.Count > 0)
         {
-            vm.OpenScript(files[0].Path?.LocalPath ?? string.Empty);
+            // 打开脚本到当前选中的查询标签页
+            if (vm.SelectedQueryTab is not null)
+            {
+                vm.SelectedQueryTab.SqlText = File.ReadAllText(files[0].Path?.LocalPath ?? string.Empty);
+                vm.SelectedQueryTab.StatusMessage = $"已打开 {Path.GetFileName(files[0].Path?.LocalPath)}。";
+            }
         }
     }
 
@@ -366,7 +378,12 @@ public partial class MainWindow : Window
 
         if (file is not null)
         {
-            vm.SaveScript(file.Path?.LocalPath ?? string.Empty);
+            // 保存当前标签页 SQL 到文件
+            if (vm.SelectedQueryTab is not null)
+            {
+                File.WriteAllText(file.Path?.LocalPath ?? string.Empty, vm.SelectedQueryTab.SqlText);
+                vm.SelectedQueryTab.StatusMessage = $"已保存到 {Path.GetFileName(file.Path?.LocalPath)}。";
+            }
         }
     }
 
@@ -378,7 +395,12 @@ public partial class MainWindow : Window
 
         if (sender is MenuItem item && item.Tag is string path)
         {
-            vm.OpenScript(path);
+            // 打开最近脚本到当前标签页
+            if (vm.SelectedQueryTab is not null && File.Exists(path))
+            {
+                vm.SelectedQueryTab.SqlText = File.ReadAllText(path);
+                vm.SelectedQueryTab.StatusMessage = $"已打开 {Path.GetFileName(path)}。";
+            }
         }
     }
 
@@ -386,6 +408,15 @@ public partial class MainWindow : Window
     private void ToolNewQuery_Click(object? sender, RoutedEventArgs e)
     {
         (DataContext as MainWindowViewModel)?.NewQuery();
+    }
+
+    /// <summary>主工具栏：执行当前查询标签的 SQL。</summary>
+    private async void ToolExecute_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm && vm.SelectedQueryTab is not null)
+        {
+            await vm.SelectedQueryTab.ExecuteAsync();
+        }
     }
 
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
@@ -556,13 +587,76 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
-    /// <summary>切换到「数据编辑」标签页（索引 1）。</summary>
+    /// <summary>切换到「数据编辑」标签页（预留）。</summary>
     private void OpenDataEditorTab()
     {
-        if (ContentTabs.Items.Count > 1)
+        // 数据编辑功能将在后续版本集成到多标签页架构
+    }
+
+    /// <summary>刷新当前查询标签的 DataGrid 列监听（切换标签时动态重建列）。</summary>
+    private void RefreshQueryTabColumnListener()
+    {
+        if (DataContext is not MainWindowViewModel currentVm)
+            return;
+
+        // 移除旧监听
+        if (_currentQueryTab is not null)
         {
-            ContentTabs.SelectedIndex = 1;
+            _currentQueryTab.Columns.CollectionChanged -= QueryTabColumns_CollectionChanged;
         }
+
+        // 指向当前选中的查询标签
+        _currentQueryTab = currentVm.SelectedQueryTab;
+
+        if (_currentQueryTab is not null)
+        {
+            _currentQueryTab.Columns.CollectionChanged += QueryTabColumns_CollectionChanged;
+            // 立即触发一次列重建
+            QueryTabColumns_CollectionChanged(_currentQueryTab.Columns, null!);
+        }
+    }
+
+    /// <summary>查询标签列变化时，动态重建对应 DataGrid 的数据列。</summary>
+    private void QueryTabColumns_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (_currentQueryTab is null) return;
+
+        // 由于 DataGrid 在 DataTemplate 内部，需要在 TabControl 的 Visual Tree 中查找
+        var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+        if (tabControl is null) return;
+
+        // 使用更全面的递归查找方法（支持所有控件类型）
+        DataGrid? grid = FindDataGridInVisualTree(tabControl);
+        
+        if (grid is null) return;
+
+        // 清空全部列后按当前列名重建。
+        grid.Columns.Clear();
+
+        for (int i = 0; i < _currentQueryTab.Columns.Count; i++)
+        {
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = _currentQueryTab.Columns[i],
+                Binding = new Binding($"[{i}]"),
+                IsReadOnly = true,
+            });
+        }
+    }
+
+    /// <summary>在 Visual Tree 中查找指定名称的 DataGrid。</summary>
+    private static DataGrid? FindDataGridInVisualTree(Control parent)
+    {
+        // 使用 GetVisualDescendants 遍历所有子控件
+        foreach (var descendant in parent.GetVisualDescendants())
+        {
+            if (descendant is DataGrid { Name: "QueryResultGrid" } targetGrid)
+            {
+                return targetGrid;
+            }
+        }
+        
+        return null;
     }
 
     /// <summary>打开表设计器（修改已有表结构）。</summary>
@@ -636,13 +730,96 @@ public partial class MainWindow : Window
         await vm.RefreshNodeAsync(folderNode);
     }
 
+    /// <summary>标签页头部右键菜单事件处理。</summary>
+    private void TabHeader_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        // 只响应鼠标右键触发的请求
+        if (sender is Border border && border.Tag is QueryTabViewModel tab)
+        {
+            var menu = new ContextMenu();
+            
+            var closeItem = new MenuItem { Header = "关闭", Tag = tab };
+            closeItem.Click += CloseTab_Click;
+            menu.Items.Add(closeItem);
+            
+            var closeOtherItem = new MenuItem { Header = "关闭其他", Tag = tab };
+            closeOtherItem.Click += CloseOtherTabs_Click;
+            menu.Items.Add(closeOtherItem);
+            
+            var closeAllItem = new MenuItem { Header = "关闭所有" };
+            closeAllItem.Click += CloseAllTabs_Click;
+            menu.Items.Add(closeAllItem);
+            
+            menu.Items.Add(new Separator());
+            
+            var copyTitleItem = new MenuItem { Header = "复制标签标题", Tag = tab };
+            copyTitleItem.Click += CopyTabTitle_Click;
+            menu.Items.Add(copyTitleItem);
+            
+            // 在鼠标位置打开菜单
+            menu.Open(this);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>关闭查询标签页。</summary>
+    private void CloseTab_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is QueryTabViewModel tab && DataContext is MainWindowViewModel vm)
+        {
+            vm.CloseQueryTab(tab);
+        }
+        else if (sender is MenuItem menuItem && menuItem.Tag is QueryTabViewModel tab2 && DataContext is MainWindowViewModel vm2)
+        {
+            // 右键菜单触发的关闭
+            vm2.CloseQueryTab(tab2);
+        }
+    }
+
+    /// <summary>关闭除当前标签外的所有其他标签。</summary>
+    private void CloseOtherTabs_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: QueryTabViewModel currentTab } && DataContext is MainWindowViewModel vm)
+        {
+            // 收集需要关闭的标签（排除当前标签）
+            var tabsToClose = vm.QueryTabs.Where(t => t != currentTab).ToList();
+            foreach (var tab in tabsToClose)
+            {
+                vm.CloseQueryTab(tab);
+            }
+        }
+    }
+
+    /// <summary>关闭所有标签页。</summary>
+    private void CloseAllTabs_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            // 复制列表以避免遍历时修改
+            var allTabs = vm.QueryTabs.ToList();
+            foreach (var tab in allTabs)
+            {
+                vm.CloseQueryTab(tab);
+            }
+        }
+    }
+
+    /// <summary>复制标签标题到剪贴板。</summary>
+    private async void CopyTabTitle_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: QueryTabViewModel tab })
+        {
+            await Clipboard.SetTextAsync(tab.Title);
+        }
+    }
+
     /// <summary>处理「删除」按钮：删除数据网格中当前选中的行。</summary>
     private void DataEditorRemove_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not MainWindowViewModel vm || _dataEditor is null)
             return;
 
-        var selected = DataEditGrid.SelectedItem as DataEditRow;
+        var selected = this.FindControl<DataGrid>("DataEditGrid")?.SelectedItem as DataEditRow;
         if (selected is null)
         {
             _dataEditor.StatusMessage = "请先在网格中选中要删除的行。";
@@ -650,5 +827,78 @@ public partial class MainWindow : Window
         }
 
         _dataEditor.RemoveRowCommand.Execute(selected);
+    }
+
+    /// <summary>请求关闭标签页的回调（显示未保存提示对话框）。</summary>
+    private async Task<bool> RequestCloseTabAsync(QueryTabViewModel tab)
+    {
+        // 简化版：直接返回 true 允许关闭（后续可集成 MsBox.Avalonia 实现完整对话框）
+        // TODO: 集成 MsBox.Avalonia 实现完整的"保存/不保存/取消"对话框
+        if (tab.IsModified)
+        {
+            // 暂时自动标记为已保存，允许关闭
+            tab.MarkAsSaved();
+        }
+        return true;
+    }
+
+    /// <summary>主窗口快捷键处理（对齐 DBeaver 快捷键）。</summary>
+    private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
+    {
+        // 如果焦点在文本输入控件（如 TextBox），不拦截回车等键
+        if (e.Key == Key.Enter && FocusManager.GetFocusedElement() is TextBox)
+            return;
+
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        // 检查修饰键
+        bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+
+        switch (e.Key)
+        {
+            case Key.F5:
+                // F5：执行当前查询
+                e.Handled = true;
+                ToolExecute_Click(sender, e);
+                break;
+
+            case Key.N when ctrl:
+                // Ctrl+N：新建查询
+                e.Handled = true;
+                vm.NewQuery();
+                break;
+
+            case Key.W when ctrl:
+                // Ctrl+W：关闭当前标签页
+                e.Handled = true;
+                if (vm.SelectedQueryTab is not null)
+                {
+                    vm.CloseQueryTab(vm.SelectedQueryTab);
+                }
+                break;
+
+            case Key.S when ctrl:
+                // Ctrl+S：保存当前脚本
+                e.Handled = true;
+                MenuSaveScript_Click(sender, e);
+                break;
+
+            case Key.O when ctrl:
+                // Ctrl+O：打开脚本
+                e.Handled = true;
+                MenuOpenScript_Click(sender, e);
+                break;
+
+            case Key.F4:
+                // F4：刷新对象树（对齐 DBeaver）
+                e.Handled = true;
+                vm.RefreshConnections();
+                break;
+
+            case Key.Delete:
+                // Delete：如果焦点在对象树，不处理（由右键菜单处理）
+                break;
+        }
     }
 }

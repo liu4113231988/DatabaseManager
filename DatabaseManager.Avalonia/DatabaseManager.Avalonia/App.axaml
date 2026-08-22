@@ -12,6 +12,10 @@
 	<Application.Styles>
 		<!-- 基础主题；AtomUI 在 App.OnFrameworkInitializationCompleted 中通过 UseAtomUI 覆盖为 Ant Design 风格 -->
 		<FluentTheme />
+		<!-- AvaloniaEdit 控件主题（必须引入，否则 TextEditor 无模板：黑块且无法输入） -->
+		<StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+		<!-- DataGrid 控件主题（必须引入，否则结果表格无模板、完全不可见） -->
+		<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 	</Application.Styles>
 
 </Application>
