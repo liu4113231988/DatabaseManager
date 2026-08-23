@@ -12,17 +12,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class CodeGenerateWindow : Window
 {
-    private readonly CodeGenerateViewModel _vm;
+    private readonly CodeGenerateViewModel? _vm;
 
-    public CodeGenerateWindow(CodeGenerateViewModel vm)
+    public CodeGenerateWindow()
     {
         InitializeComponent();
+    }
+
+    public CodeGenerateWindow(CodeGenerateViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
@@ -33,6 +38,7 @@ public partial class CodeGenerateWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
@@ -41,6 +47,7 @@ public partial class CodeGenerateWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadLanguages();
@@ -48,6 +55,7 @@ public partial class CodeGenerateWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -57,6 +65,7 @@ public partial class CodeGenerateWindow : Window
 
     private void LoadLanguages()
     {
+        if (_vm is null) return;
         ComboLanguage.ItemsSource = _vm.Languages;
         ComboLanguage.ItemTemplate = new FuncDataTemplate<CodeGenerateLanguageOption>((item, _) =>
             new TextBlock { Text = item.DisplayName });

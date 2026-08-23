@@ -14,17 +14,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ExportWindow : Window
 {
-    private readonly ExportViewModel _vm;
+    private readonly ExportViewModel? _vm;
 
-    public ExportWindow(ExportViewModel vm)
+    public ExportWindow()
     {
         InitializeComponent();
+    }
+
+    public ExportWindow(ExportViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
@@ -36,6 +41,7 @@ public partial class ExportWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
@@ -45,6 +51,7 @@ public partial class ExportWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadFormat();
@@ -52,6 +59,7 @@ public partial class ExportWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -66,6 +74,7 @@ public partial class ExportWindow : Window
 
     private void LoadFormat()
     {
+        if (_vm is null) return;
         ComboFormat.ItemsSource = _vm.Formats;
         ComboFormat.SelectedItem = _vm.SelectedFormat;
     }

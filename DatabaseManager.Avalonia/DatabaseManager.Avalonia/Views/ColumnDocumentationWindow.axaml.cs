@@ -12,17 +12,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ColumnDocumentationWindow : Window
 {
-    private readonly ColumnDocumentationViewModel _vm;
+    private readonly ColumnDocumentationViewModel? _vm;
 
-    public ColumnDocumentationWindow(ColumnDocumentationViewModel vm)
+    public ColumnDocumentationWindow()
     {
         InitializeComponent();
+    }
+
+    public ColumnDocumentationWindow(ColumnDocumentationViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         Refresh();
@@ -30,18 +35,21 @@ public partial class ColumnDocumentationWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
     }
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
     }
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });

@@ -10,11 +10,15 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class SchemaMappingWindow : Window
 {
-    private readonly ConvertViewModel _vm;
+    private readonly ConvertViewModel? _vm;
 
-    public SchemaMappingWindow(ConvertViewModel vm)
+    public SchemaMappingWindow()
     {
         InitializeComponent();
+    }
+
+    public SchemaMappingWindow(ConvertViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
@@ -35,6 +39,7 @@ public partial class SchemaMappingWindow : Window
 
     private DataGrid? FindMappingGrid()
     {
+        if (_vm is null) return null;
         foreach (var child in VisualChildren)
         {
             if (child is DataGrid dg && ReferenceEquals(dg.ItemsSource, _vm.SchemaMappings))

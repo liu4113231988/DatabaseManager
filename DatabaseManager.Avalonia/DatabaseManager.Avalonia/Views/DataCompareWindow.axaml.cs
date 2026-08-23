@@ -13,11 +13,15 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class DataCompareWindow : Window
 {
-    private readonly DataCompareViewModel _vm;
+    private readonly DataCompareViewModel? _vm;
 
-    public DataCompareWindow(DataCompareViewModel vm)
+    public DataCompareWindow()
     {
         InitializeComponent();
+    }
+
+    public DataCompareWindow(DataCompareViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
@@ -25,6 +29,7 @@ public partial class DataCompareWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        if (_vm is null) return;
 
         ComboSource.SelectionChanged += ComboSource_SelectionChanged;
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
@@ -37,11 +42,13 @@ public partial class DataCompareWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        if (_vm is null) return;
         _vm.PropertyChanged -= Vm_PropertyChanged;
     }
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadModes();
@@ -49,6 +56,7 @@ public partial class DataCompareWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboSource.ItemsSource = _vm.Connections;
         ComboSource.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -63,6 +71,7 @@ public partial class DataCompareWindow : Window
 
     private void LoadModes()
     {
+        if (_vm is null) return;
         ComboMode.ItemsSource = _vm.Modes;
         ComboMode.ItemTemplate = new FuncDataTemplate<DataCompareModeOption>((item, _) =>
             new TextBlock { Text = item.DisplayName });

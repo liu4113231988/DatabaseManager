@@ -14,17 +14,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ImportWindow : Window
 {
-    private readonly ImportViewModel _vm;
+    private readonly ImportViewModel? _vm;
 
-    public ImportWindow(ImportViewModel vm)
+    public ImportWindow()
     {
         InitializeComponent();
+    }
+
+    public ImportWindow(ImportViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
@@ -36,6 +41,7 @@ public partial class ImportWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
@@ -45,12 +51,14 @@ public partial class ImportWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
     }
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });

@@ -12,17 +12,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class StatisticWindow : Window
 {
-    private readonly StatisticViewModel _vm;
+    private readonly StatisticViewModel? _vm;
 
-    public StatisticWindow(StatisticViewModel vm)
+    public StatisticWindow()
     {
         InitializeComponent();
+    }
+
+    public StatisticWindow(StatisticViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
@@ -33,6 +38,7 @@ public partial class StatisticWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
@@ -41,6 +47,7 @@ public partial class StatisticWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadStatisticTypes();
@@ -48,6 +55,7 @@ public partial class StatisticWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -57,6 +65,7 @@ public partial class StatisticWindow : Window
 
     private void LoadStatisticTypes()
     {
+        if (_vm is null) return;
         ComboStatisticType.ItemsSource = _vm.StatisticTypes;
         ComboStatisticType.ItemTemplate = new FuncDataTemplate<StatisticTypeOption>((item, _) =>
             new TextBlock { Text = item.DisplayName });

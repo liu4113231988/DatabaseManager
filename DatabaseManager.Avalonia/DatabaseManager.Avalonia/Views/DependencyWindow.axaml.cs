@@ -12,17 +12,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class DependencyWindow : Window
 {
-    private readonly DependencyViewModel _vm;
+    private readonly DependencyViewModel? _vm;
 
-    public DependencyWindow(DependencyViewModel vm)
+    public DependencyWindow()
     {
         InitializeComponent();
+    }
+
+    public DependencyWindow(DependencyViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
@@ -34,6 +39,7 @@ public partial class DependencyWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
@@ -43,6 +49,7 @@ public partial class DependencyWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadObjectTypes();
@@ -51,6 +58,7 @@ public partial class DependencyWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -60,12 +68,14 @@ public partial class DependencyWindow : Window
 
     private void LoadObjectTypes()
     {
+        if (_vm is null) return;
         ComboObjectType.ItemsSource = _vm.ObjectTypes;
         ComboObjectType.SelectedItem = _vm.SelectedObjectType;
     }
 
     private void LoadDirections()
     {
+        if (_vm is null) return;
         ComboDirection.ItemsSource = _vm.Directions;
         ComboDirection.ItemTemplate = new FuncDataTemplate<DependencyDirectionOption>((item, _) =>
             new TextBlock { Text = item.DisplayName });

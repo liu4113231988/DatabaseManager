@@ -13,17 +13,22 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class BackupWindow : Window
 {
-    private readonly BackupViewModel _vm;
+    private readonly BackupViewModel? _vm;
 
-    public BackupWindow(BackupViewModel vm)
+    public BackupWindow()
     {
         InitializeComponent();
+    }
+
+    public BackupWindow(BackupViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
 
     protected override void OnOpened(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnOpened(e);
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         Refresh();
@@ -31,18 +36,21 @@ public partial class BackupWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (_vm is null) return;
         base.OnClosed(e);
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
     }
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
     }
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });

@@ -12,11 +12,15 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class SchemaCompareWindow : Window
 {
-    private readonly SchemaCompareViewModel _vm;
+    private readonly SchemaCompareViewModel? _vm;
 
-    public SchemaCompareWindow(SchemaCompareViewModel vm)
+    public SchemaCompareWindow()
     {
         InitializeComponent();
+    }
+
+    public SchemaCompareWindow(SchemaCompareViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
@@ -24,6 +28,7 @@ public partial class SchemaCompareWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        if (_vm is null) return;
 
         ComboSource.SelectionChanged += ComboSource_SelectionChanged;
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
@@ -32,8 +37,18 @@ public partial class SchemaCompareWindow : Window
         Refresh();
     }
 
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        if (_vm is null) return;
+        ComboSource.SelectionChanged -= ComboSource_SelectionChanged;
+        ComboTarget.SelectionChanged -= ComboTarget_SelectionChanged;
+        ComboObjectType.SelectionChanged -= ComboObjectType_SelectionChanged;
+    }
+
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadObjectTypes();
@@ -41,6 +56,7 @@ public partial class SchemaCompareWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboSource.ItemsSource = _vm.Connections;
         ComboSource.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
             new TextBlock { Text = item.Description });
@@ -55,6 +71,7 @@ public partial class SchemaCompareWindow : Window
 
     private void LoadObjectTypes()
     {
+        if (_vm is null) return;
         ComboObjectType.ItemsSource = _vm.ObjectTypes;
         ComboObjectType.ItemTemplate = new FuncDataTemplate<ObjectTypeOption>((item, _) =>
             new TextBlock { Text = item.DisplayName });

@@ -12,11 +12,15 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ConvertWindow : Window
 {
-    private readonly ConvertViewModel _vm;
+    private readonly ConvertViewModel? _vm;
 
-    public ConvertWindow(ConvertViewModel vm)
+    public ConvertWindow()
     {
         InitializeComponent();
+    }
+
+    public ConvertWindow(ConvertViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }

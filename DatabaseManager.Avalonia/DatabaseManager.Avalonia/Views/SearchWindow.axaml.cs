@@ -13,7 +13,7 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class SearchWindow : Window
 {
-    private readonly SearchViewModel _vm;
+    private readonly SearchViewModel? _vm;
 
     /// <summary>选中的结果项（关闭对话框后由主窗口读取处理）。</summary>
     public SearchResultItem? SelectedItemResult { get; private set; }
@@ -21,10 +21,13 @@ public partial class SearchWindow : Window
     /// <summary>是否请求为选中结果生成 SELECT（仅表/视图有效）。</summary>
     public bool GenerateSelectRequested { get; private set; }
 
-    public SearchWindow(SearchViewModel vm)
+    public SearchWindow()
     {
         InitializeComponent();
+    }
 
+    public SearchWindow(SearchViewModel vm) : this()
+    {
         _vm = vm;
         DataContext = _vm;
 
@@ -38,7 +41,7 @@ public partial class SearchWindow : Window
         if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            _ = _vm.SearchAsync();
+            _ = _vm?.SearchAsync();
         }
     }
 
@@ -61,7 +64,7 @@ public partial class SearchWindow : Window
     /// <summary>记录结果并关闭对话框（定位/查询由主窗口继续处理）。</summary>
     private void CloseWithResult(bool generateSelect)
     {
-        if (_vm.SelectedResult is null)
+        if (_vm is null || _vm.SelectedResult is null)
             return;
 
         SelectedItemResult = _vm.SelectedResult;
