@@ -36,30 +36,90 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
     /// <summary>加载全部已保存连接为对象树根节点（dbeaver 风格：所有连接平铺展示）。</summary>
     public void LoadConnections(IEnumerable<ConnectionItem> connections)
     {
-        // 保留已连接的连接节点（避免切换连接列表时丢失连接状态）。
-        var activeNames = RootNodes
-            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
-            .Select(n => n.Name)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // 增量更新：复用已有连接节点，避免重建导致 TreeView 展开状态被重置（整棵树折叠）。
 
-        RootNodes.Clear();
-        _activeConnections.Clear();
-        _activeConnections.UnionWith(activeNames);
+        var newList = connections.ToList();
 
-        foreach (var item in connections)
+        // 1) 建立旧节点索引（按连接名，不区分大小写）
+        var existingMap = new Dictionary<string, DbObjectTreeNode>(StringComparer.OrdinalIgnoreCase);
+        foreach (var n in RootNodes)
         {
-            var node = new DbObjectTreeNode
+            if (n.NodeType == DbObjectTreeNodeType.Connection && !string.IsNullOrEmpty(n.Name))
             {
-                Name = item.Name,
-                Text = item.Name,
-                NodeType = DbObjectTreeNodeType.Connection,
-                Connection = item,
-                DatabaseObjectType = DatabaseObjectType.None,
-                IsConnectionActive = _activeConnections.Contains(item.Name),
-            };
-            RootNodes.Add(node);
+                existingMap[n.Name] = n;
+            }
+        }
+
+        // 2) 同步 active 集合（以复用后的节点状态为准）
+        _activeConnections.Clear();
+        foreach (var kv in existingMap)
+        {
+            if (kv.Value.IsConnectionActive)
+            {
+                _activeConnections.Add(kv.Key);
+            }
+        }
+
+        // 3) 按新列表顺序重建 RootNodes（复用旧节点，新增则创建）
+        RootNodes.Clear();
+
+        foreach (var item in newList)
+        {
+            if (existingMap.TryGetValue(item.Name, out var existing))
+            {
+                // 连接相关属性被修改：断开连接并折叠节点（下次展开时按新属性重新连接）；
+                // 未修改：保留 Children / IsLoaded / IsExpanded 等状态，RootNodes 重建容器后
+                // 由 TreeViewItem.IsExpanded 与节点 IsExpanded 的双向绑定恢复展开状态。
+                if (IsConnectionProfileChanged(existing.Connection, item))
+                {
+                    Disconnect(existing);
+                    existing.IsExpanded = false;
+                }
+
+                existing.Connection = item;
+                existing.Text = item.Name;
+                existing.IsConnectionActive = _activeConnections.Contains(item.Name);
+                RootNodes.Add(existing);
+                existingMap.Remove(item.Name);
+            }
+            else
+            {
+                // 新增连接
+                var node = new DbObjectTreeNode
+                {
+                    Name = item.Name,
+                    Text = item.Name,
+                    NodeType = DbObjectTreeNodeType.Connection,
+                    Connection = item,
+                    DatabaseObjectType = DatabaseObjectType.None,
+                    IsConnectionActive = _activeConnections.Contains(item.Name),
+                };
+                RootNodes.Add(node);
+            }
+        }
+
+        // 4) 旧列表中剩下的是已被删除的连接，从 active 集合中清理
+        foreach (var kv in existingMap)
+        {
+            _activeConnections.Remove(kv.Key);
         }
     }
+
+    /// <summary>
+    /// 比较连接相关属性（数据库类型/服务器/端口/数据库/认证方式/SSL 等）是否被修改。
+    /// 名称、优先级等不影响实际连接的展示属性不参与比较。
+    /// </summary>
+    private static bool IsConnectionProfileChanged(ConnectionItem? oldItem, ConnectionItem newItem)
+        => oldItem is not null && (
+            !string.Equals(oldItem.DatabaseType, newItem.DatabaseType, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(oldItem.Server, newItem.Server, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(oldItem.Port, newItem.Port, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(oldItem.Database, newItem.Database, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(oldItem.ServerVersion, newItem.ServerVersion, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(oldItem.UserId, newItem.UserId, StringComparison.Ordinal)
+            || !string.Equals(oldItem.Password, newItem.Password, StringComparison.Ordinal)
+            || oldItem.IntegratedSecurity != newItem.IntegratedSecurity
+            || oldItem.UseSsl != newItem.UseSsl);
 
     /// <summary>建立指定连接并加载其对象树（连接节点展开浏览）。</summary>
     public async Task ConnectAsync(DbObjectTreeNode connectionNode)

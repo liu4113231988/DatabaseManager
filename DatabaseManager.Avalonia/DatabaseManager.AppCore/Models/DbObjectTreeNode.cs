@@ -48,6 +48,9 @@ public class DbObjectTreeNode
     /// <summary>该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。</summary>
     public bool IsConnectionActive { get; set; }
 
+    /// <summary>节点展开状态（与 TreeViewItem.IsExpanded 双向绑定，容器重建后据此恢复展开）。</summary>
+    public bool IsExpanded { get; set; }
+
     /// <summary>向父节点注册子节点（自动维护 Parent 引用）。</summary>
     public void AddChild(DbObjectTreeNode child)
     {

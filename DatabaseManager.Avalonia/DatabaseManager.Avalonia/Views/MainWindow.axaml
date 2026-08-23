@@ -228,6 +228,8 @@
                                     <Setter Property="Padding" Value="0,0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="MinHeight" Value="18" />
+                                    <!-- 展开状态持久化到节点模型：刷新（重建容器）后自动恢复，避免整棵树折叠 -->
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 </Style>
                                 <!-- 减少子级缩进量 -->
                                 <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
