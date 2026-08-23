@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IBackupService, DefaultBackupService>();
         services.AddSingleton<ICodeGenerateService, DefaultCodeGenerateService>();
         services.AddSingleton<IColumnDocumentationService, DefaultColumnDocumentationService>();
+        services.AddSingleton<IDdlService, DefaultDdlService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

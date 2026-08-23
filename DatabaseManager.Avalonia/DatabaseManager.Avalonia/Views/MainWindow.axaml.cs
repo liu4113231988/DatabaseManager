@@ -144,6 +144,10 @@ public partial class MainWindow : Window
 
     /// <summary>数据编辑列变化时，动态重建可编辑 DataGrid 列。</summary>
     private void DataEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        => RefreshDataEditorColumns();
+
+    /// <summary>手动重建数据编辑器 DataGrid 列（切换到数据编辑 Tab 时调用）。</summary>
+    private void RefreshDataEditorColumns()
     {
         var grid = this.FindControl<DataGrid>("DataEditGrid");
         if (grid is null || _dataEditor is null)
@@ -564,6 +568,30 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>显示「关于」对话框。</summary>
+    private async void MenuAbout_Click(object? sender, RoutedEventArgs e)
+    {
+        var title = "关于 DatabaseManager";
+        var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0";
+        var msg =
+@"DatabaseManager (Avalonia 版)
+================================
+版本: " + version + @"
+框架: .NET 8 + Avalonia 11
+许可证: 开源
+================================
+特性:
+- 跨平台数据库管理工具（Windows/macOS/Linux）
+- 支持 SQL Server / MySQL / Oracle / Postgres / SQLite
+- 连接管理 / 对象浏览 / 查询执行 / 数据编辑
+- 表设计 / 结构对比 / 数据对比 / 数据库转换
+- 导入导出(CSV/Excel) / 备份 / 诊断 / 优化 / 统计
+
+感谢使用！";
+        var box = MessageBoxManager.GetMessageBoxStandard(title, msg, ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Info);
+        await box.ShowWindowDialogAsync(this);
+    }
+
     /// <summary>打开脚本文件对话框并加载到查询编辑器。</summary>
     private async void MenuOpenScript_Click(object? sender, RoutedEventArgs e)
     {
@@ -716,11 +744,13 @@ public partial class MainWindow : Window
 
         // 使用构建器模式按节点类型分发右键菜单（P2增强：含Compare/Migrate回调）
         var connectionService = _services?.GetService<IDbConnectionService>();
+        var ddlService = _services?.GetService<IDdlService>();
         var builder = new ObjectTreeContextMenuBuilder(
             vm,
             ObjectsTree,
             asyncAction: async (action) => action(),
             connectionService: connectionService,
+            ddlService: ddlService,
             openConnectionManager: () => _ = OpenConnectionManagerAsync(),
             openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
             openDataEditorTab: OpenDataEditorTab,
@@ -815,10 +845,15 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
-    /// <summary>切换到「数据编辑」标签页（预留）。</summary>
+    /// <summary>切换到「数据编辑」子选项卡并刷新列（首次加载时触发）。</summary>
     private void OpenDataEditorTab()
     {
-        // 数据编辑功能将在后续版本集成到多标签页架构
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        vm.SwitchToDataEditor();
+        // 切换后立即刷新已存在的列（首次打开时 Columns 集合可能已加载但列未注册）
+        RefreshDataEditorColumns();
     }
 
     /// <summary>刷新当前查询标签的 DataGrid 列监听（切换标签时动态重建列）。</summary>
@@ -1057,17 +1092,51 @@ public partial class MainWindow : Window
         _dataEditor.RemoveRowCommand.Execute(selected);
     }
 
-    /// <summary>请求关闭标签页的回调（显示未保存提示对话框）。</summary>
+    /// <summary>请求关闭标签页的回调：有未保存修改时弹出三选一（保存/不保存/取消）对话框。</summary>
     private async Task<bool> RequestCloseTabAsync(QueryTabViewModel tab)
     {
-        // 简化版：直接返回 true 允许关闭（后续可集成 MsBox.Avalonia 实现完整对话框）
-        // TODO: 集成 MsBox.Avalonia 实现完整的"保存/不保存/取消"对话框
-        if (tab.IsModified)
+        if (!tab.IsModified)
+            return true;
+
+        var box = MessageBoxManager.GetMessageBoxStandard(
+            title: "未保存的更改",
+            text: $"「{tab.Title}」有未保存的更改，是否保存？",
+            ButtonEnum.YesNoCancel,
+            MsBox.Avalonia.Enums.Icon.Warning);
+
+        var result = await box.ShowWindowDialogAsync(this);
+        switch (result)
         {
-            // 暂时自动标记为已保存，允许关闭
-            tab.MarkAsSaved();
+            case ButtonResult.Yes:
+                await SaveQueryTabContentAsync(tab);
+                return !tab.IsModified;
+            case ButtonResult.No:
+                tab.MarkAsSaved();
+                return true;
+            default:
+                return false;
         }
-        return true;
+    }
+
+    /// <summary>保存指定查询标签的 SQL 内容；取消或未选中文件时不清除修改标记。</summary>
+    private async Task SaveQueryTabContentAsync(QueryTabViewModel tab)
+    {
+        var storage = StorageProvider;
+        var file = await storage.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "保存 SQL 脚本",
+            SuggestedFileName = "query.sql",
+            DefaultExtension = "sql",
+            FileTypeChoices = new[] { new global::Avalonia.Platform.Storage.FilePickerFileType("SQL 脚本") { Patterns = new[] { "*.sql" } } },
+        });
+
+        if (file is null)
+            return;
+
+        var path = file.Path?.LocalPath ?? string.Empty;
+        File.WriteAllText(path, tab.SqlText);
+        tab.MarkAsSaved();
+        tab.StatusMessage = $"已保存到 {Path.GetFileName(path)}。";
     }
 
     /// <summary>主窗口快捷键处理（对齐 DBeaver 快捷键）。</summary>

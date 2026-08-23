@@ -62,6 +62,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _schemaSelectorVisible;
 
+    /// <summary>主内容区当前模式（0=查询，1=数据编辑），切换子选项卡使用。</summary>
+    [ObservableProperty]
+    private int _contentMode;
+
     /// <summary>最近打开的 SQL 脚本文件路径。</summary>
     public ObservableCollection<string> RecentScripts { get; } = new();
 
@@ -273,6 +277,27 @@ public partial class MainWindowViewModel : ViewModelBase
         QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
     }
 
+    /// <summary>新建查询标签页并填入 SQL（用于新建对象模板 / 查看对象定义）。</summary>
+    public void NewObjectDefinitionQuery(string sql, string? connectionName, string? databaseName)
+    {
+        var newTab = new QueryTabViewModel(_queryService);
+
+        if (!string.IsNullOrEmpty(connectionName))
+        {
+            newTab.ConnectionName = connectionName;
+        }
+        else if (SelectedConnection is not null)
+        {
+            newTab.ConnectionName = SelectedConnection.Name;
+        }
+
+        QueryTabs.Add(newTab);
+        SelectedQueryTab = newTab;
+
+        newTab.SqlText = sql;
+        ContentMode = 0; // 切换到查询子选项卡
+    }
+
     /// <summary>在数据编辑器中打开指定表/视图进行查看/编辑。</summary>
     public async Task<bool> OpenDataEditor(DbObjectTreeNode node)
     {
@@ -297,10 +322,21 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (ok)
         {
+            ContentMode = 1;
             QueryEditor.StatusMessage = $"已打开数据编辑：{table.Name}。";
         }
 
         return ok;
+    }
+
+    /// <summary>切换到数据编辑子选项卡（若尚未加载数据则给出提示）。</summary>
+    public void SwitchToDataEditor()
+    {
+        if (!DataEditor.IsLoaded)
+        {
+            DataEditor.StatusMessage = "请先在对象浏览器中选择表或视图，右键「编辑数据」。";
+        }
+        ContentMode = 1;
     }
 
     /// <summary>刷新指定节点（重新懒加载其子节点）。</summary>
@@ -324,7 +360,7 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>向上查找节点所属连接名称。</summary>
-    private string? FindNodeConnectionName(DbObjectTreeNode node)
+    public string? FindNodeConnectionName(DbObjectTreeNode node)
     {
         var current = node.Parent;
         while (current is not null)

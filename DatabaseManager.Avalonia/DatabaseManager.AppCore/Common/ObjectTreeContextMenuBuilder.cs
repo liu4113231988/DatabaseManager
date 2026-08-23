@@ -33,14 +33,16 @@ public class ObjectTreeContextMenuBuilder
     private readonly Action<DbObjectTreeNode>? _openDataCompare;
     private readonly Action<DbObjectTreeNode>? _openConvert;
 
-    private readonly IDbConnectionService _connectionService; // <-  新增字段
+    private readonly IDbConnectionService _connectionService;
+    private readonly IDdlService? _ddlService;
 
     /// <summary>创建右键菜单构建器。</summary>
     public ObjectTreeContextMenuBuilder(
         MainWindowViewModel viewModel,
         TreeView treeView,
         Action<Func<Task>> asyncAction,
-        IDbConnectionService connectionService, // <- 新增参数
+        IDbConnectionService connectionService,
+        IDdlService? ddlService = null,
         Action? openConnectionManager = null,
         Action<DbObjectTreeNode, bool>? openTableDesigner = null,
         Action? openDataEditorTab = null,
@@ -53,7 +55,8 @@ public class ObjectTreeContextMenuBuilder
         _viewModel = viewModel;
         _treeView = treeView;
         _asyncAction = asyncAction;
-        _connectionService = connectionService; // <- 赋值
+        _connectionService = connectionService;
+        _ddlService = ddlService;
         _openConnectionManager = openConnectionManager;
         _openTableDesigner = openTableDesigner;
         _openDataEditorTab = openDataEditorTab;
@@ -272,17 +275,44 @@ public class ObjectTreeContextMenuBuilder
                 break;
             case DatabaseObjectType.View:
                 var newView = CreateMenuItem("新建视图...", "创建新视图");
-                newView.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建视图功能开发中...";
+                newView.Click += (_, _) =>
+                {
+                    var ddl = GetDdlService();
+                    if (ddl is null) return;
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.View, node.Schema);
+                    if (result.IsSuccess)
+                        _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
+                    else
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                };
                 menu.Items.Add(newView);
                 break;
             case DatabaseObjectType.Procedure:
                 var newProc = CreateMenuItem("新建存储过程...", "创建新存储过程");
-                newProc.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建存储过程功能开发中...";
+                newProc.Click += (_, _) =>
+                {
+                    var ddl = GetDdlService();
+                    if (ddl is null) return;
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Procedure, node.Schema);
+                    if (result.IsSuccess)
+                        _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
+                    else
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                };
                 menu.Items.Add(newProc);
                 break;
             case DatabaseObjectType.Function:
                 var newFunc = CreateMenuItem("新建函数...", "创建新函数");
-                newFunc.Click += (_, _) => _viewModel.QueryEditor.StatusMessage = "新建函数功能开发中...";
+                newFunc.Click += (_, _) =>
+                {
+                    var ddl = GetDdlService();
+                    if (ddl is null) return;
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Function, node.Schema);
+                    if (result.IsSuccess)
+                        _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
+                    else
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                };
                 menu.Items.Add(newFunc);
                 break;
         }
@@ -340,6 +370,12 @@ public class ObjectTreeContextMenuBuilder
             var design = CreateMenuItem("设计表...", "打开表设计器修改表结构");
             design.Click += (_, _) => _openTableDesigner?.Invoke(node, false);
             menu.Items.Add(design);
+        }
+        else
+        {
+            var viewDef = CreateMenuItem("查看视图定义", "在新查询标签页显示 CREATE VIEW 脚本");
+            viewDef.Click += (_, _) => _asyncAction(async () => await ViewObjectDefinitionAsync(node));
+            menu.Items.Add(viewDef);
         }
 
         // P2: Filter 功能
@@ -424,6 +460,30 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>其他数据库对象的右键菜单。</summary>
     private void BuildOtherDbObjectMenu(ContextMenu menu, DbObjectTreeNode node)
     {
+        // ==== 查看定义组（仅 ScriptDbObject：视图/函数/存储过程）====
+        if (node.DbObject is View or Function or Procedure)
+        {
+            var viewDef = CreateMenuItem("查看对象定义", "在新查询标签页显示 CREATE 定义脚本");
+            viewDef.Click += (_, _) => _asyncAction(async () => await ViewObjectDefinitionAsync(node));
+            menu.Items.Add(viewDef);
+
+            menu.Items.Add(new Separator());
+        }
+
+        // ==== 管理组（删除/重命名）====
+        if (node.DbObject is View or Function or Procedure or UserDefinedType or Sequence)
+        {
+            var renameObj = CreateMenuItem("重命名对象...", "修改对象名称");
+            renameObj.Click += async (_, _) => await RenameDbObjectAsync(node);
+            menu.Items.Add(renameObj);
+
+            var deleteObj = CreateMenuItem("删除对象", "删除此数据库对象");
+            deleteObj.Click += async (_, _) => await DeleteDbObjectAsync(node);
+            menu.Items.Add(deleteObj);
+
+            menu.Items.Add(new Separator());
+        }
+
         // ==== 剪贴板组 ====
         AddCopyMenuItems(menu, node);
 
@@ -431,6 +491,36 @@ public class ObjectTreeContextMenuBuilder
 
         // ==== 刷新组 ====
         AddRefreshParentMenuItem(menu, node);
+    }
+
+    /// <summary>异步：读取已有对象（View/Function/Procedure/Trigger）定义并在新查询标签页显示。</summary>
+    private async Task ViewObjectDefinitionAsync(DbObjectTreeNode node)
+    {
+        if (node?.DbObject is null) return;
+
+        var ddl = GetDdlService();
+        if (ddl is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = "DDL 服务未初始化。";
+            return;
+        }
+
+        var connectionName = _viewModel.FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
+        {
+            _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+            return;
+        }
+
+        var result = await ddl.GetObjectDefinitionAsync(connectionName, node.DatabaseName ?? string.Empty, node.DbObject);
+        if (!result.IsSuccess)
+        {
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            return;
+        }
+
+        _viewModel.NewObjectDefinitionQuery(result.Script!, connectionName, node.DatabaseName);
+        _viewModel.QueryEditor.StatusMessage = $"已显示 {node.DbObject.GetType().Name}「{node.DbObject.Name}」的定义。";
     }
 
     #endregion
@@ -955,14 +1045,46 @@ public class ObjectTreeContextMenuBuilder
         if (node.DbObject is null)
             return;
 
+        var ddl = GetDdlService();
+        if (ddl is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = "DDL 服务未初始化。";
+            return;
+        }
+
+        var connectionName = _viewModel.FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
+        {
+            _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+            return;
+        }
+
         string objType = node.DbObject.GetType().Name;
         string confirmMsg = $"确定要删除{objType} \"{node.Name}\" 吗？\n此操作不可撤销！";
-
         var result = await ShowConfirmDialog(confirmMsg, $"删除{objType}");
         if (result != true)
             return;
 
-        _viewModel.QueryEditor.StatusMessage = $"删除{objType}功能：后端接口开发中...";
+        try
+        {
+            var exec = await ddl.DropAsync(connectionName, node.DatabaseName ?? string.Empty, node.DbObject);
+            if (!exec.IsSuccess)
+                throw new Exception(exec.ErrorMessage ?? "未知错误。");
+
+            _viewModel.QueryEditor.StatusMessage = $"已删除{objType}：{node.Name}。";
+
+            // 从对象树中移除该节点，并重建父文件夹节点列表
+            if (node.Parent is DbObjectTreeNode parent)
+            {
+                parent.Children.Remove(node);
+                if (parent.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
+                    await _viewModel.RefreshNodeAsync(parent);
+            }
+        }
+        catch (Exception ex)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"删除{objType}失败：{ex.Message}";
+        }
     }
 
     private async Task RenameDbObjectAsync(DbObjectTreeNode node)
@@ -970,12 +1092,79 @@ public class ObjectTreeContextMenuBuilder
         if (node.DbObject is null)
             return;
 
+        var ddl = GetDdlService();
+        if (ddl is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = "DDL 服务未初始化。";
+            return;
+        }
+
+        var connectionName = _viewModel.FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
+        {
+            _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+            return;
+        }
+
+        // 重命名仅通过 DbScriptGenerator 暴露了 Table / TableColumn 两类统一 API
+        if (node.DbObject is not Table and not TableColumn)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"当前暂不支持重命名 {node.DbObject.GetType().Name}，请改用生成脚本执行。";
+            return;
+        }
+
         var newName = await ShowInputDialog("请输入新的对象名称：", "重命名对象", node.Name);
         if (string.IsNullOrWhiteSpace(newName) || newName == node.Name)
             return;
 
-        string objType = node.DbObject.GetType().Name;
-        _viewModel.QueryEditor.StatusMessage = $"重命名{objType}功能：后端接口开发中...";
+        // 找到所属表（对列重命名时；对表重命名时即自身）
+        Table? table = node.DbObject as Table ?? FindAncestorDbObject<Table>(node);
+        if (table is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = "无法定位所属表。";
+            return;
+        }
+
+        try
+        {
+            DdlExecuteResult exec;
+            if (node.DbObject is TableColumn col)
+            {
+                exec = await ddl.RenameTableColumnAsync(connectionName, node.DatabaseName ?? string.Empty, table, col, newName);
+            }
+            else
+            {
+                exec = await ddl.RenameTableAsync(connectionName, node.DatabaseName ?? string.Empty, table, newName);
+            }
+
+            if (!exec.IsSuccess)
+                throw new Exception(exec.ErrorMessage ?? "未知错误。");
+
+            _viewModel.QueryEditor.StatusMessage = $"已重命名为：{newName}。";
+
+            // 刷新父文件夹
+            if (node.Parent is DbObjectTreeNode parent
+                && parent.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
+            {
+                await _viewModel.RefreshNodeAsync(parent);
+            }
+        }
+        catch (Exception ex)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"重命名失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>向上查找第一个匹配类型的 DbObject。</summary>
+    private static T? FindAncestorDbObject<T>(DbObjectTreeNode node) where T : DatabaseObject
+    {
+        var current = node.Parent;
+        while (current is not null)
+        {
+            if (current.DbObject is T t) return t;
+            current = current.Parent;
+        }
+        return null;
     }
 
     #endregion
@@ -1118,7 +1307,7 @@ public class ObjectTreeContextMenuBuilder
 
     private void ViewTriggerScript(DbObjectTreeNode node)
     {
-        _viewModel.QueryEditor.StatusMessage = $"查看触发器脚本功能开发中: {node.Name}";
+        _asyncAction(async () => await ViewObjectDefinitionAsync(node));
     }
 
     private void ViewChildObjectInfo(DbObjectTreeNode node)
@@ -1141,22 +1330,23 @@ public class ObjectTreeContextMenuBuilder
 
     private async Task DeleteChildObjectAsync(DbObjectTreeNode node, string objectTypeName)
     {
-        string confirmMsg = $"确定要删除{objectTypeName} \"{node.Name}\" 吗？\n此操作不可撤销！";
-
-        var result = await ShowConfirmDialog(confirmMsg, $"删除{objectTypeName}");
-        if (result != true)
+        if (node.DbObject is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = $"无法识别 {objectTypeName}。";
             return;
-
-        _viewModel.QueryEditor.StatusMessage = $"删除{objectTypeName}功能：后端接口开发中...";
+        }
+        // 子对象（列/索引/主键/外键/约束/触发器）逻辑完全复用 DbObject 版本（Drop 支持所有子对象）
+        await DeleteDbObjectAsync(node);
     }
 
     private async Task RenameChildObjectAsync(DbObjectTreeNode node, string objectTypeName)
     {
-        var newName = await ShowInputDialog($"请输入新的{objectTypeName}名称：", $"重命名{objectTypeName}", node.Name);
-        if (string.IsNullOrWhiteSpace(newName) || newName == node.Name)
+        if (node.DbObject is TableColumn)
+        {
+            await RenameDbObjectAsync(node);
             return;
-
-        _viewModel.QueryEditor.StatusMessage = $"重命名{objectTypeName}功能：后端接口开发中...";
+        }
+        _viewModel.QueryEditor.StatusMessage = $"当前暂不支持重命名 {objectTypeName}，请改用生成脚本执行。";
     }
 
     #endregion
@@ -1247,6 +1437,8 @@ public class ObjectTreeContextMenuBuilder
     {
         return _connectionService;
     }
+
+    private IDdlService? GetDdlService() => _ddlService;
 
     #endregion
 }

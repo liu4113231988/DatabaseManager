@@ -83,7 +83,7 @@
                 <MenuItem Header="数据导入..." Click="MenuImport_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
-                <MenuItem Header="关于" IsEnabled="False" />
+                <MenuItem Header="关于" Click="MenuAbout_Click" />
             </MenuItem>
         </Menu>
 
@@ -220,32 +220,95 @@
                                   ContextRequested="ObjectsTree_ContextRequested"
                                   BorderThickness="0"
                                   Padding="0"
-                                  Margin="2,0,0,0"
+                                  Margin="4,0,0,0"
                                   FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
                                   FontSize="12">
                             <TreeView.Styles>
+                                <!-- 消除 TreeView 内部 ScrollViewer 默认留白 -->
+                                <Style Selector="TreeView /template/ ScrollViewer">
+                                    <Setter Property="Padding" Value="-26,0,-10,0" />
+                                </Style>
+                                <Style Selector="TreeView /template/ ItemsPresenter">
+                                    <Setter Property="Margin" Value="-20,0,0,0" />
+                                </Style>
                                 <Style Selector="TreeViewItem">
-                                    <Setter Property="Padding" Value="0,0" />
+                                    <!-- 直接通过负 Padding 让整行内容往左靠，覆盖不同平台默认模板差异 -->
+                                    <Setter Property="Padding" Value="-6,0,-2,0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="MinHeight" Value="18" />
                                     <!-- 展开状态持久化到节点模型：刷新（重建容器）后自动恢复，避免整棵树折叠 -->
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 </Style>
-                                <!-- 减少子级缩进量 -->
+                                <!-- 兼容不同版本 Avalonia TreeViewItem 模板：多重命中缩进容器 -->
                                 <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
-                                    <Setter Property="Margin" Value="-10,0,0,0" />
+                                    <Setter Property="Margin" Value="-50,0,0,0" />
+                                </Style>
+                                <Style Selector="TreeViewItem /template/ Decorator#PART_IndentContainer">
+                                    <Setter Property="Margin" Value="-50,0,0,0" />
+                                </Style>
+                                <Style Selector="TreeViewItem /template/ Panel#PART_IndentContainer">
+                                    <Setter Property="Margin" Value="-50,0,0,0" />
+                                </Style>
+                                <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseToggle">
+                                    <!-- 折叠/展开箭头：固定尺寸 + 左右负边距，让箭头右边距离后续图标正好约 2px -->
+                                    <Setter Property="Width" Value="14" />
+                                    <Setter Property="Height" Value="14" />
+                                    <Setter Property="Margin" Value="-14,0,-10,0" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                                    <Setter Property="ContentTemplate">
+                                        <DataTemplate>
+                                            <Grid Width="12" Height="12" Margin="0">
+                                                <!-- 空心 Chevron：描边折线（V 型），Round 转角/端点，更清爽现代 -->
+                                                <Path x:Name="ArrowPath"
+                                                      Data="M3,2.5 L7.5,6 L3,9.5"
+                                                      Fill="None"
+                                                      Stroke="#6B7280"
+                                                      StrokeThickness="1.6"
+                                                      StrokeLineCap="Round"
+                                                      Stretch="Uniform"
+                                                      HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"
+                                                      RenderTransformOrigin="50% 50%" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </Setter>
+                                </Style>
+                                <!-- 展开状态：Chevron 旋转 90° 朝下并加深颜色 -->
+                                <Style Selector="TreeViewItem:expanded /template/ ToggleButton#PART_ExpandCollapseToggle Path#ArrowPath">
+                                    <Setter Property="RenderTransform">
+                                        <RotateTransform Angle="90" />
+                                    </Setter>
+                                    <Setter Property="Stroke" Value="#1F2937" />
+                                </Style>
+                                <!-- 直接作用于 Header 内容呈现层，让文字/图标再往左收一点 -->
+                                <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
+                                    <Setter Property="Margin" Value="-4,0,0,0" />
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                                <Style Selector="TreeViewItem /template/ ContentControl#PART_HeaderPresenter">
+                                    <Setter Property="Margin" Value="-4,0,0,0" />
+                                    <Setter Property="Padding" Value="0" />
                                 </Style>
                             </TreeView.Styles>
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
-                                    <StackPanel Orientation="Horizontal" Spacing="1"
+                                    <!-- 图标与文字之间保留 1px 的视觉间距 -->
+                                    <StackPanel Orientation="Horizontal" Spacing="0"
                                                 Tag="{Binding}"
                                                 VerticalAlignment="Center">
                                         <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
-                                               Width="14" Height="14" VerticalAlignment="Center" />
+                                               Width="14" Height="14"
+                                               Margin="0,0,1,0"
+                                               VerticalAlignment="Center"
+                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
                                         <TextBlock Text="{Binding Text}"
                                                    VerticalAlignment="Center"
+                                                   Margin="0"
                                                    FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
                                                    FontSize="12"
                                                    TextTrimming="CharacterEllipsis"
@@ -261,12 +324,19 @@
             <!-- 右：主内容区（对齐 DBeaver：多查询标签 + 查询/数据编辑子选项卡） -->
             <DockPanel Grid.Column="1" Margin="4,0,4,4">
 
-                <!-- 顶部：多查询标签栏（对齐 DBeaver 标签页设计） -->
+                <!-- 子选项卡：查询 / 数据编辑 -->
                 <TabControl DockPanel.Dock="Top"
-                            x:Name="QueryTabsControl"
-                            ItemsSource="{Binding QueryTabs}"
-                            SelectedItem="{Binding SelectedQueryTab}"
-                            TabStripPlacement="Top">
+                            x:Name="ContentModeTabs"
+                            SelectedIndex="{Binding ContentMode}"
+                            TabStripPlacement="Top"
+                            Margin="0,0,0,4">
+                    <TabItem Header="查询">
+                        <TabControl x:Name="QueryTabsControl"
+                                    ItemsSource="{Binding QueryTabs}"
+                                    SelectedItem="{Binding SelectedQueryTab}"
+                                    TabStripPlacement="Top"
+                                    BorderThickness="1,1,1,1"
+                                    Background="Transparent">
                     <TabControl.DataTemplates>
                         <!-- 查询标签页模板 -->
                         <DataTemplate DataType="vm:QueryTabViewModel">
@@ -377,6 +447,82 @@
                             </Border>
                         </DataTemplate>
                     </TabControl.ItemTemplate>
+                        </TabControl>
+                    </TabItem>
+                    <TabItem Header="数据编辑">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" MinHeight="100" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- 状态栏 -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2">
+                                <TextBlock Text="{Binding DataEditor.DatabaseName}" VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
+                                <TextBlock Text="." VerticalAlignment="Center" Opacity="0.3" FontSize="11" />
+                                <TextBlock Text="{Binding DataEditor.Schema}" VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
+                                <TextBlock Text="." VerticalAlignment="Center" Opacity="0.3" FontSize="11" />
+                                <TextBlock Text="{Binding DataEditor.TableName}"
+                                           VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" />
+                                <TextBlock Text="·" VerticalAlignment="Center" Opacity="0.3" FontSize="11" Margin="2,0" />
+                                <TextBlock Text="{Binding DataEditor.StatusMessage}"
+                                           VerticalAlignment="Center" Opacity="0.8" FontSize="11" />
+                                <TextBlock Text="（视图·只读）"
+                                           IsVisible="{Binding DataEditor.IsView}"
+                                           VerticalAlignment="Center" Opacity="0.6" FontSize="10" Margin="6,0,0,0" />
+                            </StackPanel>
+
+                            <!-- 工具栏 -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="2" Margin="4,2,4,4">
+                                <Button Command="{Binding DataEditor.AddRowCommand}"
+                                        IsEnabled="{Binding DataEditor.IsEditable}"
+                                        Padding="10,1" FontSize="11">＋ 新增行</Button>
+                                <Button Click="DataEditorRemove_Click"
+                                        IsEnabled="{Binding DataEditor.IsEditable}"
+                                        Padding="10,1" FontSize="11">－ 删除行</Button>
+                                <Button Command="{Binding DataEditor.RevertCommand}"
+                                        IsEnabled="{Binding DataEditor.HasChanges}"
+                                        Padding="10,1" FontSize="11">↺ 还原</Button>
+                                <Button Command="{Binding DataEditor.SaveCommand}"
+                                        IsEnabled="{Binding DataEditor.HasChanges}"
+                                        Classes="Primary" Padding="10,1" FontSize="11">💾 保存</Button>
+                                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="6,2" />
+                                <Button Command="{Binding DataEditor.LoadPageCommand}"
+                                        IsEnabled="{Binding DataEditor.IsLoaded}"
+                                        Padding="10,1" FontSize="11">🔄 刷新</Button>
+                                <Button Command="{Binding DataEditor.PreviousPageCommand}"
+                                        Padding="10,1" FontSize="11">← 上一页</Button>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
+                                    <TextBlock Text="{Binding DataEditor.PageNumber}" VerticalAlignment="Center" FontSize="11" />
+                                    <TextBlock Text=" / " VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                                    <TextBlock Text="{Binding DataEditor.PageCount}" VerticalAlignment="Center" FontSize="11" />
+                                    <TextBlock Text=" 页 · 共 " VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                                    <TextBlock Text="{Binding DataEditor.TotalCount}" VerticalAlignment="Center" FontSize="11" />
+                                    <TextBlock Text=" 行" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
+                                </StackPanel>
+                                <Button Command="{Binding DataEditor.NextPageCommand}"
+                                        Padding="10,1" FontSize="11">下一页 →</Button>
+                            </StackPanel>
+
+                            <!-- 数据编辑网格 -->
+                            <DataGrid Grid.Row="2" x:Name="DataEditGrid"
+                                      ItemsSource="{Binding DataEditor.Rows}"
+                                      AutoGenerateColumns="False"
+                                      GridLinesVisibility="All"
+                                      FontSize="11"
+                                      Margin="2"
+                                      IsVisible="{Binding DataEditor.IsLoaded}" />
+                            <TextBlock Grid.Row="2"
+                                       Text="{Binding DataEditor.StatusMessage}"
+                                       IsVisible="{Binding DataEditor.IsLoaded, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
+                                       Opacity="0.4"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Margin="20" />
+                        </Grid>
+                    </TabItem>
                 </TabControl>
 
             </DockPanel>
