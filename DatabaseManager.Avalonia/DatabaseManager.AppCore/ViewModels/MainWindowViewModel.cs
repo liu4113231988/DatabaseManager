@@ -72,6 +72,9 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>请求关闭标签页的回调（用于未保存提示）。</summary>
     public Func<QueryTabViewModel, Task<bool>>? RequestCloseTab { get; set; }
 
+    /// <summary>请求确认丢弃数据编辑器未保存改动的回调（切换表/断开连接时）。</summary>
+    public Func<Task<bool>>? RequestDiscardDataChanges { get; set; }
+
     public MainWindowViewModel(
         IDbSchemaService schemaService,
         IDbConnectionService connectionService,
@@ -132,11 +135,11 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedQueryTab = newTab;
     }
 
-    /// <summary>关闭指定的查询标签页（带未保存提示）。</summary>
-    public async Task CloseQueryTabAsync(QueryTabViewModel tab)
+    /// <summary>关闭指定的查询标签页（带未保存提示）。返回是否真正关闭（false=用户取消）。</summary>
+    public async Task<bool> CloseQueryTabAsync(QueryTabViewModel tab)
     {
         if (!QueryTabs.Contains(tab))
-            return;
+            return true;
 
         // 检查是否有未保存的修改
         if (tab.IsModified)
@@ -146,7 +149,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 var canClose = await RequestCloseTab(tab);
                 if (!canClose)
-                    return;
+                    return false;
             }
             // 如果没有设置回调，直接关闭（静默模式）
         }
@@ -158,6 +161,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             SelectedQueryTab = QueryTabs[^1];
         }
+
+        return true;
     }
 
     /// <summary>同步版本的关闭方法（用于非异步场景）。</summary>
@@ -309,6 +314,17 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             QueryEditor.StatusMessage = "请先连接对应连接。";
             return false;
+        }
+
+        // 切换表前：若当前有未保存改动，请求确认是否丢弃。
+        if (DataEditor.IsLoaded && DataEditor.HasUnsavedChanges)
+        {
+            if (RequestDiscardDataChanges is not null)
+            {
+                var discard = await RequestDiscardDataChanges();
+                if (!discard)
+                    return false;
+            }
         }
 
         var table = node.DbObject as Table ?? (DatabaseObject)(node.DbObject as View)!;

@@ -43,6 +43,9 @@ public partial class MainWindow : Window
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
 
+            // 设置丢弃数据编辑改动的确认回调（切换表/断开连接时）
+            vm.RequestDiscardDataChanges = RequestDiscardDataChangesAsync;
+
             // 监听数据编辑列变化，动态重建可编辑 DataGrid 列。
             _dataEditor.Columns.CollectionChanged += DataEditor_ColumnsChanged;
 
@@ -739,7 +742,11 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel vm)
             return;
 
-        if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
+        // 关键修复：Avalonia 中右键单击不会改变 TreeView.SelectedItem。
+        // 若继续使用 SelectedItem，菜单会作用到"上一次左键选中的其他节点"上（功能错位），
+        // 且未选中任何节点时（首次打开对象树即右击）会完全无菜单。故从右键命中的树项解析目标节点。
+        var node = ResolveContextNode(e);
+        if (node is null)
             return;
 
         // 使用构建器模式按节点类型分发右键菜单（P2增强：含Compare/Migrate回调）
@@ -761,6 +768,32 @@ public partial class MainWindow : Window
             openConvert: (n) => _ = OpenConvertForNodeAsync(n));
 
         builder.BuildAndShow(node, e);
+    }
+
+    /// <summary>
+    /// 解析用户正在右键点击的目标树节点。
+    /// Avalonia（与 WPF 一致）中右键单击不会改变 TreeView.SelectedItem，
+    /// 因此需从 ContextRequested 事件的原始触发元素沿可视化树向上查找命中的 TreeViewItem，
+    /// 取其 DataContext（DbObjectTreeNode）作为菜单作用目标；找不到时回退到当前选中节点。
+    /// </summary>
+    private DbObjectTreeNode? ResolveContextNode(ContextRequestedEventArgs e)
+    {
+        // 从右键事件源（Source 为引发事件的最底层 Interactive 控件）向上遍历可视化树，
+        // 命中 TreeViewItem 后取其 DataContext（DbObjectTreeNode）作为菜单作用目标。
+        var current = e.Source as Visual;
+        while (current is not null)
+        {
+            if (current is TreeViewItem treeViewItem && treeViewItem.DataContext is DbObjectTreeNode node)
+            {
+                // 同步选中到被右键的节点，保证后续操作与界面高亮状态一致。
+                ObjectsTree.SelectedItem = treeViewItem;
+                return node;
+            }
+            current = current.GetVisualParent();
+        }
+
+        // 回退：未命中任何树项（如右键空白区）时使用当前选中节点。
+        return ObjectsTree.SelectedItem as DbObjectTreeNode;
     }
 
     /// <summary>P2: 为节点打开结构对比窗口。</summary>
@@ -1025,22 +1058,24 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>关闭查询标签页。</summary>
-    private void CloseTab_Click(object? sender, RoutedEventArgs e)
+    /// <summary>关闭查询标签页（带未保存修改提示，用户取消则不关闭）。</summary>
+    private async void CloseTab_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is QueryTabViewModel tab && DataContext is MainWindowViewModel vm)
+        QueryTabViewModel? tab = sender switch
         {
-            vm.CloseQueryTab(tab);
-        }
-        else if (sender is MenuItem menuItem && menuItem.Tag is QueryTabViewModel tab2 && DataContext is MainWindowViewModel vm2)
-        {
-            // 右键菜单触发的关闭
-            vm2.CloseQueryTab(tab2);
-        }
+            Button { Tag: QueryTabViewModel t } => t,
+            MenuItem { Tag: QueryTabViewModel t } => t,
+            _ => null,
+        };
+
+        if (tab is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        await vm.CloseQueryTabAsync(tab);
     }
 
-    /// <summary>关闭除当前标签外的所有其他标签。</summary>
-    private void CloseOtherTabs_Click(object? sender, RoutedEventArgs e)
+    /// <summary>关闭除当前标签外的所有其他标签（逐个带未保存提示，任一取消则停止后续）。</summary>
+    private async void CloseOtherTabs_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is MenuItem { Tag: QueryTabViewModel currentTab } && DataContext is MainWindowViewModel vm)
         {
@@ -1048,13 +1083,14 @@ public partial class MainWindow : Window
             var tabsToClose = vm.QueryTabs.Where(t => t != currentTab).ToList();
             foreach (var tab in tabsToClose)
             {
-                vm.CloseQueryTab(tab);
+                if (!await vm.CloseQueryTabAsync(tab))
+                    break;
             }
         }
     }
 
-    /// <summary>关闭所有标签页。</summary>
-    private void CloseAllTabs_Click(object? sender, RoutedEventArgs e)
+    /// <summary>关闭所有标签页（逐个带未保存提示，取消任一则停止后续）。</summary>
+    private async void CloseAllTabs_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm)
         {
@@ -1062,7 +1098,8 @@ public partial class MainWindow : Window
             var allTabs = vm.QueryTabs.ToList();
             foreach (var tab in allTabs)
             {
-                vm.CloseQueryTab(tab);
+                if (!await vm.CloseQueryTabAsync(tab))
+                    break;
             }
         }
     }
@@ -1090,6 +1127,19 @@ public partial class MainWindow : Window
         }
 
         _dataEditor.RemoveRowCommand.Execute(selected);
+    }
+
+    /// <summary>请求确认丢弃数据编辑器未保存改动的回调：弹出确认对话框。</summary>
+    private async Task<bool> RequestDiscardDataChangesAsync()
+    {
+        var box = MessageBoxManager.GetMessageBoxStandard(
+            title: "未保存的更改",
+            text: "数据编辑器中存在未保存的更改，切换后将丢弃这些更改。是否继续？",
+            ButtonEnum.YesNo,
+            MsBox.Avalonia.Enums.Icon.Warning);
+
+        var result = await box.ShowWindowDialogAsync(this);
+        return result == ButtonResult.Yes;
     }
 
     /// <summary>请求关闭标签页的回调：有未保存修改时弹出三选一（保存/不保存/取消）对话框。</summary>
@@ -1140,7 +1190,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>主窗口快捷键处理（对齐 DBeaver 快捷键）。</summary>
-    private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
+    private async void MainWindow_KeyDown(object? sender, KeyEventArgs e)
     {
         // 如果焦点在文本输入控件（如 TextBox），不拦截回车等键
         if (e.Key == Key.Enter && FocusManager.GetFocusedElement() is TextBox)
@@ -1167,11 +1217,11 @@ public partial class MainWindow : Window
                 break;
 
             case Key.W when ctrl:
-                // Ctrl+W：关闭当前标签页
+                // Ctrl+W：关闭当前标签页（带未保存修改提示）
                 e.Handled = true;
                 if (vm.SelectedQueryTab is not null)
                 {
-                    vm.CloseQueryTab(vm.SelectedQueryTab);
+                    await vm.CloseQueryTabAsync(vm.SelectedQueryTab);
                 }
                 break;
 

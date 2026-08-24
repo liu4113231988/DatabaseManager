@@ -46,7 +46,7 @@ public class DefaultDbSchemaService : IDbSchemaService
                 DbObject = db,
             };
 
-            // 判断是否为多 Schema 结构（Oracle/Postgres 等）。
+            // 判断是否为多 Schema 结构（SQL Server/Postgres/Oracle 等）。
             var schemas = await TryGetSchemasAsync(connection, interpreter, db.Name);
             if (schemas.Count > 1)
             {
@@ -68,8 +68,11 @@ public class DefaultDbSchemaService : IDbSchemaService
             }
             else
             {
-                // 单 Schema（或无法枚举）直接挂类型文件夹。
-                AddTypeFolders(dbNode, interpreter, db.Name, null);
+                // 单 Schema：若恰好能枚举出唯一 schema（如 SQL Server 的 dbo、Oracle 当前用户），
+                // 将其作为过滤条件传入，避免表查询混入其他 schema 的对象；
+                // MySQL/SQLite 无 schema 概念时 TryGetSchemasAsync 返回空，schema 保持 null。
+                string? singleSchema = schemas.Count == 1 ? schemas[0].Name : null;
+                AddTypeFolders(dbNode, interpreter, db.Name, singleSchema);
             }
 
             result.Add(dbNode);
@@ -528,8 +531,15 @@ public class DefaultDbSchemaService : IDbSchemaService
     {
         try
         {
-            // 仅对支持多 Schema 的数据库（Oracle/Postgres）枚举；其余返回空。
-            if (connection.DatabaseType is "Oracle" or "Postgres")
+            // 仅对支持多 Schema 的数据库（SQL Server/Postgres/Oracle）枚举；其余返回空。
+            if (connection.DatabaseType is "SqlServer" or "Postgres")
+            {
+                // SQL Server 与 Postgres 的 Schema 是每个数据库独立的，需用目标库自己的解释器查询（避免跨库复用默认库的 schema）。
+                // Oracle 的 Schema 即当前用户，且覆盖 Database 会破坏 Oracle 连接串（服务名），故用默认解释器。
+                var dbInterpreter = CreateInterpreter(connection, databaseName);
+                return await dbInterpreter.GetDatabaseSchemasAsync();
+            }
+            if (connection.DatabaseType is "Oracle")
             {
                 return await interpreter.GetDatabaseSchemasAsync();
             }
