@@ -325,18 +325,13 @@
             <DockPanel Grid.Column="1" Margin="4,0,4,4">
 
                 <!-- 子选项卡：查询 / 数据编辑 -->
-                <TabControl DockPanel.Dock="Top"
-                            x:Name="ContentModeTabs"
-                            SelectedIndex="{Binding ContentMode}"
+                <TabControl x:Name="QueryTabsControl"
+                            ItemsSource="{Binding QueryTabs}"
+                            SelectedItem="{Binding SelectedQueryTab}"
                             TabStripPlacement="Top"
+                            BorderThickness="1,1,1,1"
+                            Background="Transparent"
                             Margin="0,0,0,4">
-                    <TabItem Header="查询">
-                        <TabControl x:Name="QueryTabsControl"
-                                    ItemsSource="{Binding QueryTabs}"
-                                    SelectedItem="{Binding SelectedQueryTab}"
-                                    TabStripPlacement="Top"
-                                    BorderThickness="1,1,1,1"
-                                    Background="Transparent">
                     <TabControl.DataTemplates>
                         <!-- 查询标签页模板 -->
                         <DataTemplate DataType="vm:QueryTabViewModel">
@@ -377,13 +372,39 @@
                                         <RowDefinition Height="*" />
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
-                                    <TextBlock Grid.Row="0" Text="{Binding StatusMessage}"
-                                               Margin="4,2,0,2" Opacity="0.7" FontSize="11" />
+                                    <!-- 状态栏（含可编辑状态与只读原因） -->
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2,0,2">
+                                        <TextBlock Text="{Binding StatusMessage}"
+                                                   Opacity="0.7" FontSize="11" />
+                                        <TextBlock Text="{Binding EditReadOnlyReason}"
+                                                   IsVisible="{Binding IsResultEditable, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
+                                                   Opacity="0.6" FontSize="10" Foreground="#B45309" />
+                                    </StackPanel>
+                                    <!-- 内联编辑工具栏（仅单表简单 SELECT 且有主键时可用） -->
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2"
+                                                Margin="4,2" HorizontalAlignment="Right"
+                                                IsVisible="{Binding IsResultEditable}">
+                                        <Button Click="QueryAddRow_Click" Content="＋ 新增"
+                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                                ToolTip.Tip="在当前页末尾新增一行，填写后点击保存" />
+                                        <Button Click="QueryRemoveRow_Click" Content="－ 删除"
+                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                                ToolTip.Tip="删除选中的行（保存时生效）" />
+                                        <Button Command="{Binding SaveEditsCommand}" Content="💾 保存"
+                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                                IsEnabled="{Binding HasPendingChanges}" Classes="Primary" />
+                                        <Button Click="QueryRevert_Click" Content="↺ 还原"
+                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                                IsEnabled="{Binding HasPendingChanges}" />
+                                    </StackPanel>
                                     <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}"
                                               IsVisible="{Binding HasResult}"
                                               AutoGenerateColumns="False"
                                               GridLinesVisibility="All"
+                                              CanUserResizeColumns="True"
+                                              CanUserSortColumns="True"
                                               FontSize="11"
+                                              AttachedToVisualTree="QueryResultGrid_AttachedToVisualTree"
                                               Margin="2" x:Name="QueryResultGrid">
                                         <DataGrid.Columns>
                                             <!-- 列由代码动态生成 -->
@@ -447,87 +468,6 @@
                             </Border>
                         </DataTemplate>
                     </TabControl.ItemTemplate>
-                        </TabControl>
-                    </TabItem>
-                    <TabItem Header="数据编辑">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" MinHeight="100" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <!-- 状态栏 -->
-                            <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2">
-                                <TextBlock Text="{Binding DataEditor.DatabaseName}" VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
-                                <TextBlock Text="." VerticalAlignment="Center" Opacity="0.3" FontSize="11" />
-                                <TextBlock Text="{Binding DataEditor.Schema}" VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
-                                <TextBlock Text="." VerticalAlignment="Center" Opacity="0.3" FontSize="11" />
-                                <TextBlock Text="{Binding DataEditor.TableName}"
-                                           VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" />
-                                <TextBlock Text="·" VerticalAlignment="Center" Opacity="0.3" FontSize="11" Margin="2,0" />
-                                <TextBlock Text="{Binding DataEditor.StatusMessage}"
-                                           VerticalAlignment="Center" Opacity="0.8" FontSize="11" />
-                                <TextBlock Text="{Binding DataEditor.ReadOnlyReason}"
-                                           IsVisible="{Binding DataEditor.IsEditable, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
-                                           VerticalAlignment="Center" Opacity="0.7" FontSize="10"
-                                           Foreground="#B45309" Margin="6,0,0,0" />
-                            </StackPanel>
-
-                            <!-- 工具栏 -->
-                            <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="2" Margin="4,2,4,4">
-                                <Button Command="{Binding DataEditor.AddRowCommand}"
-                                        IsEnabled="{Binding DataEditor.IsEditable}"
-                                        Padding="10,1" FontSize="11">＋ 新增行</Button>
-                                <Button Click="DataEditorRemove_Click"
-                                        IsEnabled="{Binding DataEditor.IsEditable}"
-                                        Padding="10,1" FontSize="11">－ 删除行</Button>
-                                <Button Command="{Binding DataEditor.RevertCommand}"
-                                        IsEnabled="{Binding DataEditor.HasChanges}"
-                                        Padding="10,1" FontSize="11">↺ 还原</Button>
-                                <Button Command="{Binding DataEditor.SaveCommand}"
-                                        IsEnabled="{Binding DataEditor.HasChanges}"
-                                        Classes="Primary" Padding="10,1" FontSize="11">💾 保存</Button>
-                                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="6,2" />
-                                <Button Command="{Binding DataEditor.LoadPageCommand}"
-                                        IsEnabled="{Binding DataEditor.IsLoaded}"
-                                        Padding="10,1" FontSize="11">🔄 刷新</Button>
-                                <Button Command="{Binding DataEditor.PreviousPageCommand}"
-                                        Padding="10,1" FontSize="11">← 上一页</Button>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
-                                    <TextBlock Text="{Binding DataEditor.PageNumber}" VerticalAlignment="Center" FontSize="11" />
-                                    <TextBlock Text=" / " VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
-                                    <TextBlock Text="{Binding DataEditor.PageCountText}" VerticalAlignment="Center" FontSize="11" />
-                                    <TextBlock Text=" 页 · 共 " VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
-                                    <TextBlock Text="{Binding DataEditor.TotalCount}" VerticalAlignment="Center" FontSize="11" />
-                                    <TextBlock Text=" 行" VerticalAlignment="Center" FontSize="11" Opacity="0.5" />
-                                    <TextBlock Text=" 每页" VerticalAlignment="Center" FontSize="11" Opacity="0.6" Margin="8,0,0,0" />
-                                    <ComboBox SelectedItem="{Binding DataEditor.PageSize}"
-                                              ItemsSource="{Binding DataEditor.PageSizeOptions}"
-                                              FontSize="11" MinWidth="70" />
-                                </StackPanel>
-                                <Button Command="{Binding DataEditor.NextPageCommand}"
-                                        Padding="10,1" FontSize="11">下一页 →</Button>
-                            </StackPanel>
-
-                            <!-- 数据编辑网格 -->
-                            <DataGrid Grid.Row="2" x:Name="DataEditGrid"
-                                      ItemsSource="{Binding DataEditor.Rows}"
-                                      AutoGenerateColumns="False"
-                                      GridLinesVisibility="All"
-                                      FontSize="11"
-                                      Margin="2"
-                                      IsVisible="{Binding DataEditor.IsLoaded}" />
-                            <TextBlock Grid.Row="2"
-                                       Text="{Binding DataEditor.StatusMessage}"
-                                       IsVisible="{Binding DataEditor.IsLoaded, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
-                                       Opacity="0.4"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Margin="20" />
-                        </Grid>
-                    </TabItem>
                 </TabControl>
 
             </DockPanel>

@@ -61,7 +61,7 @@ public partial class DependencyWindow : Window
         if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboConnection.SelectedItem = _vm.SelectedConnection;
     }
@@ -78,7 +78,7 @@ public partial class DependencyWindow : Window
         if (_vm is null) return;
         ComboDirection.ItemsSource = _vm.Directions;
         ComboDirection.ItemTemplate = new FuncDataTemplate<DependencyDirectionOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboDirection.SelectedItem = _vm.SelectedDirection;
     }

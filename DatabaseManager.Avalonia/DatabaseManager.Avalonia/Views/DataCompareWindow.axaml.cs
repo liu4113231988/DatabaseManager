@@ -59,11 +59,11 @@ public partial class DataCompareWindow : Window
         if (_vm is null) return;
         ComboSource.ItemsSource = _vm.Connections;
         ComboSource.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboTarget.ItemsSource = _vm.Connections;
         ComboTarget.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboSource.SelectedItem = _vm.SourceConnection;
         ComboTarget.SelectedItem = _vm.TargetConnection;
@@ -74,7 +74,7 @@ public partial class DataCompareWindow : Window
         if (_vm is null) return;
         ComboMode.ItemsSource = _vm.Modes;
         ComboMode.ItemTemplate = new FuncDataTemplate<DataCompareModeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboMode.SelectedItem = _vm.SelectedMode;
     }

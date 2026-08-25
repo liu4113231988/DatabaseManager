@@ -33,8 +33,10 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
 
-    <!-- 主题：AtomUI（Ant Design 风格，对齐原 AntdUI 视觉） -->
-    <PackageReference Include="AtomUI" Version="5.0.2" />
+    <!-- 主题：AtomUI.Desktop.Controls（Ant Design 风格，对齐原 AntdUI 视觉）
+         注：旧入口包 AtomUI 已弃用（5.1.x 起重构为 AtomUI.Desktop.Controls 系列）；
+         6.x 基于 Avalonia 12，当前 Avalonia 11.3.x 基座使用 5.1.4 -->
+    <PackageReference Include="AtomUI.Desktop.Controls" Version="5.1.4" />
 
     <!-- 停靠布局：Dock -->
     <PackageReference Include="Dock.Avalonia" Version="11.3.12.1" />

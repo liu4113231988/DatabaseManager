@@ -59,11 +59,11 @@ public partial class SchemaCompareWindow : Window
         if (_vm is null) return;
         ComboSource.ItemsSource = _vm.Connections;
         ComboSource.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboTarget.ItemsSource = _vm.Connections;
         ComboTarget.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboSource.SelectedItem = _vm.SourceConnection;
         ComboTarget.SelectedItem = _vm.TargetConnection;
@@ -74,7 +74,7 @@ public partial class SchemaCompareWindow : Window
         if (_vm is null) return;
         ComboObjectType.ItemsSource = _vm.ObjectTypes;
         ComboObjectType.ItemTemplate = new FuncDataTemplate<ObjectTypeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboObjectType.SelectedItem = _vm.SelectedObjectType;
     }

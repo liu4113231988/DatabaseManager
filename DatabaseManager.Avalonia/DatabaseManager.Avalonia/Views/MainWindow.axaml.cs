@@ -22,7 +22,6 @@ public partial class MainWindow : Window
 {
     private IServiceProvider? _services;
     private QueryTabViewModel? _currentQueryTab;
-    private DataEditorViewModel? _dataEditor;
 
     public MainWindow()
     {
@@ -37,17 +36,10 @@ public partial class MainWindow : Window
 
         if (DataContext is MainWindowViewModel vm)
         {
-            _dataEditor = vm.DataEditor;
             vm.Initialize();
 
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
-
-            // 设置丢弃数据编辑改动的确认回调（切换表/断开连接时）
-            vm.RequestDiscardDataChanges = RequestDiscardDataChangesAsync;
-
-            // 监听数据编辑列变化，动态重建可编辑 DataGrid 列。
-            _dataEditor.Columns.CollectionChanged += DataEditor_ColumnsChanged;
 
             // 监听当前查询标签的列变化，动态重建 DataGrid 列。
             RefreshQueryTabColumnListener();
@@ -69,6 +61,18 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedQueryTab))
         {
             RefreshQueryTabColumnListener();
+        }
+    }
+
+    /// <summary>当前查询标签的可编辑状态变化时，重建结果网格列（只读/可编辑切换）。</summary>
+    private void CurrentQueryTab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (_currentQueryTab is null) return;
+
+        if (e.PropertyName is nameof(QueryTabViewModel.IsResultEditable)
+            or nameof(QueryTabViewModel.HasResult))
+        {
+            QueryTabColumns_CollectionChanged(_currentQueryTab.Columns, null!);
         }
     }
 
@@ -143,35 +147,6 @@ public partial class MainWindow : Window
             current = current.Parent;
         }
         return null;
-    }
-
-    /// <summary>数据编辑列变化时，动态重建可编辑 DataGrid 列。</summary>
-    private void DataEditor_ColumnsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        => RefreshDataEditorColumns();
-
-    /// <summary>手动重建数据编辑器 DataGrid 列（切换到数据编辑 Tab 时调用）。</summary>
-    private void RefreshDataEditorColumns()
-    {
-        var grid = this.FindControl<DataGrid>("DataEditGrid");
-        if (grid is null || _dataEditor is null)
-            return;
-
-        grid.Columns.Clear();
-
-        foreach (var col in _dataEditor.Columns)
-        {
-            var isReadOnly = col.IsReadOnly || _dataEditor.IsView;
-            grid.Columns.Add(new DataGridTextColumn
-            {
-                Header = col.Name,
-                // 双向绑定以支持单元格编辑写入到 DataEditRow。
-                Binding = new Binding($"Item[{col.Name}]")
-                {
-                    Mode = BindingMode.TwoWay,
-                },
-                IsReadOnly = isReadOnly,
-            });
-        }
     }
 
     private async void MenuNewConnection_Click(object? sender, RoutedEventArgs e)
@@ -674,8 +649,52 @@ public partial class MainWindow : Window
     {
         if (DataContext is MainWindowViewModel vm && vm.SelectedQueryTab is not null)
         {
+            // 同步当前数据库上下文（内联编辑定位目标表需要）。
+            if (!string.IsNullOrEmpty(vm.CurrentDatabase))
+            {
+                vm.SelectedQueryTab.DatabaseName = vm.CurrentDatabase;
+            }
             await vm.SelectedQueryTab.ExecuteAsync();
         }
+    }
+
+    /// <summary>查询结果内联编辑：新增一行并滚动定位到该行。</summary>
+    private void QueryAddRow_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_currentQueryTab is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        // 执行前同步数据库上下文。
+        if (string.IsNullOrEmpty(_currentQueryTab.DatabaseName) && !string.IsNullOrEmpty(vm.CurrentDatabase))
+        {
+            _currentQueryTab.DatabaseName = vm.CurrentDatabase;
+        }
+
+        _currentQueryTab.AddRowForEdit(out var newRow);
+
+        if (newRow is not null && FindDataGridInVisualTree(this) is { } grid)
+        {
+            grid.ScrollIntoView(newRow, null);
+            grid.SelectedItem = newRow;
+        }
+    }
+
+    /// <summary>查询结果内联编辑：删除选中的行（保存时生效）。</summary>
+    private void QueryRemoveRow_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_currentQueryTab is null)
+            return;
+
+        if (FindDataGridInVisualTree(this)?.SelectedItem is QueryResultRow selected)
+        {
+            _currentQueryTab.RemoveRowForEdit(selected);
+        }
+    }
+
+    /// <summary>查询结果内联编辑：还原全部未保存改动。</summary>
+    private void QueryRevert_Click(object? sender, RoutedEventArgs e)
+    {
+        _currentQueryTab?.RevertEdits();
     }
 
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
@@ -760,7 +779,7 @@ public partial class MainWindow : Window
             ddlService: ddlService,
             openConnectionManager: () => _ = OpenConnectionManagerAsync(),
             openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
-            openDataEditorTab: OpenDataEditorTab,
+
             openExportWindow: (n) => _ = OpenExportWindowForTableAsync(n),
             openImportWindow: (n) => _ = OpenImportWindowForTableAsync(n),
             openSchemaCompare: (n) => _ = OpenSchemaCompareForNodeAsync(n),
@@ -878,17 +897,6 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
-    /// <summary>切换到「数据编辑」子选项卡并刷新列（首次加载时触发）。</summary>
-    private void OpenDataEditorTab()
-    {
-        if (DataContext is not MainWindowViewModel vm)
-            return;
-
-        vm.SwitchToDataEditor();
-        // 切换后立即刷新已存在的列（首次打开时 Columns 集合可能已加载但列未注册）
-        RefreshDataEditorColumns();
-    }
-
     /// <summary>刷新当前查询标签的 DataGrid 列监听（切换标签时动态重建列）。</summary>
     private void RefreshQueryTabColumnListener()
     {
@@ -899,6 +907,7 @@ public partial class MainWindow : Window
         if (_currentQueryTab is not null)
         {
             _currentQueryTab.Columns.CollectionChanged -= QueryTabColumns_CollectionChanged;
+            _currentQueryTab.PropertyChanged -= CurrentQueryTab_PropertyChanged;
         }
 
         // 指向当前选中的查询标签
@@ -907,6 +916,7 @@ public partial class MainWindow : Window
         if (_currentQueryTab is not null)
         {
             _currentQueryTab.Columns.CollectionChanged += QueryTabColumns_CollectionChanged;
+            _currentQueryTab.PropertyChanged += CurrentQueryTab_PropertyChanged;
             // 立即触发一次列重建
             QueryTabColumns_CollectionChanged(_currentQueryTab.Columns, null!);
         }
@@ -917,25 +927,51 @@ public partial class MainWindow : Window
     {
         if (_currentQueryTab is null) return;
 
-        // 由于 DataGrid 在 DataTemplate 内部，需要在 TabControl 的 Visual Tree 中查找
+        // 由于 DataGrid 在 DataTemplate 内部，需要在 TabControl 的 Visual Tree 中查找。
+        // TabControl 切换标签会重新实例化 DataTemplate 内容，因此对所有已物化的结果网格逐个重建。
         var tabControl = this.FindControl<TabControl>("QueryTabsControl");
         if (tabControl is null) return;
 
-        // 使用更全面的递归查找方法（支持所有控件类型）
-        DataGrid? grid = FindDataGridInVisualTree(tabControl);
-        
-        if (grid is null) return;
+        foreach (var descendant in tabControl.GetVisualDescendants())
+        {
+            if (descendant is DataGrid { Name: "QueryResultGrid" } grid)
+            {
+                RebuildResultGridColumns(grid, grid.DataContext as QueryTabViewModel ?? _currentQueryTab);
+            }
+        }
+    }
 
-        // 清空全部列后按当前列名重建。
+    /// <summary>结果网格挂载到视觉树时基于自身 DataContext 重建列（覆盖切换标签后 DataTemplate 重新实例化的场景）。</summary>
+    private void QueryResultGrid_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is DataGrid grid && grid.DataContext is QueryTabViewModel tabVm)
+        {
+            RebuildResultGridColumns(grid, tabVm);
+        }
+    }
+
+    /// <summary>按查询标签的列集合重建指定结果网格的数据列。</summary>
+    private static void RebuildResultGridColumns(DataGrid grid, QueryTabViewModel tabVm)
+    {
         grid.Columns.Clear();
 
-        for (int i = 0; i < _currentQueryTab.Columns.Count; i++)
+        for (int i = 0; i < tabVm.Columns.Count; i++)
         {
+            // 内联编辑模式：非只读列（映射到表的非自增/计算/二进制列）开放双向编辑；否则只读。
+            bool editableColumn = tabVm.IsColumnEditable(i);
+
             grid.Columns.Add(new DataGridTextColumn
             {
-                Header = _currentQueryTab.Columns[i],
-                Binding = new Binding($"[{i}]"),
-                IsReadOnly = true,
+                Header = tabVm.Columns[i],
+                // 使用 Values[i] 绑定，避免直接索引器路径解析在不同 Avalonia 版本/主题下的兼容性问题
+                Binding = new Binding($"Values[{i}]")
+                {
+                    Mode = editableColumn ? BindingMode.TwoWay : BindingMode.OneWay,
+                },
+                IsReadOnly = !editableColumn,
+                CanUserResize = true,
+                Width = DataGridLength.Auto,
+                MinWidth = 40,
             });
         }
     }
@@ -1113,34 +1149,8 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>处理「删除」按钮：删除数据网格中当前选中的行。</summary>
-    private void DataEditorRemove_Click(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is not MainWindowViewModel vm || _dataEditor is null)
-            return;
-
-        var selected = this.FindControl<DataGrid>("DataEditGrid")?.SelectedItem as DataEditRow;
-        if (selected is null)
-        {
-            _dataEditor.StatusMessage = "请先在网格中选中要删除的行。";
-            return;
-        }
-
-        _dataEditor.RemoveRowCommand.Execute(selected);
-    }
-
-    /// <summary>请求确认丢弃数据编辑器未保存改动的回调：弹出确认对话框。</summary>
-    private async Task<bool> RequestDiscardDataChangesAsync()
-    {
-        var box = MessageBoxManager.GetMessageBoxStandard(
-            title: "未保存的更改",
-            text: "数据编辑器中存在未保存的更改，切换后将丢弃这些更改。是否继续？",
-            ButtonEnum.YesNo,
-            MsBox.Avalonia.Enums.Icon.Warning);
-
-        var result = await box.ShowWindowDialogAsync(this);
-        return result == ButtonResult.Yes;
-    }
+    /// <summary>请求确认丢弃未保存改动的回调（保留接口，当前无数据编辑 Tab，直接允许）。</summary>
+    private Task<bool> RequestDiscardDataChangesAsync() => Task.FromResult(true);
 
     /// <summary>请求关闭标签页的回调：有未保存修改时弹出三选一（保存/不保存/取消）对话框。</summary>
     private async Task<bool> RequestCloseTabAsync(QueryTabViewModel tab)

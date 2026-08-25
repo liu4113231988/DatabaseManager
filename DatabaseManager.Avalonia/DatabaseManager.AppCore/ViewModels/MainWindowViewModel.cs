@@ -19,6 +19,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDbSchemaService _schemaService;
     private readonly IDbConnectionService _connectionService;
     private readonly IQueryService _queryService;
+    private readonly IDataEditService _dataEditService;
 
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -45,7 +46,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public QueryEditorViewModel QueryEditor { get; }
 
     /// <summary>数据编辑器子 ViewModel。</summary>
-    public DataEditorViewModel DataEditor { get; }
 
     [ObservableProperty]
     private bool _isConnected;
@@ -79,16 +79,16 @@ public partial class MainWindowViewModel : ViewModelBase
         IDbSchemaService schemaService,
         IDbConnectionService connectionService,
         IQueryService queryService,
+        IDataEditService dataEditService,
         ObjectsExplorerViewModel objectsExplorer,
-        QueryEditorViewModel queryEditor,
-        DataEditorViewModel dataEditor)
+        QueryEditorViewModel queryEditor)
     {
         _schemaService = schemaService;
         _connectionService = connectionService;
         _queryService = queryService;
+        _dataEditService = dataEditService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
-        DataEditor = dataEditor;
     }
 
     /// <summary>初始化：枚举受支持的数据库类型，并加载已保存连接。</summary>
@@ -105,9 +105,12 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>刷新左侧对象浏览器的连接列表。</summary>
     public void RefreshConnections()
     {
+        if (_connectionService is null || ObjectsExplorer is null)
+            return;
+
         Connections.Clear();
 
-        var items = _connectionService.GetConnections();
+        var items = _connectionService.GetConnections() ?? new List<ConnectionItem>();
         foreach (var item in items)
         {
             Connections.Add(item);
@@ -123,14 +126,15 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public void NewQuery()
     {
-        var newTab = new QueryTabViewModel(_queryService);
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService);
         
         // 如果有当前连接，自动设置到新标签
         if (SelectedConnection is not null)
         {
             newTab.ConnectionName = SelectedConnection.Name;
         }
-        
+        newTab.DatabaseName = CurrentDatabase;
+
         QueryTabs.Add(newTab);
         SelectedQueryTab = newTab;
     }
@@ -208,7 +212,6 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ObjectsExplorer.Disconnect(connectionNode);
-        DataEditor.Clear();
         IsConnected = false;
         CurrentDatabase = string.Empty;
         CurrentSchema = string.Empty;
@@ -285,7 +288,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>新建查询标签页并填入 SQL（用于新建对象模板 / 查看对象定义）。</summary>
     public void NewObjectDefinitionQuery(string sql, string? connectionName, string? databaseName)
     {
-        var newTab = new QueryTabViewModel(_queryService);
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService);
 
         if (!string.IsNullOrEmpty(connectionName))
         {
@@ -295,6 +298,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             newTab.ConnectionName = SelectedConnection.Name;
         }
+        newTab.DatabaseName = string.IsNullOrEmpty(databaseName) ? CurrentDatabase : databaseName;
 
         QueryTabs.Add(newTab);
         SelectedQueryTab = newTab;
@@ -303,57 +307,6 @@ public partial class MainWindowViewModel : ViewModelBase
         ContentMode = 0; // 切换到查询子选项卡
     }
 
-    /// <summary>在数据编辑器中打开指定表/视图进行查看/编辑。</summary>
-    public async Task<bool> OpenDataEditor(DbObjectTreeNode node)
-    {
-        if (node?.DbObject is not Table and not View)
-            return false;
-
-        var connectionName = FindNodeConnectionName(node);
-        if (string.IsNullOrEmpty(connectionName))
-        {
-            QueryEditor.StatusMessage = "请先连接对应连接。";
-            return false;
-        }
-
-        // 切换表前：若当前有未保存改动，请求确认是否丢弃。
-        if (DataEditor.IsLoaded && DataEditor.HasUnsavedChanges)
-        {
-            if (RequestDiscardDataChanges is not null)
-            {
-                var discard = await RequestDiscardDataChanges();
-                if (!discard)
-                    return false;
-            }
-        }
-
-        var table = node.DbObject as Table ?? (DatabaseObject)(node.DbObject as View)!;
-        bool isView = node.DbObject is View;
-        bool ok = await DataEditor.LoadAsync(
-            connectionName,
-            node.DatabaseName ?? CurrentDatabase,
-            table.Name,
-            node.Schema,
-            isView);
-
-        if (ok)
-        {
-            ContentMode = 1;
-            QueryEditor.StatusMessage = $"已打开数据编辑：{table.Name}。";
-        }
-
-        return ok;
-    }
-
-    /// <summary>切换到数据编辑子选项卡（若尚未加载数据则给出提示）。</summary>
-    public void SwitchToDataEditor()
-    {
-        if (!DataEditor.IsLoaded)
-        {
-            DataEditor.StatusMessage = "请先在对象浏览器中选择表或视图，右键「编辑数据」。";
-        }
-        ContentMode = 1;
-    }
 
     /// <summary>刷新指定节点（重新懒加载其子节点）。</summary>
     public async Task RefreshNodeAsync(DbObjectTreeNode node)

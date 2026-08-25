@@ -242,6 +242,203 @@ public class DefaultDdlService : IDdlService
             && string.Equals(a.Schema ?? string.Empty, b.Schema ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
+    public async Task<DdlScriptResult> GenerateObjectScriptAsync(
+        string connectionName,
+        string databaseName,
+        DatabaseObject dbObject,
+        ObjectScriptType scriptType,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var connection = FindConnection(connectionName);
+            if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
+
+            if (dbObject is not (Table or View))
+                return Error<DdlScriptResult>("仅支持为表或视图生成脚本。");
+
+            bool isTable = dbObject is Table;
+            if (!isTable && scriptType is not (ObjectScriptType.Select or ObjectScriptType.SelectTopN))
+                return Error<DdlScriptResult>("视图仅支持生成 SELECT / SELECT TOP N 脚本，DML 请针对基表操作。");
+
+            var interpreter = CreateInterpreter(connection, databaseName);
+            var dbType = ParseDatabaseType(connection.DatabaseType);
+            string quotedName = interpreter.GetQuotedDbObjectNameWithSchema(dbObject);
+
+            switch (scriptType)
+            {
+                case ObjectScriptType.Select:
+                    return Ok($"SELECT * FROM {quotedName};");
+
+                case ObjectScriptType.SelectTopN:
+                    return Ok(BuildSelectTopNScript(dbType, quotedName, topN: 100));
+
+                case ObjectScriptType.Insert:
+                case ObjectScriptType.Update:
+                case ObjectScriptType.Delete:
+                case ObjectScriptType.CreateTable:
+                    break;
+
+                default:
+                    return Error<DdlScriptResult>($"暂不支持生成 {scriptType} 类型脚本。");
+            }
+
+            // 以下脚本需要真实列结构（仅表）。
+            var table = (Table)dbObject;
+            var filter = new SchemaInfoFilter
+            {
+                Schema = table.Schema,
+                TableNames = new[] { table.Name },
+            };
+
+            List<TableColumn> columns = await interpreter.GetTableColumnsAsync(filter);
+            if (columns.Count == 0)
+                return Error<DdlScriptResult>($"未能读取表「{table.Name}」的列结构，请确认表存在且连接有效。");
+
+            switch (scriptType)
+            {
+                case ObjectScriptType.Insert:
+                    return Ok(BuildInsertScript(quotedName, columns));
+                case ObjectScriptType.Update:
+                {
+                    List<TablePrimaryKey> pks = await interpreter.GetTablePrimaryKeysAsync(filter);
+                    return Ok(BuildUpdateScript(quotedName, columns, pks));
+                }
+                case ObjectScriptType.Delete:
+                {
+                    List<TablePrimaryKey> pks = await interpreter.GetTablePrimaryKeysAsync(filter);
+                    return Ok(BuildDeleteScript(quotedName, pks.FirstOrDefault(p => p.TableName == table.Name)));
+                }
+                case ObjectScriptType.CreateTable:
+                    return await BuildCreateTableScriptAsync(interpreter, connection, databaseName, table, columns);
+
+                default:
+                    return Error<DdlScriptResult>($"暂不支持生成 {scriptType} 类型脚本。");
+            }
+        }
+        catch (Exception ex)
+        {
+            return Error<DdlScriptResult>(ex.Message);
+        }
+    }
+
+    /// <summary>按方言生成 SELECT TOP N 查询。</summary>
+    private static string BuildSelectTopNScript(DatabaseType dbType, string quotedName, int topN)
+    {
+        return dbType switch
+        {
+            DatabaseType.SqlServer => $"SELECT TOP ({topN}) * FROM {quotedName};",
+            DatabaseType.Oracle => $"SELECT * FROM {quotedName} FETCH FIRST {topN} ROWS ONLY;",
+            _ => $"SELECT * FROM {quotedName} LIMIT {topN};",
+        };
+    }
+
+    /// <summary>基于真实列结构生成 INSERT 模板（排除自增列与计算列）。</summary>
+    private static string BuildInsertScript(string quotedName, IEnumerable<TableColumn> columns)
+    {
+        var insertableColumns = columns
+            .Where(c => !c.IsIdentity && !c.IsComputed)
+            .ToList();
+
+        if (insertableColumns.Count == 0)
+            insertableColumns = columns.ToList();
+
+        string columnList = string.Join($",{Environment.NewLine}    ", insertableColumns.Select(c => c.Name));
+        string valueList = string.Join($",{Environment.NewLine}    ", insertableColumns.Select(c => $"/* {c.Name} */ ?"));
+
+        return $"INSERT INTO {quotedName}{Environment.NewLine}({Environment.NewLine}    {columnList}{Environment.NewLine}){Environment.NewLine}VALUES{Environment.NewLine}({Environment.NewLine}    {valueList}{Environment.NewLine});";
+    }
+
+    /// <summary>基于真实列结构与主键生成 UPDATE 模板。</summary>
+    private static string BuildUpdateScript(string quotedName, IEnumerable<TableColumn> columns, IEnumerable<TablePrimaryKey> primaryKeys)
+    {
+        var pkColumnNames = primaryKeys
+            .SelectMany(pk => pk.Columns.OrderBy(c => c.Order).Select(c => c.ColumnName))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var setColumns = columns.Where(c => !pkColumnNames.Contains(c.Name) && !c.IsComputed).ToList();
+        if (setColumns.Count == 0)
+            setColumns = columns.ToList();
+
+        string setClause = string.Join($",{Environment.NewLine}    ", setColumns.Select(c => $"{c.Name} = /* {c.Name} */ ?"));
+
+        string whereClause = pkColumnNames.Count > 0
+            ? string.Join($"{Environment.NewLine}  AND ", pkColumnNames.Select(c => $"{c} = /* 原值 */ ?"))
+            : "1 = 0 -- 未识别到主键，请手动指定 WHERE 条件";
+
+        return $"UPDATE {quotedName}{Environment.NewLine}SET {setClause}{Environment.NewLine}WHERE {whereClause};";
+    }
+
+    /// <summary>基于主键生成 DELETE 模板。</summary>
+    private static string BuildDeleteScript(string quotedName, TablePrimaryKey? primaryKey)
+    {
+        if (primaryKey is null || primaryKey.Columns.Count == 0)
+        {
+            return $"DELETE FROM {quotedName}{Environment.NewLine}WHERE 1 = 0 -- 未识别到主键，请手动指定 WHERE 条件;";
+        }
+
+        string whereClause = string.Join(
+            $"{Environment.NewLine}  AND ",
+            primaryKey.Columns.OrderBy(c => c.Order).Select(c => $"{c.ColumnName} = /* 原值 */ ?"));
+
+        return $"DELETE FROM {quotedName}{Environment.NewLine}WHERE {whereClause};";
+    }
+
+    /// <summary>使用方言脚本生成器产出完整 CREATE TABLE 脚本。</summary>
+    private async Task<DdlScriptResult> BuildCreateTableScriptAsync(
+        DbInterpreter interpreter,
+        ConnectionItem connection,
+        string databaseName,
+        Table table,
+        List<TableColumn> columns)
+    {
+        var filter = new SchemaInfoFilter
+        {
+            Schema = table.Schema,
+            TableNames = new[] { table.Name },
+        };
+
+        List<TablePrimaryKey> primaryKeys = await interpreter.GetTablePrimaryKeysAsync(filter);
+        var scriptGenerator = DbScriptGeneratorHelper.GetDbScriptGenerator(interpreter);
+        var builder = scriptGenerator.CreateTable(
+            table,
+            columns,
+            primaryKeys.FirstOrDefault(p => p.TableName == table.Name),
+            Array.Empty<TableForeignKey>(),
+            Array.Empty<TableIndex>(),
+            Array.Empty<TableConstraint>());
+
+        string script = builder.ToString();
+        if (string.IsNullOrWhiteSpace(script))
+            return Error<DdlScriptResult>($"当前数据库类型暂不支持生成表「{table.Name}」的建表脚本。");
+
+        return Ok(script);
+    }
+
+    public DdlScriptResult GetAddColumnTemplate(string databaseType, Table table)
+    {
+        var dbType = ParseDatabaseType(databaseType);
+        string tableName = GetPlainTableName(table);
+
+        // 方言差异：SQL Server 无 COLUMN 关键字；Oracle 需括号包裹列定义。
+        string body = dbType switch
+        {
+            DatabaseType.SqlServer => $"ALTER TABLE {tableName}{Environment.NewLine}ADD [ColumnName] [INT] NULL;",
+            DatabaseType.Oracle => $"ALTER TABLE {tableName}{Environment.NewLine}ADD ([ColumnName] [INT] NULL);",
+            _ => $"ALTER TABLE {tableName}{Environment.NewLine}ADD COLUMN [ColumnName] [INT] NULL;",
+        };
+
+        string comment = "-- 注意：请将 [ColumnName] / [INT] / NULL 替换为实际列名、类型与可空性后执行。"
+            + Environment.NewLine;
+        return new DdlScriptResult { IsSuccess = true, Script = comment + body };
+    }
+
+    private static string GetPlainTableName(Table table)
+        => string.IsNullOrEmpty(table.Schema) ? table.Name : $"{table.Schema}.{table.Name}";
+
+    private static DdlScriptResult Ok(string script) => new() { IsSuccess = true, Script = script };
+
     private static T Error<T>(string msg) where T : DdlScriptResult, new()
         => new() { IsSuccess = false, ErrorMessage = msg };
     private static DdlExecuteResult ErrorExecute(string msg)

@@ -54,13 +54,14 @@ public partial class ConvertWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboSource.ItemsSource = _vm.Connections;
         ComboSource.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboTarget.ItemsSource = _vm.Connections;
         ComboTarget.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         // 同步 VM 当前选中的连接。
         ComboSource.SelectedItem = _vm.SourceConnection;
@@ -71,7 +72,7 @@ public partial class ConvertWindow : Window
     {
         ComboMode.ItemsSource = _vm.Modes;
         ComboMode.ItemTemplate = new FuncDataTemplate<ConvertModeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboMode.SelectedItem = _vm.SelectedMode;
     }

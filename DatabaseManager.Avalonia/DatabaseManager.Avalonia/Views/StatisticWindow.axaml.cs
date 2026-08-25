@@ -58,7 +58,7 @@ public partial class StatisticWindow : Window
         if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboConnection.SelectedItem = _vm.SelectedConnection;
     }
@@ -68,7 +68,7 @@ public partial class StatisticWindow : Window
         if (_vm is null) return;
         ComboStatisticType.ItemsSource = _vm.StatisticTypes;
         ComboStatisticType.ItemTemplate = new FuncDataTemplate<StatisticTypeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboStatisticType.SelectedItem = _vm.SelectedStatisticType;
     }

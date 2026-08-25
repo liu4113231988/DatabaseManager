@@ -32,4 +32,20 @@ public interface IDdlService
     /// 读取已有对象（视图/函数/存储过程/触发器）的完整 CREATE 定义脚本。
     /// </summary>
     Task<DdlScriptResult> GetObjectDefinitionAsync(string connectionName, string databaseName, DatabaseObject dbObject, CancellationToken ct = default);
+
+    /// <summary>
+    /// 基于真实元数据（列结构/主键/方言）生成表（或视图的 SELECT）脚本。
+    /// 用于对象树右键 Generate SQL 子菜单，替换硬编码占位模板。
+    /// </summary>
+    Task<DdlScriptResult> GenerateObjectScriptAsync(
+        string connectionName,
+        string databaseName,
+        DatabaseObject dbObject,
+        ObjectScriptType scriptType,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// 生成「新建列」的 ALTER TABLE ADD 方言模板（不访问数据库，仅按数据库类型选择语法）。
+    /// </summary>
+    DdlScriptResult GetAddColumnTemplate(string databaseType, Table table);
 }

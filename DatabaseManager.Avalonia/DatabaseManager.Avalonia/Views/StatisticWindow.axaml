@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.StatisticWindow"
         x:DataType="vm:StatisticViewModel"
@@ -35,7 +35,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：结果 + 日志 -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
             <TabItem Header="表记录数">
                 <Border BorderBrush="#22000000" BorderThickness="1">
                     <DataGrid ItemsSource="{Binding RecordCounts}" AutoGenerateColumns="False"
@@ -79,7 +79,7 @@
                     </ListBox>
                 </Border>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

@@ -47,57 +47,17 @@ public class DefaultDataEditService : IDataEditService
         try
         {
             // 1. 读取列/主键/标识列元数据。
-            var filter = new SchemaInfoFilter
+            var metadata = await LoadTableMetadataAsync(interpreter, tableName, schema, isView);
+            if (metadata.ErrorMessage is not null)
             {
-                Schema = schema,
-                TableNames = new[] { tableName },
-                DatabaseObjectType = DatabaseObjectType.Column | DatabaseObjectType.PrimaryKey,
-            };
-
-            if (isView)
-            {
-                filter.ColumnType = ColumnType.ViewColumn;
-                filter.IsForView = true;
+                return new DataLoadResult { ErrorMessage = metadata.ErrorMessage };
             }
 
-            var schemaInfo = await interpreter.GetSchemaInfoAsync(filter);
-
-            var tableColumns = schemaInfo.TableColumns
-                .OrderBy(c => c.Order)
-                .ToList();
-
-            if (tableColumns.Count == 0)
-            {
-                return new DataLoadResult { ErrorMessage = $"未找到表 '{tableName}' 的列定义。" };
-            }
-
-            var pkColumns = schemaInfo.TablePrimaryKeys
-                .FirstOrDefault()?
-                .Columns?
-                .Select(c => c.ColumnName)
-                .ToList() ?? new List<string>();
-
-            // 无主键：无法安全定位行，编辑功能应降级为只读。
+            var tableColumns = metadata.TableColumns;
+            var pkColumns = metadata.PrimaryKeyColumns;
             var hasPrimaryKey = pkColumns.Count > 0;
 
-            var identityColumns = tableColumns
-                .Where(c => c.IsIdentity)
-                .Select(c => c.Name)
-                .ToList();
-
-            var columnInfos = tableColumns
-                .Select(c => new DataColumnInfo
-                {
-                    Name = c.Name,
-                    DataType = c.DataType ?? string.Empty,
-                    IsPrimaryKey = pkColumns.Contains(c.Name, StringComparer.OrdinalIgnoreCase),
-                    IsIdentity = c.IsIdentity,
-                    IsComputed = c.IsComputed,
-                    IsNullable = c.IsNullable,
-                    Order = c.Order,
-                })
-                .ToList();
-
+            var columnInfos = metadata.ColumnInfos;
             var tableInfo = new DataTableInfo
             {
                 DatabaseName = databaseName,
@@ -106,7 +66,7 @@ public class DefaultDataEditService : IDataEditService
                 IsView = isView,
                 Columns = columnInfos,
                 PrimaryKeyColumns = pkColumns,
-                IdentityColumns = identityColumns,
+                IdentityColumns = metadata.IdentityColumns,
             };
 
             // 2. 读取分页数据。
@@ -164,6 +124,117 @@ public class DefaultDataEditService : IDataEditService
         {
             return new DataLoadResult { ErrorMessage = ex.Message };
         }
+    }
+
+    public async Task<TableMetadataResult> GetTableMetadataAsync(
+        string connectionName,
+        string databaseName,
+        string tableName,
+        string? schema,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+        {
+            return new TableMetadataResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
+        }
+
+        try
+        {
+            var interpreter = CreateInterpreter(connection, databaseName);
+            var metadata = await LoadTableMetadataAsync(interpreter, tableName, schema, isView: false);
+
+            if (metadata.ErrorMessage is not null)
+            {
+                return new TableMetadataResult { ErrorMessage = metadata.ErrorMessage };
+            }
+
+            return new TableMetadataResult
+            {
+                TableInfo = new DataTableInfo
+                {
+                    DatabaseName = databaseName,
+                    Schema = schema,
+                    Name = tableName,
+                    IsView = false,
+                    Columns = metadata.ColumnInfos,
+                    PrimaryKeyColumns = metadata.PrimaryKeyColumns,
+                    IdentityColumns = metadata.IdentityColumns,
+                },
+                HasPrimaryKey = metadata.PrimaryKeyColumns.Count > 0,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new TableMetadataResult { ErrorMessage = ex.Message };
+        }
+    }
+
+    /// <summary>表元数据加载中间结果（服务内部复用）。</summary>
+    private sealed class TableMetadata
+    {
+        public List<TableColumn> TableColumns { get; init; } = new();
+        public List<string> PrimaryKeyColumns { get; init; } = new();
+        public List<string> IdentityColumns { get; init; } = new();
+        public List<DataColumnInfo> ColumnInfos { get; init; } = new();
+        public string? ErrorMessage { get; init; }
+    }
+
+    /// <summary>读取表/视图的列、主键、标识列元数据（LoadDataAsync 与 GetTableMetadataAsync 共用）。</summary>
+    private async Task<TableMetadata> LoadTableMetadataAsync(
+        DbInterpreter interpreter,
+        string tableName,
+        string? schema,
+        bool isView)
+    {
+        var filter = new SchemaInfoFilter
+        {
+            Schema = schema,
+            TableNames = new[] { tableName },
+            DatabaseObjectType = DatabaseObjectType.Column | DatabaseObjectType.PrimaryKey,
+        };
+
+        if (isView)
+        {
+            filter.ColumnType = ColumnType.ViewColumn;
+            filter.IsForView = true;
+        }
+
+        var schemaInfo = await interpreter.GetSchemaInfoAsync(filter);
+
+        var tableColumns = schemaInfo.TableColumns
+            .OrderBy(c => c.Order)
+            .ToList();
+
+        if (tableColumns.Count == 0)
+        {
+            return new TableMetadata { ErrorMessage = $"未找到表 '{tableName}' 的列定义。" };
+        }
+
+        var pkColumns = schemaInfo.TablePrimaryKeys
+            .FirstOrDefault()?
+            .Columns?
+            .Select(c => c.ColumnName)
+            .ToList() ?? new List<string>();
+
+        return new TableMetadata
+        {
+            TableColumns = tableColumns,
+            PrimaryKeyColumns = pkColumns,
+            IdentityColumns = tableColumns.Where(c => c.IsIdentity).Select(c => c.Name).ToList(),
+            ColumnInfos = tableColumns
+                .Select(c => new DataColumnInfo
+                {
+                    Name = c.Name,
+                    DataType = c.DataType ?? string.Empty,
+                    IsPrimaryKey = pkColumns.Contains(c.Name, StringComparer.OrdinalIgnoreCase),
+                    IsIdentity = c.IsIdentity,
+                    IsComputed = c.IsComputed,
+                    IsNullable = c.IsNullable,
+                    Order = c.Order,
+                })
+                .ToList(),
+        };
     }
 
     public async Task<DataSaveResult> SaveChangesAsync(

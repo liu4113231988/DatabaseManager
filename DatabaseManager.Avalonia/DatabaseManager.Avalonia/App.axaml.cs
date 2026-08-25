@@ -2,7 +2,8 @@ using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using AtomUI.Controls;
+using AtomUI;
+using AtomUI.Desktop.Controls;
 using AtomUI.Theme;
 using DatabaseManager.AppCore;
 using DatabaseManager.AppCore.ViewModels;
@@ -30,9 +31,10 @@ public partial class App : Application
         ProfileBaseManager.Init();
 
         // 初始化 AtomUI（Ant Design 风格主题，对齐原 AntdUI 视觉）
+        // 注：旧包 AtomUI 已弃用，UseOSSControls 已更名 UseDesktopControls
         this.UseAtomUI(builder =>
         {
-            builder.UseOSSControls();
+            builder.UseDesktopControls();
         });
 
         // 构建 DI 容器并注册 AppCore 服务

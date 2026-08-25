@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.DependencyWindow"
@@ -49,7 +49,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：依赖树 + 日志 -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
             <TabItem Header="依赖关系">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="依赖对象（对象类型 / 完整对象名）" FontWeight="Bold" Margin="2,0,0,4" />
@@ -84,7 +84,7 @@
                     </ListBox>
                 </Border>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

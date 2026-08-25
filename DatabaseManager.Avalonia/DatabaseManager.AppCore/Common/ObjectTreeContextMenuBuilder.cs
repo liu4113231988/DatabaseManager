@@ -26,7 +26,6 @@ public class ObjectTreeContextMenuBuilder
     private readonly Action<Func<Task>> _asyncAction;
     private readonly Action? _openConnectionManager;
     private readonly Action<DbObjectTreeNode, bool>? _openTableDesigner;
-    private readonly Action? _openDataEditorTab;
     private readonly Action<DbObjectTreeNode>? _openExportWindow;
     private readonly Action<DbObjectTreeNode>? _openImportWindow;
     private readonly Action<DbObjectTreeNode>? _openSchemaCompare;
@@ -45,7 +44,6 @@ public class ObjectTreeContextMenuBuilder
         IDdlService? ddlService = null,
         Action? openConnectionManager = null,
         Action<DbObjectTreeNode, bool>? openTableDesigner = null,
-        Action? openDataEditorTab = null,
         Action<DbObjectTreeNode>? openExportWindow = null,
         Action<DbObjectTreeNode>? openImportWindow = null,
         Action<DbObjectTreeNode>? openSchemaCompare = null,
@@ -59,7 +57,6 @@ public class ObjectTreeContextMenuBuilder
         _ddlService = ddlService;
         _openConnectionManager = openConnectionManager;
         _openTableDesigner = openTableDesigner;
-        _openDataEditorTab = openDataEditorTab;
         _openExportWindow = openExportWindow;
         _openImportWindow = openImportWindow;
         _openSchemaCompare = openSchemaCompare;
@@ -178,7 +175,10 @@ public class ObjectTreeContextMenuBuilder
     private void BuildDatabaseMenu(ContextMenu menu, DbObjectTreeNode node)
     {
         // ==== Open/View 组 ====
-        var setCurrent = CreateMenuItem("设为当前数据库", "将此数据库设为默认查询目标");
+        // Oracle 的"数据库"节点实为当前用户/Schema，文案按方言调整以免误解。
+        bool isOracle = string.Equals(GetConnectionDatabaseType(node), "Oracle", StringComparison.OrdinalIgnoreCase);
+        var setCurrent = CreateMenuItem(isOracle ? "设为当前 Schema" : "设为当前数据库",
+            isOracle ? "将此用户/Schema 设为默认查询目标" : "将此数据库设为默认查询目标");
         setCurrent.Click += (_, _) => SetCurrentDatabase(node);
         menu.Items.Add(setCurrent);
 
@@ -236,6 +236,19 @@ public class ObjectTreeContextMenuBuilder
     #endregion
 
     #region 辅助方法：设为当前数据库/Schema
+
+    /// <summary>向上查找连接节点并返回其数据库类型（用于方言相关文案/行为）。</summary>
+    private static string? GetConnectionDatabaseType(DbObjectTreeNode node)
+    {
+        var current = node;
+        while (current is not null)
+        {
+            if (current.NodeType == DbObjectTreeNodeType.Connection)
+                return current.Connection?.DatabaseType;
+            current = current.Parent;
+        }
+        return null;
+    }
 
     private void SetCurrentDatabase(DbObjectTreeNode node)
     {
@@ -357,12 +370,8 @@ public class ObjectTreeContextMenuBuilder
         select.Click += (_, _) => _viewModel.GenerateSelectScript(node);
         menu.Items.Add(select);
 
-        var editData = CreateMenuItem("编辑数据", "在数据编辑器中编辑表数据");
-        editData.Click += (_, _) => _asyncAction(async () =>
-        {
-            await _viewModel.OpenDataEditor(node);
-            _openDataEditorTab?.Invoke();
-        });
+        var editData = CreateMenuItem("编辑数据", "在查询结果中编辑（生成 SELECT 后可直接增删改）");
+        editData.Click += (_, _) => _viewModel.GenerateSelectScript(node);
         menu.Items.Add(editData);
 
         if (isTable)
@@ -407,25 +416,25 @@ public class ObjectTreeContextMenuBuilder
         genSelectAll.Click += (_, _) => _viewModel.GenerateSelectScript(node);
         generateSql.Items.Add(genSelectAll);
 
-        var genSelectTopN = CreateMenuItem("SELECT TOP N", "生成 SELECT TOP N 查询");
-        genSelectTopN.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.SelectTopN);
+        var genSelectTopN = CreateMenuItem("SELECT TOP N", "按方言生成 SELECT TOP N 查询");
+        genSelectTopN.Click += (_, _) => _asyncAction(async () => await GenerateSqlTemplateAsync(node, SqlTemplateType.SelectTopN));
         generateSql.Items.Add(genSelectTopN);
 
-        var genInsert = CreateMenuItem("INSERT 模板", "生成 INSERT 语句模板");
-        genInsert.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Insert);
+        var genInsert = CreateMenuItem("INSERT 模板", "基于真实列结构生成 INSERT 语句模板");
+        genInsert.Click += (_, _) => _asyncAction(async () => await GenerateSqlTemplateAsync(node, SqlTemplateType.Insert));
         generateSql.Items.Add(genInsert);
 
-        var genUpdate = CreateMenuItem("UPDATE 模板", "生成 UPDATE 语句模板");
-        genUpdate.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Update);
+        var genUpdate = CreateMenuItem("UPDATE 模板", "基于真实列结构与主键生成 UPDATE 语句模板");
+        genUpdate.Click += (_, _) => _asyncAction(async () => await GenerateSqlTemplateAsync(node, SqlTemplateType.Update));
         generateSql.Items.Add(genUpdate);
 
-        var genDelete = CreateMenuItem("DELETE 模板", "生成 DELETE 语句模板");
-        genDelete.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Delete);
+        var genDelete = CreateMenuItem("DELETE 模板", "基于主键生成 DELETE 语句模板");
+        genDelete.Click += (_, _) => _asyncAction(async () => await GenerateSqlTemplateAsync(node, SqlTemplateType.Delete));
         generateSql.Items.Add(genDelete);
 
         var genCreate = CreateMenuItem(isTable ? "CREATE TABLE" : "CREATE VIEW", 
-            isTable ? "生成建表脚本" : "生成建视图脚本");
-        genCreate.Click += (_, _) => GenerateSqlTemplate(node, SqlTemplateType.Create);
+            isTable ? "生成建表脚本（方言生成器）" : "生成建视图脚本");
+        genCreate.Click += (_, _) => _asyncAction(async () => await GenerateSqlTemplateAsync(node, SqlTemplateType.Create));
         generateSql.Items.Add(genCreate);
 
         menu.Items.Add(generateSql);
@@ -529,6 +538,13 @@ public class ObjectTreeContextMenuBuilder
 
     private void BuildChildObjectMenu(ContextMenu menu, DbObjectTreeNode node)
     {
+        // 子文件夹节点（Columns / Indexes / Keys / Constraints / Triggers）单独处理。
+        if (node.NodeType == DbObjectTreeNodeType.ChildFolder)
+        {
+            BuildChildFolderMenu(menu, node);
+            return;
+        }
+
         var childType = GetChildObjectType(node);
 
         switch (childType)
@@ -553,6 +569,65 @@ public class ObjectTreeContextMenuBuilder
                 BuildGenericChildObjectMenu(menu, node);
                 break;
         }
+    }
+
+    /// <summary>子文件夹节点（Columns / Indexes / Keys / Constraints / Triggers）右键菜单。</summary>
+    private void BuildChildFolderMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        // Columns 文件夹：提供「新建列」入口（生成 ALTER TABLE ADD 方言模板）。
+        if (node.DatabaseObjectType == DatabaseObjectType.Column)
+        {
+            var addColumn = CreateMenuItem("新建列...", "生成 ALTER TABLE ADD COLUMN 模板");
+            addColumn.Click += (_, _) => GenerateAddColumnTemplate(node);
+            menu.Items.Add(addColumn);
+
+            menu.Items.Add(new Separator());
+        }
+
+        AddCopyMenuItems(menu, node);
+
+        menu.Items.Add(new Separator());
+
+        AddRefreshMenuItem(menu, node);
+    }
+
+    /// <summary>基于所属表生成「新建列」的 ALTER TABLE ADD 模板。</summary>
+    private void GenerateAddColumnTemplate(DbObjectTreeNode node)
+    {
+        var ddl = GetDdlService();
+        if (ddl is null)
+        {
+            _viewModel.QueryEditor.StatusMessage = "DDL 服务未初始化。";
+            return;
+        }
+
+        // 向上定位所属表（Columns 文件夹 → 表）。
+        var tableNode = node.Parent;
+        if (tableNode?.DbObject is not Table table)
+        {
+            _viewModel.QueryEditor.StatusMessage = "无法定位所属表。";
+            return;
+        }
+
+        var connectionNode = _viewModel.FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionNode))
+        {
+            _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+            return;
+        }
+
+        // 从连接配置读取数据库类型（GetAddColumnTemplate 不访问数据库）。
+        var connectionItem = _connectionService.GetConnections()
+            .FirstOrDefault(c => string.Equals(c.Name, connectionNode, StringComparison.OrdinalIgnoreCase));
+
+        var result = ddl.GetAddColumnTemplate(connectionItem?.DatabaseType ?? string.Empty, table);
+        if (!result.IsSuccess)
+        {
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            return;
+        }
+
+        SetQueryText(result.Script!, $"已为表 {table.Name} 生成新建列模板，请编辑后执行。");
     }
 
     /// <summary>列节点右键菜单（P2增强版）。</summary>
@@ -863,27 +938,50 @@ public class ObjectTreeContextMenuBuilder
 
     private enum SqlTemplateType { Select, SelectTopN, Insert, Update, Delete, Create }
 
-    private void GenerateSqlTemplate(DbObjectTreeNode node, SqlTemplateType templateType)
+    private static ObjectScriptType ToObjectScriptType(SqlTemplateType templateType) => templateType switch
+    {
+        SqlTemplateType.Select => ObjectScriptType.Select,
+        SqlTemplateType.SelectTopN => ObjectScriptType.SelectTopN,
+        SqlTemplateType.Insert => ObjectScriptType.Insert,
+        SqlTemplateType.Update => ObjectScriptType.Update,
+        SqlTemplateType.Delete => ObjectScriptType.Delete,
+        SqlTemplateType.Create => ObjectScriptType.CreateTable,
+        _ => throw new ArgumentOutOfRangeException(nameof(templateType)),
+    };
+
+    /// <summary>基于真实元数据生成脚本（经 IDdlService，按方言产出），并填充到查询编辑器。</summary>
+    private async Task GenerateSqlTemplateAsync(DbObjectTreeNode node, SqlTemplateType templateType)
     {
         if (node.DbObject is not (Table or View))
             return;
 
-        string objectName = GetQualifiedObjectName(node);
-        string sql = templateType switch
+        var ddl = GetDdlService();
+        if (ddl is null)
         {
-            SqlTemplateType.Select => $"SELECT * FROM {objectName};",
-            SqlTemplateType.SelectTopN => $"SELECT TOP 100 * FROM {objectName};",
-            SqlTemplateType.Insert => $"INSERT INTO {objectName} (column1, column2)\nVALUES (value1, value2);",
-            SqlTemplateType.Update => $"UPDATE {objectName}\nSET column1 = value1,\n    column2 = value2\nWHERE condition;",
-            SqlTemplateType.Delete => $"DELETE FROM {objectName}\nWHERE condition;",
-            SqlTemplateType.Create => node.DbObject is Table
-               ? $"CREATE TABLE {objectName} (\n    id INT PRIMARY KEY,\n    name VARCHAR(100),\n    created_at DATETIME DEFAULT GETDATE()\n);"
-                : $"CREATE VIEW {objectName} AS\nSELECT * FROM some_table;",
-            _ => string.Empty,
-        };
+            _viewModel.QueryEditor.StatusMessage = "DDL 服务未初始化。";
+            return;
+        }
 
-        _viewModel.QueryEditor.SqlText = sql;
-        _viewModel.QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的{templateType}模板脚本。";
+        var connectionName = _viewModel.FindNodeConnectionName(node);
+        if (string.IsNullOrEmpty(connectionName))
+        {
+            _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+            return;
+        }
+
+        var result = await ddl.GenerateObjectScriptAsync(
+            connectionName,
+            node.DatabaseName ?? string.Empty,
+            node.DbObject,
+            ToObjectScriptType(templateType));
+
+        if (!result.IsSuccess)
+        {
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            return;
+        }
+
+        SetQueryText(result.Script!, $"已生成 {node.DbObject.Name} 的 {templateType} 脚本（基于真实结构）。");
     }
 
     /// <summary>P2: Filter 模板 - 生成带 WHERE 的 SELECT。</summary>
@@ -895,8 +993,21 @@ public class ObjectTreeContextMenuBuilder
         string objectName = GetQualifiedObjectName(node);
         string sql = $"SELECT * FROM {objectName}\nWHERE /* 过滤条件 */\nORDER BY 1;";
 
+        SetQueryText(sql, $"已生成 {node.DbObject.Name} 的过滤查询模板，请编辑 WHERE 条件。");
+    }
+
+    /// <summary>将 SQL 填充到当前查询标签页并更新状态。</summary>
+    private void SetQueryText(string sql, string statusMessage)
+    {
+        if (_viewModel.SelectedQueryTab is not null)
+        {
+            _viewModel.SelectedQueryTab.SqlText = sql;
+            _viewModel.SelectedQueryTab.StatusMessage = statusMessage;
+        }
+
+        // 向后兼容（无标签页时仍填充全局编辑器）
         _viewModel.QueryEditor.SqlText = sql;
-        _viewModel.QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的过滤查询模板，请编辑 WHERE 条件。";
+        _viewModel.QueryEditor.StatusMessage = statusMessage;
     }
 
     #endregion
@@ -1402,36 +1513,13 @@ public class ObjectTreeContextMenuBuilder
 
     #endregion
 
-    #region 对话框辅助方法
+    #region 对话框辅助方法（统一走 DialogHelper）
 
-    private static async Task<bool?> ShowConfirmDialog(string message, string title)
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
-            && lifetime.MainWindow is Window mainWindow)
-        {
-            var dialog = new ContentDialog
-            {
-                Title = title,
-                Content = message,
-                PrimaryButtonText = "确定",
-                SecondaryButtonText = "取消",
-            };
-            var result = await dialog.ShowAsync(mainWindow);
-            return result == ContentDialog.ContentDialogResult.Primary;
-        }
-        return null;
-    }
+    private static Task<bool?> ShowConfirmDialog(string message, string title)
+        => DialogHelper.ShowConfirmAsync(title, message);
 
-    private static async Task<string?> ShowInputDialog(string message, string title, string defaultValue = "")
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lifetime
-            && lifetime.MainWindow is Window mainWindow)
-        {
-            var inputDialog = new InputDialog(title, message, defaultValue);
-            return await inputDialog.ShowAsync(mainWindow);
-        }
-        return null;
-    }
+    private static Task<string?> ShowInputDialog(string message, string title, string defaultValue = "")
+        => DialogHelper.ShowInputAsync(title, message, defaultValue);
 
     private IDbConnectionService GetConnectionService()
     {
@@ -1442,95 +1530,3 @@ public class ObjectTreeContextMenuBuilder
 
     #endregion
 }
-
-#region 简单对话框实现
-
-internal class ContentDialog : Control
-{
-    public string Title { get; set; } = string.Empty;
-    public object? Content { get; set; }
-    public string PrimaryButtonText { get; set; } = "确定";
-    public string SecondaryButtonText { get; set; } = "取消";
-
-    public async Task<ContentDialogResult> ShowAsync(Window parent)
-    {
-        var window = new Window
-        {
-            Title = Title,
-            Width = 400,
-            Height = 200,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-        };
-
-        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
-
-        var textBlock = new TextBlock { Text = Content?.ToString(), TextWrapping = TextWrapping.Wrap };
-        panel.Children.Add(textBlock);
-
-        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
-
-        var okButton = new Button { Content = PrimaryButtonText, MinWidth = 80, Padding = new Thickness(12, 6) };
-        var cancelBtn = new Button { Content = SecondaryButtonText, MinWidth = 80, Padding = new Thickness(12, 6) };
-
-        ContentDialogResult result = ContentDialogResult.None;
-
-        okButton.Click += (_, _) => { result = ContentDialogResult.Primary; window.Close(); };
-        cancelBtn.Click += (_, _) => { result = ContentDialogResult.Secondary; window.Close(); };
-
-        buttonPanel.Children.Add(okButton);
-        buttonPanel.Children.Add(cancelBtn);
-        panel.Children.Add(buttonPanel);
-
-        window.Content = panel;
-        await window.ShowDialog(parent);
-
-        return result;
-    }
-
-    internal enum ContentDialogResult { None, Primary, Secondary }
-}
-
-internal class InputDialog : Window
-{
-    private readonly TextBox _textBox;
-    private string? _result;
-
-    public InputDialog(string title, string message, string defaultValue = "")
-    {
-        Title = title;
-        Width = 450;
-        Height = 200;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        CanResize = false;
-
-        var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
-
-        var textBlock = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap };
-        panel.Children.Add(textBlock);
-
-        _textBox = new TextBox { Text = defaultValue, MinWidth = 300 };
-        panel.Children.Add(_textBox);
-
-        var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8 };
-
-        var okButton = new Button { Content = "确定", MinWidth = 80, Padding = new Thickness(12, 6) };
-        var cancelBtn = new Button { Content = "取消", MinWidth = 80, Padding = new Thickness(12, 6) };
-
-        okButton.Click += (_, _) => { _result = _textBox.Text; Close(); };
-        cancelBtn.Click += (_, _) => { _result = null; Close(); };
-
-        buttonPanel.Children.Add(okButton);
-        buttonPanel.Children.Add(cancelBtn);
-        panel.Children.Add(buttonPanel);
-
-        Content = panel;
-    }
-
-    public new async Task<string?> ShowAsync(Window parent)
-    {
-        await ShowDialog(parent);
-        return _result;
-    }
-}
-
-#endregion

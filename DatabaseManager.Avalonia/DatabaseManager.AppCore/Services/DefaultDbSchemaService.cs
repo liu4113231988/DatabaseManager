@@ -31,11 +31,20 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         var interpreter = CreateInterpreter(connection);
 
-        var databases = await interpreter.GetDatabasesAsync();
+        var databases = (await interpreter.GetDatabasesAsync()).OrderBy(d => d.Name).ToList();
         var result = new List<DbObjectTreeNode>();
 
-        foreach (var db in databases.OrderBy(d => d.Name))
+        // 并行枚举各库的 schema 列表，避免多库实例（如 SQL Server 几十个库）连接时串行 N+1 查询过慢。
+        // 说明：SQL Server / Postgres 分支在 TryGetSchemasAsync 内部会用目标库自己的解释器查询；
+        // Oracle 分支复用默认解释器（覆盖 Database 会破坏服务名连接串），且 Oracle 只有一个库，无并发冲突。
+        var schemaLists = await Task.WhenAll(
+            databases.Select(db => Task.Run(() => TryGetSchemasAsync(connection, interpreter, db.Name))));
+
+        for (int i = 0; i < databases.Count; i++)
         {
+            var db = databases[i];
+            var schemas = schemaLists[i];
+
             var dbNode = new DbObjectTreeNode
             {
                 Name = db.Name,
@@ -46,8 +55,7 @@ public class DefaultDbSchemaService : IDbSchemaService
                 DbObject = db,
             };
 
-            // 判断是否为多 Schema 结构（SQL Server/Postgres/Oracle 等）。
-            var schemas = await TryGetSchemasAsync(connection, interpreter, db.Name);
+            // 判断是否为多 Schema 结构（SQL Server/Postgres/Oracle 等），结果来自并行枚举。
             if (schemas.Count > 1)
             {
                 foreach (var schema in schemas.OrderBy(s => s.Name))
@@ -566,17 +574,26 @@ public class DefaultDbSchemaService : IDbSchemaService
         };
 
         // 表/视图拥有可展开的子节点（列/索引/键/约束/触发器）。
+        // 视图没有索引/主键/外键/约束，仅保留 Columns，避免展开时以视图名执行无效查询。
         if (dbObject is Table or View)
         {
-            AddTableChildFolders(node);
+            AddTableChildFolders(node, isView: dbObject is View);
         }
 
         return node;
     }
 
-    private static void AddTableChildFolders(DbObjectTreeNode parent)
+    /// <summary>
+    /// 添加表/视图子文件夹（带占位子节点以显示展开箭头，点击展开时懒加载）。
+    /// 视图仅保留 Columns；表才有 Triggers/Indexes/Keys/Constraints。
+    /// </summary>
+    private static void AddTableChildFolders(DbObjectTreeNode parent, bool isView)
     {
         AddChildFolder(parent, "Columns", DatabaseObjectType.Column);
+
+        if (isView)
+            return;
+
         AddChildFolder(parent, "Triggers", DatabaseObjectType.Trigger);
         AddChildFolder(parent, "Indexes", DatabaseObjectType.Index);
         AddChildFolder(parent, "Keys", DatabaseObjectType.PrimaryKey);

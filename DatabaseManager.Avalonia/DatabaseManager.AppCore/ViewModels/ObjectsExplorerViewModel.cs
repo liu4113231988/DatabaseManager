@@ -34,9 +34,11 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
     private readonly HashSet<string> _activeConnections = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>加载全部已保存连接为对象树根节点（dbeaver 风格：所有连接平铺展示）。</summary>
-    public void LoadConnections(IEnumerable<ConnectionItem> connections)
+    public void LoadConnections(IEnumerable<ConnectionItem>? connections)
     {
         // 增量更新：复用已有连接节点，避免重建导致 TreeView 展开状态被重置（整棵树折叠）。
+        if (connections is null)
+            return;
 
         var newList = connections.ToList();
 

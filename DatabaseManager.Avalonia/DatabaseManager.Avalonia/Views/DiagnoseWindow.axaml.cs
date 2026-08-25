@@ -57,7 +57,7 @@ public partial class DiagnoseWindow : Window
         if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboConnection.SelectedItem = _vm.SelectedConnection;
     }
@@ -67,7 +67,7 @@ public partial class DiagnoseWindow : Window
         if (_vm is null) return;
         ComboDiagnoseType.ItemsSource = _vm.DiagnoseTypes;
         ComboDiagnoseType.ItemTemplate = new FuncDataTemplate<DiagnoseTypeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboDiagnoseType.SelectedItem = _vm.SelectedDiagnoseType;
     }

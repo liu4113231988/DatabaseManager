@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:svc="using:DatabaseManager.AppCore.Services"
@@ -48,7 +48,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：TabControl（结果 / 脚本） -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
 
             <!-- 结果页 -->
             <TabItem Header="对比结果">
@@ -155,7 +155,7 @@
                     </Border>
                 </DockPanel>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>
