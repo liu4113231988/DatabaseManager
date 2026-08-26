@@ -6,6 +6,7 @@
         x:DataType="vm:IndexFragmentationViewModel"
         Title="索引碎片分析 (Index Fragmentation)"
         Width="920" Height="620"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

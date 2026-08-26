@@ -6,6 +6,7 @@
         x:DataType="vm:BackupViewModel"
         Title="数据库备份 (Backup)"
         Width="920" Height="600"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

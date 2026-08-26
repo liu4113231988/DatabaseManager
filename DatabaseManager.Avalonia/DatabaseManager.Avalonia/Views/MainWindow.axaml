@@ -20,6 +20,8 @@
 
         <DockPanel.Resources>
             <conv:NodeIconConverter x:Key="NodeIconConverter" />
+            <conv:NodeFontWeightConverter x:Key="NodeFontWeightConverter" />
+            <conv:HighlightBrushConverter x:Key="HighlightBrushConverter" />
         </DockPanel.Resources>
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
@@ -35,9 +37,6 @@
                         </DataTemplate>
                     </MenuItem.ItemTemplate>
                 </MenuItem>
-                <Separator />
-                <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
-                <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
                 <Separator />
                 <MenuItem Header="退出" Click="MenuExit_Click" />
             </MenuItem>
@@ -130,9 +129,11 @@
 
                 <!-- SQL 执行组（绑定到当前选中的查询标签） -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="Primary" Click="ToolExecute_Click" Padding="4,2" ToolTip.Tip="执行 (F5)"
-                            IsEnabled="{Binding SelectedQueryTab.IsExecuting, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
+                    <Button Classes="Primary" Click="ToolExecute_Click" Padding="4,2" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
                         <Image Source="avares://DatabaseManager.Avalonia/Assets/Run.png" Width="18" Height="18" Stretch="Uniform" />
+                    </Button>
+                    <Button Click="ToolFormat_Click" Padding="4,2" ToolTip.Tip="美化 (Ctrl+Shift+F)">
+                        <Path Data="M3 21H21V19H3V21M3 13H21V11H3V13M7 17H21V15H7V17M7 9H21V7H7V9Z" Fill="#1677FF" Width="16" Height="16" Stretch="Uniform" />
                     </Button>
                     <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
                     <!-- 事务组（绑定到当前标签） -->
@@ -232,12 +233,19 @@
                                     <Setter Property="Margin" Value="2,0,0,0" />
                                 </Style>
                                 <Style Selector="TreeViewItem">
-                                    <!-- 直接通过负 Padding 让整行内容往左靠，覆盖不同平台默认模板差异 -->
+                                    <!-- 直连通过 Padding 让文字整体更左靠，而不是不同平台默认模板差异 -->
                                     <Setter Property="Padding" Value="2,0,0,0" />
                                     <Setter Property="Margin" Value="0" />
-                                    <Setter Property="MinHeight" Value="18" />
-                                    <!-- 展开状态持久化到节点模型：刷新（重建容器）后自动恢复，避免整棵树折叠 -->
+                                    <Setter Property="MinHeight" Value="26" />
+                                    <!-- 展开状态持久化：绑定到模型，刷新/重建后容器自动恢复展开，避免整树折叠 -->
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                </Style>
+                                <!-- 悬停与选中态（对齐 AtomUI Tree 选中 #E6F4FF） -->
+                                <Style Selector="TreeViewItem:pointerover">
+                                    <Setter Property="Background" Value="#F5F5F5" />
+                                </Style>
+                                <Style Selector="TreeViewItem:selected">
+                                    <Setter Property="Background" Value="#E6F4FF" />
                                 </Style>
                                 <!-- 兼容不同版本 Avalonia TreeViewItem 模板：多重命中缩进容器 -->
                                 <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
@@ -266,23 +274,29 @@
                                                 <Path x:Name="ArrowPath"
                                                       Data="M3,2.5 L7.5,6 L3,9.5"
                                                       Fill="None"
-                                                      Stroke="#6B7280"
-                                                      StrokeThickness="1.6"
+                                                      Stroke="#8C8C8C"
+                                                      StrokeThickness="1.8"
                                                       StrokeLineCap="Round"
                                                       Stretch="Uniform"
                                                       HorizontalAlignment="Center"
                                                       VerticalAlignment="Center"
-                                                      RenderTransformOrigin="50% 50%" />
+                                                      RenderTransformOrigin="50% 50%">
+                                                    <Path.Transitions>
+                                                        <Transitions>
+                                                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" />
+                                                        </Transitions>
+                                                    </Path.Transitions>
+                                                </Path>
                                             </Grid>
                                         </DataTemplate>
                                     </Setter>
                                 </Style>
-                                <!-- 展开状态：Chevron 旋转 90° 朝下并加深颜色 -->
+                                <!-- 展开状态：Chevron 旋转 90° 朝下，AtomUI 主色 -->
                                 <Style Selector="TreeViewItem:expanded /template/ ToggleButton#PART_ExpandCollapseToggle Path#ArrowPath">
                                     <Setter Property="RenderTransform">
                                         <RotateTransform Angle="90" />
                                     </Setter>
-                                    <Setter Property="Stroke" Value="#1F2937" />
+                                    <Setter Property="Stroke" Value="#1677FF" />
                                 </Style>
                                 <!-- 直接作用于 Header 内容呈现层，让文字/图标再往左收一点 -->
                                 <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
@@ -298,22 +312,30 @@
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
                                     <!-- 图标与文字之间保留 1px 的视觉间距 -->
-                                    <StackPanel Orientation="Horizontal" Spacing="0"
-                                                Tag="{Binding}"
-                                                VerticalAlignment="Center">
-                                        <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
-                                               Width="14" Height="14"
-                                               Margin="0,0,1,0"
-                                               VerticalAlignment="Center"
-                                               RenderOptions.BitmapInterpolationMode="HighQuality" />
-                                        <TextBlock Text="{Binding Text}"
-                                                   VerticalAlignment="Center"
+                                    <Border Background="{Binding IsHighlighted, Converter={StaticResource HighlightBrushConverter}}"
+                                            CornerRadius="4" Padding="2,1">
+                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                                    Tag="{Binding}"
+                                                    VerticalAlignment="Center">
+                                            <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
+                                                   Width="16" Height="16"
                                                    Margin="0"
-                                                   FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
-                                                   FontSize="12"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   MaxWidth="280" />
-                                    </StackPanel>
+                                                   VerticalAlignment="Center"
+                                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                            <TextBlock Text="{Binding Text}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0"
+                                                       FontFamily="Alibaba Sans, Microsoft YaHei UI, Segoe UI, sans-serif"
+                                                       FontSize="12"
+                                                       FontWeight="{Binding NodeType, Converter={StaticResource NodeFontWeightConverter}}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="220" />
+                                            <Border Background="#F0F5FF" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
+                                                    IsVisible="{Binding HasBadge}">
+                                                <TextBlock Text="{Binding BadgeText}" FontSize="10" Foreground="#1677FF" VerticalAlignment="Center" />
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
                                 </TreeDataTemplate>
                             </TreeView.ItemTemplate>
                         </TreeView>

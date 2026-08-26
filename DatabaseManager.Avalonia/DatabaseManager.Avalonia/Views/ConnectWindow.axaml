@@ -6,6 +6,7 @@
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
         Width="560" Height="620"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
 

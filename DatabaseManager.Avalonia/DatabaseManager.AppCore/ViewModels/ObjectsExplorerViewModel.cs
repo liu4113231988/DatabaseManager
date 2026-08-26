@@ -247,6 +247,19 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             folderNode.AddChild(node);
         }
 
+        // 空状态：无对象时显示占位提示（而非空白），便于用户感知可“新建”
+        if (nodes.Count == 0)
+        {
+            folderNode.AddChild(new DbObjectTreeNode
+            {
+                Name = "_Empty_",
+                Text = "（空）",
+                NodeType = DbObjectTreeNodeType.Folder,
+                IsPlaceholder = true,
+                IsLoaded = true,
+            });
+        }
+
         folderNode.IsLoaded = true;
     }
 

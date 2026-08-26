@@ -12,6 +12,7 @@ using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
+using DatabaseManager.Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -370,6 +371,13 @@ public partial class MainWindow : Window
             targetContainer.BringIntoView();
         }
 
+        // 搜索高亮：短暂高亮目标节点，2秒后自动清除
+        target.IsHighlighted = true;
+        _ = Task.Delay(2000).ContinueWith(_ =>
+        {
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() => target.IsHighlighted = false);
+        });
+
         return target;
     }
 
@@ -644,7 +652,7 @@ public partial class MainWindow : Window
         (DataContext as MainWindowViewModel)?.NewQuery();
     }
 
-    /// <summary>主工具栏：执行当前查询标签的 SQL。</summary>
+    /// <summary>主工具栏：执行当前查询标签的 SQL（有选区时仅执行选区）。</summary>
     private async void ToolExecute_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm && vm.SelectedQueryTab is not null)
@@ -654,8 +662,39 @@ public partial class MainWindow : Window
             {
                 vm.SelectedQueryTab.DatabaseName = vm.CurrentDatabase;
             }
-            await vm.SelectedQueryTab.ExecuteAsync();
+
+            // 若编辑器有选中文本则仅执行选区
+            var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+            var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
+            var selectedText = editor?.GetSelectedText()?.Trim();
+            if (!string.IsNullOrEmpty(selectedText))
+            {
+                await vm.SelectedQueryTab.ExecuteWithSqlAsync(selectedText);
+            }
+            else
+            {
+                await vm.SelectedQueryTab.ExecuteAsync();
+            }
         }
+    }
+
+    /// <summary>在可视树中查找当前标签页的 SqlEditor。</summary>
+    private static SqlEditor? FindSqlEditorInVisualTree(Control parent)
+    {
+        foreach (var descendant in parent.GetVisualDescendants())
+        {
+            if (descendant is SqlEditor editor)
+                return editor;
+        }
+        return null;
+    }
+
+    /// <summary>美化当前 SQL（有选区则仅美化选区）。</summary>
+    private void ToolFormat_Click(object? sender, RoutedEventArgs e)
+    {
+        var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+        var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
+        editor?.Format();
     }
 
     /// <summary>查询结果内联编辑：新增一行并滚动定位到该行。</summary>
@@ -1257,6 +1296,12 @@ public partial class MainWindow : Window
                 // Ctrl+H：元数据搜索（对齐 DBeaver Search）
                 e.Handled = true;
                 MenuSearch_Click(sender, e);
+                break;
+
+            case Key.F when ctrl && e.KeyModifiers.HasFlag(KeyModifiers.Shift):
+                // Ctrl+Shift+F：美化 SQL
+                e.Handled = true;
+                ToolFormat_Click(sender, e);
                 break;
 
             case Key.F4:

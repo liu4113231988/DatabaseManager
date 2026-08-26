@@ -7,6 +7,7 @@
         x:DataType="vm:ExportViewModel"
         Title="数据导出"
         Width="760" Height="560"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

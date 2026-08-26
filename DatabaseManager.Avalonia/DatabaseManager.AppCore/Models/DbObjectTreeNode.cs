@@ -7,7 +7,7 @@ namespace DatabaseManager.AppCore.Models;
 /// 对象浏览器树节点（AppCore 领域模型，UI 无关）。
 /// 层级结构：连接 → 数据库 → Schema → 类型文件夹（表/视图/存储过程/函数/序列/触发器）→ 具体对象。
 /// </summary>
-public class DbObjectTreeNode
+public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
 {
     /// <summary>节点唯一名称（用于 TreeView 定位）。</summary>
     public string Name { get; set; } = string.Empty;
@@ -36,8 +36,20 @@ public class DbObjectTreeNode
     /// <summary>父节点（用于向上定位所属数据库）。</summary>
     public DbObjectTreeNode? Parent { get; set; }
 
+    private bool _isLoaded;
     /// <summary>是否已懒加载子节点（用于按需展开加载）。</summary>
-    public bool IsLoaded { get; set; }
+    public bool IsLoaded
+    {
+        get => _isLoaded;
+        set
+        {
+            if (_isLoaded == value) return;
+            _isLoaded = value;
+            OnPropertyChanged(nameof(IsLoaded));
+            OnPropertyChanged(nameof(BadgeText));
+            OnPropertyChanged(nameof(HasBadge));
+        }
+    }
 
     /// <summary>是否为「占位/假」子节点（用于懒加载前展示 loading 占位）。</summary>
     public bool IsPlaceholder { get; set; }
@@ -48,8 +60,49 @@ public class DbObjectTreeNode
     /// <summary>该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。</summary>
     public bool IsConnectionActive { get; set; }
 
+    private bool _isExpanded;
     /// <summary>节点展开状态（与 TreeViewItem.IsExpanded 双向绑定，容器重建后据此恢复展开）。</summary>
-    public bool IsExpanded { get; set; }
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (_isExpanded == value) return;
+            _isExpanded = value;
+            OnPropertyChanged(nameof(IsExpanded));
+        }
+    }
+
+    /// <summary>徽标文本（如 "Tables (20)" 的计数部分），仅 Folder 且已加载时有值。</summary>
+    public string BadgeText => NodeType == DbObjectTreeNodeType.Folder && IsLoaded && Children.Count > 0 && !Children[0].IsPlaceholder ? $"({Children.Count})" : string.Empty;
+
+    /// <summary>是否显示徽标。</summary>
+    public bool HasBadge => !string.IsNullOrEmpty(BadgeText);
+
+    private bool _isHighlighted;
+    /// <summary>是否高亮（搜索定位时短暂高亮）。</summary>
+    public bool IsHighlighted
+    {
+        get => _isHighlighted;
+        set
+        {
+            if (_isHighlighted == value) return;
+            _isHighlighted = value;
+            OnPropertyChanged(nameof(IsHighlighted));
+        }
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+
+    public DbObjectTreeNode()
+    {
+        Children.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(BadgeText));
+            OnPropertyChanged(nameof(HasBadge));
+        };
+    }
 
     /// <summary>向父节点注册子节点（自动维护 Parent 引用）。</summary>
     public void AddChild(DbObjectTreeNode child)

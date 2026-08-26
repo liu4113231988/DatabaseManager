@@ -7,6 +7,7 @@
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接管理"
         Width="760" Height="520"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

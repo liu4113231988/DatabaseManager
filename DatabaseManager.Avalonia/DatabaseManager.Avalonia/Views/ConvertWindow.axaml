@@ -7,6 +7,7 @@
         x:DataType="vm:ConvertViewModel"
         Title="数据库转换"
         Width="980" Height="720"
+        Icon="/Assets/_dbManager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

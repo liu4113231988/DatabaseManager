@@ -163,9 +163,11 @@ public partial class QueryTabViewModel : ViewModelBase
         UpdateTitleWithModifiedMark();
     }
 
-    /// <summary>执行当前 SQL。</summary>
+    /// <summary>执行当前 SQL（若传入 sqlOverride 且非空则执行选中片段）。</summary>
     [RelayCommand]
-    public async Task ExecuteAsync()
+    public async Task ExecuteAsync() => await ExecuteWithSqlAsync(null);
+
+    public async Task ExecuteWithSqlAsync(string? sqlOverride)
     {
         if (IsExecuting)
             return;
@@ -176,18 +178,21 @@ public partial class QueryTabViewModel : ViewModelBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(SqlText))
+        var sqlToExecute = string.IsNullOrWhiteSpace(sqlOverride) ? SqlText : sqlOverride!;
+
+        if (string.IsNullOrWhiteSpace(sqlToExecute))
         {
             StatusMessage = "请输入要执行的 SQL 语句。";
             return;
         }
 
+        bool isSelection = !string.IsNullOrWhiteSpace(sqlOverride);
         IsExecuting = true;
-        StatusMessage = "正在执行...";
+        StatusMessage = isSelection ? "正在执行选中 SQL..." : "正在执行...";
 
         try
         {
-            var result = await _queryService.ExecuteAsync(ConnectionName, SqlText);
+            var result = await _queryService.ExecuteAsync(ConnectionName, sqlToExecute);
             ApplyResult(result);
 
             // 执行成功且返回结果集时，尝试启用内联编辑。
