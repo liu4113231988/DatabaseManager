@@ -288,10 +288,40 @@ public partial class DataCompareViewModel : ViewModelBase
             for (int i = 0; i < data.Columns.Count; i++)
             {
                 var value = row[i];
-                values.Add(Convert.ToString(value));
+                values.Add(FormatCellValue(value));
             }
             DetailRows.Add(new DataRowItem(values));
         }
+    }
+
+    /// <summary>格式化单元格值：区分 DBNull / 空串 / 二进制字节数组 / 普通值。</summary>
+    private static string FormatCellValue(object? value)
+    {
+        if (value is null || value is DBNull)
+            return "[NULL]";
+
+        if (value is byte[] bytes)
+        {
+            if (bytes.Length == 0)
+                return "[BINARY 0B]";
+            string suffix = bytes.Length > 128 ? $"…({bytes.Length}B)" : string.Empty;
+            try
+            {
+                int take = Math.Min(bytes.Length, 128);
+                return Convert.ToBase64String(bytes, 0, take) + suffix;
+            }
+            catch
+            {
+                return $"[BINARY {bytes.Length}B]";
+            }
+        }
+
+        var str = Convert.ToString(value);
+        if (str is null)
+            return "[NULL]";
+        if (str.Length == 0)
+            return "[EMPTY]";
+        return str;
     }
 
     [RelayCommand]

@@ -12,6 +12,10 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class DefaultDiagnoseService : IDiagnoseService
 {
+    /// <summary>DbDiagnosis.GetInstance 返回按 (DbType,ConnectionString) 缓存的单例，
+    /// 并发设置 Schema / OnFeedback 会竞态，这里用全局锁序列化诊断调用。</summary>
+    private static readonly object DbDiagnosisLock = new();
+
     public Task<IReadOnlyList<TableDiagnoseResultItem>> DiagnoseTableAsync(
         ConnectionItem connection,
         TableDiagnoseType diagnoseType,
@@ -27,33 +31,41 @@ public class DefaultDiagnoseService : IDiagnoseService
                 throw new InvalidOperationException("连接或数据库无效。");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             onFeedback?.Invoke("正在初始化诊断器...");
 
-            var dbDiagnosis = DbDiagnosis.GetInstance(dbType, ToConnectionInfo(connection));
-            if (schema != null)
+            // 锁内部：获取单例 → 设置状态 → 执行诊断 → 读取结果，整段串行化避免竞态。
+            lock (DbDiagnosisLock)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var dbDiagnosis = DbDiagnosis.GetInstance(dbType, ToConnectionInfo(connection));
                 dbDiagnosis.Schema = schema;
+
+                var feedback = new FeedbackObserver(onFeedback);
+                dbDiagnosis.OnFeedback = feedback.Notify;
+
+                var diagnoseTask = dbDiagnosis.DiagnoseTable(diagnoseType);
+                // 阻塞等待（在锁内必须同步完成以免后续并发覆盖回调）。
+                var result = diagnoseTask.GetAwaiter().GetResult();
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var items = result.Details.Select(detail =>
+                {
+                    var obj = detail.DatabaseObject;
+                    return new TableDiagnoseResultItem(
+                        GetObjectTypeName(obj),
+                        obj.Schema,
+                        GetTableName(obj),
+                        obj.Name,
+                        detail.RecordCount,
+                        detail.Sql);
+                }).ToList();
+
+                onFeedback?.Invoke($"表诊断完成，共检出 {items.Count} 处问题。");
+                return (IReadOnlyList<TableDiagnoseResultItem>)items;
             }
-
-            var feedback = new FeedbackObserver(onFeedback);
-            dbDiagnosis.OnFeedback = feedback.Notify;
-
-            var result = await dbDiagnosis.DiagnoseTable(diagnoseType);
-
-            var items = result.Details.Select(detail =>
-            {
-                var obj = detail.DatabaseObject;
-                return new TableDiagnoseResultItem(
-                    GetObjectTypeName(obj),
-                    obj.Schema,
-                    GetTableName(obj),
-                    obj.Name,
-                    detail.RecordCount,
-                    detail.Sql);
-            }).ToList();
-
-            onFeedback?.Invoke($"表诊断完成，共检出 {items.Count} 处问题。");
-            return (IReadOnlyList<TableDiagnoseResultItem>)items;
         }, cancellationToken);
     }
 
@@ -72,35 +84,41 @@ public class DefaultDiagnoseService : IDiagnoseService
                 throw new InvalidOperationException("连接或数据库无效。");
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             onFeedback?.Invoke("正在初始化诊断器...");
 
-            var dbDiagnosis = DbDiagnosis.GetInstance(dbType, ToConnectionInfo(connection));
-            if (schema != null)
+            lock (DbDiagnosisLock)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var dbDiagnosis = DbDiagnosis.GetInstance(dbType, ToConnectionInfo(connection));
                 dbDiagnosis.Schema = schema;
+
+                var feedback = new FeedbackObserver(onFeedback);
+                dbDiagnosis.OnFeedback = feedback.Notify;
+
+                var diagnoseTask = dbDiagnosis.DiagnoseScript(diagnoseType);
+                var results = diagnoseTask.GetAwaiter().GetResult();
+
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var items = results.Select(r =>
+                {
+                    var obj = r.DbObject;
+                    var details = r.Details
+                        .Select(d => $"{d.ObjectType}: {d.InvalidName} → {d.Name} (位置 {d.Index})")
+                        .ToList();
+
+                    return new ScriptDiagnoseResultItem(
+                        obj?.GetType().Name ?? string.Empty,
+                        obj?.Schema ?? string.Empty,
+                        obj?.Name ?? string.Empty,
+                        details);
+                }).ToList();
+
+                onFeedback?.Invoke($"脚本诊断完成，共检出 {items.Count} 处对象异常。");
+                return (IReadOnlyList<ScriptDiagnoseResultItem>)items;
             }
-
-            var feedback = new FeedbackObserver(onFeedback);
-            dbDiagnosis.OnFeedback = feedback.Notify;
-
-            var results = await dbDiagnosis.DiagnoseScript(diagnoseType);
-
-            var items = results.Select(r =>
-            {
-                var obj = r.DbObject;
-                var details = r.Details
-                    .Select(d => $"{d.ObjectType}: {d.InvalidName} → {d.Name} (位置 {d.Index})")
-                    .ToList();
-
-                return new ScriptDiagnoseResultItem(
-                    obj?.GetType().Name ?? string.Empty,
-                    obj?.Schema ?? string.Empty,
-                    obj?.Name ?? string.Empty,
-                    details);
-            }).ToList();
-
-            onFeedback?.Invoke($"脚本诊断完成，共检出 {items.Count} 处对象异常。");
-            return (IReadOnlyList<ScriptDiagnoseResultItem>)items;
         }, cancellationToken);
     }
 

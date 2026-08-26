@@ -1,6 +1,29 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
+
+/// <summary>
+/// 导入 / 导出表项（含视图区分 + 多选勾选状态，用于导入导出工具列表）。
+/// </summary>
+public partial class ExportTableItem : ObservableObject
+{
+    public string Name { get; }
+    public string? Schema { get; }
+    public string DisplayName { get; }
+    public bool IsView { get; }
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public ExportTableItem(string name, string? schema, string displayName, bool isView = false)
+    {
+        Name = name;
+        Schema = schema;
+        DisplayName = displayName;
+        IsView = isView;
+    }
+}
 
 /// <summary>
 /// 导入 / 导出服务。封装数据与结构的文件导入导出。
@@ -12,9 +35,9 @@ public interface IExportImportService
     IReadOnlyList<string> GetExportFormats();
 
     /// <summary>
-    /// 获取指定连接/数据库中的表列表（用于导入导出选择目标表）。
+    /// 获取指定连接/数据库中的表和视图列表（用于导入导出选择目标表）。
     /// </summary>
-    Task<IReadOnlyList<TableItem>> GetTablesAsync(
+    Task<IReadOnlyList<ExportTableItem>> GetTablesAsync(
         ConnectionItem connection,
         CancellationToken cancellationToken = default);
 
@@ -58,7 +81,7 @@ public interface IExportImportService
     /// <param name="schema">Schema（可为空）。</param>
     /// <param name="filePath">导入文件路径。</param>
     /// <param name="firstRowIsColumnName">文件首行是否为列名。</param>
-    /// <param name="columnMappings">列映射（可选，<see cref="DataImportColumnMapping"/> 的 UI 友好封装）。</param>
+    /// <param name="columnMappings">列映射：SourceColumn = 文件列，TargetColumn = 表列。</param>
     /// <param name="onFeedback">进度/反馈回调。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task<ImportResult> ImportDataAsync(

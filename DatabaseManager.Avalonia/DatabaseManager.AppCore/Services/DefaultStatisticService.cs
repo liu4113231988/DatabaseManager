@@ -68,6 +68,10 @@ public class DefaultStatisticService : IStatisticService
             var results = await statistic.GetTableColumnContentLengths();
 
             var items = (results ?? Enumerable.Empty<DatabaseManager.Core.Model.TableColumnContentMaxLength>())
+                .OrderByDescending(r => r.ContentMaxLength)
+                .ThenBy(r => r.Schema)
+                .ThenBy(r => r.TableName)
+                .ThenBy(r => r.ColumnName)
                 .Select(r =>
                 {
                     var name = string.IsNullOrEmpty(r.Schema) ? r.TableName : $"{r.Schema}.{r.TableName}";

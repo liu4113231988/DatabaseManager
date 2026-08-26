@@ -24,7 +24,8 @@ public class DefaultCompareService : ICompareService
 
         if (string.IsNullOrEmpty(source.Database) || string.IsNullOrEmpty(target.Database))
         {
-            throw new InvalidOperationException("源/目标数据库不能为空。");
+            onFeedback?.Invoke("错误：源/目标数据库不能为空。");
+            return Array.Empty<SchemaCompareItem>();
         }
 
         var sourceDbType = ParseDatabaseType(source.DatabaseType);
@@ -32,47 +33,58 @@ public class DefaultCompareService : ICompareService
 
         if (sourceDbType == DatabaseType.Unknown || targetDbType == DatabaseType.Unknown)
         {
-            throw new InvalidOperationException("源/目标数据库类型无效。");
+            onFeedback?.Invoke("错误：源/目标数据库类型无效。");
+            return Array.Empty<SchemaCompareItem>();
         }
 
         if (sourceDbType != targetDbType)
         {
-            throw new InvalidOperationException("结构对比要求源与目标数据库类型相同。");
+            onFeedback?.Invoke($"错误：结构对比要求源与目标数据库类型相同（当前：源={source.DatabaseType}，目标={target.DatabaseType}）。");
+            return Array.Empty<SchemaCompareItem>();
         }
 
         if (IsSameDatabase(source, target))
         {
-            throw new InvalidOperationException("源数据库与目标数据库不能相同。");
+            onFeedback?.Invoke("错误：源数据库与目标数据库不能相同。");
+            return Array.Empty<SchemaCompareItem>();
         }
 
-        var sourceInterpreter = CreateInterpreter(source, sourceDbType, databaseObjectType);
-        var targetInterpreter = CreateInterpreter(target, targetDbType, databaseObjectType);
+        try
+        {
+            var sourceInterpreter = CreateInterpreter(source, sourceDbType, databaseObjectType);
+            var targetInterpreter = CreateInterpreter(target, targetDbType, databaseObjectType);
 
-        onFeedback?.Invoke("正在读取源库对象信息...");
-        var sourceFilter = new SchemaInfoFilter { DatabaseObjectType = databaseObjectType };
-        var sourceSchemaInfo = await sourceInterpreter.GetSchemaInfoAsync(sourceFilter);
+            onFeedback?.Invoke("正在读取源库对象信息...");
+            var sourceFilter = new SchemaInfoFilter { DatabaseObjectType = databaseObjectType };
+            var sourceSchemaInfo = await sourceInterpreter.GetSchemaInfoAsync(sourceFilter);
 
-        onFeedback?.Invoke("正在读取目标库对象信息...");
-        var targetFilter = new SchemaInfoFilter { DatabaseObjectType = databaseObjectType };
-        var targetSchemaInfo = await targetInterpreter.GetSchemaInfoAsync(targetFilter);
+            onFeedback?.Invoke("正在读取目标库对象信息...");
+            var targetFilter = new SchemaInfoFilter { DatabaseObjectType = databaseObjectType };
+            var targetSchemaInfo = await targetInterpreter.GetSchemaInfoAsync(targetFilter);
 
-        onFeedback?.Invoke("开始对比结构差异...");
+            onFeedback?.Invoke("开始对比结构差异...");
 
-        var schemaCompare = new SchemaCompare(
-            targetInterpreter.DatabaseType,
-            sourceInterpreter,
-            targetInterpreter,
-            sourceSchemaInfo,
-            targetSchemaInfo);
+            var schemaCompare = new SchemaCompare(
+                targetInterpreter.DatabaseType,
+                sourceInterpreter,
+                targetInterpreter,
+                sourceSchemaInfo,
+                targetSchemaInfo);
 
-        var differences = await schemaCompare.Compare();
+            var differences = await schemaCompare.Compare();
 
-        onFeedback?.Invoke("对比完成，正在整理结果...");
+            onFeedback?.Invoke("对比完成，正在整理结果...");
 
-        var roots = BuildTree(differences);
-        onFeedback?.Invoke($"对比完成，共发现 {CountDifferences(roots)} 处差异。");
+            var roots = BuildTree(differences);
+            onFeedback?.Invoke($"对比完成，共发现 {CountDifferences(roots)} 处差异。");
 
-        return roots;
+            return roots;
+        }
+        catch (Exception ex)
+        {
+            onFeedback?.Invoke($"对比过程出现异常：{ex.Message}");
+            return Array.Empty<SchemaCompareItem>();
+        }
     }
 
     /// <summary>
@@ -224,9 +236,12 @@ public class DefaultCompareService : ICompareService
     };
 
     private static bool IsSameDatabase(ConnectionItem a, ConnectionItem b)
-        => string.Equals(a.Server, b.Server, StringComparison.OrdinalIgnoreCase)
+        => string.Equals(a.DatabaseType, b.DatabaseType, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.Server, b.Server, StringComparison.OrdinalIgnoreCase)
            && string.Equals(a.Port, b.Port, StringComparison.OrdinalIgnoreCase)
-           && string.Equals(a.Database, b.Database, StringComparison.OrdinalIgnoreCase);
+           && string.Equals(a.Database, b.Database, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.UserId ?? string.Empty, b.UserId ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.IntegratedSecurity ? "1" : "0", b.IntegratedSecurity ? "1" : "0", StringComparison.OrdinalIgnoreCase);
 
     private static DatabaseType ParseDatabaseType(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;
@@ -269,7 +284,8 @@ public class DefaultCompareService : ICompareService
 
         if (string.IsNullOrEmpty(source.Database) || string.IsNullOrEmpty(target.Database))
         {
-            throw new InvalidOperationException("源/目标数据库不能为空。");
+            onFeedback?.Invoke("错误：源/目标数据库不能为空。");
+            return Array.Empty<DataCompareResultItem>();
         }
 
         var sourceDbType = ParseDatabaseType(source.DatabaseType);
@@ -277,52 +293,101 @@ public class DefaultCompareService : ICompareService
 
         if (sourceDbType == DatabaseType.Unknown || targetDbType == DatabaseType.Unknown)
         {
-            throw new InvalidOperationException("源/目标数据库类型无效。");
+            onFeedback?.Invoke("错误：源/目标数据库类型无效。");
+            return Array.Empty<DataCompareResultItem>();
         }
 
         if (sourceDbType != targetDbType)
         {
-            throw new InvalidOperationException("数据对比要求源与目标数据库类型相同。");
+            onFeedback?.Invoke($"错误：数据对比要求源与目标数据库类型相同（当前：源={source.DatabaseType}，目标={target.DatabaseType}）。");
+            return Array.Empty<DataCompareResultItem>();
         }
 
         if (IsSameDatabase(source, target))
         {
-            throw new InvalidOperationException("源数据库与目标数据库不能相同。");
+            onFeedback?.Invoke("错误：源数据库与目标数据库不能相同。");
+            return Array.Empty<DataCompareResultItem>();
         }
 
         if (tableNames is null || tableNames.Count == 0)
         {
-            throw new InvalidOperationException("请至少选择一张表进行对比。");
+            onFeedback?.Invoke("错误：请至少选择一张表进行对比。");
+            return Array.Empty<DataCompareResultItem>();
         }
 
-        var sourceInterpreter = CreateDataInterpreter(source, sourceDbType);
-        var targetInterpreter = CreateDataInterpreter(target, targetDbType);
-
-        // 构造含所选表的 SchemaInfo。
-        var schemaInfo = new SchemaInfo();
-        var sourceFilter = new SchemaInfoFilter { DatabaseObjectType = DatabaseObjectType.Table, TableNames = tableNames.ToArray() };
-        var sourceSchemaInfo = await sourceInterpreter.GetSchemaInfoAsync(sourceFilter);
-        schemaInfo.Tables.AddRange(sourceSchemaInfo.Tables);
-
-        onFeedback?.Invoke("开始对比数据差异...");
-
-        var dataCompare = new DataCompare(sourceInterpreter, targetInterpreter, schemaInfo, new DataCompareOption
+        try
         {
-            DisplayMode = displayMode == DataCompareDisplayMode.None
-                ? DataCompareDisplayMode.Different | DataCompareDisplayMode.OnlyInSource | DataCompareDisplayMode.OnlyInTarget
-                : displayMode,
-        });
+            var sourceInterpreter = CreateDataInterpreter(source, sourceDbType);
+            var targetInterpreter = CreateDataInterpreter(target, targetDbType);
 
-        dataCompare.Subscribe(new FeedbackObserver(onFeedback));
+            // 构造含所选表的 SchemaInfo（同时加载列/主键信息）。
+            var schemaInfo = new SchemaInfo();
+            var sourceFilter = new SchemaInfoFilter
+            {
+                DatabaseObjectType = DatabaseObjectType.Table | DatabaseObjectType.Column | DatabaseObjectType.PrimaryKey,
+                TableNames = tableNames.ToArray(),
+            };
+            var sourceSchemaInfo = await sourceInterpreter.GetSchemaInfoAsync(sourceFilter);
 
-        var result = await dataCompare.Compare(cancellationToken);
+            // 过滤无主键的表（无主键会触发全表笛卡儿扫描，风险很高），提前通知用户。
+            var tablesWithPk = new List<Table>();
+            foreach (var table in sourceSchemaInfo.Tables)
+            {
+                var hasPk = sourceSchemaInfo.TablePrimaryKeys.Any(pk =>
+                    string.Equals(pk.TableName, table.Name, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrEmpty(table.Schema) || string.Equals(pk.Schema, table.Schema, StringComparison.OrdinalIgnoreCase)));
+                if (hasPk)
+                {
+                    tablesWithPk.Add(table);
+                }
+                else
+                {
+                    var display = string.IsNullOrEmpty(table.Schema) ? table.Name : $"{table.Schema}.{table.Name}";
+                    onFeedback?.Invoke($"警告：表 {display} 无主键，已跳过（无主键对比会触发全表扫描，性能风险高）。");
+                }
+            }
 
-        onFeedback?.Invoke("对比完成。");
+            if (tablesWithPk.Count == 0)
+            {
+                onFeedback?.Invoke("错误：所选表均无主键，无法执行安全的数据对比。");
+                return Array.Empty<DataCompareResultItem>();
+            }
 
-        return result.Details
-            .OrderBy(d => d.Order)
-            .Select(d => new DataCompareResultItem(d))
-            .ToList();
+            schemaInfo.Tables.AddRange(tablesWithPk);
+            schemaInfo.TableColumns.AddRange(sourceSchemaInfo.TableColumns.Where(c =>
+                tablesWithPk.Any(t =>
+                    string.Equals(t.Name, c.TableName, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrEmpty(t.Schema) || string.Equals(t.Schema, c.Schema, StringComparison.OrdinalIgnoreCase)))));
+            schemaInfo.TablePrimaryKeys.AddRange(sourceSchemaInfo.TablePrimaryKeys.Where(pk =>
+                tablesWithPk.Any(t =>
+                    string.Equals(t.Name, pk.TableName, StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrEmpty(t.Schema) || string.Equals(t.Schema, pk.Schema, StringComparison.OrdinalIgnoreCase)))));
+
+            onFeedback?.Invoke($"开始对比 {tablesWithPk.Count} 张有主键表的数据差异...");
+
+            var dataCompare = new DataCompare(sourceInterpreter, targetInterpreter, schemaInfo, new DataCompareOption
+            {
+                DisplayMode = displayMode == DataCompareDisplayMode.None
+                    ? DataCompareDisplayMode.Different | DataCompareDisplayMode.OnlyInSource | DataCompareDisplayMode.OnlyInTarget
+                    : displayMode,
+            });
+
+            dataCompare.Subscribe(new FeedbackObserver(onFeedback));
+
+            var result = await dataCompare.Compare(cancellationToken);
+
+            onFeedback?.Invoke("对比完成。");
+
+            return result.Details
+                .OrderBy(d => d.Order)
+                .Select(d => new DataCompareResultItem(d))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            onFeedback?.Invoke($"数据对比出现异常：{ex.Message}");
+            return Array.Empty<DataCompareResultItem>();
+        }
     }
 
     public async Task<(DataTable Data, Dictionary<int, List<DataCompareValueInfo>> ValueInfos)> GetTableDataAsync(

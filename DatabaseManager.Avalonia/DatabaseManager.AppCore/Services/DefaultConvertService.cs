@@ -322,9 +322,12 @@ public class DefaultConvertService : IConvertService
     }
 
     private static bool IsSameDatabase(ConnectionItem a, ConnectionItem b)
-        => string.Equals(a.Server, b.Server, StringComparison.OrdinalIgnoreCase)
+        => string.Equals(a.DatabaseType, b.DatabaseType, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.Server, b.Server, StringComparison.OrdinalIgnoreCase)
            && string.Equals(a.Port, b.Port, StringComparison.OrdinalIgnoreCase)
-           && string.Equals(a.Database, b.Database, StringComparison.OrdinalIgnoreCase);
+           && string.Equals(a.Database, b.Database, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.UserId ?? string.Empty, b.UserId ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+           && string.Equals(a.IntegratedSecurity ? "1" : "0", b.IntegratedSecurity ? "1" : "0", StringComparison.OrdinalIgnoreCase);
 
     private static GenerateScriptMode ToGenerateScriptMode(string mode)
         => mode switch

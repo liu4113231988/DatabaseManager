@@ -193,6 +193,15 @@ public partial class ConvertViewModel : ViewModelBase
     /// <summary>预览后编辑过的目标 Schema（从 PreviewTables 重建），供执行转换时直接使用。</summary>
     private SchemaInfo? _editedTargetSchema;
 
+    /// <summary>防止重复预览的守卫（已成功执行过预览，即使 0 表也不再重复触发）。</summary>
+    private bool _previewCompleted;
+
+    /// <summary>NeedPreview 开关切换时重置预览完成守卫，允许重新预览。</summary>
+    partial void OnNeedPreviewChanged(bool value)
+    {
+        _previewCompleted = false;
+    }
+
     /// <summary>生成转换预览（目标 Schema 结构，不执行转换）。</summary>
     [RelayCommand]
     private async Task PreviewAsync()
@@ -206,6 +215,7 @@ public partial class ConvertViewModel : ViewModelBase
         IsPreviewing = true;
         StatusMessage = string.Empty;
         _editedTargetSchema = null;
+        _previewCompleted = false;
 
         var feedbackBuffer = new List<string>();
         void CollectFeedback(string message) => feedbackBuffer.Add(message);
@@ -237,9 +247,13 @@ public partial class ConvertViewModel : ViewModelBase
             }
 
             PopulatePreviewTables(result.TranslatedSchemaInfo);
-            HasPreview = PreviewTables.Count > 0;
-            StatusMessage = result.Message;
-            AppendLog(result.Message);
+            // 即使 0 表也标记为预览成功（避免 NeedPreview 分支重复触发形成死循环）。
+            _previewCompleted = true;
+            HasPreview = true;
+            StatusMessage = PreviewTables.Count == 0
+                ? "预览生成完成，但源库未包含任何可转换的表/视图对象。"
+                : result.Message;
+            AppendLog(StatusMessage);
         }
         catch (Exception ex)
         {
@@ -272,13 +286,25 @@ public partial class ConvertViewModel : ViewModelBase
 
             foreach (var col in previewTable.Columns)
             {
-                // 复用底层列并回写可编辑字段。
-                var tableColumn = col.SourceColumn;
-                tableColumn.DataType = col.DataType;
-                tableColumn.MaxLength = col.MaxLength;
-                tableColumn.Precision = col.Precision;
-                tableColumn.Scale = col.Scale;
-                tableColumn.DefaultValue = string.IsNullOrEmpty(col.DefaultValue) ? null : col.DefaultValue;
+                // 克隆后回写，避免污染预览源对象
+                var src = col.SourceColumn;
+                var tableColumn = new DatabaseInterpreter.Model.TableColumn
+                {
+                    Name = src.Name,
+                    Schema = src.Schema,
+                    TableName = src.TableName,
+                    DataType = col.DataType,
+                    DataTypeSchema = src.DataTypeSchema,
+                    MaxLength = col.MaxLength,
+                    Precision = col.Precision,
+                    Scale = col.Scale,
+                    DefaultValue = string.IsNullOrEmpty(col.DefaultValue) ? null : col.DefaultValue,
+                    IsNullable = src.IsNullable,
+                    IsIdentity = src.IsIdentity,
+                    ComputeExp = src.ComputeExp,
+                    Order = src.Order,
+                    Comment = src.Comment,
+                };
                 schemaInfo.TableColumns.Add(tableColumn);
             }
         }
@@ -318,12 +344,40 @@ public partial class ConvertViewModel : ViewModelBase
                     Precision = column.Precision,
                     Scale = column.Scale,
                     DefaultValue = column.DefaultValue ?? string.Empty,
-                    SourceColumn = column,
+                    // 深拷贝源列，避免后续编辑通过引用污染翻译器的原始 SchemaInfo。
+                    SourceColumn = CloneTableColumn(column),
                 });
             }
 
             PreviewTables.Add(previewTable);
         }
+    }
+
+    /// <summary>深拷贝 TableColumn（仅拷贝会参与后续写回的关键字段）。</summary>
+    private static TableColumn CloneTableColumn(TableColumn src)
+    {
+        return new TableColumn
+        {
+            Name = src.Name,
+            Schema = src.Schema,
+            TableName = src.TableName,
+            DataType = src.DataType,
+            DataTypeSchema = src.DataTypeSchema,
+            MaxLength = src.MaxLength,
+            Precision = src.Precision,
+            Scale = src.Scale,
+            DefaultValue = src.DefaultValue,
+            IsNullable = src.IsNullable,
+            IsIdentity = src.IsIdentity,
+            ComputeExp = src.ComputeExp,
+            IsUserDefined = src.IsUserDefined,
+            IsPersisted = src.IsPersisted,
+            IsGeneratedAlways = src.IsGeneratedAlways,
+            ScriptComment = src.ScriptComment,
+            Values = src.Values,
+            Order = src.Order,
+            Comment = src.Comment,
+        };
     }
 
     /// <summary>执行转换（若勾选预览，则先执行预览 → 编辑 → 确认后再转换）。</summary>
@@ -342,11 +396,11 @@ public partial class ConvertViewModel : ViewModelBase
             return;
         }
 
-        // 勾选预览时，先生成预览供用户确认。
-        if (NeedPreview && !HasPreview)
+        // 勾选预览时，先生成预览供用户确认（使用 _previewCompleted 守卫，避免 0 表时重复触发）。
+        if (NeedPreview && !_previewCompleted)
         {
             await PreviewAsync();
-            if (!HasPreview)
+            if (!_previewCompleted)
             {
                 StatusMessage = "预览生成失败，请检查连接与选项。";
                 return;

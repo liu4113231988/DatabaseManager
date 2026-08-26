@@ -72,7 +72,8 @@ public class DefaultCodeGenerateService : ICodeGenerateService
             }
 
             var interpreter = DbInterpreterHelper.GetDbInterpreter(
-                dbType, ConnectionHelper.ToConnectionInfo(connection));
+                dbType, ConnectionHelper.ToConnectionInfo(connection),
+                new DbInterpreterOption { ObjectFetchMode = DatabaseObjectFetchMode.Details });
 
             var option = new CodeGenerateOption
             {
@@ -84,24 +85,31 @@ public class DefaultCodeGenerateService : ICodeGenerateService
                 Views = new List<View>(),
             };
 
-            // 按名称加载所选表 / 视图对象（含 Schema）。
-            var tableNames = targets.Where(t => t.ObjectType == "Table").Select(t => t.Name).ToArray();
-            var viewNames = targets.Where(t => t.ObjectType == "View").Select(t => t.Name).ToArray();
+            // 按 (Schema, ObjectType, Name) 精确匹配，避免同名不同 Schema 时把全部 Schema 的对象拉进来。
+            var selectedKeys = new HashSet<(string Schema, string Type, string Name)>(
+                targets.Select(t => (t.Schema ?? string.Empty, t.ObjectType ?? string.Empty, t.Name ?? string.Empty)));
 
-            var schemaFilter = new SchemaInfoFilter();
-            if (tableNames.Length > 0) schemaFilter.TableNames = tableNames;
-            if (viewNames.Length > 0) schemaFilter.ViewNames = viewNames;
-
-            var schemaInfo = await interpreter.GetSchemaInfoAsync(schemaFilter);
+            var schemaInfo = await interpreter.GetSchemaInfoAsync(new SchemaInfoFilter
+            {
+                DatabaseObjectType = DatabaseObjectType.Table | DatabaseObjectType.View,
+            });
 
             foreach (var table in schemaInfo.Tables)
             {
-                option.Tables.Add(table);
+                var key = (table.Schema ?? string.Empty, "Table", table.Name ?? string.Empty);
+                if (selectedKeys.Contains(key))
+                {
+                    option.Tables.Add(table);
+                }
             }
 
             foreach (var view in schemaInfo.Views)
             {
-                option.Views.Add(view);
+                var key = (view.Schema ?? string.Empty, "View", view.Name ?? string.Empty);
+                if (selectedKeys.Contains(key))
+                {
+                    option.Views.Add(view);
+                }
             }
 
             if (option.Tables.Count == 0 && option.Views.Count == 0)

@@ -16,13 +16,16 @@ public partial class ImportViewModel : ViewModelBase
     private readonly IDbConnectionService _connectionService;
     private readonly IExportImportService _exportImportService;
 
+    /// <summary>快速切换连接时，淘汰过期的异步加载结果（竞态防护）。</summary>
+    private int _loadTableVersion;
+
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
     /// <summary>表列表。</summary>
-    public ObservableCollection<TableItem> Tables { get; } = new();
+    public ObservableCollection<ExportTableItem> Tables { get; } = new();
 
-    /// <summary>列映射（本表列 → 文件列）。</summary>
+    /// <summary>列映射（SourceColumn = 文件列，TargetColumn = 表列）。</summary>
     public ObservableCollection<ColumnMappingItem> ColumnMappings { get; } = new();
 
     /// <summary>执行日志。</summary>
@@ -35,7 +38,7 @@ public partial class ImportViewModel : ViewModelBase
     private ConnectionItem? _selectedConnection;
 
     [ObservableProperty]
-    private TableItem? _selectedTable;
+    private ExportTableItem? _selectedTable;
 
     [ObservableProperty]
     private string _filePath = string.Empty;
@@ -80,12 +83,12 @@ public partial class ImportViewModel : ViewModelBase
         _ = LoadTablesAsync(value);
     }
 
-    partial void OnSelectedTableChanged(TableItem? value)
+    partial void OnSelectedTableChanged(ExportTableItem? value)
     {
         _ = LoadTableColumnsAsync(value);
     }
 
-    private async Task LoadTableColumnsAsync(TableItem? table)
+    private async Task LoadTableColumnsAsync(ExportTableItem? table)
     {
         TableColumns.Clear();
 
@@ -103,14 +106,18 @@ public partial class ImportViewModel : ViewModelBase
                 TableColumns.Add(column);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // 忽略列加载失败，列映射仍可手动填写。
+            // 列加载失败不再静默吞掉：提示用户以便排查连接 / 权限问题。
+            StatusMessage = $"加载表列失败：{ex.Message}";
+            AppendLog(StatusMessage);
         }
     }
 
     private async Task LoadTablesAsync(ConnectionItem? connection)
     {
+        var currentVersion = ++_loadTableVersion;
+
         if (connection is null)
         {
             Tables.Clear();
@@ -121,21 +128,31 @@ public partial class ImportViewModel : ViewModelBase
         try
         {
             var tables = await _exportImportService.GetTablesAsync(connection);
+
+            if (currentVersion != _loadTableVersion)
+                return;
+
             Tables.Clear();
             foreach (var table in tables)
             {
                 Tables.Add(table);
             }
-            StatusMessage = $"已加载 {Tables.Count} 张表。";
+            StatusMessage = $"已加载 {Tables.Count} 个对象。";
         }
         catch (Exception ex)
         {
+            if (currentVersion != _loadTableVersion)
+                return;
+
             Tables.Clear();
             StatusMessage = $"加载表列表失败：{ex.Message}";
         }
         finally
         {
-            IsTablesLoading = false;
+            if (currentVersion == _loadTableVersion)
+            {
+                IsTablesLoading = false;
+            }
         }
     }
 
@@ -145,7 +162,11 @@ public partial class ImportViewModel : ViewModelBase
         FilePath = path ?? string.Empty;
     }
 
-    /// <summary>加载列映射（表列 → 文件列按名称匹配）。</summary>
+    /// <summary>
+    /// 加载列映射（按名称自动匹配文件列 → 表列）。
+    /// SourceColumn = 文件列名（默认与表列同名），TargetColumn = 表列名。
+    /// 用户可根据实际文件首行修改 SourceColumn。
+    /// </summary>
     public void RefreshColumnMappings()
     {
         ColumnMappings.Clear();
@@ -153,13 +174,12 @@ public partial class ImportViewModel : ViewModelBase
         if (SelectedTable is null)
             return;
 
-        // 以表列为基准，用户可编辑「文件列」。
         foreach (var column in TableColumns)
         {
             ColumnMappings.Add(new ColumnMappingItem
             {
-                SourceColumn = column,
-                TargetColumn = column,
+                SourceColumn = column, // 默认假设文件列名与表列一致
+                TargetColumn = column, // 写入到表列
             });
         }
 
@@ -229,6 +249,7 @@ public partial class ImportViewModel : ViewModelBase
             AppendLog($"目标表：{SelectedTable.DisplayName}");
             AppendLog($"文件：{FilePath}");
             AppendLog($"首行为列名：{FirstRowIsColumnName}");
+            if (UseColumnMapping) AppendLog($"列映射：{mappings?.Count ?? 0} 条");
             AppendLog("开始导入...");
 
             var result = await _exportImportService.ImportDataAsync(

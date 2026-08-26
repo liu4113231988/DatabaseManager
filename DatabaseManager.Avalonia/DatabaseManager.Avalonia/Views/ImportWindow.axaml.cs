@@ -75,7 +75,7 @@ public partial class ImportWindow : Window
         => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
 
     private void ComboTable_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedTable = ComboTable.SelectedItem as TableItem;
+        => _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
 
     private void UseColumnMapping_CheckedChanged(object? sender, RoutedEventArgs e)
     {

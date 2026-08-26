@@ -27,15 +27,34 @@ public class DefaultExportImportService : IExportImportService
     public IReadOnlyList<string> GetExportFormats()
         => new[] { "Excel", "CSV" };
 
-    public async Task<IReadOnlyList<TableItem>> GetTablesAsync(
+    public async Task<IReadOnlyList<ExportTableItem>> GetTablesAsync(
         ConnectionItem connection,
         CancellationToken cancellationToken = default)
     {
         var interpreter = CreateInterpreter(connection);
-        var tables = await interpreter.GetTablesAsync();
-        return tables
-            .Select(t => new TableItem(t.Name, t.Schema, t.Schema is null ? t.Name : $"{t.Schema}.{t.Name}"))
-            .ToList();
+        var schemaInfo = await interpreter.GetSchemaInfoAsync(new SchemaInfoFilter
+        {
+            DatabaseObjectType = DatabaseObjectType.Table | DatabaseObjectType.View,
+        });
+
+        var list = new List<ExportTableItem>();
+        foreach (var t in schemaInfo.Tables.OrderBy(x => x.Schema).ThenBy(x => x.Name))
+        {
+            list.Add(new ExportTableItem(
+                t.Name,
+                t.Schema,
+                t.Schema is null ? t.Name : $"{t.Schema}.{t.Name}",
+                isView: false));
+        }
+        foreach (var v in schemaInfo.Views.OrderBy(x => x.Schema).ThenBy(x => x.Name))
+        {
+            list.Add(new ExportTableItem(
+                v.Name,
+                v.Schema,
+                v.Schema is null ? v.Name : $"{v.Schema}.{v.Name}",
+                isView: true));
+        }
+        return list;
     }
 
     public async Task<IReadOnlyList<string>> GetTableColumnsAsync(
@@ -157,13 +176,14 @@ public class DefaultExportImportService : IExportImportService
             };
 
             // 将 UI 友好的列映射转换为核心库模型。
+            // UI 语义：SourceColumn = 文件列名，TargetColumn = 表列名。
             List<DataImportColumnMapping>? mappings = null;
             if (columnMappings is { Count: > 0 })
             {
                 mappings = columnMappings.Select(m => new DataImportColumnMapping
                 {
-                    TableColumName = m.SourceColumn,
-                    FileColumnName = m.TargetColumn,
+                    TableColumName = m.TargetColumn,
+                    FileColumnName = m.SourceColumn,
                 }).ToList();
             }
 

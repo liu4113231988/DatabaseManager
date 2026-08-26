@@ -36,11 +36,15 @@ public class DefaultDependencyService : IDependencyService
 
             var usages = await fetcher.Fetch(dbObject, dependOnThis);
 
+            // 语义修正：
+            // dependOnThis = true  → 查询「哪些对象依赖于此对象」，结果展示引用方（RefObject 侧）。
+            // dependOnThis = false → 查询「此对象依赖于哪些对象」，结果展示被引用方（Object 侧）。
             var nodes = usages
                 .Select(u => new DependencyNode(
-                    dependOnThis ? u.ObjectType : u.RefObjectType,
-                    dependOnThis ? u.ObjectSchema : u.RefObjectSchema,
-                    dependOnThis ? u.ObjectName : u.RefObjectName))
+                    dependOnThis ? u.RefObjectType : u.ObjectType,
+                    dependOnThis ? u.RefObjectSchema : u.ObjectSchema,
+                    dependOnThis ? u.RefObjectName : u.ObjectName))
+                .Where(n => !string.IsNullOrWhiteSpace(n.ObjectName))
                 .GroupBy(n => (n.ObjectType, n.Schema, n.ObjectName))
                 .Select(g => g.First())
                 .OrderBy(n => n.ObjectType)
@@ -53,13 +57,20 @@ public class DefaultDependencyService : IDependencyService
 
     private static DatabaseObject CreateDatabaseObject(string objectType, string? schema, string objectName)
     {
-        return objectType switch
-        {
-            "Table" => new Table { Schema = schema, Name = objectName },
-            "View" => new View { Schema = schema, Name = objectName },
-            "Function" => new Function { Schema = schema, Name = objectName },
-            "Procedure" => new Procedure { Schema = schema, Name = objectName },
-            _ => throw new InvalidOperationException($"不支持的对象类型：{objectType}"),
-        };
+        if (string.IsNullOrWhiteSpace(objectType))
+            throw new InvalidOperationException("对象类型不能为空。");
+
+        // 大小写不敏感匹配，避免 UI 输入 "table"/"TABLE" 等变体导致失败。
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        if (comparer.Equals(objectType, "Table"))
+            return new Table { Schema = schema, Name = objectName };
+        if (comparer.Equals(objectType, "View"))
+            return new View { Schema = schema, Name = objectName };
+        if (comparer.Equals(objectType, "Function"))
+            return new Function { Schema = schema, Name = objectName };
+        if (comparer.Equals(objectType, "Procedure"))
+            return new Procedure { Schema = schema, Name = objectName };
+
+        throw new InvalidOperationException($"不支持的对象类型：{objectType}");
     }
 }

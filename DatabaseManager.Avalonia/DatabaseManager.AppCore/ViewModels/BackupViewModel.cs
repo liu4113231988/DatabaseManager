@@ -15,6 +15,7 @@ public partial class BackupViewModel : ViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IBackupService _backupService;
+    private CancellationTokenSource? _backupCts;
 
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -35,6 +36,8 @@ public partial class BackupViewModel : ViewModelBase
     private bool _zipFile = true;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(BackupCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelBackupCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -60,7 +63,7 @@ public partial class BackupViewModel : ViewModelBase
         SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunBackup))]
     private async Task BackupAsync()
     {
         if (SelectedConnection is null)
@@ -78,9 +81,14 @@ public partial class BackupViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = string.Empty;
         Logs.Clear();
+        _backupCts = new CancellationTokenSource();
+        var token = _backupCts.Token;
 
         var feedbackBuffer = new List<string>();
-        void CollectFeedback(string message) => feedbackBuffer.Add(message);
+        void CollectFeedback(string message)
+        {
+            lock (feedbackBuffer) feedbackBuffer.Add(message);
+        }
 
         try
         {
@@ -89,16 +97,19 @@ public partial class BackupViewModel : ViewModelBase
             AppendLog("开始备份...");
 
             var result = await _backupService.BackupAsync(
-                SelectedConnection, SaveFolder, ClientToolFilePath, ZipFile, CollectFeedback);
+                SelectedConnection, SaveFolder, ClientToolFilePath, ZipFile, CollectFeedback, token);
 
             foreach (var line in feedbackBuffer)
-            {
                 AppendLog(line);
-            }
 
             StatusMessage = result.IsOK
                 ? $"备份成功，文件：{result.FilePath}"
                 : $"备份失败：{result.Message}";
+            AppendLog(StatusMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "备份已取消。";
             AppendLog(StatusMessage);
         }
         catch (Exception ex)
@@ -109,6 +120,26 @@ public partial class BackupViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+            _backupCts?.Dispose();
+            _backupCts = null;
+        }
+    }
+
+    private bool CanRunBackup() => !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(IsBusy))]
+    private void CancelBackup()
+    {
+        if (_backupCts == null || _backupCts.IsCancellationRequested) return;
+        try
+        {
+            AppendLog("请求取消备份...");
+            _backupCts.Cancel();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"取消失败：{ex.Message}";
+            AppendLog(StatusMessage);
         }
     }
 

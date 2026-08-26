@@ -83,7 +83,7 @@ public partial class ExportWindow : Window
         => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
 
     private void ComboTable_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedTable = ComboTable.SelectedItem as TableItem;
+        => _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
 
     private void ComboFormat_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         => _vm.SelectedFormat = ComboFormat.SelectedItem as string ?? "Excel";

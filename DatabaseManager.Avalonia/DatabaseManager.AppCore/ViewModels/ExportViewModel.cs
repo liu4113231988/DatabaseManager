@@ -16,11 +16,14 @@ public partial class ExportViewModel : ViewModelBase
     private readonly IDbConnectionService _connectionService;
     private readonly IExportImportService _exportImportService;
 
+    /// <summary>快速切换连接时，淘汰过期的异步加载结果（竞态防护）。</summary>
+    private int _loadTableVersion;
+
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
-    /// <summary>表/视图列表（可勾选）。</summary>
-    public ObservableCollection<TableItem> Tables { get; } = new();
+    /// <summary>表/视图列表（可勾选，预选勾选状态会在刷新时按名称恢复）。</summary>
+    public ObservableCollection<ExportTableItem> Tables { get; } = new();
 
     /// <summary>导出格式。</summary>
     public IReadOnlyList<string> Formats { get; }
@@ -32,7 +35,7 @@ public partial class ExportViewModel : ViewModelBase
     private ConnectionItem? _selectedConnection;
 
     [ObservableProperty]
-    private TableItem? _selectedTable;
+    private ExportTableItem? _selectedTable;
 
     [ObservableProperty]
     private string _selectedFormat = "Excel";
@@ -85,31 +88,51 @@ public partial class ExportViewModel : ViewModelBase
 
     private async Task LoadTablesAsync(ConnectionItem? connection)
     {
+        // 捕获当前版本号；如果后续发起了新的加载，当前结果抵达时应被丢弃。
+        var currentVersion = ++_loadTableVersion;
+
         if (connection is null)
         {
             Tables.Clear();
             return;
         }
 
+        // 预选表同步：加载前先记住当前勾选的 (Schema,Name) 集合，刷新后还原。
+        var preSelected = new HashSet<(string? Schema, string Name)>(
+            Tables.Where(t => t.IsSelected).Select(t => (t.Schema, t.Name)));
+
         IsTablesLoading = true;
         try
         {
             var tables = await _exportImportService.GetTablesAsync(connection);
+
+            // 竞态检查：如果版本号不再匹配，说明用户已经切换过连接或重入加载。
+            if (currentVersion != _loadTableVersion)
+                return;
+
             Tables.Clear();
             foreach (var table in tables)
             {
+                table.IsSelected = preSelected.Contains((table.Schema, table.Name));
                 Tables.Add(table);
             }
-            StatusMessage = $"已加载 {Tables.Count} 张表。";
+
+            StatusMessage = $"已加载 {Tables.Count} 个对象。";
         }
         catch (Exception ex)
         {
+            if (currentVersion != _loadTableVersion)
+                return;
+
             Tables.Clear();
             StatusMessage = $"加载表列表失败：{ex.Message}";
         }
         finally
         {
-            IsTablesLoading = false;
+            if (currentVersion == _loadTableVersion)
+            {
+                IsTablesLoading = false;
+            }
         }
     }
 
@@ -150,7 +173,7 @@ public partial class ExportViewModel : ViewModelBase
         try
         {
             AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"对象：{SelectedTable.DisplayName}");
+            AppendLog($"对象：{SelectedTable.DisplayName}{(SelectedTable.IsView ? "（视图）" : "（表）")}");
             AppendLog($"格式：{SelectedFormat}");
             AppendLog($"文件：{FilePath}");
             AppendLog("开始导出...");
@@ -159,7 +182,7 @@ public partial class ExportViewModel : ViewModelBase
                 SelectedConnection,
                 SelectedTable.Name,
                 SelectedTable.Schema,
-                isView: false,
+                isView: SelectedTable.IsView,
                 SelectedFormat,
                 FilePath,
                 ShowColumnNames,
