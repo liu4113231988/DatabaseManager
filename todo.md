@@ -86,20 +86,7 @@
 - [x] **断开全部连接（对应 Database > Disconnect All）**
   - 「连接」菜单已有「断开全部」，命令 `MainWindowViewModel.DisconnectAllCommand`（MainWindowViewModel.cs:230-240）
 
-## P1（高频补齐）
 
-- [ ] **只读模式开关（对应 Database > Read-only connection）——未实现**
-  - 「数据库」菜单增加 ToggleSwitch；全局状态存于 MainWindowViewModel
-  - `QueryTabViewModel.ExecuteAsync`（QueryTabViewModel.cs:126-162）目前执行前仅有空值校验，**无任何只读拦截**，需补：非 SELECT / WITH / SHOW / EXPLAIN 开头的语句直接拒绝
-- [ ] **全库数据搜索（对应 Search > DB Full-Text）——未实现**
-  - 输入关键字，在指定数据库全部表的所有文本列中 `LIKE '%kw%'` 查找
-  - 结果展示 库.表.列 + 样例值；点击生成 `SELECT * FROM t WHERE col LIKE ...`
-  - 需控制成本：逐表顺序扫描 + LIMIT 保护 + 可取消；文本列仅限字符类型
-
-## P2（体验增强，可选）
-
-- [ ] **编辑器光标位置前进/后退（对应 Navigate > Previous/Next Edit Location, Alt+←/→）——未实现**
-  - SqlEditor 内维护光标位置历史栈（跳转阈值 >N 行才入栈），快捷键导航
 
 ## 明确不实现（低频/平台特有）
 
@@ -108,11 +95,6 @@
 - Open Dashboard（监控仪表盘）、Tasks / Context tools（任务调度）
 - Disconnect Others、Open Resource、File/Text Search、Quick Search、Data 导航子菜单
 
-## 依赖项（实现前需补齐）
-
-- [x] `IDbSchemaService.SearchMetadataAsync(connectionName, keyword)`：已实现（INFORMATION_SCHEMA 等名称模糊匹配，含列名）
-- [x] TreeView 定位辅助：MainWindow 中按 DbObjectTreeNode 路径逐级展开并选中目标节点的方法已实现（`LocateNodeInTreeAsync`）
-- [ ] 只读拦截需要 QueryTabViewModel 能读到全局只读标志（构造注入回调或静态 App 状态，注意 DI 注册方式）——随只读模式一起实现
 
 ---
 
@@ -136,11 +118,9 @@
 
 ## 待实现清单（按优先级）
 
-- [ ] P1：只读模式开关 + QueryTabViewModel 执行拦截（防误改生产库）
 - [ ] P1：全库数据搜索（DB Full-Text）
 - [x] ~~P1：视图不应挂载 Indexes/Keys/Constraints 子文件夹~~（2026-08-25 已修复：`AddTableChildFolders` 增加 isView 参数，视图仅保留 Columns）
 - [ ] P2：右键菜单图标
-- [ ] P2：编辑器光标位置前进/后退导航
 - [x] ~~P2：Oracle 数据库节点语义 / 连接阶段 N+1 schema 查询优化~~（2026-08-25 已修复，见下方树结构检查 #2、#3）
 - [ ] P2（可选增强）：INSERT/UPDATE 模板可进一步带表注释/列默认值；「新建列」可考虑直接挂接表设计器编辑后提交
 
@@ -168,24 +148,8 @@
   - 删除行为标记删除，保存时统一 DELETE；「还原」恢复原值/放回删除行/丢弃新增行
 - **翻页兼容**：改动跨页保留（行对象驻留在全量集合中）
 
-### 方案 B：数据编辑器缺陷修复 → 已删除
 
-- 原缺陷（新增行不可见）已随 Tab 删除而消除。
-- **可行性结论**：查询 Tab 的分页（客户端分页）+ 内联增删改已可覆盖数据编辑 Tab 的核心能力
-  - 差异：数据编辑器为**服务端分页**（`GetPagedDataTableAsync`，适合大表）；查询结果为**客户端分页**（全量加载后分页，大表 `SELECT *` 会全量拉取）
-  - 结论：中小表完全可行；大表建议在查询中使用 `WHERE`/`LIMIT` 分页查询，或后续为查询结果增加服务端分页优化
-- **删除内容**（2026-08-25）：
-  - `MainWindow.axaml`：移除外层 `ContentModeTabs` 与 `数据编辑` TabItem，查询 Tab 成为唯一内容区
-  - `MainWindow.axaml.cs`：移除 `_dataEditor`、列重建、新增/删除、切换等 5 处方法及 `openDataEditorTab` 回调
-  - `ObjectTreeContextMenuBuilder.cs`：`编辑数据` 菜单由 `OpenDataEditor` 重定向为 `GenerateSelectScript`（在查询结果中编辑）
-  - `MainWindowViewModel.cs`：移除 `DataEditor` 属性及 `OpenDataEditor/SwitchToDataEditor`，保留 `IDataEditService` 供查询内联编辑复用
-  - `DataEditorViewModel.cs` 保留类文件与 DI 注册（暂不删除，便于回滚）
 
-### 渲染缺陷修复（2026-08-25）
-
-- 现象：查询/数据编辑均返回 1 行但表格空白
-- 原因：`DataGridTextColumn` 绑定使用了 WPF 风格 `Item[列名]`，在 Avalonia 中应为 `[列名]`；`QueryResultRow` 的 `this[int]` 缺少 setter 导致双向绑定失效
-- 修复：两处列重建均改为 `Binding($"[{columnName}]")`（Avalonia 索引器语法），补上 `QueryResultRow[int].set`，并补充 `PropertyChanged` 对 `[key]`/`Item[key]`/`Item[]` 的通知
 
 ## 后续优化候选（待使用反馈）
 
@@ -217,11 +181,4 @@
 - Schema 层仅在 `schemas.Count > 1` 时出现；单 schema 时作为查询过滤条件避免混入其他 schema 的对象
 - 视图列经 `ColumnType.ViewColumn + IsForView` 单独获取；子对象显示文本带类型/可空/自增/外键引用等元信息
 
-## 发现的问题（2026-08-25 已全部修复）
 
-1. [x] **P1：视图挂载了不适用的子文件夹**（DefaultDbSchemaService.cs `ToNode` → `AddTableChildFolders`）
-   - 修复：`AddTableChildFolders` 增加 `isView` 参数，视图仅保留 Columns 子文件夹，表才挂 Triggers/Indexes/Keys/Constraints
-2. [x] **P2：Oracle「数据库」节点语义不准**
-   - 修复：`ObjectTreeContextMenuBuilder.BuildDatabaseMenu` 经 `GetConnectionDatabaseType` 判断 Oracle 时文案改为「设为当前 Schema」
-3. [x] **P2：连接阶段的 N+1 schema 查询**
-   - 修复：`GetObjectTreeAsync` 改为 `Task.WhenAll` 并行枚举各库 schema（SQL Server/Postgres 各用目标库自己的解释器；Oracle 复用默认解释器且仅单库无并发冲突）

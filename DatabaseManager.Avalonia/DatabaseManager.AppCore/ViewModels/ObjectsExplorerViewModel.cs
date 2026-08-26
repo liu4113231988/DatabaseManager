@@ -297,6 +297,19 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             childFolder.AddChild(node);
         }
 
+        // 空状态：无子对象时显示占位
+        if (nodes.Count == 0)
+        {
+            childFolder.AddChild(new DbObjectTreeNode
+            {
+                Name = "_Empty_",
+                Text = "（空）",
+                NodeType = DbObjectTreeNodeType.ChildFolder,
+                IsPlaceholder = true,
+                IsLoaded = true,
+            });
+        }
+
         // 数量展示（如 Columns (3)）。
         childFolder.Text = nodes.Count > 0 ? $"{childFolder.Name} ({nodes.Count})" : childFolder.Name;
         childFolder.IsLoaded = true;
