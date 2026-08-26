@@ -258,3 +258,4 @@ __pycache__/
 DatabaseManager/nul
 nul
 **/.history/
+.vscode/
