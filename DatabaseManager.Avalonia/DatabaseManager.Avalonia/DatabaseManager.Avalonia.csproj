@@ -17,32 +17,29 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Avalonia 11.3.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 11） -->
-    <PackageReference Include="Avalonia" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <!-- Avalonia 12.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 12） -->
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
 
-    <!-- 表格：查询结果网格（注：Avalonia.Controls.DataGrid 11.3.x 最高版本为 11.3.13，无 11.3.20；
-         指定 11.3.20 会被 NuGet 解析到 12.0.0，因依赖 Avalonia>=12 与 11.3.20 基座冲突而触发 NU1605 告警） -->
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
-    <!-- SQL 编辑器：AvaloniaEdit（官方包已更名 Avalonia.AvaloniaEdit；0.10.x 仅兼容 Avalonia 0.10，必须用 11.x） -->
-    <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.3.0" />
+    <!-- 表格：查询结果网格 -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+    <!-- SQL 编辑器：AvaloniaEdit（Avalonia 12 对应 12.0.0） -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
 
     <!-- MVVM / DI -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
 
-    <!-- 主题：AtomUI.Desktop.Controls（Ant Design 风格，对齐原 AntdUI 视觉）
-         注：旧入口包 AtomUI 已弃用（5.1.x 起重构为 AtomUI.Desktop.Controls 系列）；
-         6.x 基于 Avalonia 12，当前 Avalonia 11.3.x 基座使用 5.1.4 -->
-    <PackageReference Include="AtomUI.Desktop.Controls" Version="5.1.4" />
+    <!-- 主题：AtomUI.Desktop.Controls（Ant Design 风格，对齐原 AntdUI 视觉）；6.x 基于 Avalonia 12 -->
+    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.1.5" />
 
     <!-- 停靠布局：Dock -->
-    <PackageReference Include="Dock.Avalonia" Version="11.3.12.1" />
+    <PackageReference Include="Dock.Avalonia" Version="12.1.0.4" />
 
     <!-- 消息框 -->
-    <PackageReference Include="MessageBox.Avalonia" Version="3.3.1.1" />
+    <PackageReference Include="MessageBox.Avalonia" Version="12.0.0" />
   </ItemGroup>
 
   <ItemGroup>

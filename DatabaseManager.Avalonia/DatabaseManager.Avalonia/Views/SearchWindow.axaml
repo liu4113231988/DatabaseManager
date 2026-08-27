@@ -21,7 +21,7 @@
             </StackPanel>
 
             <TextBox Grid.Column="1" x:Name="TxtKeyword" Margin="6,0,0,0"
-                     Text="{Binding Keyword}" Watermark="输入表 / 视图 / 列 / 过程 / 函数名称关键字..."
+                     Text="{Binding Keyword}" PlaceholderText="输入表 / 视图 / 列 / 过程 / 函数名称关键字..."
                      KeyDown="TxtKeyword_KeyDown" />
 
             <atom:Button Grid.Column="2" Content="搜索" ButtonType="Primary" Margin="6,0,0,0"

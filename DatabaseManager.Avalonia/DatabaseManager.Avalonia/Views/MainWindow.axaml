@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="using:AtomUI.Desktop.Controls"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:conv="using:DatabaseManager.Avalonia.Converters"
@@ -232,7 +232,7 @@
                                 <Style Selector="TreeView /template/ ItemsPresenter">
                                     <Setter Property="Margin" Value="2,0,0,0" />
                                 </Style>
-                                <Style Selector="TreeViewItem">
+                                <Style Selector="TreeViewItem" x:DataType="models:DbObjectTreeNode">
                                     <!-- 直连通过 Padding 让文字整体更左靠，而不是不同平台默认模板差异 -->
                                     <Setter Property="Padding" Value="2,0,0,0" />
                                     <Setter Property="Margin" Value="0" />

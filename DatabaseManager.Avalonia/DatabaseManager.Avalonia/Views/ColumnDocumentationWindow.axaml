@@ -20,7 +20,7 @@
 
             <Grid ColumnDefinitions="90,*,Auto">
                 <TextBlock Grid.Column="0" Text="输出文件" VerticalAlignment="Center" />
-                <atom:TextBox Grid.Column="1" Text="{Binding FilePath}" Watermark="生成的 Word 文档路径（.docx）"
+                <atom:TextBox Grid.Column="1" Text="{Binding FilePath}" PlaceholderText="生成的 Word 文档路径（.docx）"
                               HorizontalAlignment="Stretch" />
                 <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseFile_Click" />
             </Grid>

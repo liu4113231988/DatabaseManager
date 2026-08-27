@@ -229,6 +229,52 @@ public partial class MainWindowViewModel : ViewModelBase
         await ConnectConnectionNodeAsync(connectionNode);
     }
 
+    /// <summary>连接当前选中的连接（工具栏/菜单快捷操作）。</summary>
+    [RelayCommand]
+    public async Task Connect()
+    {
+        if (SelectedConnection is null)
+        {
+            QueryEditor.StatusMessage = "请先选择一个连接。";
+            return;
+        }
+
+        var node = ObjectsExplorer.FindConnectionNode(SelectedConnection.Name);
+        if (node is null)
+        {
+            QueryEditor.StatusMessage = $"连接「{SelectedConnection.Name}」未在对象树中定位。";
+            return;
+        }
+
+        await ConnectConnectionNodeAsync(node);
+    }
+
+    /// <summary>断开当前选中的连接（工具栏/菜单快捷操作）。</summary>
+    [RelayCommand]
+    public void Disconnect()
+    {
+        if (SelectedConnection is null)
+            return;
+
+        var node = ObjectsExplorer.FindConnectionNode(SelectedConnection.Name);
+        DisconnectConnectionNode(node);
+    }
+
+    /// <summary>重连当前选中的连接（工具栏/菜单快捷操作）。</summary>
+    [RelayCommand]
+    public async Task Reconnect()
+    {
+        if (SelectedConnection is null)
+            return;
+
+        var node = ObjectsExplorer.FindConnectionNode(SelectedConnection.Name);
+        if (node is null)
+            return;
+
+        DisconnectConnectionNode(node);
+        await ConnectConnectionNodeAsync(node);
+    }
+
     /// <summary>断开全部活动连接（对应 DBeaver 的 Database &gt; Disconnect All）。</summary>
     [RelayCommand]
     public void DisconnectAll()

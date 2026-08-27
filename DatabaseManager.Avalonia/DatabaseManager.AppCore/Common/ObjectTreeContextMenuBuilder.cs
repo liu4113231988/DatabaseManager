@@ -4,6 +4,7 @@ using Avalonia;                // <- 新增
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;  // <- 新增：IClassicDesktopStyleApplicationLifetime
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;          // <- 新增：TextWrapping

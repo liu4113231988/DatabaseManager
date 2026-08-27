@@ -23,12 +23,12 @@
                 <TextBlock Grid.Column="0" Text="对象类型" VerticalAlignment="Center" />
                 <atom:ComboBox x:Name="ComboObjectType" Grid.Column="1" HorizontalAlignment="Stretch" />
                 <TextBlock Grid.Column="2" Text="Schema" VerticalAlignment="Center" Margin="10,0,0,0" />
-                <atom:TextBox Grid.Column="3" Text="{Binding Schema}" Watermark="可留空" HorizontalAlignment="Stretch" />
+                <atom:TextBox Grid.Column="3" Text="{Binding Schema}" PlaceholderText="可留空" HorizontalAlignment="Stretch" />
             </Grid>
 
             <Grid ColumnDefinitions="90,*">
                 <TextBlock Grid.Column="0" Text="对象名" VerticalAlignment="Center" />
-                <atom:TextBox Grid.Column="1" Text="{Binding ObjectName}" Watermark="输入表 / 视图 / 函数 / 存储过程名"
+                <atom:TextBox Grid.Column="1" Text="{Binding ObjectName}" PlaceholderText="输入表 / 视图 / 函数 / 存储过程名"
                               HorizontalAlignment="Stretch" />
             </Grid>
 

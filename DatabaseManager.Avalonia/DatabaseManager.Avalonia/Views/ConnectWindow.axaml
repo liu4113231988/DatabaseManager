@@ -18,18 +18,18 @@
 
         <StackPanel Spacing="6">
             <TextBlock Text="连接名称" FontWeight="SemiBold" />
-            <atom:TextBox x:Name="TxtProfileName" Watermark="连接名称（Profile Name）" />
+            <atom:TextBox x:Name="TxtProfileName" PlaceholderText="连接名称（Profile Name）" />
         </StackPanel>
 
         <StackPanel Spacing="6">
             <TextBlock Text="服务器" FontWeight="SemiBold" />
-            <atom:TextBox x:Name="TxtServer" Watermark="服务器地址" />
+            <atom:TextBox x:Name="TxtServer" PlaceholderText="服务器地址" />
         </StackPanel>
 
         <Grid ColumnDefinitions="*,Auto">
             <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,8,0">
                 <TextBlock Text="端口" FontWeight="SemiBold" />
-                <atom:TextBox x:Name="TxtPort" Watermark="端口（留空则使用默认）" />
+                <atom:TextBox x:Name="TxtPort" PlaceholderText="端口（留空则使用默认）" />
             </StackPanel>
             <StackPanel Spacing="6" Grid.Column="1" Width="250">
                 <TextBlock Text="认证方式" FontWeight="SemiBold" />
@@ -43,11 +43,11 @@
         <Grid ColumnDefinitions="*,*">
             <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,8,0">
                 <TextBlock Text="用户名" FontWeight="SemiBold" />
-                <atom:TextBox x:Name="TxtUserId" Watermark="用户名" />
+                <atom:TextBox x:Name="TxtUserId" PlaceholderText="用户名" />
             </StackPanel>
             <StackPanel Spacing="6" Grid.Column="1">
                 <TextBlock Text="密码" FontWeight="SemiBold" />
-                <atom:TextBox x:Name="TxtPassword" Watermark="密码" PasswordChar="*" />
+                <atom:TextBox x:Name="TxtPassword" PlaceholderText="密码" PasswordChar="*" />
             </StackPanel>
         </Grid>
 
