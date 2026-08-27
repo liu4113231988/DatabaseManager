@@ -80,6 +80,9 @@
                 <Separator />
                 <MenuItem Header="数据导出..." Click="MenuExport_Click" />
                 <MenuItem Header="数据导入..." Click="MenuImport_Click" />
+                <Separator />
+                <MenuItem Header="图像查看器..." Click="MenuImageViewer_Click" />
+                <MenuItem Header="JSON 查看器..." Click="MenuJsonViewer_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" Click="MenuAbout_Click" />

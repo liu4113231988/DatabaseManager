@@ -201,6 +201,12 @@ public partial class MainWindowViewModel : ViewModelBase
         SyncConnectionToCurrentTab(connectionNode.Connection.Name);
 
         await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
+
+        // 仅当对象树标记为已连接时才通知查询服务为已连接
+        if (connectionNode.IsConnectionActive)
+        {
+            _queryService.NotifyConnected(connectionNode.Connection.Name);
+        }
     }
 
     /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
@@ -208,7 +214,17 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (connectionNode?.NodeType == DbObjectTreeNodeType.Connection && connectionNode.Connection is not null)
         {
-            _queryService.CloseConnection(connectionNode.Connection.Name);
+            var name = connectionNode.Connection.Name;
+            _queryService.CloseConnection(name);
+            // 将使用该连接的查询标签标记为已断开，避免用户误以为仍可执行
+            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                tab.StatusMessage = $"连接 '{name}' 已断开，请重新连接后再执行。";
+            }
+        }
+        else if (connectionNode is null)
+        {
+            // 来自菜单的 Disconnect（按 SelectedConnection）：已在 CloseConnection 中处理
         }
 
         ObjectsExplorer.Disconnect(connectionNode);
@@ -257,7 +273,23 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
 
         var node = ObjectsExplorer.FindConnectionNode(SelectedConnection.Name);
-        DisconnectConnectionNode(node);
+        if (node is not null)
+        {
+            DisconnectConnectionNode(node);
+        }
+        else
+        {
+            // 节点未找到时仍需标记查询服务为断开
+            _queryService.CloseConnection(SelectedConnection.Name);
+            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, SelectedConnection.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                tab.StatusMessage = $"连接 '{SelectedConnection.Name}' 已断开，请重新连接后再执行。";
+            }
+            IsConnected = false;
+            CurrentDatabase = string.Empty;
+            CurrentSchema = string.Empty;
+            SchemaSelectorVisible = false;
+        }
     }
 
     /// <summary>重连当前选中的连接（工具栏/菜单快捷操作）。</summary>

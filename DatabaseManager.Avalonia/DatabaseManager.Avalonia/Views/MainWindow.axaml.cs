@@ -555,6 +555,28 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
+    /// <summary>打开图像查看器（工具菜单）。</summary>
+    private async void MenuImageViewer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var imgVm = _services.GetRequiredService<ImageViewerViewModel>();
+        var window = new ImageViewerWindow(imgVm);
+        await window.ShowDialog<object?>(this);
+    }
+
+    /// <summary>打开 JSON 查看器（工具菜单）。</summary>
+    private async void MenuJsonViewer_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var jsonVm = _services.GetRequiredService<JsonViewerViewModel>();
+        var window = new JsonViewerWindow(jsonVm);
+        await window.ShowDialog<object?>(this);
+    }
+
     /// <summary>显示「关于」对话框。</summary>
     private async void MenuAbout_Click(object? sender, RoutedEventArgs e)
     {

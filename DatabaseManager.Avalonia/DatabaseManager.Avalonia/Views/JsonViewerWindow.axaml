@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.JsonViewerWindow"
+        x:DataType="vm:JsonViewerViewModel"
+        Title="JSON 查看器 (JSON Viewer)"
+        Width="960" Height="660"
+        Icon="/Assets/_dbManager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部工具栏 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="格式化" ButtonType="Primary" Command="{Binding FormatCommand}" />
+                <atom:Button Content="加载树" Command="{Binding BuildTreeCommand}" />
+                <atom:Button Content="清空" Command="{Binding ClearCommand}" />
+                <atom:Button Content="打开文件..." Click="BtnOpenFile_Click" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 主内容：左文本 / 右树 -->
+        <Grid ColumnDefinitions="*,Auto,*">
+            <DockPanel Grid.Column="0" Margin="0,0,4,0">
+                <TextBlock DockPanel.Dock="Top" Text="JSON 文本" FontWeight="Bold" Margin="2,0,0,4" />
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding JsonText, Mode=TwoWay}"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                 MinHeight="400" />
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="5" Background="#E0E0E0"
+                          HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+
+            <DockPanel Grid.Column="2" Margin="4,0,0,0">
+                <TextBlock DockPanel.Dock="Top" Text="树形视图" FontWeight="Bold" Margin="2,0,0,4" />
+                <Border BorderBrush="#22000000" BorderThickness="1">
+                    <TreeView ItemsSource="{Binding TreeNodes}">
+                        <TreeView.ItemTemplate>
+                            <TreeDataTemplate DataType="vm:JsonTreeNode" ItemsSource="{Binding Children}">
+                                <TextBlock Text="{Binding DisplayText}"
+                                           FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                           TextWrapping="Wrap" />
+                            </TreeDataTemplate>
+                        </TreeView.ItemTemplate>
+                    </TreeView>
+                </Border>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -30,4 +30,10 @@ public interface IQueryService
 
     /// <summary>关闭并释放连接（含活动事务连接）。</summary>
     void CloseConnection(string connectionName);
+
+    /// <summary>查询指定连接是否处于已连接状态（对象浏览器已建立连接）。</summary>
+    bool IsConnected(string connectionName);
+
+    /// <summary>标记指定连接为已连接（对象浏览器连接成功后调用）。</summary>
+    void NotifyConnected(string connectionName);
 }

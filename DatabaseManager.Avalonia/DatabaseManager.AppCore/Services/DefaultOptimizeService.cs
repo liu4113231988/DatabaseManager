@@ -63,6 +63,11 @@ public class DefaultOptimizeService : IOptimizeService
 
             var okCount = items.Count(i => i.IsOK);
             var failCount = items.Count - okCount;
+            if (!result.IsOK && items.Count == 0)
+            {
+                // 整体失败且无明细：抛出友好异常供上层展示为“优化失败”
+                throw new InvalidOperationException(result.Message ?? "优化失败：未返回任何优化明细。");
+            }
             onFeedback?.Invoke($"优化完成，共处理 {items.Count} 个对象（成功 {okCount}，失败 {failCount}）。");
             return (IReadOnlyList<OptimizeResultItem>)items;
         }, cancellationToken);

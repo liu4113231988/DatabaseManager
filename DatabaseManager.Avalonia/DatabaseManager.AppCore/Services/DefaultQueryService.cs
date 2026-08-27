@@ -18,6 +18,10 @@ public class DefaultQueryService : IQueryService
     /// <summary>每个连接名对应的活动事务状态（连接名 → 事务上下文）。</summary>
     private readonly ConcurrentDictionary<string, TransactionContext> _transactions = new();
 
+    /// <summary>对象浏览器已建立连接的集合（逻辑已连接状态）。</summary>
+    private readonly HashSet<string> _connected = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _connectedLock = new();
+
     public DefaultQueryService(IDbConnectionService connectionService)
     {
         _connectionService = connectionService;
@@ -39,6 +43,14 @@ public class DefaultQueryService : IQueryService
             return new QueryResult
             {
                 ErrorMessage = "SQL 语句不能为空。",
+            };
+        }
+
+        if (!IsConnected(connectionName))
+        {
+            return new QueryResult
+            {
+                ErrorMessage = $"连接 '{connectionName}' 已断开，请先在对象浏览器中重新连接后再执行。",
             };
         }
 
@@ -258,11 +270,24 @@ public class DefaultQueryService : IQueryService
 
     public void CloseConnection(string connectionName)
     {
+        lock (_connectedLock) _connected.Remove(connectionName);
         if (_transactions.TryRemove(connectionName, out var ctx))
         {
             try { ctx.Transaction?.Rollback(); } catch { /* 忽略 */ }
             try { ctx.Connection?.Dispose(); } catch { /* 忽略 */ }
         }
+    }
+
+    public bool IsConnected(string connectionName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionName)) return false;
+        lock (_connectedLock) return _connected.Contains(connectionName);
+    }
+
+    public void NotifyConnected(string connectionName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionName)) return;
+        lock (_connectedLock) _connected.Add(connectionName);
     }
 
     private DbInterpreter CreateInterpreter(ConnectionItem connection)

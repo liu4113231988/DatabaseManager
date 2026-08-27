@@ -1,0 +1,54 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.ImageViewerWindow"
+        x:DataType="vm:ImageViewerViewModel"
+        Title="图像查看器 (Image Viewer)"
+        Width="900" Height="620"
+        Icon="/Assets/_dbManager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部工具栏 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
+            <TextBlock Text="粘贴十六进制内容（支持 0x 开头，可含空格/换行），点击「预览」查看图片" Opacity="0.7" FontSize="11" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="预览" ButtonType="Primary" Command="{Binding ViewImageCommand}" />
+                <atom:Button Content="清空" Command="{Binding ClearCommand}" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="12" Margin="2,6,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Opacity="0.75" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding DetectedExtension, StringFormat='格式: {0}'}" Opacity="0.6" FontSize="11" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Grid RowDefinitions="Auto,*,Auto">
+            <!-- 十六进制输入 -->
+            <DockPanel Grid.Row="0" Margin="0,0,0,8">
+                <TextBlock DockPanel.Dock="Top" Text="十六进制内容" FontWeight="Bold" Margin="2,0,0,4" />
+                <Border BorderBrush="#22000000" BorderThickness="1" Height="140">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <TextBox Text="{Binding HexText, Mode=TwoWay}"
+                                 AcceptsReturn="True" TextWrapping="Wrap"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+
+            <!-- 图片预览 -->
+            <DockPanel Grid.Row="1">
+                <TextBlock DockPanel.Dock="Top" Text="预览" FontWeight="Bold" Margin="2,0,0,4" />
+                <Border BorderBrush="#22000000" BorderThickness="1" Background="#FAFAFA">
+                    <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                        <Image x:Name="PreviewImage" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8" />
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</Window>

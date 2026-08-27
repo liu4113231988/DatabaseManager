@@ -53,6 +53,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ExportViewModel>();
         services.AddTransient<ImportViewModel>();
         services.AddTransient<SearchViewModel>();
+        services.AddTransient<JsonViewerViewModel>();
+        services.AddTransient<ImageViewerViewModel>();
 
         return services;
     }
