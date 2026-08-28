@@ -6,7 +6,7 @@
         x:DataType="vm:SearchViewModel"
         Title="元数据搜索"
         Width="760" Height="520"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

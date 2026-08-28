@@ -13,6 +13,8 @@ using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Highlighting;
 using AvaloniaEdit.Highlighting.Xshd;
+using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
 
 namespace DatabaseManager.Avalonia.Controls;
 
@@ -35,10 +37,32 @@ public partial class SqlEditor : UserControl
         set => SetValue(SqlTextProperty, value);
     }
 
+    /// <summary>对象浏览器根节点；补全时直接读取已加载的表、视图和列。</summary>
+    public static readonly StyledProperty<IEnumerable<DbObjectTreeNode>?> ObjectTreeRootsProperty =
+        AvaloniaProperty.Register<SqlEditor, IEnumerable<DbObjectTreeNode>?>(nameof(ObjectTreeRoots));
+
+    public IEnumerable<DbObjectTreeNode>? ObjectTreeRoots
+    {
+        get => GetValue(ObjectTreeRootsProperty);
+        set => SetValue(ObjectTreeRootsProperty, value);
+    }
+
+    /// <summary>当前查询所属连接，用于从多个连接的对象树中筛选补全候选。</summary>
+    public static readonly StyledProperty<string> ConnectionNameProperty =
+        AvaloniaProperty.Register<SqlEditor, string>(nameof(ConnectionName), string.Empty);
+
+    public string ConnectionName
+    {
+        get => GetValue(ConnectionNameProperty);
+        set => SetValue(ConnectionNameProperty, value);
+    }
+
     private TextEditor? _editor;
     private bool _syncing;
     private bool _initialized;
     private CompletionWindow? _completionWindow;
+    private readonly Dictionary<string, IReadOnlyList<string>> _columnCompletionCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _loadingColumnCompletions = new(StringComparer.OrdinalIgnoreCase);
 
     private static IHighlightingDefinition? _cachedHighlighting;
 
@@ -110,8 +134,8 @@ public partial class SqlEditor : UserControl
         if (e.Text is null || e.Text.Length == 0)
             return;
         char c = e.Text[0];
-        // 仅字母/数字/下划线触发自动补全；点号不触发（避免 SELECT * FROM t. 后弹出全量关键字）
-        if (char.IsLetterOrDigit(c) || c == '_')
+        // 标识符触发关键字/对象补全；点号触发表字段补全，不会展示全量关键字。
+        if (char.IsLetterOrDigit(c) || c == '_' || c == '.')
         {
             ShowCompletion(autoTriggered: true);
         }
@@ -149,15 +173,14 @@ public partial class SqlEditor : UserControl
         }
 
         var word = GetCurrentWord();
-        // 自动触发时，词长度 <1 不弹出；手动触发（Ctrl+Space）则允许空词弹出全量
-        if (autoTriggered && string.IsNullOrEmpty(word))
+        // 自动触发时，空词通常不弹出；但 `table.` 后需要展示该表的字段。
+        if (autoTriggered && string.IsNullOrEmpty(word) && !IsAfterDot())
             return;
 
-        // 点号后不做关键字补全
-        if (IsAfterDot())
-            return;
-
-        IEnumerable<string> candidates = GetSqlKeywords();
+        // `table.` 后只提示已加载的列；其余位置混合 SQL 关键字与数据库对象。
+        IEnumerable<string> candidates = IsAfterDot()
+            ? GetColumnCandidatesAfterDot()
+            : GetSqlKeywords().Concat(GetDatabaseObjectCandidates());
 
         // 自动触发：前缀过滤；手动触发：空词时展示全量（取 80），有前缀时同样过滤
         if (!string.IsNullOrEmpty(word))
@@ -195,13 +218,12 @@ public partial class SqlEditor : UserControl
         int offset = _editor.CaretOffset;
         if (offset == 0) return false;
         var doc = _editor.Document;
-        // 回溯跳过空白，检查前一非空白字符是否为 '.'
-        int pos = offset - 1;
-        while (pos >= 0 && char.IsWhiteSpace(doc.GetCharAt(pos)))
+        // 光标可能位于 `table.` 后，也可能已输入字段前缀（`table.col`）。
+        // 因此先跳过当前标识符，再检查其前面是否为点号。
+        int pos = offset;
+        while (pos > 0 && (char.IsLetterOrDigit(doc.GetCharAt(pos - 1)) || doc.GetCharAt(pos - 1) == '_'))
             pos--;
-        if (pos >= 0 && doc.GetCharAt(pos) == '.')
-            return true;
-        return false;
+        return pos > 0 && doc.GetCharAt(pos - 1) == '.';
     }
 
     private string GetCurrentWord()
@@ -214,6 +236,142 @@ public partial class SqlEditor : UserControl
         while (start > 0 && (char.IsLetterOrDigit(doc.GetCharAt(start - 1)) || doc.GetCharAt(start - 1) == '_'))
             start--;
         return doc.GetText(start, offset - start);
+    }
+
+    private IEnumerable<string> GetDatabaseObjectCandidates()
+    {
+        if (ObjectTreeRoots is null || string.IsNullOrWhiteSpace(ConnectionName))
+            return Enumerable.Empty<string>();
+
+        var connection = ObjectTreeRoots.FirstOrDefault(node =>
+            node.NodeType == DbObjectTreeNodeType.Connection &&
+            string.Equals(node.Name, ConnectionName, StringComparison.OrdinalIgnoreCase));
+        if (connection is null)
+            return Enumerable.Empty<string>();
+
+        return Descendants(connection)
+            .Where(node => node.NodeType == DbObjectTreeNodeType.DbObject && !node.IsPlaceholder)
+            .Where(node => node.DatabaseObjectType is DatabaseInterpreter.Model.DatabaseObjectType.Table
+                or DatabaseInterpreter.Model.DatabaseObjectType.View
+                or DatabaseInterpreter.Model.DatabaseObjectType.Procedure
+                or DatabaseInterpreter.Model.DatabaseObjectType.Function
+                or DatabaseInterpreter.Model.DatabaseObjectType.Sequence)
+            .Select(node => node.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name));
+    }
+
+    private IEnumerable<string> GetColumnCandidatesAfterDot()
+    {
+        var table = FindTableForCurrentDot();
+        if (table is null)
+            return Enumerable.Empty<string>();
+
+        string cacheKey = GetColumnCacheKey(table);
+        if (_columnCompletionCache.TryGetValue(cacheKey, out var cachedColumns))
+            return cachedColumns;
+
+        // 已展开 Columns 文件夹时直接复用对象树；未展开时异步读取并缓存，不要求用户展开树。
+        var columnsFolder = table.Children.FirstOrDefault(node =>
+            node.NodeType == DbObjectTreeNodeType.ChildFolder &&
+            string.Equals(node.Name, "Columns", StringComparison.OrdinalIgnoreCase));
+        if (columnsFolder?.IsLoaded == true)
+        {
+            var columns = columnsFolder.Children
+                .Where(node => node.NodeType == DbObjectTreeNodeType.ChildObject && !node.IsPlaceholder)
+                .Select(node => node.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+            _columnCompletionCache[cacheKey] = columns;
+            return columns;
+        }
+
+        if (_loadingColumnCompletions.Add(cacheKey))
+            _ = LoadColumnCompletionAsync(table, cacheKey);
+        return Enumerable.Empty<string>();
+    }
+
+    private DbObjectTreeNode? FindTableForCurrentDot()
+    {
+        if (ObjectTreeRoots is null || string.IsNullOrWhiteSpace(ConnectionName))
+            return null;
+
+        var tableName = GetObjectNameBeforeDot();
+        if (string.IsNullOrWhiteSpace(tableName))
+            return null;
+
+        var connection = ObjectTreeRoots.FirstOrDefault(node =>
+            node.NodeType == DbObjectTreeNodeType.Connection &&
+            string.Equals(node.Name, ConnectionName, StringComparison.OrdinalIgnoreCase));
+        if (connection is null)
+            return null;
+
+        return Descendants(connection).FirstOrDefault(node =>
+            node.NodeType == DbObjectTreeNodeType.DbObject &&
+            (node.DatabaseObjectType is DatabaseInterpreter.Model.DatabaseObjectType.Table or DatabaseInterpreter.Model.DatabaseObjectType.View) &&
+            string.Equals(node.Name, tableName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string GetColumnCacheKey(DbObjectTreeNode table)
+        => $"{ConnectionName}|{table.DatabaseName}|{table.Schema}|{table.Name}";
+
+    private async Task LoadColumnCompletionAsync(DbObjectTreeNode table, string cacheKey)
+    {
+        try
+        {
+            var app = Application.Current as global::DatabaseManager.Avalonia.App;
+            var schemaService = app?.Services?.GetService(typeof(IDbSchemaService)) as IDbSchemaService;
+            if (schemaService is null || table.DbObject is null || string.IsNullOrWhiteSpace(table.DatabaseName))
+                return;
+
+            bool isView = table.DatabaseObjectType == DatabaseInterpreter.Model.DatabaseObjectType.View;
+            var nodes = await schemaService.GetTableChildNodesAsync(
+                ConnectionName,
+                table.DatabaseName,
+                DbObjectChildType.Column,
+                table.DbObject,
+                isView);
+
+            _columnCompletionCache[cacheKey] = nodes
+                .Where(node => !node.IsPlaceholder)
+                .Select(node => node.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+
+            // 请求期间用户仍停留在同一个 `table.` 位置时，数据回来后自动显示补全窗口。
+            if (_editor is not null && IsAfterDot() && string.Equals(GetObjectNameBeforeDot(), table.Name, StringComparison.OrdinalIgnoreCase))
+                ShowCompletion(autoTriggered: true);
+        }
+        catch
+        {
+            // 补全是辅助能力；读取失败不影响编辑与执行 SQL。
+        }
+        finally
+        {
+            _loadingColumnCompletions.Remove(cacheKey);
+        }
+    }
+
+    private string GetObjectNameBeforeDot()
+    {
+        if (_editor is null) return string.Empty;
+        var document = _editor.Document;
+        int pos = _editor.CaretOffset - GetCurrentWord().Length - 1;
+        if (pos < 0 || document.GetCharAt(pos) != '.') return string.Empty;
+
+        int end = pos;
+        while (pos > 0 && (char.IsLetterOrDigit(document.GetCharAt(pos - 1)) || document.GetCharAt(pos - 1) == '_'))
+            pos--;
+        return document.GetText(pos, end - pos);
+    }
+
+    private static IEnumerable<DbObjectTreeNode> Descendants(DbObjectTreeNode node)
+    {
+        foreach (var child in node.Children)
+        {
+            yield return child;
+            foreach (var descendant in Descendants(child))
+                yield return descendant;
+        }
     }
 
     private static IEnumerable<string> GetSqlKeywords() => new[]
@@ -231,8 +389,22 @@ public partial class SqlEditor : UserControl
         public IImage? Image => null;
         public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
         {
-            // 保留原始大小写前缀的匹配长度替换，插入大写关键字
-            textArea.Document.Replace(completionSegment, Text);
+            // AvaloniaEdit 在自动弹窗后有时会把 completionSegment 设为零长度，
+            // 直接使用该区间会导致 Tab 接受补全时把关键字追加到已有前缀后。
+            // 因此始终从当前光标反向定位 SQL 标识符并完整替换。
+            int end = textArea.Caret.Offset;
+            int start = end;
+            var document = textArea.Document;
+            while (start > 0)
+            {
+                char c = document.GetCharAt(start - 1);
+                if (!char.IsLetterOrDigit(c) && c != '_')
+                    break;
+                start--;
+            }
+
+            document.Replace(start, end - start, Text);
+            textArea.Caret.Offset = start + Text.Length;
         }
     }
 

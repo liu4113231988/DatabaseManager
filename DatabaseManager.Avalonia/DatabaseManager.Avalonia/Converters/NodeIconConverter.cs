@@ -3,164 +3,125 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.Avalonia.Converters;
 
 /// <summary>
-/// 对象树节点图标转换器：连接/数据库节点使用矢量 DrawingImage（现代化蓝色数据库图标），
-/// 其他对象沿用 Assets 位图资源。对齐 dbeaver 风格的视觉同时消除位图放大模糊。
+/// 对象树节点图标转换器：使用统一的矢量 DrawingImage，避免旧位图在高分屏模糊。
 /// </summary>
 public class NodeIconConverter : IValueConverter
 {
-    private static DrawingImage? _vectorDbIcon;
+    private static readonly Dictionary<string, DrawingImage> IconCache = new(StringComparer.Ordinal);
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not DbObjectTreeNode node)
             return null;
 
-        // 连接 / 数据库节点：优先返回矢量图标（更清晰、更现代）
-        if (node.NodeType is DbObjectTreeNodeType.Connection or DbObjectTreeNodeType.Database)
+        var kind = GetIconKind(node);
+        return IconCache.TryGetValue(kind, out var icon)
+            ? icon
+            : IconCache[kind] = BuildVectorIcon(kind);
+    }
+
+    private static string GetIconKind(DbObjectTreeNode node)
+    {
+        if (node.NodeType is DbObjectTreeNodeType.Connection or DbObjectTreeNodeType.Database) return "database";
+        if (node.NodeType == DbObjectTreeNodeType.Schema) return "schema";
+        if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
         {
-            return _vectorDbIcon ??= BuildVectorDatabaseIcon();
+            return node.Name switch
+            {
+                "Columns" => "column",
+                "Indexes" => "index",
+                "Keys" => "key",
+                "Constraints" => "constraint",
+                "Triggers" => "trigger",
+                _ => node.DatabaseObjectType switch
+                {
+                    DatabaseObjectType.Table => "table-folder",
+                    DatabaseObjectType.View => "view-folder",
+                    DatabaseObjectType.Procedure => "code-folder",
+                    DatabaseObjectType.Function => "code-folder",
+                    _ => "folder",
+                },
+            };
         }
 
-        var uri = GetIconUri(node);
-        return uri is null ? null : LoadBitmap(uri);
-    }
-
-    /// <summary>构建一个 16×16 的现代化数据库矢量图标（蓝色三层圆柱 + 白色高光）。</summary>
-    private static DrawingImage BuildVectorDatabaseIcon()
-    {
-        var drawings = new DrawingGroup();
-
-        // 主色调：蓝色系渐变填充 + 深色描边
-        var bodyBrush = new SolidColorBrush(Color.Parse("#3B82F6"));      // 主蓝
-        var topBrush = new SolidColorBrush(Color.Parse("#60A5FA"));       // 顶部浅蓝（高光）
-        var rimBrush = new SolidColorBrush(Color.Parse("#1E40AF"));       // 顶部椭圆描边深色
-        var sideBrush = new SolidColorBrush(Color.Parse("#2563EB"));      // 中间分隔线
-        var strokePen = new Pen(new SolidColorBrush(Color.Parse("#1D4ED8")), 0.75);
-
-        double left = 1.2, right = 14.8;
-        double ellipseH = 2.8;
-
-        // 顶部椭圆（完整的）
-        var topEllipse = new EllipseGeometry
+        return node.DatabaseObjectType switch
         {
-            Rect = new Rect(left, 1.0, right - left, ellipseH)
-        };
-        drawings.Children.Add(new GeometryDrawing { Brush = topBrush, Pen = new Pen(rimBrush, 0.75), Geometry = topEllipse });
-
-        // 下方圆柱主体（中间长方形 + 底部椭圆）
-        var bodyRectGeo = new RectangleGeometry
-        {
-            Rect = new Rect(left, 1.0 + ellipseH / 2, right - left, 12.5 - ellipseH / 2)
-        };
-        drawings.Children.Add(new GeometryDrawing { Brush = bodyBrush, Geometry = bodyRectGeo });
-
-        var bottomEllipse = new EllipseGeometry
-        {
-            Rect = new Rect(left, 13.0, right - left, ellipseH)
-        };
-        drawings.Children.Add(new GeometryDrawing { Brush = bodyBrush, Pen = strokePen, Geometry = bottomEllipse });
-
-        // 两条分隔椭圆线（突出层次）
-        var mid1 = new EllipseGeometry
-        {
-            Rect = new Rect(left, 5.0, right - left, ellipseH)
-        };
-        drawings.Children.Add(new GeometryDrawing { Pen = new Pen(sideBrush, 0.75), Geometry = mid1 });
-
-        var mid2 = new EllipseGeometry
-        {
-            Rect = new Rect(left, 9.0, right - left, ellipseH)
-        };
-        drawings.Children.Add(new GeometryDrawing { Pen = new Pen(sideBrush, 0.75), Geometry = mid2 });
-
-        // 顶部椭圆再画一次（放在最上层，让层次更清晰）
-        drawings.Children.Add(new GeometryDrawing { Brush = topBrush, Pen = new Pen(rimBrush, 0.75), Geometry = topEllipse });
-
-        return new DrawingImage
-        {
-            Drawing = drawings,
+            DatabaseObjectType.Table => "table",
+            DatabaseObjectType.View => "view",
+            DatabaseObjectType.Column => "column",
+            DatabaseObjectType.Index => "index",
+            DatabaseObjectType.PrimaryKey or DatabaseObjectType.ForeignKey => "key",
+            DatabaseObjectType.Constraint => "constraint",
+            DatabaseObjectType.Trigger => "trigger",
+            DatabaseObjectType.Procedure or DatabaseObjectType.Function => "code",
+            DatabaseObjectType.Sequence => "sequence",
+            _ => "object",
         };
     }
 
-    private static string? GetIconUri(DbObjectTreeNode node)
+    private static DrawingImage BuildVectorIcon(string kind)
     {
-        string basePath = "avares://DatabaseManager.Avalonia/Assets/";
+        var group = new DrawingGroup();
+        var primary = new SolidColorBrush(Color.Parse("#3B82F6"));
+        var teal = new SolidColorBrush(Color.Parse("#0F8B8D"));
+        var violet = new SolidColorBrush(Color.Parse("#6B5DD3"));
+        var amber = new SolidColorBrush(Color.Parse("#D97706"));
+        var slate = new SolidColorBrush(Color.Parse("#52657F"));
+        var lightBlue = new SolidColorBrush(Color.Parse("#EAF2FF"));
+        var pen = new Pen(slate, 1.15);
 
-        switch (node.NodeType)
+        void Add(string path, IBrush? fill = null, IPen? outline = null) =>
+            group.Children.Add(new GeometryDrawing { Geometry = StreamGeometry.Parse(path), Brush = fill, Pen = outline });
+
+        switch (kind)
         {
-            case DbObjectTreeNodeType.Connection:
-                return $"{basePath}tree_Database.png"; // 连接默认用数据库图标
-            case DbObjectTreeNodeType.Database:
-                return $"{basePath}tree_Database.png";
-            case DbObjectTreeNodeType.Schema:
-                return $"{basePath}Schema.png";
-            case DbObjectTreeNodeType.Folder:
-                return node.DatabaseObjectType switch
-                {
-                    DatabaseObjectType.Table => $"{basePath}tree_Table.png",
-                    DatabaseObjectType.View => $"{basePath}tree_View.png",
-                    DatabaseObjectType.Procedure => $"{basePath}tree_Procedure.png",
-                    DatabaseObjectType.Function => $"{basePath}tree_Function.png",
-                    DatabaseObjectType.Sequence => $"{basePath}tree_Sequence.png",
-                    DatabaseObjectType.Type => $"{basePath}tree_UserDefinedType.png",
-                    _ => $"{basePath}tree_Folder.png",
-                };
-            case DbObjectTreeNodeType.DbObject:
-                return node.DatabaseObjectType switch
-                {
-                    DatabaseObjectType.Table => $"{basePath}tree_Table.png",
-                    DatabaseObjectType.View => $"{basePath}tree_View.png",
-                    DatabaseObjectType.Procedure => $"{basePath}tree_Procedure.png",
-                    DatabaseObjectType.Function => $"{basePath}tree_Function.png",
-                    DatabaseObjectType.Sequence => $"{basePath}tree_Sequence.png",
-                    DatabaseObjectType.Type => $"{basePath}tree_UserDefinedType.png",
-                    DatabaseObjectType.Trigger => $"{basePath}tree_Function_Trigger.png",
-                    _ => $"{basePath}tree_Folder.png",
-                };
-            case DbObjectTreeNodeType.ChildFolder:
-                return node.Name switch
-                {
-                    "Columns" => $"{basePath}tree_TableColumn.png",
-                    "Triggers" => $"{basePath}tree_TableTrigger.png",
-                    "Indexes" => $"{basePath}tree_TableIndex.png",
-                    "Keys" => $"{basePath}tree_TablePrimaryKey.png",
-                    "Constraints" => $"{basePath}tree_TableConstraint.png",
-                    _ => $"{basePath}tree_Folder.png",
-                };
-            case DbObjectTreeNodeType.ChildObject:
-                return node.DatabaseObjectType switch
-                {
-                    DatabaseObjectType.Column => $"{basePath}Column.png",
-                    DatabaseObjectType.Trigger => $"{basePath}tree_Function_Trigger.png",
-                    DatabaseObjectType.Index => $"{basePath}tree_TableIndex.png",
-                    DatabaseObjectType.PrimaryKey => $"{basePath}tree_TablePrimaryKey.png",
-                    DatabaseObjectType.ForeignKey => $"{basePath}tree_TableForeignKey.png",
-                    DatabaseObjectType.Constraint => $"{basePath}tree_TableConstraint.png",
-                    _ => $"{basePath}tree_Folder.png",
-                };
+            case "database":
+                group.Children.Add(new GeometryDrawing { Geometry = new EllipseGeometry(new Rect(2.5, 2, 11, 4)), Brush = lightBlue, Pen = new Pen(primary, 1.1) });
+                Add("M2.5,4 L2.5,12.5 C2.5,14.7 13.5,14.7 13.5,12.5 L13.5,4 M2.5,8.2 C2.5,10.3 13.5,10.3 13.5,8.2", lightBlue, new Pen(primary, 1.1));
+                break;
+            case "table": case "view":
+                Add("M2.5,2.5 L13.5,2.5 L13.5,13.5 L2.5,13.5 Z M2.5,6 L13.5,6 M6.2,2.5 L6.2,13.5 M9.9,2.5 L9.9,13.5", lightBlue, new Pen(kind == "view" ? teal : primary, 1));
+                break;
+            case "table-folder": case "view-folder": case "code-folder": case "folder":
+                var folderColor = kind == "code-folder" ? violet : kind == "view-folder" ? teal : amber;
+                Add("M1.8,4.5 L6.5,4.5 L7.8,6 L14.2,6 L14.2,13.5 L1.8,13.5 Z", new SolidColorBrush(Color.Parse("#FFF3D6")), new Pen(folderColor, 1.1));
+                if (kind == "table-folder") Add("M7,8.3 L12,8.3 M7,10.6 L12,10.6", null, new Pen(folderColor, 0.9));
+                break;
+            case "schema":
+                Add("M3,4 L11,4 L13,6 L5,6 Z M3,8 L11,8 L13,10 L5,10 Z M3,12 L11,12 L13,14 L5,14 Z", lightBlue, new Pen(violet, 0.9));
+                break;
+            case "column":
+                Add("M3,3 L13,3 L13,13 L3,13 Z M5.5,6 L11,6 M5.5,8.5 L11,8.5 M5.5,11 L9,11", null, new Pen(slate, 1.1));
+                break;
+            case "key":
+                Add("M6.5,8 A3,3 0 1 1 9.5,11 M8.8,10.2 L14,15.4 M11.5,12.9 L13,11.4 M13,14.4 L14.5,12.9", null, new Pen(amber, 1.4));
+                break;
+            case "index":
+                Add("M3,3 L13,3 L13,13 L3,13 Z M5,6 L11,6 M5,9 L9,9 M5,12 L10,12", null, new Pen(teal, 1.1));
+                break;
+            case "constraint":
+                Add("M8,2.5 L13,4.5 L12.2,10.5 L8,13.5 L3.8,10.5 L3,4.5 Z M5.8,8 L7.3,9.5 L10.5,6.3", lightBlue, new Pen(violet, 1));
+                break;
+            case "trigger":
+                Add("M9,2 L4,9 L8,9 L7,14 L12,7 L8,7 Z", new SolidColorBrush(Color.Parse("#FFF3D6")), new Pen(amber, 1));
+                break;
+            case "code":
+                Add("M6.5,4 L3,8 L6.5,12 M9.5,4 L13,8 L9.5,12", null, new Pen(violet, 1.35));
+                break;
+            case "sequence":
+                Add("M4,5 L12,5 M9.5,2.5 L12,5 L9.5,7.5 M12,11 L4,11 M6.5,8.5 L4,11 L6.5,13.5", null, new Pen(teal, 1.2));
+                break;
             default:
-                return null;
+                Add("M3,2.5 L10,2.5 L13,5.5 L13,13.5 L3,13.5 Z M10,2.5 L10,5.5 L13,5.5", lightBlue, pen);
+                break;
         }
-    }
-
-    private static Bitmap? LoadBitmap(string uri)
-    {
-        try
-        {
-            return new Bitmap(AssetLoader.Open(new Uri(uri)));
-        }
-        catch
-        {
-            return null;
-        }
+        return new DrawingImage { Drawing = group };
     }
 
     public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

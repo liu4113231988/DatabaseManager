@@ -7,16 +7,16 @@
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接管理"
         Width="760" Height="520"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <DockPanel Margin="20" Background="#F7F9FC">
 
         <!-- 顶部工具栏 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto"
-              Margin="0,0,0,10">
+              Margin="0,0,0,16">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="数据库类型" VerticalAlignment="Center" />
+                <TextBlock Text="数据库类型" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#253858" />
                 <atom:ComboBox x:Name="ComboDatabaseType" Width="160" MinWidth="160"
                                SelectionChanged="ComboDatabaseType_SelectionChanged" />
             </StackPanel>
@@ -32,25 +32,27 @@
         </Grid>
 
         <!-- 底部按钮（先 Dock 到底部，位于状态栏上方） -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,0,0,8">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
             <atom:Button Content="关闭" Click="BtnClose_Click" />
         </StackPanel>
 
         <!-- 状态栏（Dock 到最底，位于按钮下方） -->
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,0,0,0" Opacity="0.7" />
+                   VerticalAlignment="Center" Margin="2,8,0,0" Opacity="0.7" Foreground="#52657F" />
 
         <!-- 连接列表（Fill：填满工具栏与底部之间的剩余空间，避免下边错位） -->
-        <Border BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,10">
+        <Border Classes="surface" Margin="0,0,0,14" Padding="6">
             <ListBox x:Name="ConnectionList" ItemsSource="{Binding Connections}"
                      SelectedItem="{Binding SelectedConnection}"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="models:ConnectionItem">
-                        <StackPanel Spacing="2" Margin="4">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding Description}" FontSize="12" Opacity="0.7" />
+                        <Border Padding="10,8" Margin="2" CornerRadius="6">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#172033" />
+                            <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#6B7C93" />
                         </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

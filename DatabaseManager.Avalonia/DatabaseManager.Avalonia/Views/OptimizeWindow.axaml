@@ -7,7 +7,7 @@
         x:DataType="vm:OptimizeViewModel"
         Title="数据库优化"
         Width="920" Height="620"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

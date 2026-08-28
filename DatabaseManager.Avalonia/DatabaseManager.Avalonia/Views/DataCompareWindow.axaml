@@ -8,7 +8,7 @@
         x:DataType="vm:DataCompareViewModel"
         Title="数据对比 (Data Compare)"
         Width="1080" Height="720"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\database-manager.ico</ApplicationIcon>
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
   </PropertyGroup>
 

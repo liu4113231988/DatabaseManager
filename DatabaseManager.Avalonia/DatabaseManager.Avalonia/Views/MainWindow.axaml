@@ -10,13 +10,13 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
         x:Class="DatabaseManager.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         Title="DatabaseManager"
         Width="1200" Height="750"
         WindowStartupLocation="CenterScreen"
         KeyDown="MainWindow_KeyDown">
 
-    <DockPanel>
+    <DockPanel Background="#F7F9FC">
 
         <DockPanel.Resources>
             <conv:NodeIconConverter x:Key="NodeIconConverter" />
@@ -25,7 +25,18 @@
         </DockPanel.Resources>
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
-        <Menu DockPanel.Dock="Top">
+        <Border DockPanel.Dock="Top" Background="#FFFFFF" BorderBrush="#E3E8F0" BorderThickness="0,0,0,1" Padding="10,3">
+        <Menu Background="Transparent" Foreground="#253858">
+            <Menu.Styles>
+                <!-- AtomUI 的 MenuItem 模板会覆盖父级前景色，需在项目级菜单上明确颜色。 -->
+                <Style Selector="MenuItem">
+                    <Setter Property="Foreground" Value="#253858" />
+                </Style>
+                <Style Selector="MenuItem:pointerover">
+                    <Setter Property="Background" Value="#EAF2FF" />
+                    <Setter Property="Foreground" Value="#1677FF" />
+                </Style>
+            </Menu.Styles>
             <MenuItem Header="文件">
                 <MenuItem Header="新建查询" Command="{Binding NewQueryCommand}" />
                 <MenuItem Header="打开脚本..." Click="MenuOpenScript_Click" />
@@ -88,21 +99,22 @@
                 <MenuItem Header="关于" Click="MenuAbout_Click" />
             </MenuItem>
         </Menu>
+        </Border>
 
         <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 dbeaver 工具栏布局） -->
-        <Border DockPanel.Dock="Top" Background="#F5F5F5" BorderBrush="#22000000" BorderThickness="0,0,0,1" Padding="6,4">
-            <StackPanel Orientation="Horizontal" Spacing="4">
+        <Border DockPanel.Dock="Top" Background="#FFFFFF" BorderBrush="#E3E8F0" BorderThickness="0,0,0,1" Padding="10,6">
+            <StackPanel Orientation="Horizontal" Spacing="6">
 
                 <!-- 文件组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Click="ToolNewQuery_Click" Padding="4,2" ToolTip.Tip="新建查询">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/AddQuery.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="ToolNewQuery_Click" ToolTip.Tip="新建查询">
+                        <Path Data="M12 5V19M5 12H19" Stroke="#246BCE" StrokeThickness="2" StrokeLineCap="Round" />
                     </Button>
-                    <Button Click="MenuOpenScript_Click" Padding="4,2" ToolTip.Tip="打开脚本">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/OpenFile.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuOpenScript_Click" ToolTip.Tip="打开脚本">
+                        <Path Data="M4 7.5C4 6.67 4.67 6 5.5 6H10L12 8H18.5C19.33 8 20 8.67 20 9.5V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5Z" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" />
                     </Button>
-                    <Button Click="MenuSaveScript_Click" Padding="4,2" ToolTip.Tip="保存脚本">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuSaveScript_Click" ToolTip.Tip="保存脚本">
+                        <Path Data="M5 4H17L20 7V20H4V5C4 4.45 4.45 4 5 4ZM7 4V10H16V4M8 20V14H16V20" Stroke="#52657F" StrokeThickness="1.6" Fill="Transparent" />
                     </Button>
                 </StackPanel>
 
@@ -110,21 +122,21 @@
 
                 <!-- 连接组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Command="{Binding ConnectCommand}" Padding="4,2" ToolTip.Tip="连接">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Command="{Binding ConnectCommand}" ToolTip.Tip="连接">
+                        <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M7 12V17C7 18.66 9.24 20 12 20S17 18.66 17 17V12M19 15L21 17L19 19M14 17H21" Stroke="#0F8B8D" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Command="{Binding ReconnectCommand}" Padding="4,2" ToolTip.Tip="重连">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Command="{Binding ReconnectCommand}" ToolTip.Tip="重连">
+                        <Path Data="M18.5 8.5A7 7 0 1 0 19 15M18 4V9H13" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Command="{Binding DisconnectCommand}" Padding="4,2" ToolTip.Tip="断开">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Database16.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Command="{Binding DisconnectCommand}" ToolTip.Tip="断开">
+                        <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M5 19L19 5" Stroke="#C44545" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                     <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
-                    <Button Click="MenuNewConnection_Click" Padding="4,2" ToolTip.Tip="新建连接">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConnect16.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuNewConnection_Click" ToolTip.Tip="新建连接">
+                        <Path Data="M7 6.5C7 5.12 9.24 4 12 4S17 5.12 17 6.5 14.76 9 12 9 7 7.88 7 6.5ZM7 6.5V11C7 12.38 9.24 13.5 12 13.5M18 17V22M15.5 19.5H20.5" Stroke="#0F8B8D" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Click="MenuConnectionManager_Click" Padding="4,2" ToolTip.Tip="连接管理">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Edit.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuConnectionManager_Click" ToolTip.Tip="连接管理">
+                        <Path Data="M5 5H14V19H5ZM8 9H11M8 13H11M17 7V19M17 11H20M17 15H20" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                 </StackPanel>
 
@@ -132,10 +144,10 @@
 
                 <!-- SQL 执行组（绑定到当前选中的查询标签） -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="Primary" Click="ToolExecute_Click" Padding="4,2" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Run.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar Primary" Click="ToolExecute_Click" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
+                        <Path Data="M7 4L19 12L7 20Z" Fill="#1677FF" />
                     </Button>
-                    <Button Click="ToolFormat_Click" Padding="4,2" ToolTip.Tip="美化 (Ctrl+Shift+F)">
+                    <Button Classes="toolbar" Click="ToolFormat_Click" ToolTip.Tip="美化 (Ctrl+Shift+F)">
                         <Path Data="M3 21H21V19H3V21M3 13H21V11H3V13M7 17H21V15H7V17M7 9H21V7H7V9Z" Fill="#1677FF" Width="16" Height="16" Stretch="Uniform" />
                     </Button>
                     <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
@@ -145,14 +157,14 @@
                             <TextBlock Text="自动提交" VerticalAlignment="Center" />
                             <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
                         </StackPanel>
-                        <Button Classes="Default" Command="{Binding QueryEditor.BeginTransactionCommand}" Padding="4,2" ToolTip.Tip="开始事务">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/DbScripts.png" Width="18" Height="18" Stretch="Uniform" />
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.BeginTransactionCommand}" ToolTip.Tip="开始事务">
+                            <Path Data="M5 7H19M5 12H15M5 17H12M18 14V20M15 17H21" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
-                        <Button Command="{Binding QueryEditor.CommitTransactionCommand}" Padding="4,2" ToolTip.Tip="提交">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Save32.png" Width="18" Height="18" Stretch="Uniform" />
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.CommitTransactionCommand}" ToolTip.Tip="提交">
+                            <Path Data="M5 12L9.5 16.5L19 7" Stroke="#169B62" StrokeThickness="2" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
-                        <Button Command="{Binding QueryEditor.RollbackTransactionCommand}" Padding="4,2" ToolTip.Tip="回滚">
-                            <Image Source="avares://DatabaseManager.Avalonia/Assets/Translate.png" Width="18" Height="18" Stretch="Uniform" />
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.RollbackTransactionCommand}" ToolTip.Tip="回滚">
+                            <Path Data="M9 7L5 11L9 15M5 11H14C17 11 19 13 19 16V17" Stroke="#C44545" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
                     </StackPanel>
                 </StackPanel>
@@ -172,20 +184,20 @@
 
                 <!-- 工具组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Click="MenuDataCompare_Click" Padding="4,2" ToolTip.Tip="数据对比">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DataCompare32.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuDataCompare_Click" ToolTip.Tip="数据对比">
+                        <Path Data="M4 6H10V12H4ZM14 6H20V12H14ZM4 16H10V20H4ZM14 16H20V20H14ZM10 9H14M7 12V16M17 12V16" Stroke="#6B5DD3" StrokeThickness="1.5" Fill="Transparent" />
                     </Button>
-                    <Button Click="MenuSchemaCompare_Click" Padding="4,2" ToolTip.Tip="结构对比">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Compare32.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuSchemaCompare_Click" ToolTip.Tip="结构对比">
+                        <Path Data="M5 4H13V19H5ZM11 8H19V21H11M8 8H10M8 12H10M14 12H16M14 16H16" Stroke="#6B5DD3" StrokeThickness="1.5" Fill="Transparent" />
                     </Button>
-                    <Button Click="MenuConvert_Click" Padding="4,2" ToolTip.Tip="数据库转换">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbConvert.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuConvert_Click" ToolTip.Tip="数据库转换">
+                        <Path Data="M4 8H16M13 5L16 8L13 11M20 16H8M11 13L8 16L11 19" Stroke="#246BCE" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Click="MenuDiagnose_Click" Padding="4,2" ToolTip.Tip="诊断">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/Tool16.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuDiagnose_Click" ToolTip.Tip="诊断">
+                        <Path Data="M11 4A7 7 0 1 0 18 11M16 16L21 21M8 11H14M11 8V14" Stroke="#D97706" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Click="MenuBackup_Click" Padding="4,2" ToolTip.Tip="备份">
-                        <Image Source="avares://DatabaseManager.Avalonia/Assets/DbBackup.png" Width="18" Height="18" Stretch="Uniform" />
+                    <Button Classes="toolbar" Click="MenuBackup_Click" ToolTip.Tip="备份">
+                        <Path Data="M5 6H19V20H5ZM8 6V3M16 6V3M8 11H16M12 13V17M10 15H14" Stroke="#52657F" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                 </StackPanel>
 
@@ -193,8 +205,8 @@
         </Border>
 
         <!-- 状态栏 -->
-        <Border DockPanel.Dock="Bottom" Height="26" Background="#1A000000">
-            <TextBlock Text="{Binding ConnectionSummary}" VerticalAlignment="Center" Margin="12,0" />
+        <Border DockPanel.Dock="Bottom" Height="28" Background="#182235">
+            <TextBlock Text="{Binding ConnectionSummary}" Foreground="#C7D4E8" VerticalAlignment="Center" Margin="14,0" FontSize="11" />
         </Border>
 
         <!-- 主内容：左对象浏览器 / 右查询内容区（两栏分离，避免重叠） -->
@@ -206,9 +218,11 @@
 
             <!-- 左：对象浏览器（连接列表 + 对象树） -->
             <Border Grid.Column="0"
-                    BorderBrush="#22000000" BorderThickness="0,0,1,0" Margin="0,0,0,4">
-                <DockPanel Margin="4">
-                    <TextBlock DockPanel.Dock="Top" Text="对象浏览器" FontWeight="Bold" Margin="2,2,2,4" />
+                    BorderBrush="#E3E8F0" BorderThickness="0,0,1,0" Margin="0,0,0,4" Background="#FFFFFF">
+                <DockPanel Margin="8">
+                    <Border DockPanel.Dock="Top" Background="#F2F6FC" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                        <TextBlock Text="对象浏览器" FontWeight="SemiBold" Foreground="#253858" />
+                    </Border>
 
                     <Grid>
                         <Grid.RowDefinitions>
@@ -264,7 +278,7 @@
                                     <!-- 折叠/展开箭头：固定尺寸 + 左右负边距，让箭头右边距离后续图标正好约 2px -->
                                     <Setter Property="Width" Value="14" />
                                     <Setter Property="Height" Value="14" />
-                                    <Setter Property="Margin" Value="-14,0,-10,0" />
+                                    <Setter Property="Margin" Value="-14,0,-18,0" />
                                     <Setter Property="Padding" Value="0" />
                                     <Setter Property="Background" Value="Transparent" />
                                     <Setter Property="BorderThickness" Value="0" />
@@ -276,7 +290,7 @@
                                                 <!-- 空心 Chevron：描边折线（V 型），Round 转角/端点，更清爽现代 -->
                                                 <Path x:Name="ArrowPath"
                                                       Data="M3,2.5 L7.5,6 L3,9.5"
-                                                      Fill="None"
+                                                      Fill="Transparent"
                                                       Stroke="#8C8C8C"
                                                       StrokeThickness="1.8"
                                                       StrokeLineCap="Round"
@@ -301,27 +315,27 @@
                                     </Setter>
                                     <Setter Property="Stroke" Value="#1677FF" />
                                 </Style>
-                                <!-- 直接作用于 Header 内容呈现层，让文字/图标再往左收一点 -->
+                                <!-- 收紧展开箭头与对象图标之间的模板预留区。 -->
                                 <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
-                                    <Setter Property="Margin" Value="-4,0,0,0" />
+                                    <Setter Property="Margin" Value="-16,0,0,0" />
                                     <Setter Property="Padding" Value="0" />
                                 </Style>
                                 <Style Selector="TreeViewItem /template/ ContentControl#PART_HeaderPresenter">
-                                    <Setter Property="Margin" Value="-4,0,0,0" />
+                                    <Setter Property="Margin" Value="-16,0,0,0" />
                                     <Setter Property="Padding" Value="0" />
                                 </Style>
                             </TreeView.Styles>
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
-                                    <!-- 图标与文字之间保留 1px 的视觉间距 -->
+                                    <!-- 节点图标与文字保留适中的视觉间距。 -->
                                     <Border Background="{Binding IsHighlighted, Converter={StaticResource HighlightBrushConverter}}"
-                                            CornerRadius="4" Padding="2,1">
-                                        <StackPanel Orientation="Horizontal" Spacing="6"
+                                            CornerRadius="4" Padding="0,1">
+                                        <StackPanel Orientation="Horizontal" Spacing="4"
                                                     Tag="{Binding}"
                                                     VerticalAlignment="Center">
                                             <Image Source="{Binding Converter={StaticResource NodeIconConverter}}"
-                                                   Width="16" Height="16"
+                                                   Width="14" Height="14"
                                                    Margin="0"
                                                    VerticalAlignment="Center"
                                                    RenderOptions.BitmapInterpolationMode="HighQuality" />
@@ -380,7 +394,9 @@
 
                                 <!-- SQL 编辑器（带语法高亮） -->
                                 <ctrl:SqlEditor Grid.Row="1"
-                                                SqlText="{Binding SqlText, Mode=TwoWay}" />
+                                                SqlText="{Binding SqlText, Mode=TwoWay}"
+                                                ConnectionName="{Binding ConnectionName}"
+                                                ObjectTreeRoots="{Binding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}" />
 
                                 <!-- 上下分割条（拖动调整编辑器/结果区高度比例） -->
                                 <GridSplitter Grid.Row="2"

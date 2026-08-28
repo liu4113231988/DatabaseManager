@@ -6,7 +6,7 @@
         x:DataType="vm:ImageViewerViewModel"
         Title="图像查看器 (Image Viewer)"
         Width="900" Height="620"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">

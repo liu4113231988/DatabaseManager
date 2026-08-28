@@ -8,7 +8,7 @@
         x:DataType="vm:SchemaCompareViewModel"
         Title="结构对比"
         Width="980" Height="680"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <Window.Resources>

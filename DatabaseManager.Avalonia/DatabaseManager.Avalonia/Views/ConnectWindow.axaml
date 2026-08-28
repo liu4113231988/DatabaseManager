@@ -6,33 +6,42 @@
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
         Width="560" Height="620"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
 
-    <StackPanel Margin="20" Spacing="14">
+    <Border Margin="20" Classes="surface" Padding="24">
+    <StackPanel Spacing="16">
 
-        <atom:ComboBox x:Name="ComboDatabaseType"
-                       HorizontalAlignment="Stretch"
-                       SelectionChanged="ComboDatabaseType_SelectionChanged" />
+        <StackPanel Spacing="2">
+            <TextBlock Text="新建数据库连接" FontSize="20" FontWeight="SemiBold" Foreground="#172033" />
+            <TextBlock Text="填写连接信息并测试可用性。" FontSize="12" Foreground="#6B7C93" />
+        </StackPanel>
 
         <StackPanel Spacing="6">
-            <TextBlock Text="连接名称" FontWeight="SemiBold" />
+            <TextBlock Text="数据库类型" FontWeight="SemiBold" Foreground="#253858" />
+            <atom:ComboBox x:Name="ComboDatabaseType"
+                           HorizontalAlignment="Stretch"
+                           SelectionChanged="ComboDatabaseType_SelectionChanged" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="连接名称" FontWeight="SemiBold" Foreground="#253858" />
             <atom:TextBox x:Name="TxtProfileName" PlaceholderText="连接名称（Profile Name）" />
         </StackPanel>
 
         <StackPanel Spacing="6">
-            <TextBlock Text="服务器" FontWeight="SemiBold" />
+            <TextBlock Text="服务器" FontWeight="SemiBold" Foreground="#253858" />
             <atom:TextBox x:Name="TxtServer" PlaceholderText="服务器地址" />
         </StackPanel>
 
         <Grid ColumnDefinitions="*,Auto">
             <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,8,0">
-                <TextBlock Text="端口" FontWeight="SemiBold" />
+                <TextBlock Text="端口" FontWeight="SemiBold" Foreground="#253858" />
                 <atom:TextBox x:Name="TxtPort" PlaceholderText="端口（留空则使用默认）" />
             </StackPanel>
             <StackPanel Spacing="6" Grid.Column="1" Width="250">
-                <TextBlock Text="认证方式" FontWeight="SemiBold" />
+                <TextBlock Text="认证方式" FontWeight="SemiBold" Foreground="#253858" />
                 <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch">
                     <ComboBoxItem>Password</ComboBoxItem>
                     <ComboBoxItem>Integrated Security</ComboBoxItem>
@@ -42,11 +51,11 @@
 
         <Grid ColumnDefinitions="*,*">
             <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,8,0">
-                <TextBlock Text="用户名" FontWeight="SemiBold" />
+                <TextBlock Text="用户名" FontWeight="SemiBold" Foreground="#253858" />
                 <atom:TextBox x:Name="TxtUserId" PlaceholderText="用户名" />
             </StackPanel>
             <StackPanel Spacing="6" Grid.Column="1">
-                <TextBlock Text="密码" FontWeight="SemiBold" />
+                <TextBlock Text="密码" FontWeight="SemiBold" Foreground="#253858" />
                 <atom:TextBox x:Name="TxtPassword" PlaceholderText="密码" PasswordChar="*" />
             </StackPanel>
         </Grid>
@@ -58,7 +67,7 @@
         </StackPanel>
 
         <StackPanel Spacing="6">
-            <TextBlock Text="数据库" FontWeight="SemiBold" />
+            <TextBlock Text="数据库" FontWeight="SemiBold" Foreground="#253858" />
             <Grid ColumnDefinitions="*,Auto,Auto">
                 <atom:ComboBox x:Name="ComboDatabase" Grid.Column="0" Margin="0,0,8,0"
                                HorizontalAlignment="Stretch" IsEditable="True" />
@@ -77,4 +86,5 @@
         </Grid>
 
     </StackPanel>
+    </Border>
 </Window>

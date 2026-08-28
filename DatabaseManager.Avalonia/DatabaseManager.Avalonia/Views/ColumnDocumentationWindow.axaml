@@ -6,7 +6,7 @@
         x:DataType="vm:ColumnDocumentationViewModel"
         Title="数据库文档生成"
         Width="920" Height="640"
-        Icon="/Assets/_dbManager.ico"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
