@@ -155,6 +155,20 @@ dotnet run --project DatabaseManager/DatabaseManager.Web/DatabaseManager.Web.csp
 
 ---
 
+## Avalonia 桌面版（当前进度）
+
+仓库同时维护跨平台迁移客户端 [`DatabaseManager.Avalonia/`](./DatabaseManager.Avalonia)。它复用现有数据库访问与转换引擎，当前已完成以下主工作流：
+
+- **连接与对象管理**：连接的新建、编辑、测试、刷新与删除；对象树按数据库、Schema、对象类型和对象明细分级加载。
+- **SQL 开发与执行**：多标签查询、语法高亮、关键字/数据库对象/字段提示、执行结果、消息输出，以及 Commit、Rollback 和自动提交切换。
+- **数据与结构操作**：分页查看和编辑表/视图数据；表、列、主键、索引、外键、约束的设计、DDL 预览和保存。
+- **数据工程与运维**：数据库转换、结构/数据对比、Schema 映射、依赖分析、诊断、优化、统计、索引碎片分析与备份。
+- **交付辅助**：CSV/Excel 导入导出、代码生成、列文档生成，以及图片和 JSON 内容查看。
+
+Avalonia 版的功能边界、迁移状态和运行方式见 [DatabaseManager.Avalonia/README.md](./DatabaseManager.Avalonia/README.md)。
+
+---
+
 ## 待完善事项
 
-参见 [todo.md](./todo.md)。
+历史事项参见 [todo.md](./todo.md)；本轮面向 Avalonia 数据库管理工具的能力缺口与验收项参见 [todo-202608.md](./todo-202608.md)。

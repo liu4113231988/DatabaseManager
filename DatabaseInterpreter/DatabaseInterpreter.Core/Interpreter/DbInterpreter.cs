@@ -507,7 +507,7 @@ namespace DatabaseInterpreter.Core
             DbCommand command = dbConnection.CreateCommand();
             command.CommandType = commandInfo.CommandType;
             command.CommandText = commandInfo.CommandText;
-            command.CommandTimeout = Setting.CommandTimeout;
+            command.CommandTimeout = commandInfo.CommandTimeoutSeconds ?? Setting.CommandTimeout;
 
             if (this.Option.RequireInfoMessage)
             {
@@ -678,7 +678,12 @@ namespace DatabaseInterpreter.Core
             return dbConnection.ExecuteReader(sql);
         }
 
-        public async Task<DataTable> GetDataTableAsync(DbConnection dbConnection, string sql, CancellationToken cancellationToken, bool ignoreSchema = false)
+        public async Task<DataTable> GetDataTableAsync(
+            DbConnection dbConnection,
+            string sql,
+            CancellationToken cancellationToken,
+            bool ignoreSchema = false,
+            int? commandTimeoutSeconds = null)
         {
             if (this.DatabaseType == DatabaseType.Oracle)
             {
@@ -693,7 +698,7 @@ namespace DatabaseInterpreter.Core
             var cmd = dbConnection.CreateCommand();
 
             cmd.CommandText = sql;
-            cmd.CommandTimeout = Setting.CommandTimeout;
+            cmd.CommandTimeout = commandTimeoutSeconds ?? Setting.CommandTimeout;
 
             DbDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
 

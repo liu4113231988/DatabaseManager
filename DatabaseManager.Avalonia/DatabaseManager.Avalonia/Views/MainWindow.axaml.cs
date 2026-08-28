@@ -42,6 +42,17 @@ public partial class MainWindow : Window
 
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
+            foreach (var tab in vm.QueryTabs)
+                tab.RequestDangerousExecution = RequestDangerousExecutionAsync;
+
+            vm.QueryTabs.CollectionChanged += (_, args) =>
+            {
+                if (args.NewItems is null)
+                    return;
+
+                foreach (var item in args.NewItems.OfType<QueryTabViewModel>())
+                    item.RequestDangerousExecution = RequestDangerousExecutionAsync;
+            };
 
             // 监听当前查询标签的列变化，动态重建 DataGrid 列。
             RefreshQueryTabColumnListener();
@@ -698,7 +709,17 @@ public partial class MainWindow : Window
             {
                 await vm.SelectedQueryTab.ExecuteAsync();
             }
+
+            if (vm.SelectedQueryTab.LastErrorLine is > 0 && editor is not null)
+                editor.GoToLine(vm.SelectedQueryTab.LastErrorLine.Value);
         }
+    }
+
+    /// <summary>取消当前正在执行的 SQL。</summary>
+    private void ToolCancelExecution_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainWindowViewModel { SelectedQueryTab: not null } vm)
+            vm.SelectedQueryTab.CancelExecutionCommand.Execute(null);
     }
 
     /// <summary>在可视树中查找当前标签页的 SqlEditor。</summary>
@@ -1214,9 +1235,44 @@ public partial class MainWindow : Window
     /// <summary>请求确认丢弃未保存改动的回调（保留接口，当前无数据编辑 Tab，直接允许）。</summary>
     private Task<bool> RequestDiscardDataChangesAsync() => Task.FromResult(true);
 
+    /// <summary>对可能写入数据或改变结构的 SQL 请求二次确认。</summary>
+    private async Task<bool> RequestDangerousExecutionAsync(string sql)
+    {
+        var preview = sql.Trim();
+        if (preview.Length > 160)
+            preview = $"{preview[..160]}...";
+
+        var box = MessageBoxManager.GetMessageBoxStandard(
+            title: "确认执行危险 SQL",
+            text: $"该语句可能修改数据或数据库结构，是否继续执行？\n\n{preview}",
+            ButtonEnum.YesNo,
+            MsBox.Avalonia.Enums.Icon.Warning);
+        return await box.ShowWindowDialogAsync(this) == ButtonResult.Yes;
+    }
+
     /// <summary>请求关闭标签页的回调：有未保存修改时弹出三选一（保存/不保存/取消）对话框。</summary>
     private async Task<bool> RequestCloseTabAsync(QueryTabViewModel tab)
     {
+        if (tab.HasPendingChanges)
+        {
+            var dataBox = MessageBoxManager.GetMessageBoxStandard(
+                title: "未保存的数据修改",
+                text: $"「{tab.Title}」的结果集有未保存的数据修改，是否保存后关闭？",
+                ButtonEnum.YesNoCancel,
+                MsBox.Avalonia.Enums.Icon.Warning);
+            var dataResult = await dataBox.ShowWindowDialogAsync(this);
+            if (dataResult == ButtonResult.Yes)
+            {
+                await tab.SaveEditsAsync();
+                if (tab.HasPendingChanges)
+                    return false;
+            }
+            else if (dataResult != ButtonResult.No)
+            {
+                return false;
+            }
+        }
+
         if (!tab.IsModified)
             return true;
 

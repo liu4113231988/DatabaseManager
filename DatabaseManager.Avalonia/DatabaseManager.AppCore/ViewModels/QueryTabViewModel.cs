@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -45,7 +46,25 @@ public partial class QueryTabViewModel : ViewModelBase
     }
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelExecutionCommand))]
     private bool _isExecuting;
+
+    /// <summary>当前查询的命令超时秒数。默认一分钟，避免误执行后长时间无反馈。</summary>
+    [ObservableProperty]
+    private int _commandTimeoutSeconds = 60;
+
+    /// <summary>是否对可能写入或变更结构的 SQL 显示确认。每个查询标签可独立配置。</summary>
+    [ObservableProperty]
+    private bool _dangerousSqlConfirmationEnabled = true;
+
+    /// <summary>最近一次 SQL 错误所在行；无法从驱动消息解析时为空。</summary>
+    [ObservableProperty]
+    private int? _lastErrorLine;
+
+    private CancellationTokenSource? _executionCts;
+
+    /// <summary>由 UI 注入的危险 SQL 执行确认回调。</summary>
+    public Func<string, Task<bool>>? RequestDangerousExecution { get; set; }
 
     [ObservableProperty]
     private string _statusMessage = "就绪";
@@ -186,13 +205,24 @@ public partial class QueryTabViewModel : ViewModelBase
             return;
         }
 
+        if (DangerousSqlConfirmationEnabled
+            && IsPotentiallyDestructiveSql(sqlToExecute)
+            && RequestDangerousExecution is not null
+            && !await RequestDangerousExecution(sqlToExecute))
+        {
+            StatusMessage = "已取消执行危险 SQL。";
+            return;
+        }
+
         bool isSelection = !string.IsNullOrWhiteSpace(sqlOverride);
         IsExecuting = true;
         StatusMessage = isSelection ? "正在执行选中 SQL..." : "正在执行...";
+        _executionCts = new CancellationTokenSource();
 
         try
         {
-            var result = await _queryService.ExecuteAsync(ConnectionName, sqlToExecute);
+            var timeout = Math.Clamp(CommandTimeoutSeconds, 1, 3600);
+            var result = await _queryService.ExecuteAsync(ConnectionName, sqlToExecute, _executionCts.Token, timeout);
             ApplyResult(result);
 
             // 执行成功且返回结果集时，尝试启用内联编辑。
@@ -212,8 +242,30 @@ public partial class QueryTabViewModel : ViewModelBase
         }
         finally
         {
+            _executionCts?.Dispose();
+            _executionCts = null;
             IsExecuting = false;
         }
+    }
+
+    [RelayCommand(CanExecute = nameof(IsExecuting))]
+    private void CancelExecution()
+    {
+        if (_executionCts is null || _executionCts.IsCancellationRequested)
+            return;
+
+        StatusMessage = "正在取消查询...";
+        _executionCts.Cancel();
+    }
+
+    /// <summary>识别会写入或改变数据库结构的 SQL，以便在 UI 中请求二次确认。</summary>
+    private static bool IsPotentiallyDestructiveSql(string sql)
+    {
+        var withoutComments = Regex.Replace(sql, @"/\*.*?\*/|--[^\r\n]*", string.Empty, RegexOptions.Singleline);
+        return Regex.IsMatch(
+            withoutComments,
+            @"\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC(?:UTE)?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private void ApplyResult(QueryResult result)
@@ -223,12 +275,16 @@ public partial class QueryTabViewModel : ViewModelBase
 
         if (!result.IsSuccess)
         {
-            StatusMessage = $"执行失败：{result.ErrorMessage}";
+            LastErrorLine = result.ErrorLine;
+            var lineHint = result.ErrorLine is > 0 ? $"（第 {result.ErrorLine} 行）" : string.Empty;
+            StatusMessage = $"执行失败{lineHint}：{result.ErrorMessage}";
             HasResult = false;
             ShowNoResult = true;
             RefreshPage();
             return;
         }
+
+        LastErrorLine = null;
 
         if (result.IsNonQuery)
         {

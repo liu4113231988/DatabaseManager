@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Xml;
 using Avalonia;
 using Avalonia.Controls;
@@ -177,7 +178,7 @@ public partial class SqlEditor : UserControl
         if (autoTriggered && string.IsNullOrEmpty(word) && !IsAfterDot())
             return;
 
-        // `table.` 后只提示已加载的列；其余位置混合 SQL 关键字与数据库对象。
+        // `table.` 后优先提示列；未展开对象时会异步读取并缓存列信息。
         IEnumerable<string> candidates = IsAfterDot()
             ? GetColumnCandidatesAfterDot()
             : GetSqlKeywords().Concat(GetDatabaseObjectCandidates());
@@ -221,7 +222,7 @@ public partial class SqlEditor : UserControl
         // 光标可能位于 `table.` 后，也可能已输入字段前缀（`table.col`）。
         // 因此先跳过当前标识符，再检查其前面是否为点号。
         int pos = offset;
-        while (pos > 0 && (char.IsLetterOrDigit(doc.GetCharAt(pos - 1)) || doc.GetCharAt(pos - 1) == '_'))
+        while (pos > 0 && IsIdentifierCharacter(doc.GetCharAt(pos - 1)))
             pos--;
         return pos > 0 && doc.GetCharAt(pos - 1) == '.';
     }
@@ -233,7 +234,7 @@ public partial class SqlEditor : UserControl
         if (offset == 0) return string.Empty;
         var doc = _editor.Document;
         int start = offset;
-        while (start > 0 && (char.IsLetterOrDigit(doc.GetCharAt(start - 1)) || doc.GetCharAt(start - 1) == '_'))
+        while (start > 0 && IsIdentifierCharacter(doc.GetCharAt(start - 1)))
             start--;
         return doc.GetText(start, offset - start);
     }
@@ -295,8 +296,8 @@ public partial class SqlEditor : UserControl
         if (ObjectTreeRoots is null || string.IsNullOrWhiteSpace(ConnectionName))
             return null;
 
-        var tableName = GetObjectNameBeforeDot();
-        if (string.IsNullOrWhiteSpace(tableName))
+        var objectOrAlias = GetObjectNameBeforeDot();
+        if (string.IsNullOrWhiteSpace(objectOrAlias))
             return null;
 
         var connection = ObjectTreeRoots.FirstOrDefault(node =>
@@ -305,10 +306,35 @@ public partial class SqlEditor : UserControl
         if (connection is null)
             return null;
 
-        return Descendants(connection).FirstOrDefault(node =>
+        var tables = Descendants(connection).Where(node =>
             node.NodeType == DbObjectTreeNodeType.DbObject &&
-            (node.DatabaseObjectType is DatabaseInterpreter.Model.DatabaseObjectType.Table or DatabaseInterpreter.Model.DatabaseObjectType.View) &&
-            string.Equals(node.Name, tableName, StringComparison.OrdinalIgnoreCase));
+            node.DatabaseObjectType is DatabaseInterpreter.Model.DatabaseObjectType.Table or DatabaseInterpreter.Model.DatabaseObjectType.View);
+
+        // `table.column` / `[table].column` / `"table".column`。
+        var directMatch = tables.FirstOrDefault(node => IdentifierEquals(node.Name, objectOrAlias));
+        if (directMatch is not null)
+            return directMatch;
+
+        // `FROM table t` 或 `JOIN schema.table AS t`：字段提示也支持常用别名。
+        // 仅从当前编辑器文本解析，失败时宁可不给候选，也不猜测错误对象。
+        if (_editor is null)
+            return null;
+
+        foreach (Match match in Regex.Matches(
+                     _editor.Text,
+                     "\\b(?:FROM|JOIN)\\s+(?<source>(?:\\[[^\\]]+\\]|\"[^\"]+\"|`[^`]+`|[A-Za-z_][\\w]*)(?:\\s*\\.\\s*(?:\\[[^\\]]+\\]|\"[^\"]+\"|`[^`]+`|[A-Za-z_][\\w]*))?)(?:\\s+(?:AS\\s+)?(?<alias>\\[[^\\]]+\\]|\"[^\"]+\"|`[^`]+`|[A-Za-z_][\\w]*))?",
+                     RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            var alias = NormalizeIdentifier(match.Groups["alias"].Value);
+            if (!IdentifierEquals(alias, objectOrAlias))
+                continue;
+
+            var source = match.Groups["source"].Value;
+            var sourceName = NormalizeIdentifier(source[(source.LastIndexOf('.') + 1)..]);
+            return tables.FirstOrDefault(node => IdentifierEquals(node.Name, sourceName));
+        }
+
+        return null;
     }
 
     private string GetColumnCacheKey(DbObjectTreeNode table)
@@ -355,14 +381,35 @@ public partial class SqlEditor : UserControl
     {
         if (_editor is null) return string.Empty;
         var document = _editor.Document;
-        int pos = _editor.CaretOffset - GetCurrentWord().Length - 1;
-        if (pos < 0 || document.GetCharAt(pos) != '.') return string.Empty;
+        int pos = _editor.CaretOffset - 1;
+        while (pos >= 0 && IsIdentifierCharacter(document.GetCharAt(pos)))
+            pos--;
+        if (pos < 0 || document.GetCharAt(pos) != '.')
+            return string.Empty;
 
         int end = pos;
-        while (pos > 0 && (char.IsLetterOrDigit(document.GetCharAt(pos - 1)) || document.GetCharAt(pos - 1) == '_'))
+        pos--;
+        while (pos >= 0 && IsIdentifierCharacter(document.GetCharAt(pos)))
             pos--;
-        return document.GetText(pos, end - pos);
+        return NormalizeIdentifier(document.GetText(pos + 1, end - pos - 1));
     }
+
+    private static bool IsIdentifierCharacter(char value)
+        => char.IsLetterOrDigit(value) || value is '_' or '[' or ']' or '"' or '`';
+
+    private static string NormalizeIdentifier(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length >= 2
+               && ((trimmed[0] == '[' && trimmed[^1] == ']')
+                   || (trimmed[0] == '"' && trimmed[^1] == '"')
+                   || (trimmed[0] == '`' && trimmed[^1] == '`'))
+            ? trimmed[1..^1]
+            : trimmed;
+    }
+
+    private static bool IdentifierEquals(string? left, string? right)
+        => string.Equals(NormalizeIdentifier(left ?? string.Empty), NormalizeIdentifier(right ?? string.Empty), StringComparison.OrdinalIgnoreCase);
 
     private static IEnumerable<DbObjectTreeNode> Descendants(DbObjectTreeNode node)
     {
@@ -413,6 +460,12 @@ public partial class SqlEditor : UserControl
     {
         base.OnPropertyChanged(e);
 
+        if (e.Property == ObjectTreeRootsProperty || e.Property == ConnectionNameProperty)
+        {
+            _columnCompletionCache.Clear();
+            _loadingColumnCompletions.Clear();
+        }
+
         if (e.Property != SqlTextProperty)
             return;
 
@@ -433,6 +486,18 @@ public partial class SqlEditor : UserControl
         {
             _syncing = false;
         }
+    }
+
+    /// <summary>将光标定位到数据库返回的错误行，便于用户立即修正 SQL。</summary>
+    public void GoToLine(int lineNumber)
+    {
+        if (_editor is null || lineNumber < 1 || lineNumber > _editor.Document.LineCount)
+            return;
+
+        var line = _editor.Document.GetLineByNumber(lineNumber);
+        _editor.CaretOffset = line.Offset;
+        _editor.TextArea.Caret.BringCaretToView();
+        _editor.Focus();
     }
 
     /// <summary>从嵌入资源或 Avalonia 资源加载 SQL 高亮定义（带缓存）。</summary>

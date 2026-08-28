@@ -28,6 +28,9 @@ public class QueryResult
     /// <summary>错误信息（若执行失败）。</summary>
     public string? ErrorMessage { get; init; }
 
+    /// <summary>数据库驱动可识别时返回的 SQL 错误行号。</summary>
+    public int? ErrorLine { get; init; }
+
     /// <summary>是否执行成功。</summary>
     public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage);
 

@@ -33,10 +33,14 @@ public partial class BackupViewModel : ViewModelBase
     private string? _clientToolFilePath;
 
     [ObservableProperty]
+    private string? _restoreFilePath;
+
+    [ObservableProperty]
     private bool _zipFile = true;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(BackupCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RestoreCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelBackupCommand))]
     private bool _isBusy;
 
@@ -126,6 +130,61 @@ public partial class BackupViewModel : ViewModelBase
     }
 
     private bool CanRunBackup() => !IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanRunBackup))]
+    private async Task RestoreAsync()
+    {
+        if (SelectedConnection is null)
+        {
+            StatusMessage = "请选择连接。";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(RestoreFilePath) || !File.Exists(RestoreFilePath))
+        {
+            StatusMessage = "请选择有效的备份文件。";
+            return;
+        }
+
+        IsBusy = true;
+        StatusMessage = string.Empty;
+        Logs.Clear();
+        _backupCts = new CancellationTokenSource();
+        var token = _backupCts.Token;
+        var feedbackBuffer = new List<string>();
+        void CollectFeedback(string message)
+        {
+            lock (feedbackBuffer) feedbackBuffer.Add(message);
+        }
+
+        try
+        {
+            AppendLog($"连接：{SelectedConnection.Description}");
+            AppendLog($"恢复文件：{RestoreFilePath}");
+            AppendLog("开始恢复...");
+            var result = await _backupService.RestoreAsync(
+                SelectedConnection, RestoreFilePath, ClientToolFilePath, CollectFeedback, token);
+            foreach (var line in feedbackBuffer)
+                AppendLog(line);
+            StatusMessage = result.IsOK ? "恢复成功。请重新连接并验证数据库对象。" : $"恢复失败：{result.Message}";
+            AppendLog(StatusMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "恢复已取消。";
+            AppendLog(StatusMessage);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"恢复失败：{ex.Message}";
+            AppendLog(StatusMessage);
+        }
+        finally
+        {
+            IsBusy = false;
+            _backupCts?.Dispose();
+            _backupCts = null;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelBackup()

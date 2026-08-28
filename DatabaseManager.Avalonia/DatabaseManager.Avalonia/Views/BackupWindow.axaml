@@ -26,6 +26,13 @@
             </Grid>
 
             <Grid ColumnDefinitions="120,*,Auto">
+                <TextBlock Grid.Column="0" Text="恢复文件" VerticalAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" PlaceholderText="选择要恢复的备份文件"
+                              HorizontalAlignment="Stretch" />
+                <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseRestoreFile_Click" />
+            </Grid>
+
+            <Grid ColumnDefinitions="120,*,Auto">
                 <TextBlock Grid.Column="0" Text="客户端工具" VerticalAlignment="Center" />
                 <atom:TextBox Grid.Column="1" Text="{Binding ClientToolFilePath}"
                               PlaceholderText="MySql 需 mysqldump.exe / Postgres 需 pg_dump.exe / Oracle 需 exp.exe（SQL Server 无需）"
@@ -40,6 +47,7 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="开始备份" ButtonType="Primary" Command="{Binding BackupCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="恢复备份" Click="BtnRestore_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>

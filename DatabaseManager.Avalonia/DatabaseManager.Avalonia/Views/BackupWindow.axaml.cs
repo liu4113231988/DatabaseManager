@@ -4,6 +4,8 @@ using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 
 namespace DatabaseManager.Avalonia.Views;
 
@@ -92,6 +94,32 @@ public partial class BackupWindow : Window
         {
             _vm.ClientToolFilePath = files[0].Path?.LocalPath ?? string.Empty;
         }
+    }
+
+    private async void BtnBrowseRestoreFile_Click(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "选择备份文件",
+            AllowMultiple = false,
+            FileTypeFilter = new[] { new global::Avalonia.Platform.Storage.FilePickerFileType("备份文件") { Patterns = new[] { "*.bak", "*.sql", "*.dump", "*.backup", "*.dmp", "*.db", "*.sqlite", "*" } } },
+        });
+        if (files.Count > 0)
+            _vm!.RestoreFilePath = files[0].Path?.LocalPath ?? string.Empty;
+    }
+
+    private async void BtnRestore_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_vm?.SelectedConnection is null || string.IsNullOrWhiteSpace(_vm.RestoreFilePath))
+            return;
+
+        var box = MessageBoxManager.GetMessageBoxStandard(
+            "确认恢复数据库",
+            $"恢复会覆盖目标数据库「{_vm.SelectedConnection.Database}」，此操作不可撤销。\n\n请确认备份文件来源可靠，并已停止相关业务写入。是否继续？",
+            ButtonEnum.YesNo,
+            MsBox.Avalonia.Enums.Icon.Warning);
+        if (await box.ShowWindowDialogAsync(this) == ButtonResult.Yes)
+            await _vm.RestoreCommand.ExecuteAsync(null);
     }
 
     private void BtnRefresh_Click(object? sender, RoutedEventArgs e)

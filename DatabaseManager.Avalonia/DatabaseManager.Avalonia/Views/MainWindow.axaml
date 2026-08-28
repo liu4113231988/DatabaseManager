@@ -62,6 +62,8 @@
                 <MenuItem Header="断开全部" Command="{Binding DisconnectAllCommand}" />
             </MenuItem>
             <MenuItem Header="数据库">
+                <MenuItem Header="危险 SQL 执行前确认" ToggleType="CheckBox"
+                          IsChecked="{Binding SelectedQueryTab.DangerousSqlConfirmationEnabled}" />
                 <MenuItem Header="自动提交" ToggleType="CheckBox"
                           IsChecked="{Binding QueryEditor.AutoCommit}" />
                 <MenuItem Header="开始事务" Command="{Binding QueryEditor.BeginTransactionCommand}" />
@@ -147,6 +149,10 @@
                     <Button Classes="toolbar Primary" Click="ToolExecute_Click" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
                         <Path Data="M7 4L19 12L7 20Z" Fill="#1677FF" />
                     </Button>
+                    <Button Classes="toolbar" Click="ToolCancelExecution_Click" ToolTip.Tip="取消正在执行的 SQL"
+                            IsEnabled="{Binding SelectedQueryTab.IsExecuting}">
+                        <Path Data="M7 7H17V17H7Z" Fill="#FF4D4F" />
+                    </Button>
                     <Button Classes="toolbar" Click="ToolFormat_Click" ToolTip.Tip="美化 (Ctrl+Shift+F)">
                         <Path Data="M3 21H21V19H3V21M3 13H21V11H3V13M7 17H21V15H7V17M7 9H21V7H7V9Z" Fill="#1677FF" Width="16" Height="16" Stretch="Uniform" />
                     </Button>
@@ -205,8 +211,8 @@
         </Border>
 
         <!-- 状态栏 -->
-        <Border DockPanel.Dock="Bottom" Height="28" Background="#182235">
-            <TextBlock Text="{Binding ConnectionSummary}" Foreground="#C7D4E8" VerticalAlignment="Center" Margin="14,0" FontSize="11" />
+        <Border DockPanel.Dock="Bottom" Height="28" Background="#F1F5F9" BorderBrush="#E3E8F0" BorderThickness="0,1,0,0">
+            <TextBlock Text="{Binding ConnectionSummary}" Foreground="#52657F" VerticalAlignment="Center" Margin="14,0" FontSize="11" />
         </Border>
 
         <!-- 主内容：左对象浏览器 / 右查询内容区（两栏分离，避免重叠） -->
@@ -388,6 +394,8 @@
                                     <TextBlock Text="SQL：" VerticalAlignment="Center" FontSize="11" />
                                     <TextBlock Text="{Binding ConnectionName}"
                                                VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
+                                    <TextBlock Text="{Binding CommandTimeoutSeconds, StringFormat='超时 {0}s'}"
+                                               VerticalAlignment="Center" Opacity="0.55" FontSize="11" />
                                     <TextBlock Text="{Binding StatusMessage}"
                                                VerticalAlignment="Center" Opacity="0.8" FontSize="11" />
                                 </StackPanel>
@@ -396,7 +404,7 @@
                                 <ctrl:SqlEditor Grid.Row="1"
                                                 SqlText="{Binding SqlText, Mode=TwoWay}"
                                                 ConnectionName="{Binding ConnectionName}"
-                                                ObjectTreeRoots="{Binding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                ObjectTreeRoots="{ReflectionBinding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}" />
 
                                 <!-- 上下分割条（拖动调整编辑器/结果区高度比例） -->
                                 <GridSplitter Grid.Row="2"

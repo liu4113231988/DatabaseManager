@@ -8,7 +8,12 @@ namespace DatabaseManager.AppCore.Services;
 public interface IQueryService
 {
     /// <summary>执行一条 SQL 语句，返回查询结果（含列、行数据、受影响行数与耗时）。</summary>
-    Task<QueryResult> ExecuteAsync(string connectionName, string sql, CancellationToken cancellationToken = default);
+    /// <param name="commandTimeoutSeconds">命令超时秒数；传入非正数时使用引擎默认值。</param>
+    Task<QueryResult> ExecuteAsync(
+        string connectionName,
+        string sql,
+        CancellationToken cancellationToken = default,
+        int commandTimeoutSeconds = 60);
 
     /// <summary>开启一个事务（持久化连接）。若已存在活动事务则返回 false。</summary>
     Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default);
