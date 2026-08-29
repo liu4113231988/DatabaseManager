@@ -31,6 +31,7 @@ public partial class DataCompareWindow : Window
         base.OnOpened(e);
         if (_vm is null) return;
 
+        _vm.RequestScriptPreview += Vm_RequestScriptPreview;
         ComboSource.SelectionChanged += ComboSource_SelectionChanged;
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
         ComboMode.SelectionChanged += ComboMode_SelectionChanged;
@@ -43,7 +44,13 @@ public partial class DataCompareWindow : Window
     {
         base.OnClosed(e);
         if (_vm is null) return;
+        _vm.RequestScriptPreview -= Vm_RequestScriptPreview;
         _vm.PropertyChanged -= Vm_PropertyChanged;
+    }
+
+    private void Vm_RequestScriptPreview(ScriptPreviewViewModel previewVm)
+    {
+        new ScriptPreviewWindow(previewVm).ShowDialog(this);
     }
 
     private void Refresh()

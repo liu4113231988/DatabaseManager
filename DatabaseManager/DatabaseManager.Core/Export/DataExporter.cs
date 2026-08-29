@@ -7,7 +7,9 @@ using DatabaseManager.FileUtility.Model;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Table = DatabaseInterpreter.Model.Table;
@@ -62,10 +64,18 @@ namespace DatabaseManager.Core
                     }
                     else
                     {
-                        int batchCount = 500;
-                        long count = 0;
+                        int batchCount = option.PageSize > 0 ? option.PageSize : 500;
+                        // 与 DefaultExportImportService 保持一致的分批上限，避免内存峰值过大
+                        if (batchCount > 1000) batchCount = 1000;
+                        long startPage = Math.Max(1, option.StartPageNumber);
+                        long count = (startPage - 1) * batchCount;
 
-                        (long Total, DataTable Data) result = await dbInterpreter.GetPagedDataTableAsync(connection, dbObject as Table, option.OrderColumns, batchCount, 1, option.ConditionClause, isForView, tableColumns);
+                        if (startPage > 1)
+                        {
+                            this.Feedback($"Resuming export from page {startPage}...");
+                        }
+
+                        (long Total, DataTable Data) result = await dbInterpreter.GetPagedDataTableAsync(connection, dbObject as Table, option.OrderColumns, batchCount, startPage, option.ConditionClause, isForView, tableColumns);
 
                         count += result.Data.Rows.Count;
 
@@ -75,13 +85,13 @@ namespace DatabaseManager.Core
 
                         long pageNumber = total % batchCount == 0 ? total / batchCount : total / batchCount + 1;
 
-                        if (pageNumber > 1)
+                        if (pageNumber > startPage)
                         {
-                            for (int i = 2; i <= pageNumber; i++)
+                            for (long i = startPage + 1; i <= pageNumber; i++)
                             {
                                 if (cancellationToken.IsCancellationRequested)
                                 {
-                                    exportResult.Message = "Task has been canceled.";
+                                    exportResult.Message = $"Task has been canceled. (completed to page {i - 1})";
                                     break;
                                 }
 
@@ -113,7 +123,7 @@ namespace DatabaseManager.Core
                             }
                         }
 
-                        string filePath = this.ExportDataTable(mergedDataTable, dbObject.Name, option);
+                        string filePath = this.ExportDataTable(mergedDataTable, dbObject.Name, option, dbInterpreter);
 
                         this.Feedback("End write to file.");
 
@@ -171,7 +181,7 @@ namespace DatabaseManager.Core
             return exportResult;
         }
 
-        private string ExportDataTable(DataTable dataTable, string tableName, ExportDataOption option)
+        private string ExportDataTable(DataTable dataTable, string tableName, ExportDataOption option, DbInterpreter dbInterpreter = null)
         {
             string filePath = null;
 
@@ -179,12 +189,117 @@ namespace DatabaseManager.Core
             {
                 filePath = this.WriteToCsv(dataTable, option, tableName);
             }
+            else if (option.FileType == ExportFileType.JSON)
+            {
+                filePath = new JsonDataWriter(option).Write(dataTable, tableName);
+            }
+            else if (option.FileType == ExportFileType.XML)
+            {
+                filePath = new XmlDataWriter(option).Write(dataTable, tableName);
+            }
+            else if (option.FileType == ExportFileType.SQL)
+            {
+                filePath = this.WriteToSql(dataTable, option, tableName, dbInterpreter);
+            }
             else
             {
                 filePath = this.WriteToExcel(dataTable, option, tableName);
             }
 
             return filePath;
+        }
+
+        /// <summary>把 DataTable 写出为 INSERT 语句脚本（SQL 格式导出）。</summary>
+        private string WriteToSql(DataTable dataTable, ExportDataOption option, string tableName, DbInterpreter dbInterpreter)
+        {
+            if (dbInterpreter == null)
+            {
+                throw new NotSupportedException("SQL export requires a database interpreter.");
+            }
+
+            string filePath = option.FilePath;
+
+            if (string.IsNullOrEmpty(filePath))
+            {
+                string folder = option.IsTemporary ? "temp" : "export";
+
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+
+                filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, folder, $"{tableName}_{DateTime.Now:yyyyMMdd}.sql");
+            }
+
+            dbInterpreter.Option.ScriptOutputMode = GenerateScriptOutputMode.WriteToString;
+
+            var scriptGenerator = DbScriptGeneratorHelper.GetDbScriptGenerator(dbInterpreter);
+            var table = new Table() { Name = tableName };
+            var columns = dataTable.Columns.Cast<DataColumn>()
+                .Select(c => new TableColumn() { Name = c.ColumnName, DataType = MapToSqlDataType(c.DataType) })
+                .ToList();
+
+            var rows = dbInterpreter.ConvertDataTableToDictionaryList(dataTable, columns);
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"-- Exported from table {tableName} at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+            int batchCount = 500;
+            long pageCount = rows.Count == 0 ? 0 : (rows.Count % batchCount == 0 ? rows.Count / batchCount : rows.Count / batchCount + 1);
+
+            var dictPagedData = new Dictionary<long, List<Dictionary<string, object>>>();
+
+            for (int i = 0; i < pageCount; i++)
+            {
+                dictPagedData[i + 1] = rows.Skip(i * batchCount).Take(batchCount).ToList();
+            }
+
+            scriptGenerator.AppendDataScripts(sb, table, columns, dictPagedData);
+
+            var encoding = TextEncoding.Resolve(option.EncodingName) ?? Encoding.UTF8;
+
+            File.WriteAllText(filePath, sb.ToString(), encoding);
+
+            return filePath;
+        }
+
+        /// <summary>.NET 类型 → 通用 SQL 类型（用于 SQL 导出时生成 INSERT 的值转义）。</summary>
+        private static string MapToSqlDataType(Type type)
+        {
+            if (type == typeof(string) || type == typeof(Guid) || type == typeof(char))
+            {
+                return "VARCHAR";
+            }
+            if (type == typeof(DateTime) || type == typeof(DateTimeOffset) || type == typeof(TimeSpan))
+            {
+                return "DATETIME";
+            }
+            if (type == typeof(bool))
+            {
+                return "INT";
+            }
+            if (type == typeof(byte[]))
+            {
+                return "BLOB";
+            }
+            if (type == typeof(long) || type == typeof(ulong))
+            {
+                return "BIGINT";
+            }
+            if (type == typeof(short) || type == typeof(ushort))
+            {
+                return "SMALLINT";
+            }
+            if (type == typeof(decimal))
+            {
+                return "DECIMAL";
+            }
+            if (type == typeof(double) || type == typeof(float))
+            {
+                return "DOUBLE";
+            }
+
+            return "INT";
         }
 
         public static void WriteToCsv(DataTable dataTable, string filePath)

@@ -43,7 +43,10 @@ public partial class MainWindow : Window
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
             foreach (var tab in vm.QueryTabs)
+            {
                 tab.RequestDangerousExecution = RequestDangerousExecutionAsync;
+                tab.RequestLocateRow = LocateRowInResultGrid;
+            }
 
             vm.QueryTabs.CollectionChanged += (_, args) =>
             {
@@ -51,7 +54,10 @@ public partial class MainWindow : Window
                     return;
 
                 foreach (var item in args.NewItems.OfType<QueryTabViewModel>())
+                {
                     item.RequestDangerousExecution = RequestDangerousExecutionAsync;
+                    item.RequestLocateRow = LocateRowInResultGrid;
+                }
             };
 
             // 监听当前查询标签的列变化，动态重建 DataGrid 列。
@@ -74,6 +80,82 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(MainWindowViewModel.SelectedQueryTab))
         {
             RefreshQueryTabColumnListener();
+        }
+    }
+
+    /// <summary>
+    /// 主窗口整体关闭拦截：存在未保存数据修改或未保存 SQL 的标签时弹三选确认。
+    /// 「是」= 保存全部数据修改后退出（SQL 文本不逐个弹文件对话框，退出即丢失请先手动保存）；
+    /// 「否」= 放弃全部并退出；「取消」= 留在应用。
+    /// </summary>
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+
+        if (e.Cancel || _closingConfirmed || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var dataChangedTabs = vm.QueryTabs.Where(t => t.HasPendingChanges).ToList();
+        var modifiedTabs = vm.QueryTabs.Where(t => t.IsModified).ToList();
+
+        if (dataChangedTabs.Count == 0 && modifiedTabs.Count == 0)
+        {
+            return;
+        }
+
+        var messageParts = new List<string>();
+        if (dataChangedTabs.Count > 0)
+        {
+            messageParts.Add($"{dataChangedTabs.Count} 个标签的结果集有未保存的数据修改");
+        }
+        if (modifiedTabs.Count > 0)
+        {
+            messageParts.Add($"{modifiedTabs.Count} 个标签的 SQL 文本尚未保存到文件");
+        }
+
+        e.Cancel = true;
+
+        var box = MessageBoxManager.GetMessageBoxStandard(
+            title: "未保存的更改",
+            text: $"有 {string.Join("，", messageParts)}。\n\n「是」保存数据修改并退出；「否」放弃全部并退出；「取消」留在应用。",
+            ButtonEnum.YesNoCancel,
+            MsBox.Avalonia.Enums.Icon.Warning);
+        var result = await box.ShowWindowDialogAsync(this);
+
+        if (result == ButtonResult.Cancel)
+        {
+            return;
+        }
+
+        if (result == ButtonResult.Yes)
+        {
+            // 逐个保存数据修改；任一保存失败（含用户取消）则留在应用。
+            foreach (var tab in dataChangedTabs)
+            {
+                await tab.SaveEditsAsync();
+                if (tab.HasPendingChanges)
+                {
+                    return;
+                }
+            }
+        }
+
+        _closingConfirmed = true;
+        Close();
+    }
+
+    /// <summary>主窗口关闭确认已通过（避免二次弹窗）。</summary>
+    private bool _closingConfirmed;
+
+    /// <summary>保存刷新后在结果网格中滚动并选中指定行。</summary>
+    private void LocateRowInResultGrid(QueryResultRow row)
+    {
+        if (FindDataGridInVisualTree(this) is { } grid)
+        {
+            grid.ScrollIntoView(row, null);
+            grid.SelectedItem = row;
         }
     }
 
@@ -633,6 +715,7 @@ public partial class MainWindow : Window
             {
                 vm.SelectedQueryTab.SqlText = File.ReadAllText(files[0].Path?.LocalPath ?? string.Empty);
                 vm.SelectedQueryTab.StatusMessage = $"已打开 {Path.GetFileName(files[0].Path?.LocalPath)}。";
+                vm.TrackRecentScript(files[0].Path?.LocalPath ?? string.Empty);
             }
         }
     }
@@ -676,6 +759,7 @@ public partial class MainWindow : Window
             {
                 vm.SelectedQueryTab.SqlText = File.ReadAllText(path);
                 vm.SelectedQueryTab.StatusMessage = $"已打开 {Path.GetFileName(path)}。";
+                vm.TrackRecentScript(path);
             }
         }
     }
@@ -739,6 +823,144 @@ public partial class MainWindow : Window
         var tabControl = this.FindControl<TabControl>("QueryTabsControl");
         var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
         editor?.Format();
+    }
+
+    /// <summary>把 SQL 插入到当前查询编辑器光标处（脚本库/查询历史共用）。</summary>
+    private void InsertSqlToCurrentEditor(string sql)
+    {
+        if (string.IsNullOrEmpty(sql))
+        {
+            return;
+        }
+
+        var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+        var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
+        if (editor is not null)
+        {
+            editor.InsertAtCaret(sql);
+        }
+        else if (DataContext is MainWindowViewModel { SelectedQueryTab: not null } vm)
+        {
+            vm.SelectedQueryTab.SqlText += (vm.SelectedQueryTab.SqlText.Length > 0 ? Environment.NewLine : string.Empty) + sql;
+        }
+    }
+
+    /// <summary>打开查询历史窗口。</summary>
+    private void MenuQueryHistory_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        var vm = _services.GetRequiredService<QueryHistoryViewModel>();
+        vm.InsertToEditorRequested = InsertSqlToCurrentEditor;
+        new QueryHistoryWindow(vm).ShowDialog(this);
+    }
+
+    /// <summary>打开脚本库窗口。</summary>
+    private void MenuScriptLibrary_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        var vm = _services.GetRequiredService<ScriptLibraryViewModel>();
+        vm.InsertToEditorRequested = InsertSqlToCurrentEditor;
+        new ScriptLibraryWindow(vm).ShowDialog(this);
+    }
+
+    /// <summary>把当前编辑器中的 SQL 保存为脚本库条目。</summary>
+    private void MenuSaveToLibrary_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+        var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
+        var sql = editor?.GetSelectedText();
+        if (string.IsNullOrWhiteSpace(sql) && DataContext is MainWindowViewModel { SelectedQueryTab: not null } vm)
+        {
+            sql = vm.SelectedQueryTab.SqlText;
+        }
+
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return;
+        }
+
+        var libraryVm = _services.GetRequiredService<ScriptLibraryViewModel>();
+        libraryVm.InsertToEditorRequested = InsertSqlToCurrentEditor;
+        libraryVm.BeginNewWithSql(sql!);
+        new ScriptLibraryWindow(libraryVm).ShowDialog(this);
+    }
+
+    /// <summary>获取当前 SQL 的执行计划（有选区时仅分析选区）。</summary>
+    private void ToolExplain_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        if (vm.SelectedConnection is null)
+        {
+            _ = MessageBoxManager.GetMessageBoxStandard(
+                "执行计划", "请先连接一个数据库。", ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning)
+                .ShowWindowDialogAsync(this);
+            return;
+        }
+
+        var tabControl = this.FindControl<TabControl>("QueryTabsControl");
+        var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
+        var sql = editor?.GetSelectedText()?.Trim();
+        if (string.IsNullOrWhiteSpace(sql) && vm.SelectedQueryTab is not null)
+        {
+            sql = vm.SelectedQueryTab.SqlText;
+        }
+
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return;
+        }
+
+        var planVm = _services.GetRequiredService<ExecutionPlanViewModel>();
+        planVm.Connection = vm.SelectedConnection;
+        planVm.SqlText = sql!;
+        new ExecutionPlanWindow(planVm).ShowDialog(this);
+    }
+
+    /// <summary>导出当前查询结果集为 CSV / JSON 文件。</summary>
+    private async void ToolExportResults_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel { SelectedQueryTab: not null } vm)
+        {
+            return;
+        }
+
+        var file = await StorageProvider.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "导出查询结果",
+            SuggestedFileName = $"query-result-{DateTime.Now:yyyyMMdd-HHmmss}.csv",
+            DefaultExtension = "csv",
+            FileTypeChoices = new[]
+            {
+                new global::Avalonia.Platform.Storage.FilePickerFileType("CSV 文件") { Patterns = new[] { "*.csv" } },
+                new global::Avalonia.Platform.Storage.FilePickerFileType("JSON 文件") { Patterns = new[] { "*.json" } },
+            },
+        });
+
+        if (file is null)
+        {
+            return;
+        }
+
+        var path = file.Path?.LocalPath ?? string.Empty;
+        var format = path.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? "JSON" : "CSV";
+        await vm.SelectedQueryTab.ExportResultsAsync(path, format);
     }
 
     /// <summary>查询结果内联编辑：新增一行并滚动定位到该行。</summary>
@@ -1042,10 +1264,12 @@ public partial class MainWindow : Window
         {
             // 内联编辑模式：非只读列（映射到表的非自增/计算/二进制列）开放双向编辑；否则只读。
             bool editableColumn = tabVm.IsColumnEditable(i);
+            bool isPrimaryKey = tabVm.IsPrimaryKeyColumn(i);
 
             grid.Columns.Add(new DataGridTextColumn
             {
-                Header = tabVm.Columns[i],
+                // 主键列头加 🔑 标识，便于用户识别编辑定位依据。
+                Header = isPrimaryKey ? $"🔑 {tabVm.Columns[i]}" : tabVm.Columns[i],
                 // 使用 Values[i] 绑定，避免直接索引器路径解析在不同 Avalonia 版本/主题下的兼容性问题
                 Binding = new Binding($"Values[{i}]")
                 {

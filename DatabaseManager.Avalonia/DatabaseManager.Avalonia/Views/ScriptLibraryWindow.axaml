@@ -1,0 +1,114 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:svc="using:DatabaseManager.AppCore.Services"
+        x:Class="DatabaseManager.Avalonia.Views.ScriptLibraryWindow"
+        x:DataType="vm:ScriptLibraryViewModel"
+        Title="脚本库"
+        Width="980" Height="640"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 底部操作 -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8"
+                    HorizontalAlignment="Right" Margin="0,8,0,0">
+            <atom:Button Content="插入到编辑器" ButtonType="Primary" Command="{Binding InsertToEditorCommand}"
+                         ToolTip.Tip="把当前编辑区内容插入到查询编辑器光标处" />
+            <atom:Button Content="关闭" Click="BtnClose_Click" />
+        </StackPanel>
+
+        <TabControl x:Name="LibraryTabs" SelectionChanged="LibraryTabs_SelectionChanged">
+
+            <!-- 我的脚本 -->
+            <TabItem Header="我的脚本">
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- 左：搜索 + 脚本列表 -->
+                    <DockPanel Grid.Column="0">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                            <TextBox Text="{Binding SearchText}" Watermark="搜索名称或内容"
+                                     Width="200" VerticalContentAlignment="Center" />
+                            <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
+                        </StackPanel>
+                        <ListBox ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="svc:ScriptLibraryItem">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Category}" FontSize="11" Opacity="0.65" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+
+                    <GridSplitter Grid.Column="1" Width="6" Background="#22000000" />
+
+                    <!-- 右：编辑区 -->
+                    <DockPanel Grid.Column="2" Margin="0,0,0,6">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                            <atom:Button Content="＋ 新建" Click="BtnNew_Click" />
+                            <atom:Button Content="保存" ButtonType="Primary" Command="{Binding SaveCommand}" />
+                            <atom:Button Content="删除" Command="{Binding DeleteCommand}" />
+                        </StackPanel>
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                            <TextBlock Text="名称：" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding EditingName}" Width="220" VerticalContentAlignment="Center" />
+                            <TextBlock Text="分类：" VerticalAlignment="Center" />
+                            <TextBox Text="{Binding EditingCategory}" Width="140" VerticalContentAlignment="Center" />
+                        </StackPanel>
+                        <TextBox Text="{Binding EditingSqlText}" IsEnabled="{Binding !IsBuiltInSelected}"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                 AcceptsReturn="True" TextWrapping="NoWrap"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- 内置片段 -->
+            <TabItem Header="内置片段">
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <ListBox Grid.Column="0" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="svc:ScriptLibraryItem">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <GridSplitter Grid.Column="1" Width="6" Background="#22000000" />
+
+                    <DockPanel Grid.Column="2" Margin="0,0,0,6">
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedScript.Name}" FontWeight="SemiBold"
+                                   Margin="2,0,0,6" />
+                        <TextBox Text="{Binding EditingSqlText, Mode=OneWay}" IsReadOnly="True"
+                                 FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                                 AcceptsReturn="True" TextWrapping="NoWrap"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+    </DockPanel>
+</Window>

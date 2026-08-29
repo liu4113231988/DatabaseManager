@@ -6,6 +6,7 @@ using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
+using DatabaseManager.FileUtility;
 using DatabaseManager.FileUtility.Model;
 
 namespace DatabaseManager.AppCore.Services;
@@ -25,7 +26,7 @@ public class DefaultExportImportService : IExportImportService
     }
 
     public IReadOnlyList<string> GetExportFormats()
-        => new[] { "Excel", "CSV" };
+        => new[] { "Excel", "CSV", "SQL", "JSON", "XML" };
 
     public async Task<IReadOnlyList<ExportTableItem>> GetTablesAsync(
         ConnectionItem connection,
@@ -77,6 +78,8 @@ public class DefaultExportImportService : IExportImportService
         string format,
         string filePath,
         bool showColumnNames = true,
+        string? encodingName = null,
+        long startPageNumber = 1,
         Action<string>? onFeedback = null,
         CancellationToken cancellationToken = default)
     {
@@ -92,6 +95,8 @@ public class DefaultExportImportService : IExportImportService
                 FilePath = filePath,
                 ExportAllThatMeetCondition = true,
                 PageSize = 1000,
+                EncodingName = encodingName,
+                StartPageNumber = Math.Max(1, startPageNumber),
             };
 
             DatabaseObject dbObject;
@@ -159,6 +164,9 @@ public class DefaultExportImportService : IExportImportService
         string filePath,
         bool firstRowIsColumnName = true,
         IReadOnlyList<ColumnMappingItem>? columnMappings = null,
+        string? encodingName = null,
+        int skipRows = 0,
+        bool continueOnInvalidRows = false,
         Action<string>? onFeedback = null,
         CancellationToken cancellationToken = default)
     {
@@ -173,6 +181,7 @@ public class DefaultExportImportService : IExportImportService
             {
                 FilePath = filePath,
                 FirstRowIsColumnName = firstRowIsColumnName,
+                EncodingName = encodingName,
             };
 
             // 将 UI 友好的列映射转换为核心库模型。
@@ -189,24 +198,39 @@ public class DefaultExportImportService : IExportImportService
 
             onFeedback?.Invoke($"正在从 {Path.GetFileName(filePath)} 导入数据到 {tableName}...");
 
-            var importer = new DataImporter();
+            var importer = new DataImporter
+            {
+                Option = new DataImportOption
+                {
+                    SkipRows = Math.Max(0, skipRows),
+                    ContinueOnInvalidRows = continueOnInvalidRows,
+                },
+            };
             importer.Subscribe(new ExportFeedbackObserver(onFeedback));
 
             var (success, validateResult) = await importer.Import(
                 interpreter, table, sourceFileInfo, mappings, cancellationToken);
 
+            result.ValidateResultDetail = validateResult;
+
             if (success)
             {
+                result.SkippedRowCount = validateResult?.Rows?.Count(r => !r.IsValid) ?? 0;
                 result.IsSuccess = true;
-                result.Message = "导入成功。";
+                result.Message = result.SkippedRowCount > 0
+                    ? $"导入完成（跳过 {result.SkippedRowCount} 个错误行）。"
+                    : "导入成功。";
                 onFeedback?.Invoke(result.Message);
             }
             else
             {
                 result.IsSuccess = false;
-                result.Message = validateResult?.IsValid == false
-                    ? $"导入失败：数据校验未通过（共 {validateResult.Rows?.Count ?? 0} 行待检查）。"
-                    : "导入失败。";
+                var invalidCount = validateResult?.Rows?.Count(r => !r.IsValid) ?? 0;
+                result.Message = validateResult != null && invalidCount > 0
+                    ? $"导入失败：数据校验未通过（{invalidCount} 行存在错误）。"
+                    : validateResult?.IsValid == false
+                        ? $"导入失败：数据校验未通过（共 {validateResult.Rows?.Count ?? 0} 行待检查）。"
+                        : "导入失败。";
                 onFeedback?.Invoke(result.Message);
             }
 
@@ -226,10 +250,82 @@ public class DefaultExportImportService : IExportImportService
         }
     }
 
+    public async Task<FilePreviewResult> PreviewFileAsync(
+        string filePath,
+        bool firstRowIsColumnName = true,
+        string? encodingName = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new FilePreviewResult();
+
+        try
+        {
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            var info = new SourceFileInfo
+            {
+                FilePath = filePath,
+                FirstRowIsColumnName = firstRowIsColumnName,
+                EncodingName = encodingName,
+            };
+
+            BaseReader reader = extension switch
+            {
+                ".csv" => new CsvReader(info),
+                ".xlsx" or ".xls" => new ExcelReader(info),
+                ".json" => new JsonDataReader(info),
+                ".xml" => new XmlDataReader(info),
+                _ => throw new NotSupportedException($"不支持的预览文件类型：{extension}"),
+            };
+
+            // 大文件（>20MB）只读表头，避免预览时全量加载。
+            bool onlyHeader = new FileInfo(filePath).Length > 20 * 1024 * 1024;
+
+            var readResult = reader.Read(onlyReadHeader: onlyHeader);
+
+            result.Columns.AddRange(readResult.HeaderColumns ?? Array.Empty<string>());
+
+            if (!onlyHeader && readResult.Data is not null)
+            {
+                result.TotalRows = readResult.Data.Count;
+
+                foreach (var row in readResult.Data.OrderBy(kv => kv.Key).Take(5))
+                {
+                    var values = new List<string>();
+                    for (int i = 0; i < result.Columns.Count; i++)
+                    {
+                        values.Add(row.Value.TryGetValue(i, out var value) ? value?.ToString() ?? string.Empty : string.Empty);
+                    }
+                    result.SampleRows.Add(values);
+                }
+            }
+
+            result.IsSuccess = result.Columns.Count > 0;
+            if (!result.IsSuccess)
+            {
+                result.Message = "未能从文件中解析出列信息。";
+            }
+            else if (onlyHeader)
+            {
+                result.Message = "文件较大，仅预览列名。";
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Message = $"读取文件失败：{ex.Message}";
+        }
+
+        return result;
+    }
+
     private static ExportFileType ParseExportFileType(string format)
-        => format?.Trim().Equals("CSV", StringComparison.OrdinalIgnoreCase) == true
-            ? ExportFileType.CSV
-            : ExportFileType.EXCEL;
+        => format?.Trim().ToUpperInvariant() switch
+        {
+            "CSV" => ExportFileType.CSV,
+            "SQL" => ExportFileType.SQL,
+            "JSON" => ExportFileType.JSON,
+            "XML" => ExportFileType.XML,
+            _ => ExportFileType.EXCEL,
+        };
 
     private DbInterpreter CreateInterpreter(ConnectionItem connection)
     {

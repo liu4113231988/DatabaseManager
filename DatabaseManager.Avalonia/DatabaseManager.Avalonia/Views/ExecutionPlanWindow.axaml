@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        x:Class="DatabaseManager.Avalonia.Views.ExecutionPlanWindow"
+        x:DataType="vm:ExecutionPlanViewModel"
+        Title="执行计划"
+        Width="980" Height="620"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：SQL 与选项 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+            <TextBlock Text="分析以下 SQL（通常为 SELECT）：" FontSize="11" Opacity="0.75" />
+            <TextBox Text="{Binding SqlText}" MinHeight="90" MaxHeight="180" AcceptsReturn="True"
+                     TextWrapping="NoWrap" FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <CheckBox Content="ANALYZE（实际执行以获取真实计划；MySQL 8.0.18+ / PostgreSQL）"
+                          IsChecked="{Binding Analyze}" VerticalAlignment="Center" />
+                <atom:Button Content="获取执行计划" ButtonType="Primary" Command="{Binding ExecuteCommand}"
+                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <Border BorderBrush="#22000000" BorderThickness="1"
+                IsVisible="{Binding HasResult}">
+            <DataGrid x:Name="PlanGrid" ItemsSource="{Binding Rows}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                      CanUserResizeColumns="True" FontSize="11"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </Border>
+
+        <TextBlock Text="（无结果）" IsVisible="{Binding !HasResult}"
+                   Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </DockPanel>
+</Window>

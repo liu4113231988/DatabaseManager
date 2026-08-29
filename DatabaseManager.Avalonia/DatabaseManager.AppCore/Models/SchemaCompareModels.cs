@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.ComponentModel;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Core.Model;
 
@@ -6,7 +7,7 @@ namespace DatabaseManager.AppCore.Models;
 /// <summary>
 /// 结构对比结果节点（UI 友好）。包装 <see cref="SchemaCompareDifference"/> 为可绑定树结构。
 /// </summary>
-public class SchemaCompareItem
+public partial class SchemaCompareItem : ObservableObject
 {
     /// <summary>底层差异数据。</summary>
     public SchemaCompareDifference Difference { get; }
@@ -40,6 +41,19 @@ public class SchemaCompareItem
 
     /// <summary>子节点。</summary>
     public IList<SchemaCompareItem> Children { get; } = new List<SchemaCompareItem>();
+
+    /// <summary>是否选中（用于选择性生成/应用变更脚本；默认全选，父节点勾选会传播到子节点）。</summary>
+    [ObservableProperty]
+    private bool _isSelected = true;
+
+    partial void OnIsSelectedChanged(bool value)
+    {
+        // 文件夹/表节点勾选状态传播到全部子节点（叶子无子节点，不会形成循环）。
+        foreach (var child in Children)
+        {
+            child.IsSelected = value;
+        }
+    }
 
     public SchemaCompareItem(SchemaCompareDifference difference)
     {

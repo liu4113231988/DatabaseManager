@@ -9,12 +9,14 @@ namespace DatabaseManager.AppCore.ViewModels;
 
 /// <summary>
 /// 数据导出 ViewModel（阶段 6 / M6）。对应原 WinForms <c>frmExportData</c>。
-/// 选择连接/表/视图与导出格式，导出数据到 CSV / Excel 文件。
+/// 选择连接/表/视图与导出格式，导出数据到 CSV / Excel / SQL / JSON / XML 文件。
+/// 支持文本编码选择与起始页续传。
 /// </summary>
 public partial class ExportViewModel : ViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IExportImportService _exportImportService;
+    private CancellationTokenSource? _exportCts;
 
     /// <summary>快速切换连接时，淘汰过期的异步加载结果（竞态防护）。</summary>
     private int _loadTableVersion;
@@ -28,6 +30,9 @@ public partial class ExportViewModel : ViewModelBase
     /// <summary>导出格式。</summary>
     public IReadOnlyList<string> Formats { get; }
 
+    /// <summary>文本编码选项。</summary>
+    public IReadOnlyList<string> EncodingOptions { get; } = DatabaseManager.FileUtility.TextEncoding.CommonNames;
+
     /// <summary>执行日志。</summary>
     public ObservableCollection<string> Logs { get; } = new();
 
@@ -39,6 +44,12 @@ public partial class ExportViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _selectedFormat = "Excel";
+
+    [ObservableProperty]
+    private string _selectedEncoding = DatabaseManager.FileUtility.TextEncoding.CommonNames[0];
+
+    [ObservableProperty]
+    private long _startPageNumber = 1;
 
     [ObservableProperty]
     private string _filePath = string.Empty;
@@ -142,6 +153,15 @@ public partial class ExportViewModel : ViewModelBase
         FilePath = path ?? string.Empty;
     }
 
+    /// <summary>取消正在进行的导出。</summary>
+    [RelayCommand(CanExecute = nameof(IsBusy))]
+    private void CancelExport()
+    {
+        _exportCts?.Cancel();
+    }
+
+    partial void OnIsBusyChanged(bool value) => CancelExportCommand.NotifyCanExecuteChanged();
+
     [RelayCommand]
     private async Task ExportAsync()
     {
@@ -166,6 +186,7 @@ public partial class ExportViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = string.Empty;
         Logs.Clear();
+        _exportCts = new CancellationTokenSource();
 
         var feedbackBuffer = new List<string>();
         void CollectFeedback(string message) => feedbackBuffer.Add(message);
@@ -176,6 +197,10 @@ public partial class ExportViewModel : ViewModelBase
             AppendLog($"对象：{SelectedTable.DisplayName}{(SelectedTable.IsView ? "（视图）" : "（表）")}");
             AppendLog($"格式：{SelectedFormat}");
             AppendLog($"文件：{FilePath}");
+            if (StartPageNumber > 1)
+            {
+                AppendLog($"起始页：{StartPageNumber}（续传模式）");
+            }
             AppendLog("开始导出...");
 
             var result = await _exportImportService.ExportDataAsync(
@@ -186,7 +211,10 @@ public partial class ExportViewModel : ViewModelBase
                 SelectedFormat,
                 FilePath,
                 ShowColumnNames,
-                CollectFeedback);
+                SelectedEncoding,
+                StartPageNumber,
+                CollectFeedback,
+                _exportCts.Token);
 
             foreach (var line in feedbackBuffer)
             {
@@ -203,6 +231,8 @@ public partial class ExportViewModel : ViewModelBase
         }
         finally
         {
+            _exportCts?.Dispose();
+            _exportCts = null;
             IsBusy = false;
         }
     }

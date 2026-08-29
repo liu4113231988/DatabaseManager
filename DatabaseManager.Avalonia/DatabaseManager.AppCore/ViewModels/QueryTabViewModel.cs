@@ -19,6 +19,7 @@ public partial class QueryTabViewModel : ViewModelBase
 {
     private readonly IQueryService _queryService;
     private readonly IDataEditService? _editService;
+    private readonly IQueryHistoryService? _historyService;
     private static int _tabCounter = 0;
 
     [ObservableProperty]
@@ -123,8 +124,20 @@ public partial class QueryTabViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isSavingChanges;
 
+    /// <summary>保存成功后是否自动重新执行查询并定位记录（默认开启）。</summary>
+    [ObservableProperty]
+    private bool _autoRefreshAfterSave = true;
+
     /// <summary>可编辑目标表的元数据（可编辑时有值）。</summary>
     private DataTableInfo? _editableTableInfo;
+
+    /// <summary>输出列名 → 源表列名（列别名映射；无别名时为空）。</summary>
+    private IReadOnlyDictionary<string, string> _columnAliasByDisplay =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>源表列名 → 输出列名（反向映射，用于按表列名取行值）。</summary>
+    private IReadOnlyDictionary<string, string> _displayBySource =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>待删除的行（从结果集中移除，保存时统一 DELETE；还原时按原位置放回）。</summary>
     private readonly List<(QueryResultRow Row, int OriginalIndex)> _pendingDeletes = new();
@@ -132,6 +145,9 @@ public partial class QueryTabViewModel : ViewModelBase
     /// <summary>目标表名 / Schema（可编辑时有值）。</summary>
     private string? _editableTableName;
     private string? _editableSchema;
+
+    /// <summary>由 UI 注入：保存刷新后在网格中定位指定行（滚动 + 选中）。</summary>
+    public Action<QueryResultRow>? RequestLocateRow { get; set; }
 
     #endregion
 
@@ -160,10 +176,11 @@ public partial class QueryTabViewModel : ViewModelBase
     /// <summary>此标签页的唯一 ID。</summary>
     public int TabId { get; }
 
-    public QueryTabViewModel(IQueryService queryService, IDataEditService? editService = null, string? title = null)
+    public QueryTabViewModel(IQueryService queryService, IDataEditService? editService = null, string? title = null, IQueryHistoryService? historyService = null)
     {
         _queryService = queryService;
         _editService = editService;
+        _historyService = historyService;
         TabId = ++_tabCounter;
         _baseTitle = title ?? $"查询 {TabId}";
         Title = _baseTitle;
@@ -205,10 +222,19 @@ public partial class QueryTabViewModel : ViewModelBase
             return;
         }
 
+        // 参数化执行：按参数面板的值替换 @name / :name 占位符。
+        string? parameterizedSql = null;
+        if (ParametersEnabled)
+        {
+            parameterizedSql = ApplyParameters(sqlToExecute);
+        }
+
+        var effectiveSql = parameterizedSql ?? sqlToExecute;
+
         if (DangerousSqlConfirmationEnabled
-            && IsPotentiallyDestructiveSql(sqlToExecute)
+            && IsPotentiallyDestructiveSql(effectiveSql)
             && RequestDangerousExecution is not null
-            && !await RequestDangerousExecution(sqlToExecute))
+            && !await RequestDangerousExecution(effectiveSql))
         {
             StatusMessage = "已取消执行危险 SQL。";
             return;
@@ -219,10 +245,14 @@ public partial class QueryTabViewModel : ViewModelBase
         StatusMessage = isSelection ? "正在执行选中 SQL..." : "正在执行...";
         _executionCts = new CancellationTokenSource();
 
+        QueryResult? historyResult = null;
+        string? historyError = null;
+
         try
         {
             var timeout = Math.Clamp(CommandTimeoutSeconds, 1, 3600);
-            var result = await _queryService.ExecuteAsync(ConnectionName, sqlToExecute, _executionCts.Token, timeout);
+            var result = await _queryService.ExecuteAsync(ConnectionName, effectiveSql, _executionCts.Token, timeout);
+            historyResult = result;
             ApplyResult(result);
 
             // 执行成功且返回结果集时，尝试启用内联编辑。
@@ -237,14 +267,43 @@ public partial class QueryTabViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            historyError = ex.Message;
             StatusMessage = $"执行失败：{ex.Message}";
             HasResult = false;
         }
         finally
         {
+            RecordHistory(effectiveSql, historyResult, historyError);
             _executionCts?.Dispose();
             _executionCts = null;
             IsExecuting = false;
+        }
+    }
+
+    /// <summary>把本次执行写入查询历史（服务缺失时忽略）。</summary>
+    private void RecordHistory(string sql, QueryResult? result, string? error)
+    {
+        if (_historyService is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _historyService.Add(new QueryHistoryEntry
+            {
+                ConnectionName = ConnectionName,
+                Database = DatabaseName,
+                SqlText = sql,
+                IsSuccess = result is { IsSuccess: true },
+                RowCount = result?.IsNonQuery == true ? result.RowCount : (result?.Rows.Count ?? 0),
+                ElapsedMilliseconds = result?.ElapsedMilliseconds ?? 0,
+                ErrorMessage = result?.IsSuccess == false ? result.ErrorMessage : error,
+            });
+        }
+        catch
+        {
+            // 历史记录失败不影响查询流程。
         }
     }
 
@@ -267,6 +326,339 @@ public partial class QueryTabViewModel : ViewModelBase
             @"\b(INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|EXEC(?:UTE)?)\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
+
+    #region 参数化执行
+
+    /// <summary>是否启用参数化执行（启用后执行前按参数面板替换占位符）。</summary>
+    [ObservableProperty]
+    private bool _parametersEnabled;
+
+    /// <summary>参数列表（名称 + 值；启用参数化执行时显示在编辑器下方）。</summary>
+    public ObservableCollection<QueryParameterItem> Parameters { get; } = new();
+
+    /// <summary>提取 SQL 中的参数名（@name / :name，跳过注释与字符串字面量内部）。</summary>
+    internal static List<string> ExtractParameterNames(string sql)
+    {
+        var cleaned = StripCommentsAndLiterals(sql);
+        var names = new List<string>();
+        foreach (Match m in Regex.Matches(cleaned, @"[@:]([A-Za-z_][A-Za-z0-9_]*)"))
+        {
+            var name = m.Groups[1].Value;
+            if (!names.Contains(name, StringComparer.OrdinalIgnoreCase))
+            {
+                names.Add(name);
+            }
+        }
+        return names;
+    }
+
+    /// <summary>把 SQL 中的占位符替换为参数值（数值原样，其余按字符串转义；空值替换为 NULL）。替换式参数化，非驱动绑定。</summary>
+    internal string ApplyParameters(string sql)
+    {
+        var names = ExtractParameterNames(sql);
+
+        // 把 SQL 中出现但面板里没有的参数补进面板（默认空值 → NULL）。
+        foreach (var name in names)
+        {
+            if (!Parameters.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+            {
+                Parameters.Add(new QueryParameterItem { Name = name });
+            }
+        }
+
+        if (names.Count == 0)
+        {
+            return sql;
+        }
+
+        // 逐字符扫描，仅在非字面量区替换占位符，避免误替字符串内的 @/: 文本。
+        var sb = new System.Text.StringBuilder(sql.Length * 2);
+        bool inSingle = false;
+        bool inDouble = false;
+        bool inBracket = false;
+        bool inBacktick = false;
+        for (int i = 0; i < sql.Length; )
+        {
+            char c = sql[i];
+            // 处理字符串字面量边界（含 '' 转义）
+            if (!inDouble && !inBracket && !inBacktick && c == '\'')
+            {
+                if (inSingle)
+                {
+                    if (i + 1 < sql.Length && sql[i + 1] == '\'')
+                    {
+                        sb.Append("''");
+                        i += 2;
+                        continue;
+                    }
+                    inSingle = false;
+                }
+                else
+                {
+                    inSingle = true;
+                }
+                sb.Append(c);
+                i++;
+                continue;
+            }
+            if (!inSingle && !inBracket && !inBacktick && c == '"')
+            {
+                inDouble = !inDouble;
+                sb.Append(c);
+                i++;
+                continue;
+            }
+            if (!inSingle && !inDouble && !inBacktick && c == '[')
+            {
+                inBracket = true;
+                sb.Append(c);
+                i++;
+                continue;
+            }
+            if (inBracket && c == ']')
+            {
+                inBracket = false;
+                sb.Append(c);
+                i++;
+                continue;
+            }
+            if (!inSingle && !inDouble && !inBracket && c == '`')
+            {
+                inBacktick = !inBacktick;
+                sb.Append(c);
+                i++;
+                continue;
+            }
+            // 注释区：-- 行注释与 /* 块注释 */ 内的占位符不替换
+            if (!inSingle && !inDouble && !inBracket && !inBacktick)
+            {
+                if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+                {
+                    int start = i;
+                    i += 2;
+                    while (i < sql.Length && sql[i] != '\r' && sql[i] != '\n') i++;
+                    sb.Append(sql, start, i - start);
+                    continue;
+                }
+                if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+                {
+                    int start = i;
+                    i += 2;
+                    while (i + 1 < sql.Length && !(sql[i] == '*' && sql[i + 1] == '/')) i++;
+                    if (i + 1 < sql.Length) i += 2;
+                    sb.Append(sql, start, i - start);
+                    continue;
+                }
+                if ((c == '@' || c == ':') && i + 1 < sql.Length && IsParamStart(sql[i + 1]))
+                {
+                    int nameStart = i + 1;
+                    int nameEnd = nameStart;
+                    while (nameEnd < sql.Length && IsParamPart(sql[nameEnd])) nameEnd++;
+                    var name = sql.Substring(nameStart, nameEnd - nameStart);
+                    var param = Parameters.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+                    sb.Append(FormatParameterValue(param?.Value));
+                    i = nameEnd;
+                    continue;
+                }
+            }
+            sb.Append(c);
+            i++;
+        }
+        return sb.ToString();
+    }
+
+    private static bool IsParamStart(char c) => char.IsLetter(c) || c == '_';
+    private static bool IsParamPart(char c) => char.IsLetterOrDigit(c) || c == '_';
+
+    private static string StripCommentsAndLiterals(string sql)
+    {
+        // 将注释与字面量内容替换为空格，保留长度以便正则不受影响
+        var sb = new System.Text.StringBuilder(sql.Length);
+        bool inSingle = false;
+        bool inDouble = false;
+        bool inBracket = false;
+        bool inBacktick = false;
+        bool inLineComment = false;
+        bool inBlockComment = false;
+        for (int i = 0; i < sql.Length; i++)
+        {
+            char c = sql[i];
+            char next = i + 1 < sql.Length ? sql[i + 1] : '\0';
+
+            if (inLineComment)
+            {
+                if (c == '\n' || c == '\r') { inLineComment = false; sb.Append(c); }
+                else sb.Append(' ');
+                continue;
+            }
+            if (inBlockComment)
+            {
+                if (c == '*' && next == '/') { inBlockComment = false; sb.Append("  "); i++; }
+                else if (c == '\n' || c == '\r') sb.Append(c);
+                else sb.Append(' ');
+                continue;
+            }
+            if (!inSingle && !inDouble && !inBracket && !inBacktick)
+            {
+                if (c == '-' && next == '-') { inLineComment = true; sb.Append("  "); i++; continue; }
+                if (c == '/' && next == '*') { inBlockComment = true; sb.Append("  "); i++; continue; }
+            }
+            if (!inDouble && !inBracket && !inBacktick && c == '\'')
+            {
+                if (inSingle)
+                {
+                    if (next == '\'') { sb.Append("  "); i++; continue; }
+                    inSingle = false;
+                }
+                else inSingle = true;
+                sb.Append(' ');
+                continue;
+            }
+            if (!inSingle && !inBracket && !inBacktick && c == '"') { inDouble = !inDouble; sb.Append(' '); continue; }
+            if (!inSingle && !inDouble && !inBacktick && c == '[') { inBracket = true; sb.Append(' '); continue; }
+            if (inBracket && c == ']') { inBracket = false; sb.Append(' '); continue; }
+            if (!inSingle && !inDouble && !inBracket && c == '`') { inBacktick = !inBacktick; sb.Append(' '); continue; }
+
+            if (inSingle || inDouble || inBracket || inBacktick) sb.Append(' ');
+            else sb.Append(c);
+        }
+        return sb.ToString();
+    }
+
+    private static string FormatParameterValue(string? rawValue)
+    {
+        var value = rawValue?.Trim() ?? string.Empty;
+
+        if (value.Length == 0 || string.Equals(value, "NULL", StringComparison.OrdinalIgnoreCase))
+        {
+            return "NULL";
+        }
+
+        // 数值/科学计数法直接使用；其余按字符串字面量转义（单引号加倍）。
+        if (Regex.IsMatch(value, @"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"))
+        {
+            return value;
+        }
+
+        return "'" + value.Replace("'", "''") + "'";
+    }
+
+    #endregion
+
+    #region 结果导出
+
+    /// <summary>
+    /// 把当前结果集导出为文件（CSV / JSON；路径由主窗口的文件对话框提供）。
+    /// </summary>
+    public async Task ExportResultsAsync(string filePath, string format)
+    {
+        if (_allRows.Count == 0 || Columns.Count == 0)
+        {
+            StatusMessage = "没有可导出的结果集。";
+            return;
+        }
+
+        try
+        {
+            await File.WriteAllTextAsync(filePath, BuildResultExportText(format));
+            StatusMessage = $"结果已导出：{filePath}（{_allRows.Count} 行）";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"导出失败：{ex.Message}";
+        }
+    }
+
+    internal string BuildResultExportText(string format)
+    {
+        var isJson = string.Equals(format, "JSON", StringComparison.OrdinalIgnoreCase);
+
+        var sb = new System.Text.StringBuilder();
+
+        if (isJson)
+        {
+            sb.Append('[');
+        }
+        else
+        {
+            sb.AppendLine(string.Join(",", Columns.Select(EscapeCsvValue)));
+        }
+
+        for (int rowIndex = 0; rowIndex < _allRows.Count; rowIndex++)
+        {
+            var row = _allRows[rowIndex];
+            var values = new List<string>();
+            for (int i = 0; i < Columns.Count; i++)
+            {
+                var raw = row[i];
+                values.Add(isJson ? FormatJsonValue(raw) : EscapeCsvValue(raw));
+            }
+
+            if (isJson)
+            {
+                sb.Append(rowIndex > 0 ? "," : string.Empty);
+                sb.Append("{\"");
+                sb.Append(EscapeJsonString(Columns[0]));
+                sb.Append("\":");
+                sb.Append(values[0]);
+                for (int i = 1; i < Columns.Count; i++)
+                {
+                    sb.Append(",\"");
+                    sb.Append(EscapeJsonString(Columns[i]));
+                    sb.Append("\":");
+                    sb.Append(values[i]);
+                }
+                sb.Append('}');
+            }
+            else
+            {
+                sb.AppendLine(string.Join(",", values));
+            }
+        }
+
+        if (isJson)
+        {
+            sb.Append(']');
+        }
+
+        return sb.ToString();
+    }
+
+    private static string EscapeCsvValue(object? value)
+    {
+        var text = value?.ToString() ?? string.Empty;
+        if (text.Contains(',') || text.Contains('"') || text.Contains('\n') || text.Contains('\r'))
+        {
+            return $"\"{text.Replace("\"", "\"\"")}\"";
+        }
+        return text;
+    }
+
+    /// <summary>JSON 值格式化：null/数值/布尔 原样输出，其余按字符串转义。</summary>
+    private static string FormatJsonValue(object? value)
+    {
+        if (value is null) return "null";
+        var text = value.ToString() ?? string.Empty;
+        if (text.Length == 0) return "null";
+        if (string.Equals(text, "null", StringComparison.OrdinalIgnoreCase)) return "null";
+        if (string.Equals(text, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "false", StringComparison.OrdinalIgnoreCase))
+            return text.ToLowerInvariant();
+        // 数值与科学计数法原样输出
+        if (Regex.IsMatch(text, @"^-?\d+(\.\d+)?([eE][+-]?\d+)?$"))
+            return text;
+        return "\"" + EscapeJsonString(text) + "\"";
+    }
+
+    private static string EscapeJsonString(string text)
+        => text.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
+
+    private static string FormatJsonString(object? value)
+    {
+        var text = value?.ToString() ?? string.Empty;
+        return "\"" + EscapeJsonString(text) + "\"";
+    }
+
+    #endregion
 
     private void ApplyResult(QueryResult result)
     {
@@ -334,6 +726,12 @@ public partial class QueryTabViewModel : ViewModelBase
             return;
         }
 
+        // 列别名映射（SELECT a.col AS X）：输出列名 ↔ 表列名。
+        _columnAliasByDisplay = parse.ColumnAliases;
+        _displayBySource = parse.ColumnAliases
+            .GroupBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Key, StringComparer.OrdinalIgnoreCase);
+
         var metadata = await _editService.GetTableMetadataAsync(
             ConnectionName, DatabaseName, parse.TableName!, parse.Schema);
 
@@ -349,11 +747,9 @@ public partial class QueryTabViewModel : ViewModelBase
             return;
         }
 
-        // 校验：结果列必须包含目标表全部主键列，且都能映射到表列（否则该列只读）。
-        var tableColumns = metadata.TableInfo.Columns
-            .ToDictionary(c => c.Name, StringComparer.OrdinalIgnoreCase);
+        // 校验：结果列（经别名解析后）必须包含目标表全部主键列。
         var missingPk = metadata.TableInfo.PrimaryKeyColumns
-            .FirstOrDefault(pk => !Columns.Contains(pk, StringComparer.OrdinalIgnoreCase));
+            .FirstOrDefault(pk => FindDisplayColumnIndex(pk) < 0);
 
         if (missingPk is not null)
         {
@@ -379,6 +775,32 @@ public partial class QueryTabViewModel : ViewModelBase
         _editableTableInfo = null;
         _editableTableName = null;
         _editableSchema = null;
+        _columnAliasByDisplay = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _displayBySource = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>把输出列名解析为源表列名（列别名场景）。</summary>
+    private string? ResolveTableColumnName(string displayColumn)
+        => _columnAliasByDisplay is { Count: > 0 } && _columnAliasByDisplay.TryGetValue(displayColumn, out var source)
+            ? source
+            : displayColumn;
+
+    /// <summary>把源表列名解析回结果集中的输出列名（无别名时按同名）。</summary>
+    private string DisplayNameFor(string tableColumn)
+        => _displayBySource is { Count: > 0 } && _displayBySource.TryGetValue(tableColumn, out var display)
+            ? display
+            : tableColumn;
+
+    /// <summary>查找源表列名在结果集中的输出列索引。</summary>
+    private int FindDisplayColumnIndex(string tableColumn)
+    {
+        var display = DisplayNameFor(tableColumn);
+        for (int i = 0; i < Columns.Count; i++)
+        {
+            if (string.Equals(Columns[i], display, StringComparison.OrdinalIgnoreCase))
+                return i;
+        }
+        return -1;
     }
 
     /// <summary>判断结果集中第 index 列（0 基）是否允许编辑。</summary>
@@ -389,8 +811,22 @@ public partial class QueryTabViewModel : ViewModelBase
         if (columnIndex < 0 || columnIndex >= Columns.Count)
             return false;
 
-        var col = FindTableColumn(Columns[columnIndex]);
+        var resolved = ResolveTableColumnName(Columns[columnIndex]);
+        var col = resolved is null ? null : FindTableColumn(resolved);
         return col is not null && !col.IsReadOnly;
+    }
+
+    /// <summary>判断结果集中第 index 列（0 基）是否为主键列（供列头标识）。</summary>
+    public bool IsPrimaryKeyColumn(int columnIndex)
+    {
+        if (!IsResultEditable || _editableTableInfo is null)
+            return false;
+        if (columnIndex < 0 || columnIndex >= Columns.Count)
+            return false;
+
+        var resolved = ResolveTableColumnName(Columns[columnIndex]);
+        return resolved is not null
+            && _editableTableInfo.PrimaryKeyColumns.Any(pk => string.Equals(pk, resolved, StringComparison.OrdinalIgnoreCase));
     }
 
     private DataColumnInfo? FindTableColumn(string name)
@@ -498,7 +934,7 @@ public partial class QueryTabViewModel : ViewModelBase
                 var dataRow = new DataEditRow(tableColumns);
                 foreach (var col in tableColumns.Where(c => !c.IsReadOnly))
                 {
-                    var value = r.GetValue(col.Name);
+                    var value = r.GetValue(DisplayNameFor(col.Name));
                     if (value is not null)
                     {
                         dataRow[col.Name] = value;
@@ -515,15 +951,15 @@ public partial class QueryTabViewModel : ViewModelBase
 
                 for (int i = 0; i < tableColumns.Count; i++)
                 {
-                    var original = Normalize(r.GetOriginal(tableColumns[i].Name));
+                    var original = Normalize(r.GetOriginal(DisplayNameFor(tableColumns[i].Name)));
                     dataRow.SetCellValueDirect(i, original);
                 }
                 dataRow.MarkAsSaved();
 
                 foreach (var col in tableColumns)
                 {
-                    var current = r.GetValue(col.Name);
-                    var original = r.GetOriginal(col.Name);
+                    var current = r.GetValue(DisplayNameFor(col.Name));
+                    var original = r.GetOriginal(DisplayNameFor(col.Name));
                     if (!Equals(Normalize(original), Normalize(current)))
                     {
                         dataRow[col.Name] = current;
@@ -538,7 +974,7 @@ public partial class QueryTabViewModel : ViewModelBase
                 var dataRow = new DataEditRow(tableColumns);
                 for (int i = 0; i < tableColumns.Count; i++)
                 {
-                    var original = Normalize(r.GetOriginal(tableColumns[i].Name));
+                    var original = Normalize(r.GetOriginal(DisplayNameFor(tableColumns[i].Name)));
                     if (original is not null)
                     {
                         dataRow.SetCellValueDirect(i, original);
@@ -584,7 +1020,17 @@ public partial class QueryTabViewModel : ViewModelBase
 
             RecalculatePendingChanges();
             RefreshPage();
-            StatusMessage = $"保存成功，影响 {result.RowCount} 行。建议重新执行查询以获取最新数据（自增列等）。";
+
+            // 保存后自动重新执行查询并定位保存过的记录（自增列/默认值等数据库生成值会刷新）。
+            var savedKeys = AutoRefreshAfterSave ? CollectSavedPrimaryKeyValues() : new List<Dictionary<string, object?>>();
+            if (savedKeys.Count > 0)
+            {
+                await RefreshAndLocateAsync(savedKeys);
+            }
+            else
+            {
+                StatusMessage = $"保存成功，影响 {result.RowCount} 行。建议重新执行查询以获取最新数据（自增列等）。";
+            }
         }
         catch (Exception ex)
         {
@@ -596,10 +1042,107 @@ public partial class QueryTabViewModel : ViewModelBase
         }
     }
 
+    /// <summary>收集保存过（新增/修改）的行在保存后的主键值（自增主键保存前无值，无法定位则跳过）。</summary>
+    private List<Dictionary<string, object?>> CollectSavedPrimaryKeyValues()
+    {
+        var keys = new List<Dictionary<string, object?>>();
+
+        if (_editableTableInfo is null || _editableTableInfo.PrimaryKeyColumns.Count == 0)
+        {
+            return keys;
+        }
+
+        foreach (var row in _allRows.Where(r => r.State == DataRowState.Added || r.State == DataRowState.Modified))
+        {
+            var key = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+            bool complete = true;
+
+            foreach (var pk in _editableTableInfo.PrimaryKeyColumns)
+            {
+                int index = FindDisplayColumnIndex(pk);
+                var value = index < 0 ? null : row[index];
+
+                if (value is null || (value is string s && s.Length == 0))
+                {
+                    complete = false;
+                    break;
+                }
+
+                key[pk] = value;
+            }
+
+            if (complete && key.Count > 0)
+            {
+                keys.Add(key);
+            }
+        }
+
+        return keys;
+    }
+
+    /// <summary>重新执行当前查询，并按保存行的主键值在结果中定位（跨页跳转 + 通知 UI 滚动选中）。</summary>
+    private async Task RefreshAndLocateAsync(List<Dictionary<string, object?>> keys)
+    {
+        await ExecuteWithSqlAsync(null);
+
+        if (!HasResult)
+        {
+            StatusMessage = $"保存成功，但刷新结果集失败：{StatusMessage}";
+            return;
+        }
+
+        QueryResultRow? target = null;
+
+        foreach (var key in keys)
+        {
+            target = _allRows.FirstOrDefault(row => key.All(kv =>
+            {
+                int index = FindDisplayColumnIndex(kv.Key);
+                return index >= 0 && string.Equals(row[index]?.ToString(), kv.Value?.ToString(), StringComparison.Ordinal);
+            }));
+
+            if (target is not null)
+            {
+                break;
+            }
+        }
+
+        if (target is not null)
+        {
+            int rowIndex = _allRows.IndexOf(target);
+            int page = PageSize > 0 ? rowIndex / PageSize + 1 : 1;
+            GoToPage(page);
+            RequestLocateRow?.Invoke(target);
+            StatusMessage = $"保存成功，已刷新并定位到目标记录。";
+        }
+        else
+        {
+            StatusMessage = $"保存成功，已自动刷新结果集（新增的自增主键行已按新数据展示）。";
+        }
+    }
+
     private void RecalculatePendingChanges()
     {
         HasPendingChanges = _pendingDeletes.Count > 0
             || _allRows.Any(r => r.State == DataRowState.Added || r.State == DataRowState.Modified || r.State == DataRowState.Deleted);
+        OnPropertyChanged(nameof(PendingChangeSummary));
+    }
+
+    /// <summary>未保存改动摘要（如「新增 1 · 修改 2 · 删除 1」）。</summary>
+    public string PendingChangeSummary
+    {
+        get
+        {
+            int added = _allRows.Count(r => r.State == DataRowState.Added);
+            int modified = _allRows.Count(r => r.State == DataRowState.Modified);
+            int deleted = _pendingDeletes.Count;
+
+            var parts = new List<string>();
+            if (added > 0) parts.Add($"新增 {added}");
+            if (modified > 0) parts.Add($"修改 {modified}");
+            if (deleted > 0) parts.Add($"删除 {deleted}");
+            return string.Join(" · ", parts);
+        }
     }
 
     /// <summary>查询结果的显示值（字符串化）转回存储值：空字符串视为 NULL。</summary>
@@ -676,4 +1219,14 @@ public partial class QueryTabViewModel : ViewModelBase
         HasResult = false;
         ShowNoResult = true;
     }
+}
+
+/// <summary>参数化执行的参数项（名称 + 值）。</summary>
+public partial class QueryParameterItem : ViewModelBase
+{
+    [ObservableProperty]
+    private string _name = string.Empty;
+
+    [ObservableProperty]
+    private string _value = string.Empty;
 }

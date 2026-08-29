@@ -34,7 +34,9 @@ namespace DatabaseManager.FileUtility
                 filePath = Path.Combine(base.AssemblyFolder, folder, $"{(tableName == null ? "" : $"{tableName}_")}{DateTime.Now.ToString("yyyyMMdd")}.csv");
             }
 
-            using (StreamWriter sw = new StreamWriter(filePath, false, Encoding.UTF8))
+            var encoding = TextEncoding.Resolve(this.option.EncodingName) ?? Encoding.UTF8;
+
+            using (StreamWriter sw = new StreamWriter(filePath, false, encoding))
             {
                 CsvHelper.CsvWriter writer = new CsvHelper.CsvWriter(sw, CultureInfo.CurrentCulture);
 

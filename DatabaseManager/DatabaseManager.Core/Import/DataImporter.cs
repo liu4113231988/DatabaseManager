@@ -21,6 +21,9 @@ namespace DatabaseManager.Core
     {
         private IObserver<FeedbackInfo> observer;
 
+        /// <summary>导入选项（跳过行 / 类型校验 / 跳过错误行）。</summary>
+        public DataImportOption Option { get; set; } = new DataImportOption();
+
         public void Subscribe(IObserver<FeedbackInfo> observer)
         {
             this.observer = observer;
@@ -52,6 +55,25 @@ namespace DatabaseManager.Core
                     else if (fileExtension == ".xlsx" || fileExtension == ".xls")
                     {
                         result = this.ReadFromExcel(info, tableName);
+                    }
+                    else if (fileExtension == ".json")
+                    {
+                        result = this.ReadFromJson(info, tableName);
+                    }
+                    else if (fileExtension == ".xml")
+                    {
+                        result = this.ReadFromXml(info, tableName);
+                    }
+
+                    if (result == null)
+                    {
+                        throw new NotSupportedException($@"Unsupported import file type: ""{fileExtension}"". Supported: .csv/.xlsx/.xls/.json/.xml");
+                    }
+
+                    if (this.Option.SkipRows > 0 && result.Data != null && result.Data.Count > 0)
+                    {
+                        int skipped = this.SkipSourceRows(result, this.Option.SkipRows);
+                        this.Feedback($"Skipped {skipped} source rows (resume import).");
                     }
 
                     this.Feedback("End read file data.");
@@ -117,7 +139,21 @@ namespace DatabaseManager.Core
 
                     if (validateResult.IsValid == false)
                     {
-                        return (false, validateResult);
+                        if (!this.Option.ContinueOnInvalidRows)
+                        {
+                            return (false, validateResult);
+                        }
+
+                        int invalidRowCount = validateResult.Rows == null ? 0 : validateResult.Rows.Count(item => !item.IsValid);
+
+                        pagedData = this.ExcludeInvalidRows(pagedData, validateResult);
+
+                        this.Feedback($"Skip {invalidRowCount} invalid rows and continue importing.");
+
+                        if (pagedData.Sum(item => item.Value.Count) == 0)
+                        {
+                            return (false, validateResult);
+                        }
                     }
 
                     await connection.OpenAsync();
@@ -155,7 +191,8 @@ namespace DatabaseManager.Core
                         await trans.CommitAsync();
                     }
 
-                    return (true, null);
+                    // 跳过错误行继续导入时，把校验结果一并返回，供 UI 展示错误行报告。
+                    return (true, this.Option.ContinueOnInvalidRows && validateResult.IsValid == false ? validateResult : null);
                 }
             }
             catch (Exception ex)
@@ -275,7 +312,21 @@ namespace DatabaseManager.Core
                         }
                         else
                         {
-                            var mapping = columnMappings == null ? null : columnMappings.FirstOrDefault(item => item.TableColumName == columnName);
+                            bool skipForeignKeyCheck = false;
+
+                            if (this.Option.ValidateTypes)
+                            {
+                                string typeError = this.ValidateColumnValue(column, value);
+
+                                if (typeError != null)
+                                {
+                                    isValid = false;
+                                    invalidMessage = typeError;
+                                    skipForeignKeyCheck = true;
+                                }
+                            }
+
+                            var mapping = columnMappings == null || skipForeignKeyCheck ? null : columnMappings.FirstOrDefault(item => item.TableColumName == columnName);
 
                             if (mapping != null)
                             {
@@ -568,6 +619,120 @@ namespace DatabaseManager.Core
             ExcelReader reader = new ExcelReader(info);
 
             return reader.Read();
+        }
+
+        public DataReadResult ReadFromJson(SourceFileInfo info, string tableName)
+        {
+            JsonDataReader reader = new JsonDataReader(info);
+
+            return reader.Read();
+        }
+
+        public DataReadResult ReadFromXml(SourceFileInfo info, string tableName)
+        {
+            XmlDataReader reader = new XmlDataReader(info);
+
+            return reader.Read();
+        }
+
+        /// <summary>跳过文件开头的 N 行数据并重新编号（断点续导）。</summary>
+        private int SkipSourceRows(DataReadResult result, int skipRows)
+        {
+            if (skipRows <= 0 || result.Data == null || result.Data.Count == 0)
+            {
+                return 0;
+            }
+
+            var remaining = result.Data.OrderBy(item => item.Key)
+                .Skip(skipRows)
+                .Select((item, index) => new { index, item.Value })
+                .ToDictionary(item => item.index, item => item.Value);
+
+            int skipped = result.Data.Count - remaining.Count;
+
+            result.Data = remaining;
+
+            return skipped;
+        }
+
+        /// <summary>从分批数据中剔除校验失败的行（跳过错误行继续导入时使用）。</summary>
+        private Dictionary<int, Dictionary<int, Dictionary<string, object>>> ExcludeInvalidRows(Dictionary<int, Dictionary<int, Dictionary<string, object>>> pagedData, DataValidateResult validateResult)
+        {
+            if (validateResult.Rows == null)
+            {
+                return pagedData;
+            }
+
+            var invalidRowIndexes = new HashSet<int>(validateResult.Rows.Where(item => !item.IsValid).Select(item => item.RowIndex));
+
+            var filtered = new Dictionary<int, Dictionary<int, Dictionary<string, object>>>();
+
+            foreach (var page in pagedData)
+            {
+                var keptRows = page.Value.Where(item => !invalidRowIndexes.Contains(item.Key))
+                    .ToDictionary(item => item.Key, item => item.Value);
+
+                if (keptRows.Count > 0)
+                {
+                    filtered.Add(page.Key, keptRows);
+                }
+            }
+
+            return filtered;
+        }
+
+        /// <summary>校验单元格值与列类型是否兼容（不兼容返回错误消息，兼容返回 null）。校验过程异常时不阻塞导入。</summary>
+        private string ValidateColumnValue(TableColumn column, object value)
+        {
+            try
+            {
+                string dataType = column.DataType;
+                string text = value?.ToString() ?? string.Empty;
+
+                if (text.Length == 0)
+                {
+                    return null;
+                }
+
+                if (DataTypeHelper.IsBinaryType(dataType) || DataTypeHelper.IsGeometryType(dataType)
+                    || DataTypeHelper.IsCharType(dataType) || DataTypeHelper.IsTextType(dataType))
+                {
+                    return null;
+                }
+
+                if (DataTypeHelper.IsDateOrTimeType(dataType))
+                {
+                    return DateTime.TryParse(text, out _)
+                        ? null
+                        : $@"Value ""{text}"" can't be converted to {dataType}.";
+                }
+
+                if (IsNumericDataType(dataType))
+                {
+                    return decimal.TryParse(text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out _)
+                        ? null
+                        : $@"Value ""{text}"" can't be converted to {dataType}.";
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool IsNumericDataType(string dataType)
+        {
+            if (string.IsNullOrWhiteSpace(dataType))
+            {
+                return false;
+            }
+
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                dataType,
+                @"\b(int|integer|bigint|smallint|tinyint|mediumint|decimal|numeric|number|float|double|real|money|bit)\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
         private void HandleError(Exception ex)

@@ -30,6 +30,8 @@ public partial class SchemaCompareWindow : Window
         base.OnOpened(e);
         if (_vm is null) return;
 
+        _vm.RequestScriptPreview += Vm_RequestScriptPreview;
+
         ComboSource.SelectionChanged += ComboSource_SelectionChanged;
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
         ComboObjectType.SelectionChanged += ComboObjectType_SelectionChanged;
@@ -41,9 +43,15 @@ public partial class SchemaCompareWindow : Window
     {
         base.OnClosed(e);
         if (_vm is null) return;
+        _vm.RequestScriptPreview -= Vm_RequestScriptPreview;
         ComboSource.SelectionChanged -= ComboSource_SelectionChanged;
         ComboTarget.SelectionChanged -= ComboTarget_SelectionChanged;
         ComboObjectType.SelectionChanged -= ComboObjectType_SelectionChanged;
+    }
+
+    private void Vm_RequestScriptPreview(ScriptPreviewViewModel previewVm)
+    {
+        new ScriptPreviewWindow(previewVm).ShowDialog(this);
     }
 
     private void Refresh()

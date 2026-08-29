@@ -13,19 +13,21 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class DefaultCompareService : ICompareService
 {
-    public async Task<IReadOnlyList<SchemaCompareItem>> CompareSchemaAsync(
+    public async Task<SchemaCompareContext> CompareSchemaAsync(
         ConnectionItem source,
         ConnectionItem target,
         DatabaseObjectType databaseObjectType,
         Action<string>? onFeedback = null,
         CancellationToken cancellationToken = default)
     {
+        var emptyContext = new SchemaCompareContext { Source = source, Target = target };
+
         onFeedback?.Invoke("正在校验源/目标连接...");
 
         if (string.IsNullOrEmpty(source.Database) || string.IsNullOrEmpty(target.Database))
         {
             onFeedback?.Invoke("错误：源/目标数据库不能为空。");
-            return Array.Empty<SchemaCompareItem>();
+            return emptyContext;
         }
 
         var sourceDbType = ParseDatabaseType(source.DatabaseType);
@@ -34,19 +36,19 @@ public class DefaultCompareService : ICompareService
         if (sourceDbType == DatabaseType.Unknown || targetDbType == DatabaseType.Unknown)
         {
             onFeedback?.Invoke("错误：源/目标数据库类型无效。");
-            return Array.Empty<SchemaCompareItem>();
+            return emptyContext;
         }
 
         if (sourceDbType != targetDbType)
         {
             onFeedback?.Invoke($"错误：结构对比要求源与目标数据库类型相同（当前：源={source.DatabaseType}，目标={target.DatabaseType}）。");
-            return Array.Empty<SchemaCompareItem>();
+            return emptyContext;
         }
 
         if (IsSameDatabase(source, target))
         {
             onFeedback?.Invoke("错误：源数据库与目标数据库不能相同。");
-            return Array.Empty<SchemaCompareItem>();
+            return emptyContext;
         }
 
         try
@@ -78,12 +80,20 @@ public class DefaultCompareService : ICompareService
             var roots = BuildTree(differences);
             onFeedback?.Invoke($"对比完成，共发现 {CountDifferences(roots)} 处差异。");
 
-            return roots;
+            return new SchemaCompareContext
+            {
+                Source = source,
+                Target = target,
+                SourceSchemaInfo = sourceSchemaInfo,
+                TargetSchemaInfo = targetSchemaInfo,
+                Differences = differences,
+                Roots = roots,
+            };
         }
         catch (Exception ex)
         {
             onFeedback?.Invoke($"对比过程出现异常：{ex.Message}");
-            return Array.Empty<SchemaCompareItem>();
+            return emptyContext;
         }
     }
 

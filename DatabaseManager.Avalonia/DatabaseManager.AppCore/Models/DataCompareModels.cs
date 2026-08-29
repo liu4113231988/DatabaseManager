@@ -1,4 +1,5 @@
 using System.Data;
+using CommunityToolkit.Mvvm.ComponentModel;
 using DatabaseManager.Core.Model;
 
 namespace DatabaseManager.AppCore.Models;
@@ -7,7 +8,7 @@ namespace DatabaseManager.AppCore.Models;
 /// 数据对比结果（UI 友好）。对应底层 <see cref="DataCompareResultDetail"/>。
 /// 描述单张表在源/目标数据库中的数据差异概览。
 /// </summary>
-public class DataCompareResultItem
+public partial class DataCompareResultItem : ObservableObject
 {
     /// <summary>底层差异明细（含各分类 Key 行集合）。</summary>
     public DataCompareResultDetail Detail { get; }
@@ -38,6 +39,10 @@ public class DataCompareResultItem
 
     /// <summary>是否完全一致。</summary>
     public bool IsIdentical => Detail.IsIndentical;
+
+    /// <summary>是否选中（用于选择性生成/应用同步脚本）。</summary>
+    [ObservableProperty]
+    private bool _isSelected = true;
 
     public DataCompareResultItem(DataCompareResultDetail detail)
     {

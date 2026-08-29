@@ -37,8 +37,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="执行对比" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="生成同步脚本" Command="{Binding GenerateScriptsCommand}"
-                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成同步脚本..." Command="{Binding GenerateScriptsCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的表生成可审阅的同步脚本并预览，可在预览窗口执行" />
+                <atom:Button Content="生成回滚脚本..." Command="{Binding GenerateDataRollbackCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的表生成回滚脚本（恢复目标库为对比前状态）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -84,12 +88,17 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="models:DataCompareResultItem">
                                         <StackPanel Spacing="2">
-                                            <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
-                                            <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.8">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          MinWidth="0" Margin="0,0,2,0"
+                                                          ToolTip.Tip="勾选后参与同步/回滚脚本生成" />
+                                                <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.8" Margin="22,0,0,0">
                                                 <TextBlock Text="{Binding SourceRecordCount, StringFormat='源:{0}'}" FontSize="11" />
                                                 <TextBlock Text="{Binding TargetRecordCount, StringFormat='目标:{0}'}" FontSize="11" />
                                             </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="22,0,0,0">
                                                 <TextBlock Text="{Binding DifferentCount, StringFormat='差异:{0}'}" Foreground="#C0392B" FontSize="11" />
                                                 <TextBlock Text="{Binding OnlyInSourceCount, StringFormat='仅源:{0}'}" Foreground="#E67E22" FontSize="11" />
                                                 <TextBlock Text="{Binding OnlyInTargetCount, StringFormat='仅目标:{0}'}" Foreground="#2980B9" FontSize="11" />

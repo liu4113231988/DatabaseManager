@@ -560,6 +560,22 @@ public partial class SqlEditor : UserControl
         }
     }
 
+    /// <summary>在光标处插入文本（供脚本库/查询历史插入片段使用）。</summary>
+    public void InsertAtCaret(string text)
+    {
+        if (_editor?.Document is not null)
+        {
+            var offset = _editor.CaretOffset;
+            _editor.Document.Insert(offset, text ?? string.Empty);
+            _editor.CaretOffset = offset + (text?.Length ?? 0);
+            _editor.Focus();
+        }
+        else
+        {
+            AppendText(text ?? string.Empty);
+        }
+    }
+
     /// <summary>获取当前选中的文本。</summary>
     public string GetSelectedText()
     {

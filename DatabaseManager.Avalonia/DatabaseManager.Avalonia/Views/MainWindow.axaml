@@ -22,6 +22,7 @@
             <conv:NodeIconConverter x:Key="NodeIconConverter" />
             <conv:NodeFontWeightConverter x:Key="NodeFontWeightConverter" />
             <conv:HighlightBrushConverter x:Key="HighlightBrushConverter" />
+            <conv:RowStateToBrushConverter x:Key="RowStateToBrushConverter" />
         </DockPanel.Resources>
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
@@ -78,6 +79,10 @@
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
             </MenuItem>
             <MenuItem Header="工具">
+                <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
+                <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
+                <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
+                <Separator />
                 <MenuItem Header="数据库转换..." Click="MenuConvert_Click" />
                 <MenuItem Header="结构对比..." Click="MenuSchemaCompare_Click" />
                 <MenuItem Header="数据对比..." Click="MenuDataCompare_Click" />
@@ -155,6 +160,9 @@
                     </Button>
                     <Button Classes="toolbar" Click="ToolFormat_Click" ToolTip.Tip="美化 (Ctrl+Shift+F)">
                         <Path Data="M3 21H21V19H3V21M3 13H21V11H3V13M7 17H21V15H7V17M7 9H21V7H7V9Z" Fill="#1677FF" Width="16" Height="16" Stretch="Uniform" />
+                    </Button>
+                    <Button Classes="toolbar" Click="ToolExplain_Click" ToolTip.Tip="执行计划 (EXPLAIN / SHOWPLAN)">
+                        <Path Data="M12 3V7M12 17V21M4.9 4.9L7.8 7.8M16.2 16.2L19.1 19.1M3 12H7M17 12H21M4.9 19.1L7.8 16.2M16.2 7.8L19.1 4.9" Stroke="#7B61FF" StrokeThickness="1.7" StrokeLineCap="Round" Fill="Transparent" />
                     </Button>
                     <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
                     <!-- 事务组（绑定到当前标签） -->
@@ -382,9 +390,10 @@
                         <DataTemplate DataType="vm:QueryTabViewModel">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <!-- 状态栏 / 编辑器 / 分割条 / 结果区；编辑器与结果区按 2:1 分配，可拖动分割条调整 -->
+                                    <!-- 状态栏 / 编辑器 / 分割条 / 参数面板 / 结果区；编辑器与结果区按 2:1 分配，可拖动分割条调整 -->
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="2*" MinHeight="100" />
+                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="60" />
                                 </Grid.RowDefinitions>
@@ -398,6 +407,9 @@
                                                VerticalAlignment="Center" Opacity="0.55" FontSize="11" />
                                     <TextBlock Text="{Binding StatusMessage}"
                                                VerticalAlignment="Center" Opacity="0.8" FontSize="11" />
+                                    <ToggleButton IsChecked="{Binding ParametersEnabled}" Content="参数"
+                                                  Padding="6,0" FontSize="11" MinWidth="0" MinHeight="0"
+                                                  ToolTip.Tip="启用参数化执行：执行前按参数值替换 SQL 中的 @name / :name 占位符" />
                                 </StackPanel>
 
                                 <!-- SQL 编辑器（带语法高亮） -->
@@ -414,8 +426,25 @@
                                               ResizeBehavior="PreviousAndNext"
                                               Background="#E0E0E0" />
 
+                                <!-- 参数面板（启用参数化执行时显示） -->
+                                <Expander Grid.Row="3" IsExpanded="{Binding ParametersEnabled}"
+                                          IsVisible="{Binding ParametersEnabled}"
+                                          Header="执行参数" FontSize="11" Margin="4,1"
+                                          HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                    <DataGrid ItemsSource="{Binding Parameters}"
+                                              AutoGenerateColumns="False"
+                                              CanUserResizeColumns="True"
+                                              GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                                              MaxHeight="140" FontSize="11">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="参数名" Binding="{Binding Name}" Width="160" IsReadOnly="True" />
+                                            <DataGridTextColumn Header="值（空或 NULL 表示 NULL；数值原样，其余按字符串转义）" Binding="{Binding Value}" Width="*" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Expander>
+
                                 <!-- 结果区 -->
-                                <Grid Grid.Row="3">
+                                <Grid Grid.Row="4">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
@@ -433,6 +462,12 @@
                                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2"
                                                 Margin="4,2" HorizontalAlignment="Right"
                                                 IsVisible="{Binding IsResultEditable}">
+                                        <TextBlock Text="{Binding PendingChangeSummary}"
+                                                   VerticalAlignment="Center" FontSize="11" Foreground="#B45309"
+                                                   IsVisible="{Binding HasPendingChanges}" Margin="0,0,6,0" />
+                                        <CheckBox Content="保存后刷新" IsChecked="{Binding AutoRefreshAfterSave}"
+                                                  VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"
+                                                  ToolTip.Tip="保存成功后自动重新执行查询并定位到保存过的记录" />
                                         <Button Click="QueryAddRow_Click" Content="＋ 新增"
                                                 Padding="8,1" FontSize="11" MinWidth="0"
                                                 ToolTip.Tip="在当前页末尾新增一行，填写后点击保存" />
@@ -455,6 +490,13 @@
                                               FontSize="11"
                                               AttachedToVisualTree="QueryResultGrid_AttachedToVisualTree"
                                               Margin="2" x:Name="QueryResultGrid">
+                                        <!-- 行状态着色：新增=浅绿、修改=浅黄、删除=浅红（单元格背景随行状态实时更新） -->
+                                        <DataGrid.Styles>
+                                            <Style Selector="DataGridCell">
+                                                <Setter Property="Background"
+                                                        Value="{ReflectionBinding State, Converter={StaticResource RowStateToBrushConverter}}" />
+                                            </Style>
+                                        </DataGrid.Styles>
                                         <DataGrid.Columns>
                                             <!-- 列由代码动态生成 -->
                                         </DataGrid.Columns>
@@ -487,6 +529,9 @@
                                                   FontSize="11" MinWidth="70" />
                                         <TextBlock Text="行" VerticalAlignment="Center" FontSize="11"
                                                    Opacity="0.6" />
+                                        <Button Click="ToolExportResults_Click" Content="⇩ 导出结果"
+                                                Padding="8,1" FontSize="11" MinWidth="0" Margin="12,0,0,0"
+                                                ToolTip.Tip="把当前结果集导出为 CSV / JSON 文件" />
                                     </StackPanel>
                                 </Grid>
                             </Grid>

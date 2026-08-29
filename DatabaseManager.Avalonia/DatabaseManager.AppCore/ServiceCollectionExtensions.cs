@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITableDesignService, DefaultTableDesignService>();
         services.AddSingleton<IConvertService, DefaultConvertService>();
         services.AddSingleton<ICompareService, DefaultCompareService>();
+        services.AddSingleton<ISyncScriptService, DefaultSyncScriptService>();
         services.AddSingleton<IDiagnoseService, DefaultDiagnoseService>();
         services.AddSingleton<IExportImportService, DefaultExportImportService>();
         services.AddSingleton<IOptimizeService, DefaultOptimizeService>();
@@ -31,6 +32,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICodeGenerateService, DefaultCodeGenerateService>();
         services.AddSingleton<IColumnDocumentationService, DefaultColumnDocumentationService>();
         services.AddSingleton<IDdlService, DefaultDdlService>();
+        services.AddSingleton<IQueryHistoryService, DefaultQueryHistoryService>();
+        services.AddSingleton<IScriptLibraryService, DefaultScriptLibraryService>();
+        services.AddSingleton<IExecutionPlanService, DefaultExecutionPlanService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -42,6 +46,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<ConvertViewModel>();
         services.AddTransient<SchemaCompareViewModel>();
         services.AddTransient<DataCompareViewModel>();
+        services.AddTransient<ScriptPreviewViewModel>();
+        services.AddTransient<QueryHistoryViewModel>();
+        services.AddTransient<ScriptLibraryViewModel>();
+        services.AddTransient<ExecutionPlanViewModel>();
         services.AddTransient<DiagnoseViewModel>();
         services.AddTransient<OptimizeViewModel>();
         services.AddTransient<DependencyViewModel>();

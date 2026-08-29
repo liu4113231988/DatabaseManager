@@ -41,6 +41,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="执行对比" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成变更脚本..." Command="{Binding GenerateScriptsCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的差异生成可审阅的同步脚本并预览" />
+                <atom:Button Content="生成回滚脚本..." Command="{Binding GenerateRollbackCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的差异生成回滚脚本（恢复目标库为对比前状态）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -73,6 +79,9 @@
                         <TreeDataTemplate x:DataType="models:SchemaCompareItem"
                                           ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                          MinWidth="0" Margin="0,0,2,0"
+                                          ToolTip.Tip="勾选后参与变更/回滚脚本生成" />
                                 <TextBlock Text="{Binding Text}" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding DifferenceTypeText}"
                                            Foreground="{Binding Converter={StaticResource DiffColorConverter}}" />

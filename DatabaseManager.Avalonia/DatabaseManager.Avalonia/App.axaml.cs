@@ -33,6 +33,9 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // 注册代码页编码提供程序（GBK/GB18030 等在 .NET Core 后需显式注册）。
+        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
         // 初始化 Profile 数据文件（连接/账号/文件连接配置），对应原 WinForms Program.Main 中的 ProfileBaseManager.Init()
         ProfileBaseManager.Init();
 

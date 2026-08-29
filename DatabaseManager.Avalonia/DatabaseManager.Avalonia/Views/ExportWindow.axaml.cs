@@ -67,7 +67,7 @@ public partial class ExportWindow : Window
         ComboConnection.SelectedItem = _vm.SelectedConnection;
 
         // 表/视图下拉模板。
-        ComboTable.ItemTemplate = new FuncDataTemplate<TableItem>((item, _) =>
+        ComboTable.ItemTemplate = new FuncDataTemplate<ExportTableItem>((item, _) =>
             new TextBlock { Text = item?.DisplayName ?? string.Empty });
         ComboTable.SelectedItem = _vm.SelectedTable;
     }
@@ -90,7 +90,14 @@ public partial class ExportWindow : Window
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
     {
-        var extension = _vm.SelectedFormat?.Equals("CSV", StringComparison.OrdinalIgnoreCase) == true ? "csv" : "xlsx";
+        var extension = _vm.SelectedFormat?.Trim().ToUpperInvariant() switch
+        {
+            "CSV" => "csv",
+            "SQL" => "sql",
+            "JSON" => "json",
+            "XML" => "xml",
+            _ => "xlsx",
+        };
 
         var file = await StorageProvider.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
         {

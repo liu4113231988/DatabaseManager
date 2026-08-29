@@ -18,6 +18,7 @@ public partial class DataCompareViewModel : ViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly ICompareService _compareService;
+    private readonly ISyncScriptService _syncScriptService;
 
     private ConnectionItem? _effectiveSource;
     private ConnectionItem? _effectiveTarget;
@@ -69,10 +70,14 @@ public partial class DataCompareViewModel : ViewModelBase
     [ObservableProperty]
     private IReadOnlyList<string> _detailColumns = System.Array.Empty<string>();
 
-    public DataCompareViewModel(IDbConnectionService connectionService, ICompareService compareService)
+    /// <summary>由窗口注入的脚本预览窗口打开回调。</summary>
+    public Action<ScriptPreviewViewModel>? RequestScriptPreview { get; set; }
+
+    public DataCompareViewModel(IDbConnectionService connectionService, ICompareService compareService, ISyncScriptService syncScriptService)
     {
         _connectionService = connectionService;
         _compareService = compareService;
+        _syncScriptService = syncScriptService;
 
         Modes = new[]
         {
@@ -324,8 +329,21 @@ public partial class DataCompareViewModel : ViewModelBase
         return str;
     }
 
+    /// <summary>生成同步脚本（按勾选的表逐表生成）并打开脚本预览窗口，支持审阅后执行。</summary>
     [RelayCommand]
     private async Task GenerateScriptsAsync()
+    {
+        await GenerateAndPreviewAsync(isRollback: false);
+    }
+
+    /// <summary>生成回滚脚本（把目标库数据恢复为对比前状态）并打开脚本预览窗口。</summary>
+    [RelayCommand]
+    private async Task GenerateDataRollbackAsync()
+    {
+        await GenerateAndPreviewAsync(isRollback: true);
+    }
+
+    private async Task GenerateAndPreviewAsync(bool isRollback)
     {
         if (_lastResults is null || _lastResults.Count == 0)
         {
@@ -339,15 +357,14 @@ public partial class DataCompareViewModel : ViewModelBase
             return;
         }
 
-        // 仅对存在差异的表生成脚本。
-        var details = _lastResults
-            .Where(r => r.DifferentCount > 0 || r.OnlyInSourceCount > 0 || r.OnlyInTargetCount > 0)
-            .Select(r => r.Detail)
+        // 仅对勾选且存在差异的表生成脚本。
+        var selectedItems = _lastResults
+            .Where(r => r.IsSelected && (r.DifferentCount > 0 || r.OnlyInSourceCount > 0 || r.OnlyInTargetCount > 0))
             .ToList();
 
-        if (details.Count == 0)
+        if (selectedItems.Count == 0)
         {
-            StatusMessage = "没有需要同步的数据。";
+            StatusMessage = isRollback ? "勾选的表没有需要回滚的数据差异。" : "勾选的表没有需要同步的数据。";
             return;
         }
 
@@ -358,27 +375,52 @@ public partial class DataCompareViewModel : ViewModelBase
             var feedbackBuffer = new List<string>();
             void CollectFeedback(string message) => feedbackBuffer.Add(message);
 
-            var scripts = await _compareService.GenerateSyncScriptsAsync(
-                SourceConnection,
-                TargetConnection,
-                details,
-                CollectFeedback);
+            var scripts = isRollback
+                ? await _syncScriptService.GenerateDataRollbackScriptsAsync(SourceConnection, TargetConnection, selectedItems, CollectFeedback)
+                : await _syncScriptService.GenerateDataSyncScriptsAsync(SourceConnection, TargetConnection, selectedItems, CollectFeedback);
 
             foreach (var line in feedbackBuffer)
             {
                 AppendLog(line);
             }
 
-            foreach (var line in scripts.Split('\n'))
+            // 同步脚本页仍保留合并文本，便于快速查看。
+            foreach (var script in scripts)
             {
-                Scripts.Add(line);
+                Scripts.Add($"-- ===== {script.Title} =====");
+                foreach (var line in script.SqlText.Split('\n'))
+                {
+                    Scripts.Add(line.TrimEnd('\r'));
+                }
+                Scripts.Add(string.Empty);
             }
 
-            StatusMessage = $"已生成同步脚本（{details.Count} 张表）。";
+            if (scripts.Count == 0)
+            {
+                StatusMessage = isRollback ? "没有可生成的回滚脚本。" : "没有可生成的同步脚本。";
+                return;
+            }
+
+            var previewVm = new ScriptPreviewViewModel(_syncScriptService)
+            {
+                TargetConnection = TargetConnection,
+                SourceDescription = isRollback
+                    ? $"数据对比回滚（恢复 {TargetConnection.Database} 为对比前状态）"
+                    : $"数据对比（{SourceConnection.Database} → 同步到 {TargetConnection.Database}）",
+            };
+            foreach (var script in scripts)
+            {
+                previewVm.Scripts.Add(script);
+            }
+
+            StatusMessage = $"已生成 {scripts.Count} 项脚本，请审阅后选择执行。";
+            AppendLog(StatusMessage);
+            RequestScriptPreview?.Invoke(previewVm);
         }
         catch (Exception ex)
         {
             StatusMessage = $"生成脚本失败：{ex.Message}";
+            AppendLog(StatusMessage);
         }
         finally
         {

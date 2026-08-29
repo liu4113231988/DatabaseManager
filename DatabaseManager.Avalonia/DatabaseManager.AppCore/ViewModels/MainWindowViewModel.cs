@@ -20,6 +20,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDbConnectionService _connectionService;
     private readonly IQueryService _queryService;
     private readonly IDataEditService _dataEditService;
+    private readonly IQueryHistoryService? _historyService;
+    private readonly IScriptLibraryService? _scriptLibraryService;
 
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -81,12 +83,16 @@ public partial class MainWindowViewModel : ViewModelBase
         IQueryService queryService,
         IDataEditService dataEditService,
         ObjectsExplorerViewModel objectsExplorer,
-        QueryEditorViewModel queryEditor)
+        QueryEditorViewModel queryEditor,
+        IQueryHistoryService? historyService = null,
+        IScriptLibraryService? scriptLibraryService = null)
     {
         _schemaService = schemaService;
         _connectionService = connectionService;
         _queryService = queryService;
         _dataEditService = dataEditService;
+        _historyService = historyService;
+        _scriptLibraryService = scriptLibraryService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
     }
@@ -126,7 +132,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     public void NewQuery()
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService);
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
         
         // 如果有当前连接，自动设置到新标签
         if (SelectedConnection is not null)
@@ -340,7 +346,27 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RefreshRecentScripts()
     {
         RecentScripts.Clear();
-        // 可从配置文件加载最近脚本列表
+        if (_scriptLibraryService is null)
+        {
+            return;
+        }
+
+        foreach (var path in _scriptLibraryService.GetRecentFiles())
+        {
+            RecentScripts.Add(path);
+        }
+    }
+
+    /// <summary>记录最近打开的脚本文件并刷新菜单。</summary>
+    public void TrackRecentScript(string path)
+    {
+        if (_scriptLibraryService is null || string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        _scriptLibraryService.AddRecentFile(path);
+        RefreshRecentScripts();
     }
 
     /// <summary>根据选中的表/视图生成 SELECT 脚本并填充到查询编辑器。</summary>
@@ -366,7 +392,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>新建查询标签页并填入 SQL（用于新建对象模板 / 查看对象定义）。</summary>
     public void NewObjectDefinitionQuery(string sql, string? connectionName, string? databaseName)
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService);
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
 
         if (!string.IsNullOrEmpty(connectionName))
         {
