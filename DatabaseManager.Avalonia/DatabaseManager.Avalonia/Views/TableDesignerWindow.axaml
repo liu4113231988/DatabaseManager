@@ -1,12 +1,13 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.TableDesignerWindow"
         x:DataType="vm:TableDesignerViewModel"
         Title="表设计器"
         Width="920" Height="640"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="10">
@@ -88,7 +89,7 @@
                                  VerticalContentAlignment="Center" Margin="6,0,0,0" />
                     </Grid>
 
-                    <Border Grid.Row="1" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,8">
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,8">
                         <ListBox x:Name="PkColumnList"
                                  ItemsSource="{Binding PrimaryKey.Columns}">
                             <ListBox.ItemTemplate>
@@ -180,7 +181,7 @@
 
             <!-- 脚本预览 Tab -->
             <TabItem Header="脚本预览">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <TextBox Text="{Binding PreviewScript}"
                              AcceptsReturn="True"
                              TextWrapping="NoWrap"

@@ -14,9 +14,13 @@ public partial class TableDesignerWindow : Window
 {
     private TableDesignerViewModel? _vm;
 
-    public TableDesignerWindow(TableDesignerViewModel vm)
+    public TableDesignerWindow()
     {
         InitializeComponent();
+    }
+
+    public TableDesignerWindow(TableDesignerViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
@@ -52,6 +56,7 @@ public partial class TableDesignerWindow : Window
 
     private DataGrid? FindColumnGrid()
     {
+        if (_vm is null) return null;
         // 在窗口内查找列 DataGrid。
         foreach (var control in VisualChildren)
         {
@@ -63,7 +68,7 @@ public partial class TableDesignerWindow : Window
                     {
                         foreach (var child in grid.Children)
                         {
-                            if (child is DataGrid dg && dg.ItemsSource == _vm?.Columns)
+                            if (child is DataGrid dg && dg.ItemsSource == _vm.Columns)
                                 return dg;
                         }
                     }
@@ -159,7 +164,11 @@ public partial class TableDesignerWindow : Window
         _vm.RemoveIndexCommand.Execute(index);
     }
 
-    private DataGrid? ShowIndexGrid() => FindGridFor(_vm?.Indexes);
+    private DataGrid? ShowIndexGrid()
+    {
+        if (_vm is null) return null;
+        return FindGridFor(_vm.Indexes);
+    }
 
     #endregion
 
@@ -170,7 +179,7 @@ public partial class TableDesignerWindow : Window
         if (_vm is null)
             return;
 
-        var fk = FindGridFor(_vm?.ForeignKeys)?.SelectedItem as TableDesignForeignKey;
+        var fk = FindGridFor(_vm.ForeignKeys)?.SelectedItem as TableDesignForeignKey;
         if (fk is null)
         {
             _vm.StatusMessage = "请先在「外键」标签中选中要删除的外键。";
@@ -189,7 +198,7 @@ public partial class TableDesignerWindow : Window
         if (_vm is null)
             return;
 
-        var c = FindGridFor(_vm?.Constraints)?.SelectedItem as TableDesignConstraint;
+        var c = FindGridFor(_vm.Constraints)?.SelectedItem as TableDesignConstraint;
         if (c is null)
         {
             _vm.StatusMessage = "请先在「约束」标签中选中要删除的约束。";
@@ -203,6 +212,7 @@ public partial class TableDesignerWindow : Window
 
     private DataGrid? FindGridFor(System.Collections.IEnumerable? itemsSource)
     {
+        if (_vm is null) return null;
         if (itemsSource is null)
             return null;
 

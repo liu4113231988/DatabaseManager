@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:svc="using:DatabaseManager.AppCore.Services"
+        x:Class="DatabaseManager.Avalonia.Views.QueryHistoryWindow"
+        x:DataType="vm:QueryHistoryViewModel"
+        Title="查询历史"
+        Width="980" Height="640"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：过滤 + 操作 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="过滤：" VerticalAlignment="Center" />
+                <TextBox Text="{Binding FilterText}" Width="280"
+                         Watermark="按连接名或 SQL 内容过滤"
+                         VerticalContentAlignment="Center" />
+                <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="插入到编辑器" ButtonType="Primary" Command="{Binding InsertToEditorCommand}"
+                             ToolTip.Tip="把选中记录的 SQL 插入到当前查询编辑器光标处" />
+                <atom:Button Content="清空历史" Command="{Binding ClearCommand}" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 中部：历史列表 + SQL 详情 -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="180" />
+            </Grid.RowDefinitions>
+
+            <DataGrid Grid.Row="0" ItemsSource="{Binding Entries}"
+                      SelectedItem="{Binding SelectedEntry}"
+                      AutoGenerateColumns="False" IsReadOnly="True"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                      CanUserResizeColumns="True" FontSize="11"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="时间" Binding="{Binding Time, StringFormat='MM-dd HH:mm:ss'}" Width="110" />
+                    <DataGridTextColumn Header="连接" Binding="{Binding ConnectionName}" Width="110" />
+                    <DataGridTextColumn Header="数据库" Binding="{Binding Database}" Width="100" />
+                    <DataGridTextColumn Header="状态" Binding="{Binding IsSuccess}" Width="60" />
+                    <DataGridTextColumn Header="耗时(ms)" Binding="{Binding ElapsedMilliseconds}" Width="75" />
+                    <DataGridTextColumn Header="行数" Binding="{Binding RowCount}" Width="70" />
+                    <DataGridTextColumn Header="SQL" Binding="{Binding SqlPreview}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Height="6" Background="{DynamicResource AppDividerBrush}" />
+
+            <TextBox Grid.Row="2" Text="{Binding SelectedSqlText, Mode=OneWay}" IsReadOnly="True"
+                     FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                     TextWrapping="NoWrap"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        </Grid>
+
+    </DockPanel>
+</Window>

@@ -4,8 +4,9 @@ namespace DatabaseManager.AppCore.Models;
 
 /// <summary>
 /// 诊断类型选项（UI 友好）。描述一种表诊断或脚本诊断类型。
+/// Value 为稳定的枚举键名（不随本地化改变），用于避免按显示文本解析脆弱。
 /// </summary>
-public sealed record DiagnoseTypeOption(string DisplayName, string Category);
+public sealed record DiagnoseTypeOption(string DisplayName, string Category, string Value);
 
 /// <summary>
 /// 表诊断结果（UI 友好）。对应底层 <see cref="TableDiagnoseResultDetail"/>。

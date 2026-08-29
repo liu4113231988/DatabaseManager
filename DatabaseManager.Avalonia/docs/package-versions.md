@@ -13,16 +13,19 @@
 | Avalonia.Fonts.Inter | 11.3.20 | 默认字体 |
 | CommunityToolkit.Mvvm | 8.4.2 | MVVM 源生成器 |
 | Microsoft.Extensions.DependencyInjection | 8.0.1 | DI 容器 |
-| **AtomUI** | **5.0.2** | Ant Design 风格主题（对齐原 AntdUI 视觉）；依赖 Avalonia 11.3.8 |
+| **AtomUI.Desktop.Controls** | **5.1.4** | Ant Design 风格主题（对齐原 AntdUI 视觉）；依赖 Avalonia 11.3.10。旧入口包 `AtomUI` 已弃用，2026-08-25 由 AtomUI 5.0.2 迁移而来 |
 | **Dock.Avalonia** | **11.3.12.1** | 停靠布局系统；依赖 Avalonia 11.3.x |
 | **MessageBox.Avalonia** | **3.3.1.1** | 消息框 |
 | ReactiveUI.Avalonia | 11.3.8 | 由 AtomUI 传递引入；提供 `UseReactiveUI()` |
 
 ## 版本组合决策记录
 
-- **为何固定 Avalonia 11.3.x**：计划所选的核心生态库（AtomUI 5.0.2、Dock.Avalonia 11.3.x、MessageBox.Avalonia 3.3.x）均基于 Avalonia 11 构建；Avalonia 12 需 AtomUI 6.x / Dock 12.x 才支持，属于后续升级项。
-- **AtomUI 5.0.2 与 6.x 差异**：6.x（基于 Avalonia 12）提供 `UseDesktopControls` 等新 API；本阶段沿用 5.0.2 的 `UseOSSControls`。
-- **尚未引入**：`Ursa.Avalonia`、`AvaloniaEdit`、`OxyPlot.Avalonia`、`Icons.Avalonia.FontAwesome` 等按阶段计划在对应阶段接入（部分包名/版本需在接入时复核）。
+- **为何固定 Avalonia 11.3.x**：计划所选的核心生态库（AtomUI.Desktop.Controls 5.1.4、Dock.Avalonia 11.3.x、MessageBox.Avalonia 3.3.x）均基于 Avalonia 11 构建；Avalonia 12 需 AtomUI 6.x / Dock 12.x 才支持，属于后续升级项。
+- **AtomUI 包重构迁移（2026-08-25）**：官方已弃用旧入口包 `AtomUI`，重构为 `AtomUI.Desktop.Controls` 系列（主包 + 可选 DataGrid/ColorPicker/Extras）。本项目仅用基础控件（Button/CheckBox/ComboBox/TabControl/TextBox），只需主包。API 变更：
+  - 初始化：`builder.UseOSSControls()` → `builder.UseDesktopControls()`
+  - C# 命名空间：`AtomUI.Controls` → `AtomUI.Desktop.Controls`（UseAtomUI 扩展在 `AtomUI` 命名空间）
+  - XAML 命名空间：`xmlns:atom="using:AtomUI.Controls"` → `xmlns:atom="https://atomui.net"`（5.1.4 起 using 形式失效）
+- **尚未引入**：`Ursa.Avalonia`、`OxyPlot.Avalonia`、`Icons.Avalonia.FontAwesome` 等按阶段计划在对应阶段接入（部分包名/版本需在接入时复核）。
 
 ## 升级路径（后续可选）
 

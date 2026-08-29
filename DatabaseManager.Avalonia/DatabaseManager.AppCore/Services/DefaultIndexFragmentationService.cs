@@ -34,7 +34,7 @@ public class DefaultIndexFragmentationService : IIndexFragmentationService
             var results = await analysiser.GetIndexFragmentations();
 
             var items = (results ?? Enumerable.Empty<DatabaseManager.Core.Model.IndexFragmentation>())
-                .Select(f => new IndexFragmentationItem(f))
+                .Select(f => new IndexFragmentationItem(f, connection.Database))
                 .ToList();
 
             onFeedback?.Invoke($"分析完成，共 {items.Count} 个碎片索引。");
@@ -42,9 +42,9 @@ public class DefaultIndexFragmentationService : IIndexFragmentationService
         }, cancellationToken);
     }
 
-    public Task<(bool IsOK, string Message)> RebuildIndexAsync(
+    public Task<IReadOnlyList<IndexRebuildResult>> RebuildIndexesAsync(
         ConnectionItem connection,
-        IndexFragmentationItem item,
+        IReadOnlyList<IndexFragmentationItem> items,
         CancellationToken cancellationToken = default)
     {
         return Task.Run(async () =>
@@ -55,21 +55,49 @@ public class DefaultIndexFragmentationService : IIndexFragmentationService
                 throw new InvalidOperationException("连接或数据库无效。");
             }
 
+            var results = new List<IndexRebuildResult>(items.Count);
+            if (items.Count == 0)
+                return results;
+
             var dbInterpreter = DbInterpreterHelper.GetDbInterpreter(
                 dbType, ConnectionHelper.ToConnectionInfo(connection));
 
             var analysiser = new Analysiser(dbInterpreter);
 
-            var frag = new DatabaseManager.Core.Model.IndexFragmentation
+            foreach (var item in items)
             {
-                Schema = item.Schema,
-                TableName = item.TableName,
-                IndexName = item.IndexName,
-                FragmentationPercent = item.FragmentationPercent,
-            };
+                cancellationToken.ThrowIfCancellationRequested();
 
-            var result = await analysiser.RebuildIndex(frag);
-            return (result.IsOK, result.Message ?? string.Empty);
+                try
+                {
+                    var frag = new DatabaseManager.Core.Model.IndexFragmentation
+                    {
+                        Schema = item.Schema,
+                        TableName = item.TableName,
+                        IndexName = item.IndexName,
+                        FragmentationPercent = item.FragmentationPercent,
+                    };
+
+                    var result = await analysiser.RebuildIndex(frag);
+                    results.Add(new IndexRebuildResult(
+                        item.Schema,
+                        item.TableName,
+                        item.IndexName,
+                        result.IsOK,
+                        result.Message ?? string.Empty));
+                }
+                catch (Exception ex)
+                {
+                    results.Add(new IndexRebuildResult(
+                        item.Schema,
+                        item.TableName,
+                        item.IndexName,
+                        false,
+                        ex.Message));
+                }
+            }
+
+            return (IReadOnlyList<IndexRebuildResult>)results;
         }, cancellationToken);
     }
 }

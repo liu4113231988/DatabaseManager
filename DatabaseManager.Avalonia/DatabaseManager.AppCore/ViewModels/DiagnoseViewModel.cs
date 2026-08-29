@@ -49,13 +49,14 @@ public partial class DiagnoseViewModel : ViewModelBase
         _connectionService = connectionService;
         _diagnoseService = diagnoseService;
 
-        DiagnoseTypes.Add(new DiagnoseTypeOption("非空字段存在空值（NotNullWithEmpty）", "Table"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("字符字段含首尾空白（LeadingOrTrailingWhitespace）", "Table"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("自引用同值外键（SelfReferenceSame）", "Table"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("空值而非 NULL（EmptyValueRatherThanNull）", "Table"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("主键列可空（PrimaryKeyColumnIsNullable）", "Table"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("视图列别名缺少引号（ViewColumnAlias）", "Script"));
-        DiagnoseTypes.Add(new DiagnoseTypeOption("脚本对象名不匹配（NameNotMatch）", "Script"));
+        // 第三参数 Value 为枚举原名（稳定键），解析时用它而不是显示文本。
+        DiagnoseTypes.Add(new DiagnoseTypeOption("非空字段存在空值", "Table", "NotNullWithEmpty"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("字符字段含首尾空白", "Table", "WithLeadingOrTrailingWhitespace"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("自引用同值外键", "Table", "SelfReferenceSame"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("空值而非 NULL", "Table", "EmptyValueRatherThanNull"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("主键列可空", "Table", "PrimaryKeyColumnIsNullable"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("视图列别名缺少引号", "Script", "ViewColumnAliasWithoutQuotationChar"));
+        DiagnoseTypes.Add(new DiagnoseTypeOption("脚本对象名不匹配", "Script", "NameNotMatch"));
 
         SelectedDiagnoseType = DiagnoseTypes.FirstOrDefault();
     }
@@ -112,7 +113,7 @@ public partial class DiagnoseViewModel : ViewModelBase
 
             if (isTable)
             {
-                var tableType = ParseTableDiagnoseType(diagnoseType.DisplayName);
+                var tableType = ParseTableDiagnoseType(diagnoseType.Value);
                 var results = await _diagnoseService.DiagnoseTableAsync(
                     SelectedConnection, tableType, null, CollectFeedback);
 
@@ -130,7 +131,7 @@ public partial class DiagnoseViewModel : ViewModelBase
             }
             else
             {
-                var scriptType = ParseScriptDiagnoseType(diagnoseType.DisplayName);
+                var scriptType = ParseScriptDiagnoseType(diagnoseType.Value);
                 var results = await _diagnoseService.DiagnoseScriptAsync(
                     SelectedConnection, scriptType, null, CollectFeedback);
 
@@ -166,20 +167,17 @@ public partial class DiagnoseViewModel : ViewModelBase
         ScriptResults.Clear();
     }
 
-    private static TableDiagnoseType ParseTableDiagnoseType(string displayName)
+    private static TableDiagnoseType ParseTableDiagnoseType(string value)
     {
-        if (displayName.Contains("NotNullWithEmpty")) return TableDiagnoseType.NotNullWithEmpty;
-        if (displayName.Contains("LeadingOrTrailingWhitespace")) return TableDiagnoseType.WithLeadingOrTrailingWhitespace;
-        if (displayName.Contains("SelfReferenceSame")) return TableDiagnoseType.SelfReferenceSame;
-        if (displayName.Contains("EmptyValueRatherThanNull")) return TableDiagnoseType.EmptyValueRatherThanNull;
-        if (displayName.Contains("PrimaryKeyColumnIsNullable")) return TableDiagnoseType.PrimaryKeyColumnIsNullable;
+        if (Enum.TryParse<TableDiagnoseType>(value, true, out var t))
+            return t;
         return TableDiagnoseType.NotNullWithEmpty;
     }
 
-    private static ScriptDiagnoseType ParseScriptDiagnoseType(string displayName)
+    private static ScriptDiagnoseType ParseScriptDiagnoseType(string value)
     {
-        if (displayName.Contains("ViewColumnAlias")) return ScriptDiagnoseType.ViewColumnAliasWithoutQuotationChar;
-        if (displayName.Contains("NameNotMatch")) return ScriptDiagnoseType.NameNotMatch;
+        if (Enum.TryParse<ScriptDiagnoseType>(value, true, out var t))
+            return t;
         return ScriptDiagnoseType.NameNotMatch;
     }
 

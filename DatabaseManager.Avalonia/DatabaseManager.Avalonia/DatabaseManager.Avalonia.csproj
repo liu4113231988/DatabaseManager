@@ -6,36 +6,41 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\database-manager.ico</ApplicationIcon>
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+    <!-- SQL 高亮定义：以托管嵌入资源形式打包（SqlEditor 通过 GetManifestResourceStream 加载） -->
+    <AvaloniaResource Remove="Assets\Sql.xshd" />
+    <EmbeddedResource Include="Assets\Sql.xshd" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Avalonia 11.3.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 11） -->
-    <PackageReference Include="Avalonia" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.20" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.20" />
+    <!-- Avalonia 12.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 12） -->
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
 
-    <!-- 表格：查询结果网格（注：Avalonia.Controls.DataGrid 11.3.x 最高版本为 11.3.13，无 11.3.20；
-         指定 11.3.20 会被 NuGet 解析到 12.0.0，因依赖 Avalonia>=12 与 11.3.20 基座冲突而触发 NU1605 告警） -->
-    <PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.13" />
+    <!-- 表格：查询结果网格 -->
+    <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+    <!-- SQL 编辑器：AvaloniaEdit（Avalonia 12 对应 12.0.0） -->
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
 
     <!-- MVVM / DI -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
 
-    <!-- 主题：AtomUI（Ant Design 风格，对齐原 AntdUI 视觉） -->
-    <PackageReference Include="AtomUI" Version="5.0.2" />
+    <!-- 主题：AtomUI.Desktop.Controls（Ant Design 风格，对齐原 AntdUI 视觉）；6.x 基于 Avalonia 12 -->
+    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.1.5" />
 
     <!-- 停靠布局：Dock -->
-    <PackageReference Include="Dock.Avalonia" Version="11.3.12.1" />
+    <PackageReference Include="Dock.Avalonia" Version="12.1.0.4" />
 
     <!-- 消息框 -->
-    <PackageReference Include="MessageBox.Avalonia" Version="3.3.1.1" />
+    <PackageReference Include="MessageBox.Avalonia" Version="12.0.0" />
   </ItemGroup>
 
   <ItemGroup>

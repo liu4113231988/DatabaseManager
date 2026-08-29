@@ -12,11 +12,15 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class DiagnoseWindow : Window
 {
-    private readonly DiagnoseViewModel _vm;
+    private readonly DiagnoseViewModel? _vm;
 
-    public DiagnoseWindow(DiagnoseViewModel vm)
+    public DiagnoseWindow()
     {
         InitializeComponent();
+    }
+
+    public DiagnoseWindow(DiagnoseViewModel vm) : this()
+    {
         DataContext = vm;
         _vm = vm;
     }
@@ -24,6 +28,7 @@ public partial class DiagnoseWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        if (_vm is null) return;
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         ComboDiagnoseType.SelectionChanged += ComboDiagnoseType_SelectionChanged;
@@ -34,12 +39,14 @@ public partial class DiagnoseWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
+        if (_vm is null) return;
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
         ComboDiagnoseType.SelectionChanged -= ComboDiagnoseType_SelectionChanged;
     }
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadDiagnoseTypes();
@@ -47,18 +54,20 @@ public partial class DiagnoseWindow : Window
 
     private void LoadConnections()
     {
+        if (_vm is null) return;
         ComboConnection.ItemsSource = _vm.Connections;
         ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item.Description });
+            new TextBlock { Text = item?.Description ?? string.Empty });
 
         ComboConnection.SelectedItem = _vm.SelectedConnection;
     }
 
     private void LoadDiagnoseTypes()
     {
+        if (_vm is null) return;
         ComboDiagnoseType.ItemsSource = _vm.DiagnoseTypes;
         ComboDiagnoseType.ItemTemplate = new FuncDataTemplate<DiagnoseTypeOption>((item, _) =>
-            new TextBlock { Text = item.DisplayName });
+            new TextBlock { Text = item?.DisplayName ?? string.Empty });
 
         ComboDiagnoseType.SelectedItem = _vm.SelectedDiagnoseType;
     }

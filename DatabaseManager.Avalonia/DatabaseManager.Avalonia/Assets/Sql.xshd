@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SQL 语法高亮定义（VS Code Light+ 配色，白底），嵌入程序集后由 SqlEditor 加载 -->
+<SyntaxDefinition name="Sql" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+
+  <Color name="Comment" foreground="#008000" />
+  <Color name="String" foreground="#A31515" />
+  <Color name="Number" foreground="#098658" />
+  <Color name="Keyword" foreground="#0000FF" fontWeight="bold" />
+  <Color name="DataType" foreground="#267F99" />
+  <Color name="Function" foreground="#795E26" />
+  <Color name="Variable" foreground="#001080" />
+
+  <RuleSet ignoreCase="true">
+
+    <!-- 单行注释（两个连字符起始） -->
+    <Span color="Comment">
+      <Begin>--</Begin>
+    </Span>
+
+    <!-- 块注释：/* ... */ -->
+    <Span color="Comment" multiline="true">
+      <Begin>/\*</Begin>
+      <End>\*/</End>
+    </Span>
+
+    <!-- 单引号字符串（支持跨行） -->
+    <Span color="String" multiline="true">
+      <Begin>'</Begin>
+      <End>'</End>
+    </Span>
+
+    <!-- 双引号标识符 -->
+    <Span color="String" multiline="true">
+      <Begin>"</Begin>
+      <End>"</End>
+    </Span>
+
+    <!-- 数字：十六进制 / 小数 / 科学计数 -->
+    <Rule color="Number">\b0[xX][0-9a-fA-F]+\b|\b\d+(\.\d*)?([eE][+-]?\d+)?\b|\b\.\d+([eE][+-]?\d+)?\b</Rule>
+
+    <!-- 变量：@param、@@global、#temp -->
+    <Rule color="Variable">[@#]{1,2}[A-Za-z_][\w$#@]*</Rule>
+
+    <!-- 函数 -->
+    <Keywords color="Function">
+      <Word>ABS</Word><Word>ACOS</Word><Word>ASIN</Word><Word>ATAN</Word><Word>ATAN2</Word>
+      <Word>AVG</Word><Word>CASEIF</Word><Word>CEIL</Word><Word>CEILING</Word><Word>CHOOSE</Word>
+      <Word>CHAR_LENGTH</Word><Word>CHARACTER_LENGTH</Word><Word>COALESCE</Word><Word>CONCAT</Word>
+      <Word>CONCAT_WS</Word><Word>COS</Word><Word>COT</Word><Word>COUNT</Word><Word>CURDATE</Word>
+      <Word>CURTIME</Word><Word>DATEADD</Word><Word>DATE_FORMAT</Word><Word>DATEDIFF</Word>
+      <Word>DAYNAME</Word><Word>DAYOFMONTH</Word><Word>DAYOFWEEK</Word><Word>DAYOFYEAR</Word>
+      <Word>DECODE</Word><Word>DEGREES</Word><Word>DENSE_RANK</Word><Word>EXP</Word>
+      <Word>FIND_IN_SET</Word><Word>FIRST_VALUE</Word><Word>FLOOR</Word><Word>FORMAT</Word>
+      <Word>FROM_DAYS</Word><Word>FROM_UNIXTIME</Word><Word>GETDATE</Word><Word>GREATEST</Word>
+      <Word>GROUP_CONCAT</Word><Word>HASHBYTES</Word><Word>HEX</Word><Word>IIF</Word><Word>IFNULL</Word>
+      <Word>INSTR</Word><Word>ISNULL</Word><Word>JSON_ARRAY</Word><Word>JSON_OBJECT</Word>
+      <Word>JSON_VALUE</Word><Word>LAG</Word><Word>LAST_DAY</Word><Word>LAST_VALUE</Word><Word>LEAD</Word>
+      <Word>LEAST</Word><Word>LEFT</Word><Word>LENGTH</Word><Word>LN</Word><Word>LOCATE</Word>
+      <Word>LOG</Word><Word>LOWER</Word><Word>LPAD</Word><Word>LTRIM</Word><Word>MAX</Word><Word>MD5</Word>
+      <Word>MIN</Word><Word>MOD</Word><Word>NEWID</Word><Word>NOW</Word><Word>NULLIF</Word><Word>NUMTODSINTERVAL</Word>
+      <Word>NVL</Word><Word>NVL2</Word><Word>PATINDEX</Word><Word>PI</Word><Word>POSITION</Word>
+      <Word>POWER</Word><Word>QUARTER</Word><Word>RADIANS</Word><Word>RAND</Word><Word>RANDOM</Word>
+      <Word>RANK</Word><Word>RATIO_TO_REPORT</Word><Word>REPLACE</Word><Word>REVERSE</Word>
+      <Word>RIGHT</Word><Word>ROUND</Word><Word>ROW_NUMBER</Word><Word>RPAD</Word><Word>RTRIM</Word>
+      <Word>SECOND</Word><Word>SESSION_USER</Word><Word>SHA</Word><Word>SHA1</Word><Word>SHA2</Word>
+      <Word>SIGN</Word><Word>SIN</Word><Word>SPACE</Word><Word>SQRT</Word><Word>STDEV</Word>
+      <Word>STUFF</Word><Word>STR_TO_DATE</Word><Word>STRING_AGG</Word><Word>STRING_SPLIT</Word>
+      <Word>SUBSTR</Word><Word>SUBSTRING</Word><Word>SUM</Word><Word>SYSDATE</Word><Word>SYSDATETIME</Word>
+      <Word>SYSTEM_USER</Word><Word>TAN</Word><Word>TIMEDIFF</Word><Word>TIMESTAMPDIFF</Word>
+      <Word>TO_CHAR</Word><Word>TO_DATE</Word><Word>TO_DAYS</Word><Word>TO_NUMBER</Word>
+      <Word>TRANSLATE</Word><Word>TRIM</Word><Word>TRUNCATE</Word><Word>UNIX_TIMESTAMP</Word>
+      <Word>UPPER</Word><Word>USER</Word><Word>UUID</Word><Word>VERSION</Word><Word>WEEKDAY</Word>
+      <Word>YEAR</Word><Word>LISTAGG</Word><Word>ARRAY_AGG</Word><Word>GETUTCDATE</Word>
+    </Keywords>
+
+    <!-- 数据类型 -->
+    <Keywords color="DataType">
+      <Word>INT</Word><Word>INTEGER</Word><Word>SMALLINT</Word><Word>BIGINT</Word><Word>TINYINT</Word>
+      <Word>MEDIUMINT</Word><Word>DECIMAL</Word><Word>NUMERIC</Word><Word>DEC</Word><Word>FLOAT</Word>
+      <Word>REAL</Word><Word>DOUBLE</Word><Word>PRECISION</Word><Word>BIT</Word><Word>BOOLEAN</Word>
+      <Word>BOOL</Word><Word>CHAR</Word><Word>CHARACTER</Word><Word>VARCHAR</Word><Word>VARCHAR2</Word>
+      <Word>NCHAR</Word><Word>NVARCHAR</Word><Word>TEXT</Word><Word>NTEXT</Word><Word>TINYTEXT</Word>
+      <Word>MEDIUMTEXT</Word><Word>LONGTEXT</Word><Word>CLOB</Word><Word>NCLOB</Word><Word>BLOB</Word>
+      <Word>TINYBLOB</Word><Word>MEDIUMBLOB</Word><Word>LONGBLOB</Word><Word>BINARY</Word>
+      <Word>VARBINARY</Word><Word>IMAGE</Word><Word>RAW</Word><Word>ROWID</Word><Word>BFILE</Word>
+      <Word>DATE</Word><Word>TIME</Word><Word>DATETIME</Word><Word>DATETIME2</Word><Word>SMALLDATETIME</Word>
+      <Word>TIMESTAMP</Word><Word>INTERVAL</Word><Word>YEAR</Word><Word>ENUM</Word><Word>SET</Word>
+      <Word>JSON</Word><Word>JSONB</Word><Word>XML</Word><Word>UUID</Word><Word>MONEY</Word>
+      <Word>SMALLMONEY</Word><Word>SERIAL</Word><Word>BIGSERIAL</Word><Word>UNIQUEIDENTIFIER</Word>
+      <Word>SQL_VARIANT</Word><Word>HIERARCHYID</Word><Word>GEOMETRY</Word><Word>GEOGRAPHY</Word>
+      <Word>NUMBER</Word>
+    </Keywords>
+
+    <!-- 关键字 -->
+    <Keywords color="Keyword">
+      <Word>SELECT</Word><Word>FROM</Word><Word>WHERE</Word><Word>AND</Word><Word>OR</Word>
+      <Word>NOT</Word><Word>NULL</Word><Word>AS</Word><Word>IN</Word><Word>IS</Word><Word>LIKE</Word>
+      <Word>BETWEEN</Word><Word>INTO</Word><Word>VALUES</Word><Word>INSERT</Word><Word>UPDATE</Word>
+      <Word>DELETE</Word><Word>SET</Word><Word>CREATE</Word><Word>ALTER</Word><Word>DROP</Word>
+      <Word>TABLE</Word><Word>VIEW</Word><Word>INDEX</Word><Word>PROCEDURE</Word><Word>FUNCTION</Word>
+      <Word>TRIGGER</Word><Word>SCHEMA</Word><Word>DATABASE</Word><Word>IF</Word><Word>EXISTS</Word>
+      <Word>USE</Word><Word>GO</Word><Word>BEGIN</Word><Word>END</Word><Word>DECLARE</Word>
+      <Word>EXEC</Word><Word>EXECUTE</Word><Word>RETURN</Word><Word>WHILE</Word><Word>BREAK</Word>
+      <Word>CONTINUE</Word><Word>COMMIT</Word><Word>ROLLBACK</Word><Word>SAVEPOINT</Word>
+      <Word>TRANSACTION</Word><Word>WORK</Word><Word>GRANT</Word><Word>REVOKE</Word><Word>WITH</Word>
+      <Word>RECURSIVE</Word><Word>UNION</Word><Word>ALL</Word><Word>DISTINCT</Word><Word>INTERSECT</Word>
+      <Word>EXCEPT</Word><Word>JOIN</Word><Word>INNER</Word><Word>OUTER</Word><Word>FULL</Word>
+      <Word>CROSS</Word><Word>ON</Word><Word>USING</Word><Word>GROUP</Word><Word>BY</Word>
+      <Word>HAVING</Word><Word>ORDER</Word><Word>ASC</Word><Word>DESC</Word><Word>LIMIT</Word>
+      <Word>OFFSET</Word><Word>FETCH</Word><Word>FIRST</Word><Word>NEXT</Word><Word>ONLY</Word>
+      <Word>ROWS</Word><Word>RANGE</Word><Word>UNBOUNDED</Word><Word>PRECEDING</Word>
+      <Word>FOLLOWING</Word><Word>CURRENT</Word><Word>ROW</Word><Word>PARTITION</Word>
+      <Word>OVER</Word><Word>WINDOW</Word><Word>CASE</Word><Word>WHEN</Word><Word>THEN</Word>
+      <Word>ELSE</Word><Word>PRIMARY</Word><Word>FOREIGN</Word><Word>KEY</Word><Word>REFERENCES</Word>
+      <Word>CONSTRAINT</Word><Word>UNIQUE</Word><Word>CHECK</Word><Word>DEFAULT</Word>
+      <Word>AUTO_INCREMENT</Word><Word>AUTOINCREMENT</Word><Word>IDENTITY</Word><Word>COMMENT</Word>
+      <Word>COLUMN</Word><Word>ADD</Word><Word>MODIFY</Word><Word>CHANGE</Word><Word>RENAME</Word>
+      <Word>TO</Word><Word>CASCADE</Word><Word>RESTRICT</Word><Word>TRUNCATE</Word><Word>MERGE</Word>
+      <Word>MATCHED</Word><Word>SOURCE</Word><Word>TARGET</Word><Word>OUTPUT</Word><Word>LOCK</Word>
+      <Word>SHARE</Word><Word>MODE</Word><Word>EXPLAIN</Word><Word>ANALYZE</Word><Word>VACUUM</Word>
+      <Word>SHOW</Word><Word>DESCRIBE</Word><Word>DESC</Word><Word>PRAGMA</Word><Word>ATTACH</Word>
+      <Word>DETACH</Word><Word>RETURNING</Word><Word>TOP</Word><Word>PERCENT</Word><Word>TIES</Word>
+      <Word>COLLATE</Word><Word>CAST</Word><Word>CONVERT</Word><Word>CHARSET</Word><Word>ENGINE</Word>
+      <Word>UNSIGNED</Word><Word>SIGNED</Word><Word>ZEROFILL</Word><Word>LOCAL</Word><Word>TEMP</Word>
+      <Word>TEMPORARY</Word><Word>GLOBAL</Word><Word>SESSION</Word><Word>ISOLATION</Word>
+      <Word>LEVEL</Word><Word>READ</Word><Word>WRITE</Word><Word>SNAPSHOT</Word><Word>SERIALIZABLE</Word>
+      <Word>REPEATABLE</Word><Word>COMMITTED</Word><Word>UNCOMMITTED</Word><Word>ACTION</Word>
+      <Word>NOWAIT</Word><Word>WAIT</Word><Word>STORED</Word><Word>GENERATED</Word><Word>VIRTUAL</Word>
+      <Word>ALWAYS</Word><Word>START</Word><Word>CACHE</Word><Word>INCREMENT</Word><Word>MINVALUE</Word>
+      <Word>MAXVALUE</Word><Word>CYCLE</Word><Word>OWNED</Word><Word>SEQUENCE</Word><Word>PIVOT</Word>
+      <Word>UNPIVOT</Word><Word>APPLY</Word><Word>BULK</Word><Word>FOR</Word><Word>EACH</Word>
+    </Keywords>
+
+  </RuleSet>
+</SyntaxDefinition>

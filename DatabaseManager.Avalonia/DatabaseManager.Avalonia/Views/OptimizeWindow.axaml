@@ -1,12 +1,13 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.OptimizeWindow"
         x:DataType="vm:OptimizeViewModel"
-        Title="数据库优化 (Optimize)"
+        Title="数据库优化"
         Width="920" Height="620"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -31,11 +32,11 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：结果 + 日志 -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
             <TabItem Header="优化结果">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="优化对象（对象类型 / 数据长度变化）" FontWeight="Bold" Margin="2,0,0,4" />
-                    <Border BorderBrush="#22000000" BorderThickness="1">
+                    <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                         <DataGrid ItemsSource="{Binding Results}" AutoGenerateColumns="False"
                                   IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -53,7 +54,7 @@
             </TabItem>
 
             <TabItem Header="日志">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -66,7 +67,7 @@
                     </ListBox>
                 </Border>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

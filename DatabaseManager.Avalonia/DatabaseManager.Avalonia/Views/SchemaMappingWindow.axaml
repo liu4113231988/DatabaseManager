@@ -1,11 +1,12 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.SchemaMappingWindow"
         x:DataType="vm:ConvertViewModel"
         Title="Schema 映射"
         Width="640" Height="460"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -14,7 +15,7 @@
                    FontWeight="SemiBold" Margin="0,0,0,10" />
 
         <!-- 映射列表 -->
-        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,8">
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,8">
             <DataGrid ItemsSource="{Binding SchemaMappings}"
                       AutoGenerateColumns="False"
                       GridLinesVisibility="All"

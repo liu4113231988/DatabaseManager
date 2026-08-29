@@ -116,9 +116,10 @@ public partial class IndexFragmentationViewModel : ViewModelBase
             return;
         }
 
-        if (SelectedResult is null)
+        var selected = Results.Where(r => r.IsSelected).ToList();
+        if (selected.Count == 0)
         {
-            StatusMessage = "请先在结果中选中要重建的索引。";
+            StatusMessage = "请先勾选要重建的索引。";
             return;
         }
 
@@ -127,14 +128,26 @@ public partial class IndexFragmentationViewModel : ViewModelBase
 
         try
         {
-            AppendLog($"开始重建索引：{SelectedResult.DisplayTableName}.{SelectedResult.IndexName} ...");
+            AppendLog($"开始批量重建 {selected.Count} 个索引...");
 
-            var (isOK, message) = await _indexFragmentationService.RebuildIndexAsync(
-                SelectedConnection, SelectedResult);
+            var rebuildResults = await _indexFragmentationService.RebuildIndexesAsync(
+                SelectedConnection, selected);
 
-            StatusMessage = isOK
-                ? $"索引 {SelectedResult.IndexName} 重建成功。"
-                : $"索引重建失败：{message}";
+            int okCount = 0, failCount = 0;
+            foreach (var r in rebuildResults)
+            {
+                var table = string.IsNullOrEmpty(r.Schema) ? r.TableName : $"{r.Schema}.{r.TableName}";
+                var label = r.IsOK ? "[OK]" : "[FAIL]";
+                AppendLog($"{label} {table}.{r.IndexName}{(string.IsNullOrWhiteSpace(r.Message) ? null : $"：{r.Message}")}");
+                if (r.IsOK) okCount++; else failCount++;
+            }
+
+            StatusMessage = $"重建完成（成功 {okCount}，失败 {failCount}）。";
+            AppendLog(StatusMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "重建已取消。";
             AppendLog(StatusMessage);
         }
         catch (Exception ex)

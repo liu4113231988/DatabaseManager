@@ -33,6 +33,7 @@ public class DefaultDataEditService : IDataEditService
         bool isView,
         int pageSize,
         long pageNumber,
+        bool loadTotalCount = true,
         CancellationToken cancellationToken = default)
     {
         var connection = FindConnection(connectionName);
@@ -46,42 +47,182 @@ public class DefaultDataEditService : IDataEditService
         try
         {
             // 1. 读取列/主键/标识列元数据。
-            var filter = new SchemaInfoFilter
+            var metadata = await LoadTableMetadataAsync(interpreter, tableName, schema, isView);
+            if (metadata.ErrorMessage is not null)
             {
+                return new DataLoadResult { ErrorMessage = metadata.ErrorMessage };
+            }
+
+            var tableColumns = metadata.TableColumns;
+            var pkColumns = metadata.PrimaryKeyColumns;
+            var hasPrimaryKey = pkColumns.Count > 0;
+
+            var columnInfos = metadata.ColumnInfos;
+            var tableInfo = new DataTableInfo
+            {
+                DatabaseName = databaseName,
                 Schema = schema,
-                TableNames = new[] { tableName },
-                DatabaseObjectType = DatabaseObjectType.Column | DatabaseObjectType.PrimaryKey,
+                Name = tableName,
+                IsView = isView,
+                Columns = columnInfos,
+                PrimaryKeyColumns = pkColumns,
+                IdentityColumns = metadata.IdentityColumns,
             };
 
-            if (isView)
+            // 2. 读取分页数据。
+            var table = new Table
             {
-                filter.ColumnType = ColumnType.ViewColumn;
-                filter.IsForView = true;
+                Schema = schema,
+                Name = tableName,
+            };
+
+            long total = 0;
+            bool totalUnknown = false;
+            DataTable dataTable;
+
+            if (loadTotalCount)
+            {
+                // 首次加载：统计总行数（大表此操作开销大，故仅在需要时执行）。
+                (total, dataTable) = await interpreter.GetPagedDataTableAsync(
+                    table,
+                    orderColumns: string.Empty,
+                    pageSize,
+                    pageNumber,
+                    cancellationToken,
+                    whereClause: string.Empty,
+                    isForView: isView,
+                    columns: tableColumns);
+            }
+            else
+            {
+                // 翻页：跳过 COUNT，仅取当前页数据，避免大表全表扫描。
+                totalUnknown = true;
+                using var dbConnection = interpreter.CreateConnection();
+                dataTable = await interpreter.GetPagedDataTableAsync(
+                    dbConnection,
+                    table,
+                    tableColumns,
+                    orderColumns: string.Empty,
+                    pageSize,
+                    pageNumber,
+                    cancellationToken,
+                    whereClause: string.Empty);
             }
 
-            var schemaInfo = await interpreter.GetSchemaInfoAsync(filter);
+            var rows = ConvertDataTableToRows(dataTable, columnInfos);
 
-            var tableColumns = schemaInfo.TableColumns
-                .OrderBy(c => c.Order)
-                .ToList();
-
-            if (tableColumns.Count == 0)
+            return new DataLoadResult
             {
-                return new DataLoadResult { ErrorMessage = $"未找到表 '{tableName}' 的列定义。" };
+                TableInfo = tableInfo,
+                Rows = rows,
+                TotalCount = total,
+                TotalCountUnknown = totalUnknown,
+                HasPrimaryKey = hasPrimaryKey,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new DataLoadResult { ErrorMessage = ex.Message };
+        }
+    }
+
+    public async Task<TableMetadataResult> GetTableMetadataAsync(
+        string connectionName,
+        string databaseName,
+        string tableName,
+        string? schema,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+        {
+            return new TableMetadataResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
+        }
+
+        try
+        {
+            var interpreter = CreateInterpreter(connection, databaseName);
+            var metadata = await LoadTableMetadataAsync(interpreter, tableName, schema, isView: false);
+
+            if (metadata.ErrorMessage is not null)
+            {
+                return new TableMetadataResult { ErrorMessage = metadata.ErrorMessage };
             }
 
-            var pkColumns = schemaInfo.TablePrimaryKeys
-                .FirstOrDefault()?
-                .Columns?
-                .Select(c => c.ColumnName)
-                .ToList() ?? new List<string>();
+            return new TableMetadataResult
+            {
+                TableInfo = new DataTableInfo
+                {
+                    DatabaseName = databaseName,
+                    Schema = schema,
+                    Name = tableName,
+                    IsView = false,
+                    Columns = metadata.ColumnInfos,
+                    PrimaryKeyColumns = metadata.PrimaryKeyColumns,
+                    IdentityColumns = metadata.IdentityColumns,
+                },
+                HasPrimaryKey = metadata.PrimaryKeyColumns.Count > 0,
+            };
+        }
+        catch (Exception ex)
+        {
+            return new TableMetadataResult { ErrorMessage = ex.Message };
+        }
+    }
 
-            var identityColumns = tableColumns
-                .Where(c => c.IsIdentity)
-                .Select(c => c.Name)
-                .ToList();
+    /// <summary>表元数据加载中间结果（服务内部复用）。</summary>
+    private sealed class TableMetadata
+    {
+        public List<TableColumn> TableColumns { get; init; } = new();
+        public List<string> PrimaryKeyColumns { get; init; } = new();
+        public List<string> IdentityColumns { get; init; } = new();
+        public List<DataColumnInfo> ColumnInfos { get; init; } = new();
+        public string? ErrorMessage { get; init; }
+    }
 
-            var columnInfos = tableColumns
+    /// <summary>读取表/视图的列、主键、标识列元数据（LoadDataAsync 与 GetTableMetadataAsync 共用）。</summary>
+    private async Task<TableMetadata> LoadTableMetadataAsync(
+        DbInterpreter interpreter,
+        string tableName,
+        string? schema,
+        bool isView)
+    {
+        var filter = new SchemaInfoFilter
+        {
+            Schema = schema,
+            TableNames = new[] { tableName },
+            DatabaseObjectType = DatabaseObjectType.Column | DatabaseObjectType.PrimaryKey,
+        };
+
+        if (isView)
+        {
+            filter.ColumnType = ColumnType.ViewColumn;
+            filter.IsForView = true;
+        }
+
+        var schemaInfo = await interpreter.GetSchemaInfoAsync(filter);
+
+        var tableColumns = schemaInfo.TableColumns
+            .OrderBy(c => c.Order)
+            .ToList();
+
+        if (tableColumns.Count == 0)
+        {
+            return new TableMetadata { ErrorMessage = $"未找到表 '{tableName}' 的列定义。" };
+        }
+
+        var pkColumns = schemaInfo.TablePrimaryKeys
+            .FirstOrDefault()?
+            .Columns?
+            .Select(c => c.ColumnName)
+            .ToList() ?? new List<string>();
+
+        return new TableMetadata
+        {
+            TableColumns = tableColumns,
+            PrimaryKeyColumns = pkColumns,
+            IdentityColumns = tableColumns.Where(c => c.IsIdentity).Select(c => c.Name).ToList(),
+            ColumnInfos = tableColumns
                 .Select(c => new DataColumnInfo
                 {
                     Name = c.Name,
@@ -92,49 +233,8 @@ public class DefaultDataEditService : IDataEditService
                     IsNullable = c.IsNullable,
                     Order = c.Order,
                 })
-                .ToList();
-
-            var tableInfo = new DataTableInfo
-            {
-                DatabaseName = databaseName,
-                Schema = schema,
-                Name = tableName,
-                IsView = isView,
-                Columns = columnInfos,
-                PrimaryKeyColumns = pkColumns,
-                IdentityColumns = identityColumns,
-            };
-
-            // 2. 读取分页数据。
-            var table = new Table
-            {
-                Schema = schema,
-                Name = tableName,
-            };
-
-            var (total, dataTable) = await interpreter.GetPagedDataTableAsync(
-                table,
-                orderColumns: string.Empty,
-                pageSize,
-                pageNumber,
-                cancellationToken,
-                whereClause: string.Empty,
-                isForView: isView,
-                columns: tableColumns);
-
-            var rows = ConvertDataTableToRows(dataTable, columnInfos);
-
-            return new DataLoadResult
-            {
-                TableInfo = tableInfo,
-                Rows = rows,
-                TotalCount = total,
-            };
-        }
-        catch (Exception ex)
-        {
-            return new DataLoadResult { ErrorMessage = ex.Message };
-        }
+                .ToList(),
+        };
     }
 
     public async Task<DataSaveResult> SaveChangesAsync(
@@ -159,6 +259,18 @@ public class DefaultDataEditService : IDataEditService
         // 组装 Table 与 TableColumn 元数据。
         var table = new Table { Schema = schema, Name = tableName };
         var columns = BuildTableColumns(inserts, updates);
+
+        // 无主键表无法安全定位行，拒绝保存（编辑应在 ViewModel 层已置为只读，此处兜底）。
+        // 主键信息从待编辑行内部（DataColumnInfo.IsPrimaryKey）推断。
+        var hasPk = (updates.Concat(deletes)).Any(r => r.GetPrimaryKeyConditions().Any());
+        if (!hasPk && (updates.Count > 0 || deletes.Count > 0))
+        {
+            return new DataSaveResult
+            {
+                IsSuccess = false,
+                ErrorMessage = "该表没有主键，无法安全执行更新/删除操作。",
+            };
+        }
 
         try
         {
@@ -200,6 +312,11 @@ public class DefaultDataEditService : IDataEditService
 
             return new DataSaveResult { IsSuccess = true, RowCount = affected };
         }
+        catch (ConcurrencyConflictException cex)
+        {
+            // 乐观锁冲突：回滚已由 ExecuteInTransactionAsync 处理，返回冲突信息供 UI 提示刷新。
+            return new DataSaveResult { IsSuccess = false, ErrorMessage = cex.Message };
+        }
         catch (Exception ex)
         {
             return new DataSaveResult { IsSuccess = false, ErrorMessage = ex.Message };
@@ -227,7 +344,38 @@ public class DefaultDataEditService : IDataEditService
         try
         {
             // 顺序：先删、再改、后插，保证外键与主键约束不被破坏。
-            foreach (var sql in deleteScripts.Concat(updateScripts).Concat(insertScripts))
+            // DELETE 与 UPDATE 需要校验受影响行数，检测乐观锁并发冲突。
+            foreach (var sql in deleteScripts.Concat(updateScripts))
+            {
+                if (string.IsNullOrWhiteSpace(sql))
+                    continue;
+
+                var commandInfo = new CommandInfo
+                {
+                    CommandText = sql.TrimEnd(';'),
+                    Transaction = transaction,
+                    CancellationToken = cancellationToken,
+                };
+
+                var result = await interpreter.ExecuteNonQueryAsync(dbConnection, commandInfo);
+                if (result is not null && result.HasError)
+                {
+                    throw new Exception(result.Message);
+                }
+
+                int rows = result?.NumberOfRowsAffected ?? 0;
+                if (rows == 0)
+                {
+                    // 受影响 0 行：行已被他人修改或删除，触发乐观锁冲突。
+                    throw new ConcurrencyConflictException(
+                        "保存失败：目标行已被其他用户修改或删除，请刷新数据后重试。");
+                }
+
+                affected += rows;
+            }
+
+            // INSERT 无需检测冲突。
+            foreach (var sql in insertScripts)
             {
                 if (string.IsNullOrWhiteSpace(sql))
                     continue;
@@ -333,41 +481,53 @@ public class DefaultDataEditService : IDataEditService
         return $"DELETE FROM {tableName} WHERE {whereClause};";
     }
 
-    /// <summary>基于原始值构造 WHERE 条件（优先主键列，其次全部非空列）。</summary>
+    /// <summary>
+    /// 基于原始值构造 WHERE 条件（乐观锁）：
+    /// 1. 主键列必须存在，否则返回空（调用方拒绝编辑）；
+    /// 2. 主键列 + 全部非计算列的原始值一起作为等值条件，用于检测并发修改——
+    ///    若保存时受影响行数为 0，说明该行已被他人改动，应提示冲突而非静默失败。
+    /// </summary>
     private string BuildWhereClause(
         DbInterpreter interpreter,
         DbScriptGenerator scriptGenerator,
         List<TableColumn> columns,
         DataEditRow row)
     {
+        var pkColumns = row.GetPrimaryKeyConditions().ToList();
+
+        // 无主键无法安全定位行，直接拒绝。
+        if (pkColumns.Count == 0)
+            return string.Empty;
+
         var conditions = new List<string>();
 
-        // 优先使用主键列（取原始值定位）。
-        var pkColumns = row.GetPrimaryKeyConditions().ToList();
-        if (pkColumns.Count > 0)
+        // 主键列（取原始值定位）。
+        foreach (var (colName, value) in pkColumns)
         {
-            foreach (var (colName, value) in pkColumns)
-            {
-                var tc = FindColumn(columns, colName);
-                if (tc is null) continue;
+            var tc = FindColumn(columns, colName);
+            if (tc is null) continue;
 
-                var literal = ParseValueLiteral(scriptGenerator, tc, value);
-                conditions.Add($"{interpreter.GetQuotedString(colName)} = {literal}");
-            }
-
-            if (conditions.Count > 0)
-                return string.Join(" AND ", conditions);
+            var literal = ParseValueLiteral(scriptGenerator, tc, value);
+            conditions.Add($"{interpreter.GetQuotedString(colName)} = {literal}");
         }
 
-        // 无主键：退化用全部原始非空列做等值条件。
-        foreach (var col in columns.Where(c => !c.IsComputed))
+        // 乐观锁：追加全部非计算列的原始值作为并发检测条件。
+        // 仅使用当前行已知的列（columns 来自编辑行推断，非全表列），
+        // 避免引用未加载的列导致 WHERE 条件缺失。
+        foreach (var col in columns.Where(c => !c.IsComputed && !c.IsIdentity))
         {
-            var original = row.GetOriginal(col.Name);
+            var colName = col.Name;
+
+            // 跳过主键列（已在上面添加，避免重复）。
+            if (pkColumns.Any(p => string.Equals(p.Column, colName, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            var original = row.GetOriginal(colName);
             if (original is null || original == DBNull.Value)
                 continue;
 
             var literal = ParseValueLiteral(scriptGenerator, col, original);
-            conditions.Add($"{interpreter.GetQuotedString(col.Name)} = {literal}");
+            conditions.Add($"{interpreter.GetQuotedString(colName)} = {literal}");
         }
 
         return string.Join(" AND ", conditions);
@@ -491,5 +651,13 @@ public class DefaultDataEditService : IDataEditService
         if (Enum.TryParse<DatabaseType>(databaseType, true, out var type))
             return type;
         return DatabaseType.Unknown;
+    }
+}
+
+/// <summary>乐观锁并发冲突异常：保存时目标行已被他人修改或删除。</summary>
+public sealed class ConcurrencyConflictException : Exception
+{
+    public ConcurrencyConflictException(string message) : base(message)
+    {
     }
 }

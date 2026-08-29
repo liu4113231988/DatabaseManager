@@ -1,5 +1,4 @@
 ﻿using DatabaseInterpreter.Model;
-using System.Text;
 
 namespace DatabaseInterpreter.Core
 {
@@ -7,9 +6,16 @@ namespace DatabaseInterpreter.Core
     {
         public string BuildConntionString(ConnectionInfo connectionInfo)
         {
-            StringBuilder sb = new StringBuilder($"Data Source={connectionInfo.Database};Password={connectionInfo.Password};Mode=ReadWriteCreate;");
-            
-            return sb.ToString();
+            var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+            {
+                DataSource = connectionInfo.Database?.Trim() ?? string.Empty,
+                Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadWriteCreate,
+            };
+
+            if (!string.IsNullOrEmpty(connectionInfo.Password))
+                builder.Password = connectionInfo.Password;
+
+            return builder.ConnectionString;
         }
     }
 }

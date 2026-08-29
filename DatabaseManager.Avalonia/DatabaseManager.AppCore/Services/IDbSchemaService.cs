@@ -64,4 +64,18 @@ public interface IDbSchemaService
         DatabaseObject tableOrView,
         bool isForView = false,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 元数据搜索：按关键字模糊匹配表 / 视图 / 列 / 存储过程 / 函数 / 序列名称。
+    /// 跨该连接下的数据库逐个搜索；列搜索仅扫描名称命中的表（控制成本）。
+    /// </summary>
+    /// <param name="connectionName">连接名称。</param>
+    /// <param name="keyword">关键字（不区分大小写的包含匹配）。</param>
+    /// <param name="limitPerKind">单个类别的结果数上限。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    Task<IReadOnlyList<SearchResultItem>> SearchMetadataAsync(
+        string connectionName,
+        string keyword,
+        int limitPerKind = 100,
+        CancellationToken cancellationToken = default);
 }
