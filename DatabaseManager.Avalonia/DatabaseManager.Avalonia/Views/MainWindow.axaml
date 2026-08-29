@@ -468,17 +468,13 @@
                                         <CheckBox Content="保存后刷新" IsChecked="{Binding AutoRefreshAfterSave}"
                                                   VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"
                                                   ToolTip.Tip="保存成功后自动重新执行查询并定位到保存过的记录" />
-                                        <Button Click="QueryAddRow_Click" Content="＋ 新增"
-                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                        <Button Classes="compact" Click="QueryAddRow_Click" Content="＋ 新增"
                                                 ToolTip.Tip="在当前页末尾新增一行，填写后点击保存" />
-                                        <Button Click="QueryRemoveRow_Click" Content="－ 删除"
-                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                        <Button Classes="compact" Click="QueryRemoveRow_Click" Content="－ 删除"
                                                 ToolTip.Tip="删除选中的行（保存时生效）" />
-                                        <Button Command="{Binding SaveEditsCommand}" Content="💾 保存"
-                                                Padding="8,1" FontSize="11" MinWidth="0"
-                                                IsEnabled="{Binding HasPendingChanges}" Classes="Primary" />
-                                        <Button Click="QueryRevert_Click" Content="↺ 还原"
-                                                Padding="8,1" FontSize="11" MinWidth="0"
+                                        <Button Classes="compact Primary" Command="{Binding SaveEditsCommand}" Content="💾 保存"
+                                                IsEnabled="{Binding HasPendingChanges}" />
+                                        <Button Classes="compact" Click="QueryRevert_Click" Content="↺ 还原"
                                                 IsEnabled="{Binding HasPendingChanges}" />
                                     </StackPanel>
                                     <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}"
@@ -512,16 +508,12 @@
                                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
                                                 Margin="4,2,4,4"
                                                 IsVisible="{Binding HasResult}">
-                                        <Button Command="{Binding FirstPageCommand}" Content="首页"
-                                                Padding="8,1" FontSize="11" MinWidth="0" />
-                                        <Button Command="{Binding PrevPageCommand}" Content="上一页"
-                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <Button Classes="compact" Command="{Binding FirstPageCommand}" Content="首页" />
+                                        <Button Classes="compact" Command="{Binding PrevPageCommand}" Content="上一页" />
                                         <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center"
                                                    FontSize="11" Opacity="0.8" />
-                                        <Button Command="{Binding NextPageCommand}" Content="下一页"
-                                                Padding="8,1" FontSize="11" MinWidth="0" />
-                                        <Button Command="{Binding LastPageCommand}" Content="末页"
-                                                Padding="8,1" FontSize="11" MinWidth="0" />
+                                        <Button Classes="compact" Command="{Binding NextPageCommand}" Content="下一页" />
+                                        <Button Classes="compact" Command="{Binding LastPageCommand}" Content="末页" />
                                         <TextBlock Text="每页" VerticalAlignment="Center" FontSize="11"
                                                    Opacity="0.6" Margin="8,0,0,0" />
                                         <ComboBox SelectedItem="{Binding PageSize}"
@@ -529,8 +521,7 @@
                                                   FontSize="11" MinWidth="70" />
                                         <TextBlock Text="行" VerticalAlignment="Center" FontSize="11"
                                                    Opacity="0.6" />
-                                        <Button Click="ToolExportResults_Click" Content="⇩ 导出结果"
-                                                Padding="8,1" FontSize="11" MinWidth="0" Margin="12,0,0,0"
+                                        <Button Classes="compact" Click="ToolExportResults_Click" Content="⇩ 导出结果" Margin="12,0,0,0"
                                                 ToolTip.Tip="把当前结果集导出为 CSV / JSON 文件" />
                                     </StackPanel>
                                 </Grid>
