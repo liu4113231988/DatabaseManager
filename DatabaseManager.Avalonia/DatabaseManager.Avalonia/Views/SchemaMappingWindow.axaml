@@ -15,7 +15,7 @@
                    FontWeight="SemiBold" Margin="0,0,0,10" />
 
         <!-- 映射列表 -->
-        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,8">
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,8">
             <DataGrid ItemsSource="{Binding SchemaMappings}"
                       AutoGenerateColumns="False"
                       GridLinesVisibility="All"

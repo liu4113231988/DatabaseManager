@@ -4,16 +4,16 @@
              x:Class="DatabaseManager.Avalonia.Controls.SqlEditor">
 
     <!-- SQL 编辑器：AvaloniaEdit（非 AtomUI 主题控件，浅色配色完全自绘，不会被 pointerover 等状态样式覆盖） -->
-    <Border Background="#FFFFFF" BorderBrush="#D9D9D9" BorderThickness="1" CornerRadius="4">
+    <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4">
         <ae:TextEditor x:Name="PART_TextEditor"
-                       Background="#FFFFFF"
-                       Foreground="#1F1F1F"
+                       Background="{DynamicResource AppSurfaceBrush}"
+                       Foreground="{DynamicResource AppTextBrush}"
                        FontFamily="Consolas, Cascadia Mono, Courier New, monospace"
                        FontSize="13"
                        Padding="6,4"
                        WordWrap="False"
                        ShowLineNumbers="True"
-                       LineNumbersForeground="#A0A0A0"
+                       LineNumbersForeground="{DynamicResource AppTextSecondaryBrush}"
                        HorizontalScrollBarVisibility="Auto"
                        VerticalScrollBarVisibility="Auto" />
     </Border>

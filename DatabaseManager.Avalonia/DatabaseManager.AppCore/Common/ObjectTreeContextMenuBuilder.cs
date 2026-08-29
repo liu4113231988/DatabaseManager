@@ -96,6 +96,12 @@ public class ObjectTreeContextMenuBuilder
                 break;
         }
 
+        // 外部菜单贡献者（IObjectTreeMenuContributor 注册）：在内置菜单之后追加。
+        foreach (var contributor in ObjectTreeMenuRegistry.GetContributors(node))
+        {
+            contributor.Contribute(new ObjectTreeMenuContext(menu.Items, node, _viewModel, _asyncAction));
+        }
+
         menu.Open(_treeView);
         e.Handled = true;
     }

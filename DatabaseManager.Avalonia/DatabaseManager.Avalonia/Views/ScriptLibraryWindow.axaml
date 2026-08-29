@@ -3,6 +3,7 @@
         xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:svc="using:DatabaseManager.AppCore.Services"
+        xmlns:conv="using:DatabaseManager.Avalonia.Converters"
         x:Class="DatabaseManager.Avalonia.Views.ScriptLibraryWindow"
         x:DataType="vm:ScriptLibraryViewModel"
         Title="脚本库"
@@ -20,7 +21,7 @@
             <atom:Button Content="关闭" Click="BtnClose_Click" />
         </StackPanel>
 
-        <TabControl x:Name="LibraryTabs" SelectionChanged="LibraryTabs_SelectionChanged">
+        <TabControl x:Name="LibraryTabs">
 
             <!-- 我的脚本 -->
             <TabItem Header="我的脚本">
@@ -51,7 +52,7 @@
                         </ListBox>
                     </DockPanel>
 
-                    <GridSplitter Grid.Column="1" Width="6" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="6" Background="{DynamicResource AppDividerBrush}" />
 
                     <!-- 右：编辑区 -->
                     <DockPanel Grid.Column="2" Margin="0,0,0,6">
@@ -66,7 +67,8 @@
                             <TextBlock Text="分类：" VerticalAlignment="Center" />
                             <TextBox Text="{Binding EditingCategory}" Width="140" VerticalContentAlignment="Center" />
                         </StackPanel>
-                        <TextBox Text="{Binding EditingSqlText}" IsEnabled="{Binding !IsBuiltInSelected}"
+                        <TextBox Text="{Binding EditingSqlText}"
+                                 IsEnabled="{Binding IsBuiltInSelected, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  AcceptsReturn="True" TextWrapping="NoWrap"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -84,7 +86,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <ListBox Grid.Column="0" ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
+                    <ListBox Grid.Column="0" ItemsSource="{Binding BuiltInScripts}" SelectedItem="{Binding SelectedScript}"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="svc:ScriptLibraryItem">
@@ -95,7 +97,7 @@
                         </ListBox.ItemTemplate>
                     </ListBox>
 
-                    <GridSplitter Grid.Column="1" Width="6" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="6" Background="{DynamicResource AppDividerBrush}" />
 
                     <DockPanel Grid.Column="2" Margin="0,0,0,6">
                         <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedScript.Name}" FontWeight="SemiBold"

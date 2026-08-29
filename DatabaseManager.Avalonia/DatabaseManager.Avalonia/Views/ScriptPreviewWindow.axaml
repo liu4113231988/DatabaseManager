@@ -46,7 +46,7 @@
             </Grid.RowDefinitions>
 
             <!-- 左：脚本列表（可勾选） -->
-            <Border Grid.Column="0" Grid.Row="0" BorderBrush="#22000000" BorderThickness="1">
+            <Border Grid.Column="0" Grid.Row="0" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                 <ListBox ItemsSource="{Binding Scripts}"
                          SelectedItem="{Binding SelectedScript}"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -63,10 +63,10 @@
                 </ListBox>
             </Border>
 
-            <GridSplitter Grid.Column="1" Grid.Row="0" Width="6" Background="#22000000" />
+            <GridSplitter Grid.Column="1" Grid.Row="0" Width="6" Background="{DynamicResource AppDividerBrush}" />
 
             <!-- 右：SQL 预览 -->
-            <Border Grid.Column="2" Grid.Row="0" BorderBrush="#22000000" BorderThickness="1">
+            <Border Grid.Column="2" Grid.Row="0" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                 <TextBox Text="{Binding SelectedScriptText, Mode=OneWay}" IsReadOnly="True"
                          FontFamily="Consolas,Menlo,monospace" FontSize="12"
                          TextWrapping="NoWrap"
@@ -75,7 +75,7 @@
             </Border>
 
             <!-- 下：执行日志（跨列） -->
-            <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" BorderBrush="#22000000" BorderThickness="1">
+            <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                 <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
                          ScrollViewer.VerticalScrollBarVisibility="Auto">

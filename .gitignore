@@ -259,3 +259,6 @@ DatabaseManager/nul
 nul
 **/.history/
 .vscode/
+
+# ZCode CLI workspace files
+.zcode/

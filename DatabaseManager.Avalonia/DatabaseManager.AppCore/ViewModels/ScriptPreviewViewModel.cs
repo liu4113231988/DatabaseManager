@@ -14,6 +14,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 public partial class ScriptPreviewViewModel : ViewModelBase
 {
     private readonly ISyncScriptService? _syncScriptService;
+    private readonly ITaskCenterService? _taskCenter;
 
     /// <summary>脚本条目列表（可勾选）。</summary>
     public ObservableCollection<ScriptItem> Scripts { get; } = new();
@@ -46,9 +47,10 @@ public partial class ScriptPreviewViewModel : ViewModelBase
     /// <summary>当前选中的脚本 SQL 文本（预览区显示；无选中时为空）。</summary>
     public string SelectedScriptText => SelectedScript?.SqlText ?? string.Empty;
 
-    public ScriptPreviewViewModel(ISyncScriptService? syncScriptService)
+    public ScriptPreviewViewModel(ISyncScriptService? syncScriptService, ITaskCenterService? taskCenter = null)
     {
         _syncScriptService = syncScriptService;
+        _taskCenter = taskCenter;
     }
 
     partial void OnSelectedScriptChanged(ScriptItem? value)
@@ -102,29 +104,59 @@ public partial class ScriptPreviewViewModel : ViewModelBase
 
         IsBusy = true;
         StatusMessage = "正在执行脚本...";
-        try
-        {
-            var result = await _syncScriptService.ExecuteScriptsAsync(
-                TargetConnection,
-                selected,
-                AppendLog);
 
-            StatusMessage = result.IsSuccess ? result.Message : $"执行失败：{result.Message}";
-            AppendLog(StatusMessage);
-        }
-        catch (OperationCanceledException)
+        var feedbackBridge = new List<string>();
+        void CollectFeedback(string message)
         {
-            StatusMessage = "执行已取消。";
-            AppendLog(StatusMessage);
+            feedbackBridge.Add(message);
+            AppendLog(message);
         }
-        catch (Exception ex)
+
+        // 经任务中心登记：预览窗口中途关闭后脚本仍在执行且可从任务中心取消/观测。
+        _taskCenter?.Run($"执行同步脚本（{selected.Count} 项）→ {TargetConnection?.Description}", "脚本执行", async (run, ct) =>
         {
-            StatusMessage = $"执行失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
+            try
+            {
+                var result = await _syncScriptService!.ExecuteScriptsAsync(TargetConnection!, selected, CollectFeedback, ct);
+
+                StatusMessage = result.IsSuccess ? result.Message : $"执行失败：{result.Message}";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "执行已取消。";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"执行失败：{ex.Message}";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        });
+
+        if (_taskCenter is null)
         {
-            IsBusy = false;
+            // 无任务中心（极端场景）：退化为内联执行。
+            try
+            {
+                var result = await _syncScriptService!.ExecuteScriptsAsync(TargetConnection!, selected, AppendLog);
+                StatusMessage = result.IsSuccess ? result.Message : $"执行失败：{result.Message}";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"执行失败：{ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
     }
 

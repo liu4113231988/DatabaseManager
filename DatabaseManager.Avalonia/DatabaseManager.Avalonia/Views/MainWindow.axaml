@@ -5,6 +5,7 @@
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:conv="using:DatabaseManager.Avalonia.Converters"
         xmlns:ctrl="using:DatabaseManager.Avalonia.Controls"
+        xmlns:self="using:DatabaseManager.Avalonia.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
@@ -16,7 +17,10 @@
         WindowStartupLocation="CenterScreen"
         KeyDown="MainWindow_KeyDown">
 
-    <DockPanel Background="#F7F9FC">
+    <Grid>
+        <!-- 字体缩放容器（设置中的缩放比例应用到整个工作区；Toast 层不缩放） -->
+        <LayoutTransformControl x:Name="RootScaler">
+        <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
         <DockPanel.Resources>
             <conv:NodeIconConverter x:Key="NodeIconConverter" />
@@ -26,15 +30,15 @@
         </DockPanel.Resources>
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
-        <Border DockPanel.Dock="Top" Background="#FFFFFF" BorderBrush="#E3E8F0" BorderThickness="0,0,0,1" Padding="10,3">
-        <Menu Background="Transparent" Foreground="#253858">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="10,3">
+        <Menu Background="Transparent" Foreground="{DynamicResource AppTextBrush}">
             <Menu.Styles>
                 <!-- AtomUI 的 MenuItem 模板会覆盖父级前景色，需在项目级菜单上明确颜色。 -->
                 <Style Selector="MenuItem">
-                    <Setter Property="Foreground" Value="#253858" />
+                    <Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
                 </Style>
                 <Style Selector="MenuItem:pointerover">
-                    <Setter Property="Background" Value="#EAF2FF" />
+                    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
                     <Setter Property="Foreground" Value="#1677FF" />
                 </Style>
             </Menu.Styles>
@@ -79,6 +83,7 @@
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
             </MenuItem>
             <MenuItem Header="工具">
+                <MenuItem Header="任务中心..." Click="MenuTaskCenter_Click" />
                 <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
                 <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
                 <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
@@ -109,81 +114,81 @@
         </Border>
 
         <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 dbeaver 工具栏布局） -->
-        <Border DockPanel.Dock="Top" Background="#FFFFFF" BorderBrush="#E3E8F0" BorderThickness="0,0,0,1" Padding="10,6">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="10,6">
             <StackPanel Orientation="Horizontal" Spacing="6">
 
                 <!-- 文件组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="toolbar" Click="ToolNewQuery_Click" ToolTip.Tip="新建查询">
+                    <Button Classes="toolbar" Click="ToolNewQuery_Click" AutomationProperties.Name="新建查询" ToolTip.Tip="新建查询">
                         <Path Data="M12 5V19M5 12H19" Stroke="#246BCE" StrokeThickness="2" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuOpenScript_Click" ToolTip.Tip="打开脚本">
-                        <Path Data="M4 7.5C4 6.67 4.67 6 5.5 6H10L12 8H18.5C19.33 8 20 8.67 20 9.5V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5Z" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" />
+                    <Button Classes="toolbar" Click="MenuOpenScript_Click" AutomationProperties.Name="打开脚本" ToolTip.Tip="打开脚本">
+                        <Path Data="M4 7.5C4 6.67 4.67 6 5.5 6H10L12 8H18.5C19.33 8 20 8.67 20 9.5V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5Z" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuSaveScript_Click" ToolTip.Tip="保存脚本">
-                        <Path Data="M5 4H17L20 7V20H4V5C4 4.45 4.45 4 5 4ZM7 4V10H16V4M8 20V14H16V20" Stroke="#52657F" StrokeThickness="1.6" Fill="Transparent" />
+                    <Button Classes="toolbar" Click="MenuSaveScript_Click" AutomationProperties.Name="保存脚本" ToolTip.Tip="保存脚本">
+                        <Path Data="M5 4H17L20 7V20H4V5C4 4.45 4.45 4 5 4ZM7 4V10H16V4M8 20V14H16V20" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.6" Fill="Transparent" />
                     </Button>
                 </StackPanel>
 
-                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
+                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- 连接组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="toolbar" Command="{Binding ConnectCommand}" ToolTip.Tip="连接">
+                    <Button Classes="toolbar" Command="{Binding ConnectCommand}" AutomationProperties.Name="连接" ToolTip.Tip="连接">
                         <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M7 12V17C7 18.66 9.24 20 12 20S17 18.66 17 17V12M19 15L21 17L19 19M14 17H21" Stroke="#0F8B8D" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Command="{Binding ReconnectCommand}" ToolTip.Tip="重连">
-                        <Path Data="M18.5 8.5A7 7 0 1 0 19 15M18 4V9H13" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
+                    <Button Classes="toolbar" Command="{Binding ReconnectCommand}" AutomationProperties.Name="重连" ToolTip.Tip="重连">
+                        <Path Data="M18.5 8.5A7 7 0 1 0 19 15M18 4V9H13" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Command="{Binding DisconnectCommand}" ToolTip.Tip="断开">
+                    <Button Classes="toolbar" Command="{Binding DisconnectCommand}" AutomationProperties.Name="断开" ToolTip.Tip="断开">
                         <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M5 19L19 5" Stroke="#C44545" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
-                    <Button Classes="toolbar" Click="MenuNewConnection_Click" ToolTip.Tip="新建连接">
+                    <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="4,2" />
+                    <Button Classes="toolbar" Click="MenuNewConnection_Click" AutomationProperties.Name="新建连接" ToolTip.Tip="新建连接">
                         <Path Data="M7 6.5C7 5.12 9.24 4 12 4S17 5.12 17 6.5 14.76 9 12 9 7 7.88 7 6.5ZM7 6.5V11C7 12.38 9.24 13.5 12 13.5M18 17V22M15.5 19.5H20.5" Stroke="#0F8B8D" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuConnectionManager_Click" ToolTip.Tip="连接管理">
-                        <Path Data="M5 5H14V19H5ZM8 9H11M8 13H11M17 7V19M17 11H20M17 15H20" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
+                    <Button Classes="toolbar" Click="MenuConnectionManager_Click" AutomationProperties.Name="连接管理" ToolTip.Tip="连接管理">
+                        <Path Data="M5 5H14V19H5ZM8 9H11M8 13H11M17 7V19M17 11H20M17 15H20" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                 </StackPanel>
 
-                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
+                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- SQL 执行组（绑定到当前选中的查询标签） -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="toolbar Primary" Click="ToolExecute_Click" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
+                    <Button Classes="toolbar Primary" Click="ToolExecute_Click" AutomationProperties.Name="执行 (F5) - 选中时仅执行选区" ToolTip.Tip="执行 (F5) - 选中时仅执行选区">
                         <Path Data="M7 4L19 12L7 20Z" Fill="#1677FF" />
                     </Button>
-                    <Button Classes="toolbar" Click="ToolCancelExecution_Click" ToolTip.Tip="取消正在执行的 SQL"
+                    <Button Classes="toolbar" Click="ToolCancelExecution_Click" AutomationProperties.Name="取消正在执行的 SQL" ToolTip.Tip="取消正在执行的 SQL"
                             IsEnabled="{Binding SelectedQueryTab.IsExecuting}">
                         <Path Data="M7 7H17V17H7Z" Fill="#FF4D4F" />
                     </Button>
-                    <Button Classes="toolbar" Click="ToolFormat_Click" ToolTip.Tip="美化 (Ctrl+Shift+F)">
+                    <Button Classes="toolbar" Click="ToolFormat_Click" AutomationProperties.Name="美化 (Ctrl+Shift+F)" ToolTip.Tip="美化 (Ctrl+Shift+F)">
                         <Path Data="M3 21H21V19H3V21M3 13H21V11H3V13M7 17H21V15H7V17M7 9H21V7H7V9Z" Fill="#1677FF" Width="16" Height="16" Stretch="Uniform" />
                     </Button>
-                    <Button Classes="toolbar" Click="ToolExplain_Click" ToolTip.Tip="执行计划 (EXPLAIN / SHOWPLAN)">
+                    <Button Classes="toolbar" Click="ToolExplain_Click" AutomationProperties.Name="执行计划 (EXPLAIN / SHOWPLAN)" ToolTip.Tip="执行计划 (EXPLAIN / SHOWPLAN)">
                         <Path Data="M12 3V7M12 17V21M4.9 4.9L7.8 7.8M16.2 16.2L19.1 19.1M3 12H7M17 12H21M4.9 19.1L7.8 16.2M16.2 7.8L19.1 4.9" Stroke="#7B61FF" StrokeThickness="1.7" StrokeLineCap="Round" Fill="Transparent" />
                     </Button>
-                    <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="4,2" />
+                    <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="4,2" />
                     <!-- 事务组（绑定到当前标签） -->
                     <StackPanel Orientation="Horizontal" Spacing="1">
                         <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="自动提交" VerticalAlignment="Center" />
                             <ToggleSwitch IsChecked="{Binding QueryEditor.AutoCommit}" />
                         </StackPanel>
-                        <Button Classes="toolbar" Command="{Binding QueryEditor.BeginTransactionCommand}" ToolTip.Tip="开始事务">
-                            <Path Data="M5 7H19M5 12H15M5 17H12M18 14V20M15 17H21" Stroke="#52657F" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.BeginTransactionCommand}" AutomationProperties.Name="开始事务" ToolTip.Tip="开始事务">
+                            <Path Data="M5 7H19M5 12H15M5 17H12M18 14V20M15 17H21" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
-                        <Button Classes="toolbar" Command="{Binding QueryEditor.CommitTransactionCommand}" ToolTip.Tip="提交">
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.CommitTransactionCommand}" AutomationProperties.Name="提交" ToolTip.Tip="提交">
                             <Path Data="M5 12L9.5 16.5L19 7" Stroke="#169B62" StrokeThickness="2" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
-                        <Button Classes="toolbar" Command="{Binding QueryEditor.RollbackTransactionCommand}" ToolTip.Tip="回滚">
+                        <Button Classes="toolbar" Command="{Binding QueryEditor.RollbackTransactionCommand}" AutomationProperties.Name="回滚" ToolTip.Tip="回滚">
                             <Path Data="M9 7L5 11L9 15M5 11H14C17 11 19 13 19 16V17" Stroke="#C44545" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" />
                         </Button>
                     </StackPanel>
                 </StackPanel>
 
-                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
+                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- Schema 选择组（多 Schema 数据库时显示） -->
                 <StackPanel Orientation="Horizontal" Spacing="4"
@@ -194,24 +199,24 @@
                              VerticalContentAlignment="Center" />
                 </StackPanel>
 
-                <Border Width="1" Background="#22000000" VerticalAlignment="Stretch" Margin="2,2" />
+                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
 
                 <!-- 工具组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="toolbar" Click="MenuDataCompare_Click" ToolTip.Tip="数据对比">
+                    <Button Classes="toolbar" Click="MenuDataCompare_Click" AutomationProperties.Name="数据对比" ToolTip.Tip="数据对比">
                         <Path Data="M4 6H10V12H4ZM14 6H20V12H14ZM4 16H10V20H4ZM14 16H20V20H14ZM10 9H14M7 12V16M17 12V16" Stroke="#6B5DD3" StrokeThickness="1.5" Fill="Transparent" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuSchemaCompare_Click" ToolTip.Tip="结构对比">
+                    <Button Classes="toolbar" Click="MenuSchemaCompare_Click" AutomationProperties.Name="结构对比" ToolTip.Tip="结构对比">
                         <Path Data="M5 4H13V19H5ZM11 8H19V21H11M8 8H10M8 12H10M14 12H16M14 16H16" Stroke="#6B5DD3" StrokeThickness="1.5" Fill="Transparent" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuConvert_Click" ToolTip.Tip="数据库转换">
+                    <Button Classes="toolbar" Click="MenuConvert_Click" AutomationProperties.Name="数据库转换" ToolTip.Tip="数据库转换">
                         <Path Data="M4 8H16M13 5L16 8L13 11M20 16H8M11 13L8 16L11 19" Stroke="#246BCE" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuDiagnose_Click" ToolTip.Tip="诊断">
+                    <Button Classes="toolbar" Click="MenuDiagnose_Click" AutomationProperties.Name="诊断" ToolTip.Tip="诊断">
                         <Path Data="M11 4A7 7 0 1 0 18 11M16 16L21 21M8 11H14M11 8V14" Stroke="#D97706" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Click="MenuBackup_Click" ToolTip.Tip="备份">
-                        <Path Data="M5 6H19V20H5ZM8 6V3M16 6V3M8 11H16M12 13V17M10 15H14" Stroke="#52657F" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
+                    <Button Classes="toolbar" Click="MenuBackup_Click" AutomationProperties.Name="备份" ToolTip.Tip="备份">
+                        <Path Data="M5 6H19V20H5ZM8 6V3M16 6V3M8 11H16M12 13V17M10 15H14" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                 </StackPanel>
 
@@ -219,24 +224,55 @@
         </Border>
 
         <!-- 状态栏 -->
-        <Border DockPanel.Dock="Bottom" Height="28" Background="#F1F5F9" BorderBrush="#E3E8F0" BorderThickness="0,1,0,0">
-            <TextBlock Text="{Binding ConnectionSummary}" Foreground="#52657F" VerticalAlignment="Center" Margin="14,0" FontSize="11" />
+        <Border DockPanel.Dock="Bottom" Height="28" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <TextBlock Text="{Binding ConnectionSummary}" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center" Margin="14,0" FontSize="11" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="AppearanceButton" Classes="compact" Click="Appearance_Click" Background="Transparent" BorderThickness="0" Padding="6,0"
+                            ToolTip.Tip="切换主题外观（跟随系统/亮色/深色/高对比）">
+                        <TextBlock Text="外观" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    </Button>
+                    <Button x:Name="FontScaleButton" Classes="compact" Click="FontScale_Click" Background="Transparent" BorderThickness="0" Padding="6,0"
+                            ToolTip.Tip="界面字体缩放">
+                        <TextBlock Text="缩放" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    </Button>
+                    <Button x:Name="RunningTasksButton" Click="RunningTasks_Click" Background="Transparent" BorderThickness="0"
+                            Padding="10,0" ToolTip.Tip="打开任务中心">
+                        <TextBlock x:Name="RunningTasksText" Text="任务：无运行中" Foreground="{DynamicResource AppTextSecondaryBrush}" FontSize="11" />
+                    </Button>
+                </StackPanel>
+            </Grid>
         </Border>
 
-        <!-- 主内容：左对象浏览器 / 右查询内容区（两栏分离，避免重叠） -->
-        <Grid>
+        <!-- 主内容：左对象浏览器 / 右查询内容区（宽度可拖动调整，位置在启动时恢复） -->
+        <Grid x:Name="MainContentGrid">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="400" />
+                <ColumnDefinition Width="400" MinWidth="260" MaxWidth="800" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- 左右分割条：拖动调整对象浏览器宽度 -->
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Background="Transparent" />
+
             <!-- 左：对象浏览器（连接列表 + 对象树） -->
             <Border Grid.Column="0"
-                    BorderBrush="#E3E8F0" BorderThickness="0,0,1,0" Margin="0,0,0,4" Background="#FFFFFF">
+                    BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,1,0" Margin="0,0,0,4" Background="{DynamicResource AppSurfaceBrush}">
                 <DockPanel Margin="8">
-                    <Border DockPanel.Dock="Top" Background="#F2F6FC" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
-                        <TextBlock Text="对象浏览器" FontWeight="SemiBold" Foreground="#253858" />
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
+                        <TextBlock Text="对象浏览器" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                     </Border>
+
+                    <!-- 对象搜索框：Enter 或点击按钮深度搜索元数据，结果可定位到树 -->
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                        <TextBox Grid.Column="0" x:Name="TreeFilterBox"
+                                 Watermark="搜索表/视图/列...（Enter）"
+                                 FontSize="11" MinHeight="0" VerticalContentAlignment="Center"
+                                 KeyDown="TreeFilterBox_KeyDown" />
+                        <Button Grid.Column="1" Classes="compact" Content="搜索" Margin="6,0,0,0"
+                                Click="TreeFilterSearch_Click" ToolTip.Tip="深度搜索当前连接的元数据并定位到树（Ctrl+Shift+D）" />
+                    </Grid>
 
                     <Grid>
                         <Grid.RowDefinitions>
@@ -273,10 +309,10 @@
                                 </Style>
                                 <!-- 悬停与选中态（对齐 AtomUI Tree 选中 #E6F4FF） -->
                                 <Style Selector="TreeViewItem:pointerover">
-                                    <Setter Property="Background" Value="#F5F5F5" />
+                                    <Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
                                 </Style>
                                 <Style Selector="TreeViewItem:selected">
-                                    <Setter Property="Background" Value="#E6F4FF" />
+                                    <Setter Property="Background" Value="{DynamicResource AppSelectedBrush}" />
                                 </Style>
                                 <!-- 兼容不同版本 Avalonia TreeViewItem 模板：多重命中缩进容器 -->
                                 <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
@@ -305,7 +341,7 @@
                                                 <Path x:Name="ArrowPath"
                                                       Data="M3,2.5 L7.5,6 L3,9.5"
                                                       Fill="Transparent"
-                                                      Stroke="#8C8C8C"
+                                                      Stroke="{DynamicResource AppChevronBrush}"
                                                       StrokeThickness="1.8"
                                                       StrokeLineCap="Round"
                                                       Stretch="Uniform"
@@ -361,7 +397,9 @@
                                                        FontWeight="{Binding NodeType, Converter={StaticResource NodeFontWeightConverter}}"
                                                        TextTrimming="CharacterEllipsis"
                                                        MaxWidth="220" />
-                                            <Border Background="#F0F5FF" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
+                                            <TextBlock Text="⏳ 加载中…（再次双击取消）" FontSize="10" Foreground="#D97706"
+                                                       VerticalAlignment="Center" IsVisible="{Binding IsLoading}" />
+                                            <Border Background="{DynamicResource AppSelectedBrush}" CornerRadius="4" Padding="4,1" VerticalAlignment="Center"
                                                     IsVisible="{Binding HasBadge}">
                                                 <TextBlock Text="{Binding BadgeText}" FontSize="10" Foreground="#1677FF" VerticalAlignment="Center" />
                                             </Border>
@@ -375,7 +413,7 @@
             </Border>
 
             <!-- 右：主内容区（对齐 DBeaver：多查询标签 + 查询/数据编辑子选项卡） -->
-            <DockPanel Grid.Column="1" Margin="4,0,4,4">
+            <DockPanel Grid.Column="2" Margin="4,0,4,4">
 
                 <!-- 子选项卡：查询 / 数据编辑 -->
                 <TabControl x:Name="QueryTabsControl"
@@ -451,7 +489,8 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <!-- 状态栏（含可编辑状态与只读原因） -->
-                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2,0,2">
+                                    <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="4,2,0,2"
+                                                IsVisible="{Binding ShowNoResult, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
                                         <TextBlock Text="{Binding StatusMessage}"
                                                    Opacity="0.7" FontSize="11" />
                                         <TextBlock Text="{Binding EditReadOnlyReason}"
@@ -497,12 +536,25 @@
                                             <!-- 列由代码动态生成 -->
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <TextBlock Grid.Row="1" Text="（无结果）"
-                                               IsVisible="{Binding ShowNoResult}"
-                                               Opacity="0.4"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"
-                                               Margin="20" />
+                                    <!-- 空结果状态：消息与“无结果”作为一个整体居中，拖动上下分隔条后仍保持稳定。 -->
+                                    <StackPanel Grid.Row="1"
+                                                IsVisible="{Binding ShowNoResult}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Spacing="8"
+                                                Margin="20"
+                                                MaxWidth="520">
+                                        <TextBlock Text="{Binding StatusMessage}"
+                                                   FontSize="12"
+                                                   Opacity="0.72"
+                                                   TextWrapping="Wrap"
+                                                   TextAlignment="Center"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="（无结果）"
+                                                   FontSize="11"
+                                                   Opacity="0.4"
+                                                   HorizontalAlignment="Center" />
+                                    </StackPanel>
 
                                     <!-- 分页栏（大数据量分页显示） -->
                                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
@@ -558,5 +610,23 @@
             </DockPanel>
         </Grid>
     </DockPanel>
+        </LayoutTransformControl>
+
+        <!-- Toast 通知层（任务完成/失败/取消时右上角冒泡，自动消失） -->
+        <ItemsControl x:Name="ToastHost" HorizontalAlignment="Right" VerticalAlignment="Top"
+                      Margin="0,44,12,0" MaxWidth="380" IsHitTestVisible="False">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="self:ToastItem">
+                    <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="8"
+                            Padding="12,8" Margin="0,0,0,8" BoxShadow="0 4 16 #33000000">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" Foreground="{Binding Accent}" />
+                            <TextBlock Text="{Binding Message}" FontSize="11" TextWrapping="Wrap" Opacity="0.85" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
 
 </Window>

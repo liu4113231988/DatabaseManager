@@ -58,7 +58,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：日志 -->
-        <Border BorderBrush="#22000000" BorderThickness="1">
+        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
             <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.VerticalScrollBarVisibility="Auto">

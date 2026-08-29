@@ -38,7 +38,7 @@
         <!-- 中部：结果 + 日志 -->
         <TabControl x:Name="MainTabs">
             <TabItem Header="表记录数">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <DataGrid ItemsSource="{Binding RecordCounts}" AutoGenerateColumns="False"
                               IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -52,7 +52,7 @@
             </TabItem>
 
             <TabItem Header="列内容最大长度">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <DataGrid ItemsSource="{Binding ColumnLengths}" AutoGenerateColumns="False"
                               IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
                               ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -67,7 +67,7 @@
             </TabItem>
 
             <TabItem Header="日志">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">

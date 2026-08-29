@@ -4,17 +4,17 @@ using DatabaseManager.AppCore.ViewModels;
 
 namespace DatabaseManager.Avalonia.Views;
 
-/// <summary>脚本库窗口：管理用户脚本与内置片段，插入到查询编辑器。</summary>
-public partial class ScriptLibraryWindow : Window
+/// <summary>任务中心窗口：查看/取消本会话后台任务与跨会话历史。</summary>
+public partial class TaskCenterWindow : Window
 {
-    private readonly ScriptLibraryViewModel? _vm;
+    private readonly TaskCenterViewModel? _vm;
 
-    public ScriptLibraryWindow()
+    public TaskCenterWindow()
     {
         InitializeComponent();
     }
 
-    public ScriptLibraryWindow(ScriptLibraryViewModel vm) : this()
+    public TaskCenterWindow(TaskCenterViewModel vm) : this()
     {
         DataContext = vm;
         _vm = vm;
@@ -24,11 +24,6 @@ public partial class ScriptLibraryWindow : Window
     {
         base.OnOpened(e);
         _vm?.RefreshCommand.Execute(null);
-    }
-
-    private void BtnNew_Click(object? sender, RoutedEventArgs e)
-    {
-        _vm?.BeginNewWithSql(string.Empty);
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

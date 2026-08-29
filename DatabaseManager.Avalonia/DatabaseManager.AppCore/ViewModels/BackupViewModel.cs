@@ -9,19 +9,18 @@ namespace DatabaseManager.AppCore.ViewModels;
 
 /// <summary>
 /// 数据库备份 ViewModel（阶段 5）。
-/// 选择连接，配置保存文件夹 / 客户端工具路径 / 是否压缩，执行数据库备份。
+/// 选择连接，配置保存文件夹 / 客户端工具路径 / 是否压缩，执行数据库备份/恢复。
+/// 执行经任务中心登记（可脱离本窗口观测/取消）。
 /// </summary>
-public partial class BackupViewModel : ViewModelBase
+public partial class BackupViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IBackupService _backupService;
-    private CancellationTokenSource? _backupCts;
+    private readonly ITaskCenterService _taskCenter;
+    private TaskRun? _currentRun;
 
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
-
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
 
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
@@ -38,19 +37,18 @@ public partial class BackupViewModel : ViewModelBase
     [ObservableProperty]
     private bool _zipFile = true;
 
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(BackupCommand))]
-    [NotifyCanExecuteChangedFor(nameof(RestoreCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelBackupCommand))]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    public BackupViewModel(IDbConnectionService connectionService, IBackupService backupService)
+    public BackupViewModel(IDbConnectionService connectionService, IBackupService backupService, ITaskCenterService taskCenter)
     {
         _connectionService = connectionService;
         _backupService = backupService;
+        _taskCenter = taskCenter;
+    }
+
+    protected override void OnBusyChanged()
+    {
+        BackupCommand.NotifyCanExecuteChanged();
+        RestoreCommand.NotifyCanExecuteChanged();
+        CancelBackupCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
@@ -85,48 +83,57 @@ public partial class BackupViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = string.Empty;
         Logs.Clear();
-        _backupCts = new CancellationTokenSource();
-        var token = _backupCts.Token;
+
+        var connection = SelectedConnection;
+        var saveFolder = SaveFolder;
+        var clientTool = ClientToolFilePath;
+        var zip = ZipFile;
 
         var feedbackBuffer = new List<string>();
         void CollectFeedback(string message)
         {
             lock (feedbackBuffer) feedbackBuffer.Add(message);
+            _currentRun?.Report(message);
         }
 
-        try
-        {
-            AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"保存文件夹：{SaveFolder}");
-            AppendLog("开始备份...");
+        AppendLog($"连接：{connection.Description}");
+        AppendLog($"保存文件夹：{saveFolder}");
+        AppendLog("开始备份...");
 
-            var result = await _backupService.BackupAsync(
-                SelectedConnection, SaveFolder, ClientToolFilePath, ZipFile, CollectFeedback, token);
+        // 经任务中心登记：窗口中途关闭后备份仍可观测/取消。
+        _currentRun = _taskCenter.Run($"备份 {connection.Description}", "备份", async (run, ct) =>
+        {
+            try
+            {
+                var result = await _backupService.BackupAsync(connection, saveFolder, clientTool, zip, CollectFeedback, ct);
 
-            foreach (var line in feedbackBuffer)
-                AppendLog(line);
+                foreach (var line in feedbackBuffer)
+                    AppendLog(line);
 
-            StatusMessage = result.IsOK
-                ? $"备份成功，文件：{result.FilePath}"
-                : $"备份失败：{result.Message}";
-            AppendLog(StatusMessage);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "备份已取消。";
-            AppendLog(StatusMessage);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"备份失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            IsBusy = false;
-            _backupCts?.Dispose();
-            _backupCts = null;
-        }
+                StatusMessage = result.IsOK
+                    ? $"备份成功，文件：{result.FilePath}"
+                    : $"备份失败：{result.Message}";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "备份已取消。";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"备份失败：{ex.Message}";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            finally
+            {
+                _currentRun = null;
+                IsBusy = false;
+            }
+        });
     }
 
     private bool CanRunBackup() => !IsBusy;
@@ -148,66 +155,72 @@ public partial class BackupViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = string.Empty;
         Logs.Clear();
-        _backupCts = new CancellationTokenSource();
-        var token = _backupCts.Token;
+
+        var connection = SelectedConnection;
+        var restoreFile = RestoreFilePath;
+        var clientTool = ClientToolFilePath;
+
         var feedbackBuffer = new List<string>();
         void CollectFeedback(string message)
         {
             lock (feedbackBuffer) feedbackBuffer.Add(message);
+            _currentRun?.Report(message);
         }
 
-        try
+        AppendLog($"连接：{connection.Description}");
+        AppendLog($"恢复文件：{restoreFile}");
+        AppendLog("开始恢复...");
+
+        _currentRun = _taskCenter.Run($"恢复 {connection.Description}", "恢复", async (run, ct) =>
         {
-            AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"恢复文件：{RestoreFilePath}");
-            AppendLog("开始恢复...");
-            var result = await _backupService.RestoreAsync(
-                SelectedConnection, RestoreFilePath, ClientToolFilePath, CollectFeedback, token);
-            foreach (var line in feedbackBuffer)
-                AppendLog(line);
-            StatusMessage = result.IsOK ? "恢复成功。请重新连接并验证数据库对象。" : $"恢复失败：{result.Message}";
-            AppendLog(StatusMessage);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusMessage = "恢复已取消。";
-            AppendLog(StatusMessage);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"恢复失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            IsBusy = false;
-            _backupCts?.Dispose();
-            _backupCts = null;
-        }
+            try
+            {
+                var result = await _backupService.RestoreAsync(connection, restoreFile, clientTool, CollectFeedback, ct);
+
+                foreach (var line in feedbackBuffer)
+                    AppendLog(line);
+
+                StatusMessage = result.IsOK ? "恢复成功。请重新连接并验证数据库对象。" : $"恢复失败：{result.Message}";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "恢复已取消。";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"恢复失败：{ex.Message}";
+                AppendLog(StatusMessage);
+                throw;
+            }
+            finally
+            {
+                _currentRun = null;
+                IsBusy = false;
+            }
+        });
     }
 
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelBackup()
     {
-        if (_backupCts == null || _backupCts.IsCancellationRequested) return;
+        if (_currentRun is null)
+        {
+            return;
+        }
+
         try
         {
             AppendLog("请求取消备份...");
-            _backupCts.Cancel();
+            _taskCenter.Cancel(_currentRun.Id);
         }
         catch (Exception ex)
         {
             StatusMessage = $"取消失败：{ex.Message}";
             AppendLog(StatusMessage);
         }
-    }
-
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
     }
 }

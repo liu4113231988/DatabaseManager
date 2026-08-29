@@ -16,6 +16,9 @@ public partial class ScriptLibraryViewModel : ViewModelBase
     /// <summary>列表显示的脚本（我的脚本或内置片段）。</summary>
     public ObservableCollection<ScriptLibraryItem> Scripts { get; } = new();
 
+    /// <summary>内置片段独立集合，避免切换选项卡时修改“我的脚本”列表导致 ListBox 选择更新重入。</summary>
+    public ObservableCollection<ScriptLibraryItem> BuiltInScripts { get; } = new();
+
     [ObservableProperty]
     private ScriptLibraryItem? _selectedScript;
 
@@ -42,6 +45,11 @@ public partial class ScriptLibraryViewModel : ViewModelBase
     public ScriptLibraryViewModel(IScriptLibraryService libraryService)
     {
         _libraryService = libraryService;
+
+        foreach (var snippet in SqlSnippets.BuiltIn)
+        {
+            BuiltInScripts.Add(snippet);
+        }
     }
 
     partial void OnSelectedScriptChanged(ScriptLibraryItem? value)
@@ -80,16 +88,6 @@ public partial class ScriptLibraryViewModel : ViewModelBase
             }
 
             Scripts.Add(script);
-        }
-    }
-
-    /// <summary>展示内置片段页。</summary>
-    public void ShowBuiltIn()
-    {
-        Scripts.Clear();
-        foreach (var snippet in SqlSnippets.BuiltIn)
-        {
-            Scripts.Add(snippet);
         }
     }
 

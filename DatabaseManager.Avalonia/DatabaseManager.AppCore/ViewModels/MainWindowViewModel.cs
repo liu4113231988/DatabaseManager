@@ -22,6 +22,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IDataEditService _dataEditService;
     private readonly IQueryHistoryService? _historyService;
     private readonly IScriptLibraryService? _scriptLibraryService;
+    private readonly IAppSettingsService? _appSettingsService;
 
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -85,7 +86,8 @@ public partial class MainWindowViewModel : ViewModelBase
         ObjectsExplorerViewModel objectsExplorer,
         QueryEditorViewModel queryEditor,
         IQueryHistoryService? historyService = null,
-        IScriptLibraryService? scriptLibraryService = null)
+        IScriptLibraryService? scriptLibraryService = null,
+        IAppSettingsService? appSettingsService = null)
     {
         _schemaService = schemaService;
         _connectionService = connectionService;
@@ -93,19 +95,97 @@ public partial class MainWindowViewModel : ViewModelBase
         _dataEditService = dataEditService;
         _historyService = historyService;
         _scriptLibraryService = scriptLibraryService;
+        _appSettingsService = appSettingsService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
     }
 
-    /// <summary>初始化：枚举受支持的数据库类型，并加载已保存连接。</summary>
+    /// <summary>初始化：枚举受支持的数据库类型，加载已保存连接，并恢复上次会话的查询标签。</summary>
     public void Initialize()
     {
         SupportedDatabases = string.Join(", ", _schemaService.GetSupportedDatabaseTypes());
         RefreshConnections();
         RefreshRecentScripts();
 
-        // 默认打开一个查询标签页
-        NewQuery();
+        RestoreSession();
+    }
+
+    /// <summary>恢复上次会话打开的查询标签（含未保存的 SQL 草稿）；无可恢复内容时新建一个空标签。</summary>
+    private void RestoreSession()
+    {
+        var tabs = _appSettingsService?.Settings.Workspace.Tabs;
+        var restored = 0;
+
+        if (tabs is { Count: > 0 })
+        {
+            foreach (var tab in tabs)
+            {
+                if (string.IsNullOrWhiteSpace(tab.SqlText) && string.IsNullOrEmpty(tab.ConnectionName))
+                {
+                    continue;
+                }
+
+                RestoreQueryTab(tab);
+                restored++;
+            }
+
+            if (restored > 0)
+            {
+                SelectedQueryTab = QueryTabs[^1];
+            }
+        }
+
+        if (restored == 0)
+        {
+            NewQuery();
+        }
+    }
+
+    /// <summary>按会话快照恢复一个查询标签（SQL 以草稿形式恢复，不自动标记为已修改）。</summary>
+    public QueryTabViewModel RestoreQueryTab(QueryTabState state)
+    {
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService, title: state.Title, historyService: _historyService);
+
+        if (!string.IsNullOrEmpty(state.ConnectionName))
+        {
+            newTab.ConnectionName = state.ConnectionName;
+        }
+        else if (SelectedConnection is not null)
+        {
+            newTab.ConnectionName = SelectedConnection.Name;
+        }
+
+        if (!string.IsNullOrEmpty(state.DatabaseName))
+        {
+            newTab.DatabaseName = state.DatabaseName;
+        }
+
+        newTab.SqlText = state.SqlText ?? string.Empty;
+        newTab.MarkAsSaved();
+
+        QueryTabs.Add(newTab);
+        return newTab;
+    }
+
+    /// <summary>捕获当前会话（打开的查询标签 + SQL 草稿），供退出时持久化。</summary>
+    public void CaptureSession()
+    {
+        if (_appSettingsService is null)
+        {
+            return;
+        }
+
+        _appSettingsService.Settings.Workspace.Tabs = QueryTabs
+            .Select(t => new QueryTabState
+            {
+                Title = t.Title.EndsWith(" *", StringComparison.Ordinal) ? t.Title[..^2] : t.Title,
+                SqlText = t.SqlText,
+                ConnectionName = t.ConnectionName,
+                DatabaseName = t.DatabaseName,
+            })
+            .ToList();
+
+        _appSettingsService.Save();
     }
 
     /// <summary>刷新左侧对象浏览器的连接列表。</summary>

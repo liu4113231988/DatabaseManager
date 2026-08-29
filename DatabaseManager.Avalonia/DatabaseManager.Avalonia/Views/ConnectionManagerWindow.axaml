@@ -10,13 +10,13 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="20" Background="#F7F9FC">
+    <DockPanel Margin="20" Background="{DynamicResource AppWindowBgBrush}">
 
         <!-- 顶部工具栏 -->
         <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto"
               Margin="0,0,0,16">
             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="数据库类型" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#253858" />
+                <TextBlock Text="数据库类型" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboDatabaseType" Width="160" MinWidth="160"
                                SelectionChanged="ComboDatabaseType_SelectionChanged" />
             </StackPanel>
@@ -38,7 +38,7 @@
 
         <!-- 状态栏（Dock 到最底，位于按钮下方） -->
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,8,0,0" Opacity="0.7" Foreground="#52657F" />
+                   VerticalAlignment="Center" Margin="2,8,0,0" Opacity="0.7" Foreground="{DynamicResource AppTextSecondaryBrush}" />
 
         <!-- 连接列表（Fill：填满工具栏与底部之间的剩余空间，避免下边错位） -->
         <Border Classes="surface" Margin="0,0,0,14" Padding="6">
@@ -49,7 +49,7 @@
                     <DataTemplate x:DataType="models:ConnectionItem">
                         <Border Padding="10,8" Margin="2" CornerRadius="6">
                         <StackPanel Spacing="3">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#172033" />
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                             <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#6B7C93" />
                         </StackPanel>
                         </Border>

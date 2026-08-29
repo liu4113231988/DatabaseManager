@@ -3,6 +3,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Avalonia.Styling;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 
@@ -13,6 +14,7 @@ namespace DatabaseManager.Avalonia.Converters;
 /// </summary>
 public class NodeIconConverter : IValueConverter
 {
+    /// <summary>图标缓存（键含主题变体，深色/高对比下浅色填充自动适配）。</summary>
     private static readonly Dictionary<string, DrawingImage> IconCache = new(StringComparer.Ordinal);
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
@@ -21,9 +23,12 @@ public class NodeIconConverter : IValueConverter
             return null;
 
         var kind = GetIconKind(node);
-        return IconCache.TryGetValue(kind, out var icon)
+        var variant = Application.Current?.ActualThemeVariant ?? ThemeVariant.Default;
+        var cacheKey = $"{variant.Key}:{kind}";
+
+        return IconCache.TryGetValue(cacheKey, out var icon)
             ? icon
-            : IconCache[kind] = BuildVectorIcon(kind);
+            : IconCache[cacheKey] = BuildVectorIcon(kind);
     }
 
     private static string GetIconKind(DbObjectTreeNode node)
@@ -73,7 +78,9 @@ public class NodeIconConverter : IValueConverter
         var violet = new SolidColorBrush(Color.Parse("#6B5DD3"));
         var amber = new SolidColorBrush(Color.Parse("#D97706"));
         var slate = new SolidColorBrush(Color.Parse("#52657F"));
-        var lightBlue = new SolidColorBrush(Color.Parse("#EAF2FF"));
+        // 浅色填充随主题变体切换（深色/高对比下避免刺眼亮块）。
+        var lightBlue = ThemeBrushResolver.Get("AppSelectedBrush") ?? new SolidColorBrush(Color.Parse("#EAF2FF"));
+        var folderFill = ThemeBrushResolver.Get("AppNodeBadgeBrush") ?? new SolidColorBrush(Color.Parse("#FFF3D6"));
         var pen = new Pen(slate, 1.15);
 
         void Add(string path, IBrush? fill = null, IPen? outline = null) =>
@@ -90,7 +97,7 @@ public class NodeIconConverter : IValueConverter
                 break;
             case "table-folder": case "view-folder": case "code-folder": case "folder":
                 var folderColor = kind == "code-folder" ? violet : kind == "view-folder" ? teal : amber;
-                Add("M1.8,4.5 L6.5,4.5 L7.8,6 L14.2,6 L14.2,13.5 L1.8,13.5 Z", new SolidColorBrush(Color.Parse("#FFF3D6")), new Pen(folderColor, 1.1));
+                Add("M1.8,4.5 L6.5,4.5 L7.8,6 L14.2,6 L14.2,13.5 L1.8,13.5 Z", folderFill, new Pen(folderColor, 1.1));
                 if (kind == "table-folder") Add("M7,8.3 L12,8.3 M7,10.6 L12,10.6", null, new Pen(folderColor, 0.9));
                 break;
             case "schema":
@@ -109,7 +116,7 @@ public class NodeIconConverter : IValueConverter
                 Add("M8,2.5 L13,4.5 L12.2,10.5 L8,13.5 L3.8,10.5 L3,4.5 Z M5.8,8 L7.3,9.5 L10.5,6.3", lightBlue, new Pen(violet, 1));
                 break;
             case "trigger":
-                Add("M9,2 L4,9 L8,9 L7,14 L12,7 L8,7 Z", new SolidColorBrush(Color.Parse("#FFF3D6")), new Pen(amber, 1));
+                Add("M9,2 L4,9 L8,9 L7,14 L12,7 L8,7 Z", folderFill, new Pen(amber, 1));
                 break;
             case "code":
                 Add("M6.5,4 L3,8 L6.5,12 M9.5,4 L13,8 L9.5,12", null, new Pen(violet, 1.35));

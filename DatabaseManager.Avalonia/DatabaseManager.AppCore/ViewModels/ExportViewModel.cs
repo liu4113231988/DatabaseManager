@@ -12,11 +12,12 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 选择连接/表/视图与导出格式，导出数据到 CSV / Excel / SQL / JSON / XML 文件。
 /// 支持文本编码选择与起始页续传。
 /// </summary>
-public partial class ExportViewModel : ViewModelBase
+public partial class ExportViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IExportImportService _exportImportService;
-    private CancellationTokenSource? _exportCts;
+    private readonly ITaskCenterService _taskCenter;
+    private TaskRun? _currentRun;
 
     /// <summary>快速切换连接时，淘汰过期的异步加载结果（竞态防护）。</summary>
     private int _loadTableVersion;
@@ -32,9 +33,6 @@ public partial class ExportViewModel : ViewModelBase
 
     /// <summary>文本编码选项。</summary>
     public IReadOnlyList<string> EncodingOptions { get; } = DatabaseManager.FileUtility.TextEncoding.CommonNames;
-
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
 
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
@@ -58,18 +56,13 @@ public partial class ExportViewModel : ViewModelBase
     private bool _showColumnNames = true;
 
     [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
     private bool _isTablesLoading;
 
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    public ExportViewModel(IDbConnectionService connectionService, IExportImportService exportImportService)
+    public ExportViewModel(IDbConnectionService connectionService, IExportImportService exportImportService, ITaskCenterService taskCenter)
     {
         _connectionService = connectionService;
         _exportImportService = exportImportService;
+        _taskCenter = taskCenter;
 
         Formats = _exportImportService.GetExportFormats();
         if (Formats.Count > 0)
@@ -153,14 +146,18 @@ public partial class ExportViewModel : ViewModelBase
         FilePath = path ?? string.Empty;
     }
 
-    /// <summary>取消正在进行的导出。</summary>
+    /// <summary>取消正在进行的导出（经任务中心）。</summary>
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelExport()
     {
-        _exportCts?.Cancel();
+        if (_currentRun is not null)
+        {
+            StatusMessage = "正在取消导出...";
+            _taskCenter.Cancel(_currentRun.Id);
+        }
     }
 
-    partial void OnIsBusyChanged(bool value) => CancelExportCommand.NotifyCanExecuteChanged();
+    protected override void OnBusyChanged() => CancelExportCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private async Task ExportAsync()
@@ -186,63 +183,64 @@ public partial class ExportViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = string.Empty;
         Logs.Clear();
-        _exportCts = new CancellationTokenSource();
+
+        var connection = SelectedConnection;
+        var table = SelectedTable;
+        var format = SelectedFormat;
+        var filePath = FilePath;
+        var showColumnNames = ShowColumnNames;
+        var encoding = SelectedEncoding;
+        var startPage = StartPageNumber;
 
         var feedbackBuffer = new List<string>();
-        void CollectFeedback(string message) => feedbackBuffer.Add(message);
-
-        try
+        void CollectFeedback(string message)
         {
-            AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"对象：{SelectedTable.DisplayName}{(SelectedTable.IsView ? "（视图）" : "（表）")}");
-            AppendLog($"格式：{SelectedFormat}");
-            AppendLog($"文件：{FilePath}");
-            if (StartPageNumber > 1)
+            feedbackBuffer.Add(message);
+            _currentRun?.Report(message);
+        }
+
+        AppendLog($"连接：{connection.Description}");
+        AppendLog($"对象：{table.DisplayName}{(table.IsView ? "（视图）" : "（表）")}");
+        AppendLog($"格式：{format}");
+        AppendLog($"文件：{filePath}");
+        if (startPage > 1)
+        {
+            AppendLog($"起始页：{startPage}（续传模式）");
+        }
+        AppendLog("开始导出...");
+
+        // 经任务中心登记：窗口中途关闭后导出仍可观测/取消。
+        _currentRun = _taskCenter.Run($"导出 {table.DisplayName} → {format}", "导出", async (run, ct) =>
+        {
+            try
             {
-                AppendLog($"起始页：{StartPageNumber}（续传模式）");
+                var result = await _exportImportService.ExportDataAsync(
+                    connection,
+                    table.Name,
+                    table.Schema,
+                    isView: table.IsView,
+                    format,
+                    filePath,
+                    showColumnNames,
+                    encoding,
+                    startPage,
+                    CollectFeedback,
+                    ct);
+
+                foreach (var line in feedbackBuffer)
+                {
+                    AppendLog(line);
+                }
+
+                StatusMessage = result.IsSuccess ? $"导出成功：{result.FilePath}" : $"导出失败：{result.Message}";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
             }
-            AppendLog("开始导出...");
-
-            var result = await _exportImportService.ExportDataAsync(
-                SelectedConnection,
-                SelectedTable.Name,
-                SelectedTable.Schema,
-                isView: SelectedTable.IsView,
-                SelectedFormat,
-                FilePath,
-                ShowColumnNames,
-                SelectedEncoding,
-                StartPageNumber,
-                CollectFeedback,
-                _exportCts.Token);
-
-            foreach (var line in feedbackBuffer)
+            finally
             {
-                AppendLog(line);
+                _currentRun = null;
+                IsBusy = false;
             }
-
-            StatusMessage = result.IsSuccess ? $"导出成功：{result.FilePath}" : $"导出失败：{result.Message}";
-            AppendLog(StatusMessage);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"导出失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            _exportCts?.Dispose();
-            _exportCts = null;
-            IsBusy = false;
-        }
-    }
-
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
+        });
     }
 }

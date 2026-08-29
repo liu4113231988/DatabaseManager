@@ -3,8 +3,10 @@ using AtomUI;
 using AtomUI.Desktop.Controls;
 using AtomUI.Theme;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 using DatabaseManager.AppCore;
 using DatabaseManager.AppCore.ViewModels;
 using DatabaseManager.Avalonia.Views;
@@ -49,6 +51,7 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow
             {
                 DataContext = _services.GetRequiredService<MainWindowViewModel>(),
+                Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
             };
         }
 

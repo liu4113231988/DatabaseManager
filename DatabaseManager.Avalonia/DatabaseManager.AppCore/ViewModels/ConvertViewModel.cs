@@ -12,20 +12,20 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 数据库转换 ViewModel（阶段 4）。
 /// 跨库结构/数据转换：选择源/目标连接、转换模式与选项，执行转换并展示反馈日志。
 /// 支持：Schema 预览（翻译目标结构供编辑）与 Schema 映射。
+/// 执行经任务中心登记（可脱离本窗口观测/取消）。
 /// </summary>
-public partial class ConvertViewModel : ViewModelBase
+public partial class ConvertViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IConvertService _convertService;
+    private readonly ITaskCenterService _taskCenter;
+    private TaskRun? _currentRun;
 
     /// <summary>全部已保存连接（源/目标下拉共用）。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
     /// <summary>可用的转换模式。</summary>
     public IReadOnlyList<ConvertModeOption> Modes { get; }
-
-    /// <summary>转换日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
 
     /// <summary>Schema 映射列表（源 Schema → 目标 Schema）。</summary>
     public ObservableCollection<SchemaMappingItem> SchemaMappings { get; } = new();
@@ -61,9 +61,6 @@ public partial class ConvertViewModel : ViewModelBase
     private bool _needPreview;
 
     [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
     private bool _isPreviewing;
 
     [ObservableProperty]
@@ -72,13 +69,11 @@ public partial class ConvertViewModel : ViewModelBase
     [ObservableProperty]
     private SchemaPreviewTable? _selectedPreviewTable;
 
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    public ConvertViewModel(IDbConnectionService connectionService, IConvertService convertService)
+    public ConvertViewModel(IDbConnectionService connectionService, IConvertService convertService, ITaskCenterService taskCenter)
     {
         _connectionService = connectionService;
         _convertService = convertService;
+        _taskCenter = taskCenter;
 
         Modes = new[]
         {
@@ -380,6 +375,21 @@ public partial class ConvertViewModel : ViewModelBase
         };
     }
 
+    /// <summary>请求取消正在执行的转换（经任务中心令牌）。</summary>
+    [RelayCommand(CanExecute = nameof(IsBusy))]
+    private void CancelExecute()
+    {
+        if (_currentRun is not { State: TaskRunState.Running } run)
+        {
+            return;
+        }
+
+        StatusMessage = "正在取消转换...";
+        _taskCenter.Cancel(run.Id);
+    }
+
+    protected override void OnBusyChanged() => CancelExecuteCommand.NotifyCanExecuteChanged();
+
     /// <summary>执行转换（若勾选预览，则先执行预览 → 编辑 → 确认后再转换）。</summary>
     [RelayCommand]
     private async Task ExecuteAsync()
@@ -411,60 +421,74 @@ public partial class ConvertViewModel : ViewModelBase
         StatusMessage = string.Empty;
         Logs.Clear();
 
-        try
+        var source = SourceConnection;
+        var target = TargetConnection;
+        var mode = SelectedMode.Value;
+        var sourceDescription = SourceConnection.Description;
+        var targetDescription = TargetConnection.Description;
+        var modeName = SelectedMode.DisplayName;
+
+        // 经任务中心登记：窗口中途关闭后任务仍可观测/取消。
+        _currentRun = _taskCenter.Run($"转换 {sourceDescription} → {targetDescription}（{modeName}）", "转换", async (run, ct) =>
         {
-            var options = BuildOptions();
-            options.NeedPreview = false;
-
-            // 若已生成预览并编辑，则基于编辑后的目标 Schema 执行转换。
-            var editedSchema = BuildEditedTargetSchema();
-
-            // 转换过程反馈在后台线程触发，这里先收集到临时缓冲，
-            // await 回到 UI 线程后一次性刷新到 Logs，避免跨线程修改 UI 集合。
-            var feedbackBuffer = new List<string>();
-            void CollectFeedback(string message) => feedbackBuffer.Add(message);
-
-            AppendLog($"源：{SourceConnection.Description}");
-            AppendLog($"目标：{TargetConnection.Description}");
-            AppendLog($"模式：{SelectedMode.DisplayName}");
-            if (editedSchema is not null)
+            try
             {
-                AppendLog("基于 Schema 预览编辑后的目标结构执行转换。");
-            }
-            AppendLog("开始转换...");
+                var options = BuildOptions();
+                options.NeedPreview = false;
 
-            var result = await _convertService.ConvertAsync(
-                SourceConnection,
-                TargetConnection,
-                SelectedMode.Value,
-                options,
-                CollectFeedback,
-                editedSchema);
+                // 若已生成预览并编辑，则基于编辑后的目标 Schema 执行转换。
+                var editedSchema = BuildEditedTargetSchema();
 
-            foreach (var line in feedbackBuffer)
-            {
-                AppendLog(line);
-            }
+                // 转换过程反馈在后台线程触发：先收集到临时缓冲，回 UI 线程后刷入 Logs，
+                // 同时经 run.Report 封送进任务中心的任务日志。
+                var feedbackBuffer = new List<string>();
+                void CollectFeedback(string message)
+                {
+                    feedbackBuffer.Add(message);
+                    run.Report(message);
+                }
 
-            if (result.IsCanceled)
-            {
-                StatusMessage = "转换已取消。";
+                AppendLog($"源：{sourceDescription}");
+                AppendLog($"目标：{targetDescription}");
+                AppendLog($"模式：{modeName}");
+                if (editedSchema is not null)
+                {
+                    AppendLog("基于 Schema 预览编辑后的目标结构执行转换。");
+                }
+                AppendLog("开始转换...");
+
+                var result = await _convertService.ConvertAsync(
+                    source,
+                    target,
+                    mode,
+                    options,
+                    CollectFeedback,
+                    editedSchema,
+                    ct);
+
+                foreach (var line in feedbackBuffer)
+                {
+                    AppendLog(line);
+                }
+
+                if (result.IsCanceled)
+                {
+                    StatusMessage = "转换已取消。";
+                    run.ResultSummary = "转换已取消。";
+                }
+                else
+                {
+                    StatusMessage = result.Message;
+                    AppendLog(result.Message);
+                    run.ResultSummary = result.Message;
+                }
             }
-            else
+            finally
             {
-                StatusMessage = result.Message;
-                AppendLog(result.Message);
+                _currentRun = null;
+                IsBusy = false;
             }
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"转换失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        });
     }
 
     private ConvertOptions BuildOptions()
@@ -486,15 +510,6 @@ public partial class ConvertViewModel : ViewModelBase
                 })
                 .ToList(),
         };
-    }
-
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
     }
 }
 

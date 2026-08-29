@@ -13,11 +13,12 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 从 CSV / Excel / JSON / XML 文件导入数据到指定表，支持列映射、文件预览、
 /// 文本编码选择、跳行续导与跳过错误行。
 /// </summary>
-public partial class ImportViewModel : ViewModelBase
+public partial class ImportViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IExportImportService _exportImportService;
-    private CancellationTokenSource? _importCts;
+    private readonly ITaskCenterService _taskCenter;
+    private TaskRun? _currentRun;
 
     /// <summary>快速切换连接时，淘汰过期的异步加载结果（竞态防护）。</summary>
     private int _loadTableVersion;
@@ -30,9 +31,6 @@ public partial class ImportViewModel : ViewModelBase
 
     /// <summary>列映射（SourceColumn = 文件列，TargetColumn = 表列）。</summary>
     public ObservableCollection<ColumnMappingItem> ColumnMappings { get; } = new();
-
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
 
     /// <summary>表列名列表（用于列映射下拉/自动匹配）。</summary>
     public ObservableCollection<string> TableColumns { get; } = new();
@@ -80,18 +78,13 @@ public partial class ImportViewModel : ViewModelBase
     private bool _hasErrors;
 
     [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
     private bool _isTablesLoading;
 
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    public ImportViewModel(IDbConnectionService connectionService, IExportImportService exportImportService)
+    public ImportViewModel(IDbConnectionService connectionService, IExportImportService exportImportService, ITaskCenterService taskCenter)
     {
         _connectionService = connectionService;
         _exportImportService = exportImportService;
+        _taskCenter = taskCenter;
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
@@ -320,14 +313,18 @@ public partial class ImportViewModel : ViewModelBase
         }
     }
 
-    /// <summary>取消正在进行的导入。</summary>
+    /// <summary>取消正在进行的导入（经任务中心）。</summary>
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelImport()
     {
-        _importCts?.Cancel();
+        if (_currentRun is not null)
+        {
+            StatusMessage = "正在取消导入...";
+            _taskCenter.Cancel(_currentRun.Id);
+        }
     }
 
-    partial void OnIsBusyChanged(bool value) => CancelImportCommand.NotifyCanExecuteChanged();
+    protected override void OnBusyChanged() => CancelImportCommand.NotifyCanExecuteChanged();
 
     [RelayCommand]
     private async Task ImportAsync()
@@ -355,10 +352,14 @@ public partial class ImportViewModel : ViewModelBase
         Logs.Clear();
         ErrorRows.Clear();
         HasErrors = false;
-        _importCts = new CancellationTokenSource();
 
-        var feedbackBuffer = new List<string>();
-        void CollectFeedback(string message) => feedbackBuffer.Add(message);
+        var connection = SelectedConnection;
+        var table = SelectedTable;
+        var filePath = FilePath;
+        var firstRowIsColumnName = FirstRowIsColumnName;
+        var encoding = SelectedEncoding;
+        var skipRows = SkipRows;
+        var continueOnInvalidRows = ContinueOnInvalidRows;
 
         // 组装列映射（仅保留填写完整的行）。
         IReadOnlyList<ColumnMappingItem>? mappings = null;
@@ -369,51 +370,57 @@ public partial class ImportViewModel : ViewModelBase
                 .ToList();
         }
 
-        try
+        var feedbackBuffer = new List<string>();
+        void CollectFeedback(string message)
         {
-            AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"目标表：{SelectedTable.DisplayName}");
-            AppendLog($"文件：{FilePath}");
-            AppendLog($"首行为列名：{FirstRowIsColumnName}");
-            if (SkipRows > 0) AppendLog($"跳过前 {SkipRows} 行（续导）");
-            if (ContinueOnInvalidRows) AppendLog("跳过错误行：开");
-            if (UseColumnMapping) AppendLog($"列映射：{mappings?.Count ?? 0} 条");
-            AppendLog("开始导入...");
+            feedbackBuffer.Add(message);
+            _currentRun?.Report(message);
+        }
 
-            var result = await _exportImportService.ImportDataAsync(
-                SelectedConnection,
-                SelectedTable.Name,
-                SelectedTable.Schema,
-                FilePath,
-                FirstRowIsColumnName,
-                mappings,
-                SelectedEncoding,
-                SkipRows,
-                ContinueOnInvalidRows,
-                CollectFeedback,
-                _importCts.Token);
+        AppendLog($"连接：{connection.Description}");
+        AppendLog($"目标表：{table.DisplayName}");
+        AppendLog($"文件：{filePath}");
+        AppendLog($"首行为列名：{firstRowIsColumnName}");
+        if (skipRows > 0) AppendLog($"跳过前 {skipRows} 行（续导）");
+        if (continueOnInvalidRows) AppendLog("跳过错误行：开");
+        if (UseColumnMapping) AppendLog($"列映射：{mappings?.Count ?? 0} 条");
+        AppendLog("开始导入...");
 
-            foreach (var line in feedbackBuffer)
+        // 经任务中心登记：窗口中途关闭后导入仍可观测/取消。
+        _currentRun = _taskCenter.Run($"导入 {Path.GetFileName(filePath)} → {table.DisplayName}", "导入", async (run, ct) =>
+        {
+            try
             {
-                AppendLog(line);
+                var result = await _exportImportService.ImportDataAsync(
+                    connection,
+                    table.Name,
+                    table.Schema,
+                    filePath,
+                    firstRowIsColumnName,
+                    mappings,
+                    encoding,
+                    skipRows,
+                    continueOnInvalidRows,
+                    CollectFeedback,
+                    ct);
+
+                foreach (var line in feedbackBuffer)
+                {
+                    AppendLog(line);
+                }
+
+                PopulateErrorRows(result);
+
+                StatusMessage = result.IsSuccess ? result.Message : $"导入失败：{result.Message}";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
             }
-
-            PopulateErrorRows(result);
-
-            StatusMessage = result.IsSuccess ? result.Message : $"导入失败：{result.Message}";
-            AppendLog(StatusMessage);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"导入失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            _importCts?.Dispose();
-            _importCts = null;
-            IsBusy = false;
-        }
+            finally
+            {
+                _currentRun = null;
+                IsBusy = false;
+            }
+        });
     }
 
     /// <summary>把校验结果中的错误行整理到错误报告集合。</summary>
@@ -456,15 +463,6 @@ public partial class ImportViewModel : ViewModelBase
         }
 
         HasErrors = ErrorRows.Count > 0;
-    }
-
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
     }
 }
 

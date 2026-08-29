@@ -7,6 +7,9 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Common;
@@ -72,6 +75,333 @@ public partial class MainWindow : Window
             // 监听对象树选中变化，更新 Schema 选择器上下文。
             ObjectsTree.SelectionChanged += ObjectsTree_SelectionChanged;
         }
+
+        // 任务中心接线：状态栏计数 + 完成/失败 Toast 通知。
+        _taskCenter = _services?.GetService<ITaskCenterService>();
+        if (_taskCenter is not null)
+        {
+            ToastHost.ItemsSource = _toasts;
+            _taskCenter.TaskFinished += TaskCenter_TaskFinished;
+            _taskCenter.RunsChanged += TaskCenter_RunsChanged;
+            UpdateRunningTaskCount();
+        }
+
+        // 恢复窗口布局（大小/位置/左栏宽度；位置钳制到可见屏幕）。
+        RestoreWindowLayout();
+
+        // 应用持久化的主题外观与字体缩放。
+        _appSettings = _services?.GetService<IAppSettingsService>();
+        if (_appSettings is { } appSettings)
+        {
+            ApplyThemeMode(appSettings.Settings.ThemeMode);
+            ApplyFontScale(appSettings.Settings.FontScale);
+        }
+    }
+
+    private IAppSettingsService? _appSettings;
+
+    /// <summary>应用主题外观（跟随系统/亮色/深色/高对比）并持久化。</summary>
+    private void ApplyThemeMode(string mode)
+    {
+        if (Application.Current is not { } app)
+        {
+            return;
+        }
+
+        app.RequestedThemeVariant = mode switch
+        {
+            ThemeModes.Light => ThemeVariant.Light,
+            ThemeModes.Dark => ThemeVariant.Dark,
+            ThemeModes.HighContrast => AppThemeVariants.HighContrast,
+            _ => ThemeVariant.Default,
+        };
+
+        if (_appSettings is { } settings && !string.Equals(settings.Settings.ThemeMode, mode, StringComparison.Ordinal))
+        {
+            settings.Settings.ThemeMode = mode;
+            settings.Save();
+        }
+    }
+
+    /// <summary>应用主工作区字体缩放并持久化。</summary>
+    private void ApplyFontScale(double scale)
+    {
+        RootScaler.LayoutTransform = scale is > 0.5 and < 2 && Math.Abs(scale - 1.0) > 0.001
+            ? new ScaleTransform(scale, scale)
+            : null;
+
+        if (_appSettings is { } settings && Math.Abs(settings.Settings.FontScale - scale) > 0.001)
+        {
+            settings.Settings.FontScale = scale;
+            settings.Save();
+        }
+    }
+
+    /// <summary>外观菜单（跟随系统/亮色/深色/高对比）。</summary>
+    private void Appearance_Click(object? sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu();
+        foreach (var (label, mode) in new[]
+                 {
+                     ("跟随系统", ThemeModes.System),
+                     ("亮色", ThemeModes.Light),
+                     ("深色", ThemeModes.Dark),
+                     ("高对比", ThemeModes.HighContrast),
+                 })
+        {
+            var item = new MenuItem { Header = label, Tag = mode };
+            item.Click += (_, _) => ApplyThemeMode(mode);
+            menu.Items.Add(item);
+        }
+
+        menu.Open(AppearanceButton);
+    }
+
+    /// <summary>字体缩放菜单（90/100/110/125%）。</summary>
+    private void FontScale_Click(object? sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu();
+        foreach (var scale in new[] { 0.9, 1.0, 1.1, 1.25 })
+        {
+            var captured = scale;
+            var item = new MenuItem { Header = $"{scale * 100:0}%", Tag = scale };
+            item.Click += (_, _) => ApplyFontScale(captured);
+            menu.Items.Add(item);
+        }
+
+        menu.Open(FontScaleButton);
+    }
+
+    private ITaskCenterService? _taskCenter;
+    private readonly System.Collections.ObjectModel.ObservableCollection<ToastItem> _toasts = new();
+
+    private void TaskCenter_TaskFinished(TaskRun run)
+    {
+        var (title, accent) = run.State switch
+        {
+            TaskRunState.Completed => ("任务完成", "#169B62"),
+            TaskRunState.Failed => ("任务失败", "#C44545"),
+            _ => ("任务已取消", "#D97706"),
+        };
+
+        ShowToast(title, $"{run.Title}\n{run.ResultSummary}", accent);
+        UpdateRunningTaskCount();
+    }
+
+    private void TaskCenter_RunsChanged() => UpdateRunningTaskCount();
+
+    private void UpdateRunningTaskCount()
+    {
+        var count = _taskCenter?.RunningCount ?? 0;
+        RunningTasksText.Text = count > 0 ? $"任务：{count} 运行中" : "任务：无运行中";
+    }
+
+    private void ShowToast(string title, string message, string accentColor)
+    {
+        var toast = new ToastItem { Title = title, Message = message, Accent = accentColor };
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            _toasts.Insert(0, toast);
+            while (_toasts.Count > 3)
+            {
+                _toasts.RemoveAt(_toasts.Count - 1);
+            }
+
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4) };
+            timer.Tick += (_, _) =>
+            {
+                _toasts.Remove(toast);
+                timer.Stop();
+            };
+            timer.Start();
+        });
+    }
+
+    /// <summary>打开任务中心窗口。</summary>
+    private void MenuTaskCenter_Click(object? sender, RoutedEventArgs e)
+    {
+        OpenTaskCenter();
+    }
+
+    /// <summary>对象搜索框回车：深度搜索元数据并在搜索窗口展示。</summary>
+    private async void TreeFilterBox_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            await RunTreeFilterSearchAsync();
+        }
+    }
+
+    private async void TreeFilterSearch_Click(object? sender, RoutedEventArgs e)
+    {
+        await RunTreeFilterSearchAsync();
+    }
+
+    /// <summary>深度搜索当前活动连接的元数据（复用元数据搜索窗口，结果可定位回树）。</summary>
+    private async Task RunTreeFilterSearchAsync()
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
+            return;
+
+        var keyword = TreeFilterBox.Text?.Trim();
+        if (string.IsNullOrEmpty(keyword))
+        {
+            return;
+        }
+
+        var activeNames = vm.ObjectsExplorer.RootNodes
+            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive && !string.IsNullOrEmpty(n.Name))
+            .Select(n => n.Name!)
+            .ToList();
+
+        if (activeNames.Count == 0)
+        {
+            vm.QueryEditor.StatusMessage = "请先在对象浏览器中连接一个连接，再搜索对象。";
+            return;
+        }
+
+        var preferred = vm.SelectedQueryTab?.ConnectionName;
+        var searchVm = _services.GetRequiredService<SearchViewModel>();
+        searchVm.SetConnections(
+            activeNames,
+            !string.IsNullOrEmpty(preferred) && activeNames.Contains(preferred) ? preferred : activeNames[0]);
+        searchVm.Keyword = keyword;
+
+        var window = new SearchWindow(searchVm);
+        searchVm.SearchCommand.Execute(null); // 打开即搜索
+        await window.ShowDialog<object?>(this);
+
+        var result = window.SelectedItemResult;
+        if (result is null)
+        {
+            return;
+        }
+
+        await LocateNodeInTreeAsync(result);
+    }
+
+    private void RunningTasks_Click(object? sender, RoutedEventArgs e)
+    {
+        OpenTaskCenter();
+    }
+
+    private void OpenTaskCenter()
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        var vm = _services.GetRequiredService<TaskCenterViewModel>();
+        new TaskCenterWindow(vm).Show(this); // 非模态：任务运行时可随时查看
+    }
+
+    /// <summary>恢复窗口布局：大小/位置/最大化状态与左栏宽度（位置钳制到可见屏幕，多显示器安全）。</summary>
+    private void RestoreWindowLayout()
+    {
+        if (_services?.GetService<IAppSettingsService>() is not { } settings)
+        {
+            return;
+        }
+
+        var ws = settings.Settings.Workspace;
+
+        if (ws.WindowWidth >= 400 && ws.WindowHeight >= 300)
+        {
+            Width = ws.WindowWidth;
+            Height = ws.WindowHeight;
+        }
+
+        if (ws.LeftPanelWidth is > 260 and < 800)
+        {
+            MainContentGrid.ColumnDefinitions[0].Width = new GridLength(ws.LeftPanelWidth);
+        }
+
+        if (ws.WindowX >= 0 && ws.WindowY >= 0)
+        {
+            Position = new PixelPoint((int)ws.WindowX, (int)ws.WindowY);
+            ClampWindowToVisibleScreen();
+        }
+
+        if (string.Equals(ws.WindowState, "Maximized", StringComparison.OrdinalIgnoreCase))
+        {
+            WindowState = global::Avalonia.Controls.WindowState.Maximized;
+        }
+    }
+
+    /// <summary>把窗口位置钳制到所在屏幕的工作区内。</summary>
+    private void ClampWindowToVisibleScreen()
+    {
+        try
+        {
+            var screen = Screens.ScreenFromPoint(Position) ?? Screens.Primary;
+            if (screen is null)
+            {
+                return;
+            }
+
+            var area = screen.WorkingArea;
+            int w = (int)(Width * RenderScaling);
+            int h = (int)(Height * RenderScaling);
+            int x = Math.Clamp(Position.X, area.X, Math.Max(area.X, area.X + area.Width - w));
+            int y = Math.Clamp(Position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - h));
+            Position = new PixelPoint(x, y);
+        }
+        catch
+        {
+            // 屏幕信息不可用时跳过钳制。
+        }
+    }
+
+    /// <summary>保存窗口布局与左栏宽度。</summary>
+    private void SaveWindowLayout()
+    {
+        if (_services?.GetService<IAppSettingsService>() is not { } settings)
+        {
+            return;
+        }
+
+        var ws = settings.Settings.Workspace;
+
+        if (WindowState == global::Avalonia.Controls.WindowState.Normal)
+        {
+            ws.WindowX = Position.X;
+            ws.WindowY = Position.Y;
+            ws.WindowWidth = Width;
+            ws.WindowHeight = Height;
+        }
+
+        ws.WindowState = WindowState == global::Avalonia.Controls.WindowState.Maximized ? "Maximized" : "Normal";
+        var leftColumn = MainContentGrid.ColumnDefinitions[0].Width;
+        ws.LeftPanelWidth = leftColumn.IsAbsolute ? leftColumn.Value : 400;
+
+        settings.Save();
+    }
+
+    /// <summary>窗口真实关闭后：捕获查询标签会话（SQL 草稿）与窗口布局。</summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        try
+        {
+            if (DataContext is MainWindowViewModel vm)
+            {
+                vm.CaptureSession();
+            }
+
+            SaveWindowLayout();
+
+            if (_taskCenter is not null)
+            {
+                _taskCenter.TaskFinished -= TaskCenter_TaskFinished;
+                _taskCenter.RunsChanged -= TaskCenter_RunsChanged;
+            }
+        }
+        finally
+        {
+            base.OnClosed(e);
+        }
     }
 
     /// <summary>SelectedQueryTab 属性变化时切换 DataGrid 列监听目标。</summary>
@@ -94,6 +424,40 @@ public partial class MainWindow : Window
 
         if (e.Cancel || _closingConfirmed || DataContext is not MainWindowViewModel vm)
         {
+            return;
+        }
+
+        // 存在运行中的后台任务时先确认（退出会尝试取消它们）。
+        var taskCenter = _taskCenter ?? _services?.GetService<ITaskCenterService>();
+        if (taskCenter is { HasRunning: true })
+        {
+            e.Cancel = true;
+
+            var runningBox = MessageBoxManager.GetMessageBoxStandard(
+                title: "后台任务正在运行",
+                text: $"有 {taskCenter.RunningCount} 个后台任务正在运行（转换/导入导出/统计等）。\n\n「是」取消任务并退出；「否」返回应用（可在任务中心查看进度）。",
+                ButtonEnum.YesNo,
+                MsBox.Avalonia.Enums.Icon.Warning);
+            var runningResult = await runningBox.ShowWindowDialogAsync(this);
+
+            if (runningResult != ButtonResult.Yes)
+            {
+                return;
+            }
+
+            foreach (var run in taskCenter.Runs.Where(r => r.State == TaskRunState.Running).ToList())
+            {
+                taskCenter.Cancel(run.Id);
+            }
+
+            // 等待任务退出运行态（最多 3 秒），随后直接退出（跳过其余确认）。
+            for (int i = 0; i < 30 && taskCenter.HasRunning; i++)
+            {
+                await Task.Delay(100);
+            }
+
+            _closingConfirmed = true;
+            Close();
             return;
         }
 
@@ -1021,6 +1385,20 @@ public partial class MainWindow : Window
         if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
             return;
 
+        // 加载中：再次双击 = 取消加载（连接/文件夹/子文件夹通用）。
+        if (node.IsLoading)
+        {
+            node.LoadCts?.Cancel();
+            return;
+        }
+
+        // 「加载更多」占位节点：双击续接下一批子节点。
+        if (node.IsLoadMore)
+        {
+            await vm.ObjectsExplorer.LoadMoreAsync(node);
+            return;
+        }
+
         // 连接节点：双击连接/断开。
         if (node.NodeType == DbObjectTreeNodeType.Connection)
         {
@@ -1618,4 +1996,14 @@ public partial class MainWindow : Window
                 break;
         }
     }
+}
+
+/// <summary>Toast 通知条目（仅主窗口 UI 使用）。</summary>
+public sealed class ToastItem
+{
+    public string Title { get; init; } = string.Empty;
+
+    public string Message { get; init; } = string.Empty;
+
+    public string Accent { get; init; } = "#52657F";
 }

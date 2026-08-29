@@ -54,7 +54,7 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Height="6" Background="#22000000" />
+            <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Height="6" Background="{DynamicResource AppDividerBrush}" />
 
             <TextBox Grid.Row="2" Text="{Binding SelectedSqlText, Mode=OneWay}" IsReadOnly="True"
                      FontFamily="Consolas,Menlo,monospace" FontSize="12"

@@ -54,7 +54,7 @@
             <TabItem Header="选择对象 (表/视图)">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="勾选要生成代码的表或视图，然后点击「生成代码」" FontWeight="Bold" Margin="2,0,0,4" />
-                    <Border BorderBrush="#22000000" BorderThickness="1">
+                    <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                         <DataGrid ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
                                   IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -70,7 +70,7 @@
             </TabItem>
 
             <TabItem Header="日志">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">

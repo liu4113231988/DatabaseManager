@@ -31,14 +31,26 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         var interpreter = CreateInterpreter(connection);
 
-        var databases = (await interpreter.GetDatabasesAsync()).OrderBy(d => d.Name).ToList();
+        var databases = (await interpreter.GetDatabasesAsync().WaitAsync(cancellationToken)).OrderBy(d => d.Name).ToList();
         var result = new List<DbObjectTreeNode>();
 
         // 并行枚举各库的 schema 列表，避免多库实例（如 SQL Server 几十个库）连接时串行 N+1 查询过慢。
-        // 说明：SQL Server / Postgres 分支在 TryGetSchemasAsync 内部会用目标库自己的解释器查询；
-        // Oracle 分支复用默认解释器（覆盖 Database 会破坏服务名连接串），且 Oracle 只有一个库，无并发冲突。
+        // 并发度限制为 4：几十个库时避免连接风暴；说明：SQL Server / Postgres 分支在 TryGetSchemasAsync
+        // 内部会用目标库自己的解释器查询；Oracle 分支复用默认解释器（覆盖 Database 会破坏服务名连接串）。
+        using var schemaSemaphore = new SemaphoreSlim(4);
         var schemaLists = await Task.WhenAll(
-            databases.Select(db => Task.Run(() => TryGetSchemasAsync(connection, interpreter, db.Name))));
+            databases.Select(db => Task.Run(async () =>
+            {
+                await schemaSemaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    return await TryGetSchemasAsync(connection, interpreter, db.Name);
+                }
+                finally
+                {
+                    schemaSemaphore.Release();
+                }
+            }, cancellationToken)));
 
         for (int i = 0; i < databases.Count; i++)
         {
@@ -142,30 +154,31 @@ public class DefaultDbSchemaService : IDbSchemaService
         };
 
         List<DbObjectTreeNode> nodes = new();
+        // 解释器层未全部透传取消令牌，这里用 WaitAsync 保证取消时等待立即中断。
         switch (objectType)
         {
             case DatabaseObjectType.Table:
-                var tables = await interpreter.GetTablesAsync(filter);
+                var tables = await interpreter.GetTablesAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(tables.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
                 break;
             case DatabaseObjectType.View:
-                var views = await interpreter.GetViewsAsync(filter);
+                var views = await interpreter.GetViewsAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(views.OrderBy(v => v.Name).Select(v => ToNode(v, databaseName, schema)));
                 break;
             case DatabaseObjectType.Procedure:
-                var procedures = await interpreter.GetProceduresAsync(filter);
+                var procedures = await interpreter.GetProceduresAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(procedures.OrderBy(p => p.Name).Select(p => ToNode(p, databaseName, schema)));
                 break;
             case DatabaseObjectType.Function:
-                var functions = await interpreter.GetFunctionsAsync(filter);
+                var functions = await interpreter.GetFunctionsAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(functions.OrderBy(f => f.Name).Select(f => ToNode(f, databaseName, schema)));
                 break;
             case DatabaseObjectType.Sequence:
-                var sequences = await interpreter.GetSequencesAsync(filter);
+                var sequences = await interpreter.GetSequencesAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(sequences.OrderBy(s => s.Name).Select(s => ToNode(s, databaseName, schema)));
                 break;
             case DatabaseObjectType.Type:
-                var types = await interpreter.GetUserDefinedTypesAsync(filter);
+                var types = await interpreter.GetUserDefinedTypesAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(types.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
                 break;
         }

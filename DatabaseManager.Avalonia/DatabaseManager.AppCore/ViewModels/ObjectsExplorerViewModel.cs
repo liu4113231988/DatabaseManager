@@ -123,7 +123,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             || oldItem.IntegratedSecurity != newItem.IntegratedSecurity
             || oldItem.UseSsl != newItem.UseSsl);
 
-    /// <summary>建立指定连接并加载其对象树（连接节点展开浏览）。</summary>
+    /// <summary>建立指定连接并加载其对象树（连接节点展开浏览）。加载中再次触发可经节点 LoadCts 取消。</summary>
     public async Task ConnectAsync(DbObjectTreeNode connectionNode)
     {
         if (connectionNode is null || connectionNode.NodeType != DbObjectTreeNodeType.Connection)
@@ -134,11 +134,13 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             return;
 
         IsLoading = true;
+        connectionNode.IsLoading = true;
         StatusMessage = $"正在连接 {connection.Name}...";
+        connectionNode.LoadCts = new CancellationTokenSource();
 
         try
         {
-            var nodes = await _schemaService.GetObjectTreeAsync(connection.Name);
+            var nodes = await _schemaService.GetObjectTreeAsync(connection.Name, connectionNode.LoadCts.Token);
             connectionNode.ClearChildren();
             foreach (var node in nodes)
             {
@@ -150,6 +152,11 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             _activeConnections.Add(connection.Name);
             StatusMessage = nodes.Count == 0 ? $"已连接 {connection.Name}，暂无数据库。" : $"已连接 {connection.Name}，加载 {nodes.Count} 个数据库。";
         }
+        catch (OperationCanceledException)
+        {
+            connectionNode.IsConnectionActive = false;
+            StatusMessage = $"连接 {connection.Name} 已取消。";
+        }
         catch (Exception ex)
         {
             connectionNode.IsConnectionActive = false;
@@ -158,6 +165,9 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         }
         finally
         {
+            connectionNode.IsLoading = false;
+            connectionNode.LoadCts?.Dispose();
+            connectionNode.LoadCts = null;
             IsLoading = false;
         }
     }
@@ -220,7 +230,11 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         }
     }
 
-    /// <summary>按需展开：加载某类型文件夹下的具体对象（表/视图/存储过程等）。</summary>
+    /// <summary>大目录懒分页的单页大小。</summary>
+    public const int FolderPageSize = 500;
+
+    /// <summary>按需展开：加载某类型文件夹下的具体对象（表/视图/存储过程等）。
+    /// 超过 <see cref="FolderPageSize"/> 个时分页展示，末尾放「加载更多」节点。加载中再次双击可取消。</summary>
     public async Task LoadFolderChildrenAsync(DbObjectTreeNode folderNode, string connectionName)
     {
         if (folderNode is null || folderNode.IsLoaded)
@@ -234,33 +248,120 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         string databaseName = databaseNode?.Name ?? folderNode.DatabaseName ?? string.Empty;
         string? schema = schemaNode?.Name ?? folderNode.Schema;
 
-        var nodes = await _schemaService.GetDbObjectNodesAsync(
-            connectionName,
-            databaseName,
-            folderNode.DatabaseObjectType,
-            schema);
+        folderNode.IsLoading = true;
+        folderNode.LoadCts = new CancellationTokenSource();
 
-        // 刷新节点（清空占位符，加入真实对象）。
-        folderNode.ClearChildren();
-        foreach (var node in nodes)
+        try
         {
-            folderNode.AddChild(node);
+            var nodes = await _schemaService.GetDbObjectNodesAsync(
+                connectionName,
+                databaseName,
+                folderNode.DatabaseObjectType,
+                schema,
+                folderNode.LoadCts.Token);
+
+            // 刷新节点（清空占位符，加入真实对象；大目录分页）。
+            folderNode.ClearChildren();
+            AppendFolderChildren(folderNode, nodes);
         }
-
-        // 空状态：无对象时显示占位提示（而非空白），便于用户感知可“新建”
-        if (nodes.Count == 0)
+        catch (OperationCanceledException)
         {
+            folderNode.ClearChildren();
             folderNode.AddChild(new DbObjectTreeNode
             {
-                Name = "_Empty_",
-                Text = "（空）",
+                Name = "_Cancelled_",
+                Text = "（已取消加载，再次展开可重试）",
                 NodeType = DbObjectTreeNodeType.Folder,
                 IsPlaceholder = true,
                 IsLoaded = true,
             });
+            folderNode.IsLoaded = false;
+            StatusMessage = $"加载 {folderNode.Name} 已取消。";
+        }
+        finally
+        {
+            folderNode.IsLoading = false;
+            folderNode.LoadCts?.Dispose();
+            folderNode.LoadCts = null;
+        }
+    }
+
+    /// <summary>填充文件夹子节点（超量时懒分页，追加「加载更多」占位节点）。</summary>
+    private static void AppendFolderChildren(DbObjectTreeNode folderNode, IReadOnlyList<DbObjectTreeNode> nodes)
+    {
+        if (nodes.Count == 0)
+        {
+            // 空状态：无对象时显示占位提示（而非空白），便于用户感知可“新建”
+            folderNode.AddChild(new DbObjectTreeNode
+            {
+                Name = "_Empty_",
+                Text = "（空）",
+                NodeType = folderNode.NodeType,
+                IsPlaceholder = true,
+                IsLoaded = true,
+            });
+            folderNode.IsLoaded = true;
+            return;
+        }
+
+        foreach (var node in nodes.Take(FolderPageSize))
+        {
+            folderNode.AddChild(node);
+        }
+
+        if (nodes.Count > FolderPageSize)
+        {
+            folderNode.AddChild(new DbObjectTreeNode
+            {
+                Name = "_LoadMore_",
+                Text = $"加载更多（剩余 {nodes.Count - FolderPageSize}）",
+                NodeType = folderNode.NodeType,
+                IsPlaceholder = true,
+                IsLoadMore = true,
+                IsLoaded = true,
+                PendingChildEnumerator = nodes.Skip(FolderPageSize).GetEnumerator(),
+                RemainingChildCount = nodes.Count - FolderPageSize,
+            });
         }
 
         folderNode.IsLoaded = true;
+    }
+
+    /// <summary>「加载更多」：从惰性枚举器续接下一批子节点（无剩余则移除占位节点）。</summary>
+    public Task LoadMoreAsync(DbObjectTreeNode loadMoreNode)
+    {
+        if (loadMoreNode is null || !loadMoreNode.IsLoadMore)
+            return Task.CompletedTask;
+
+        var parent = loadMoreNode.Parent;
+        var enumerator = loadMoreNode.PendingChildEnumerator;
+        if (parent is null || enumerator is null)
+            return Task.CompletedTask;
+
+        int insertIndex = parent.Children.IndexOf(loadMoreNode);
+        var inserted = 0;
+        while (inserted < FolderPageSize && enumerator.MoveNext())
+        {
+            var child = enumerator.Current;
+            parent.Children.Insert(insertIndex + inserted, child);
+            child.Parent = parent;
+            inserted++;
+        }
+
+        loadMoreNode.RemainingChildCount = Math.Max(0, loadMoreNode.RemainingChildCount - inserted);
+        if (loadMoreNode.RemainingChildCount > 0)
+        {
+            loadMoreNode.Text = $"加载更多（剩余 {loadMoreNode.RemainingChildCount}）";
+        }
+        else
+        {
+            parent.Children.Remove(loadMoreNode);
+            enumerator.Dispose();
+            loadMoreNode.PendingChildEnumerator = null;
+        }
+
+        parent.RefreshBadge();
+        return Task.CompletedTask;
     }
 
     /// <summary>按需展开：加载表/视图的子类型文件夹下的具体子对象（列/索引/键/约束/触发器）。</summary>
@@ -284,35 +385,53 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
 
         var childType = GetChildTypeByFolder(childFolder.Name);
 
-        var nodes = await _schemaService.GetTableChildNodesAsync(
-            connectionName,
-            databaseName,
-            childType,
-            tableOrView,
-            isForView);
+        childFolder.IsLoading = true;
+        childFolder.LoadCts = new CancellationTokenSource();
 
-        childFolder.ClearChildren();
-        foreach (var node in nodes)
+        try
         {
-            childFolder.AddChild(node);
-        }
+            var nodes = await _schemaService.GetTableChildNodesAsync(
+                connectionName,
+                databaseName,
+                childType,
+                tableOrView,
+                isForView,
+                childFolder.LoadCts.Token);
 
-        // 空状态：无子对象时显示占位
-        if (nodes.Count == 0)
-        {
-            childFolder.AddChild(new DbObjectTreeNode
+            childFolder.ClearChildren();
+            foreach (var node in nodes)
             {
-                Name = "_Empty_",
-                Text = "（空）",
-                NodeType = DbObjectTreeNodeType.ChildFolder,
-                IsPlaceholder = true,
-                IsLoaded = true,
-            });
-        }
+                childFolder.AddChild(node);
+            }
 
-        // 数量展示（如 Columns (3)）。
-        childFolder.Text = nodes.Count > 0 ? $"{childFolder.Name} ({nodes.Count})" : childFolder.Name;
-        childFolder.IsLoaded = true;
+            // 空状态：无子对象时显示占位
+            if (nodes.Count == 0)
+            {
+                childFolder.AddChild(new DbObjectTreeNode
+                {
+                    Name = "_Empty_",
+                    Text = "（空）",
+                    NodeType = DbObjectTreeNodeType.ChildFolder,
+                    IsPlaceholder = true,
+                    IsLoaded = true,
+                });
+            }
+
+            // 数量展示（如 Columns (3)）。
+            childFolder.Text = nodes.Count > 0 ? $"{childFolder.Name} ({nodes.Count})" : childFolder.Name;
+            childFolder.IsLoaded = true;
+        }
+        catch (OperationCanceledException)
+        {
+            childFolder.ClearChildren();
+            StatusMessage = $"加载 {childFolder.Name} 已取消。";
+        }
+        finally
+        {
+            childFolder.IsLoading = false;
+            childFolder.LoadCts?.Dispose();
+            childFolder.LoadCts = null;
+        }
     }
 
     /// <summary>向上查找指定类型的祖先节点。</summary>

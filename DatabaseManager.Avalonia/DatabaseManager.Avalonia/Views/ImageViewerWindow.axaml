@@ -31,7 +31,7 @@
             <!-- 十六进制输入 -->
             <DockPanel Grid.Row="0" Margin="0,0,0,8">
                 <TextBlock DockPanel.Dock="Top" Text="十六进制内容" FontWeight="Bold" Margin="2,0,0,4" />
-                <Border BorderBrush="#22000000" BorderThickness="1" Height="140">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Height="140">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <TextBox Text="{Binding HexText, Mode=TwoWay}"
                                  AcceptsReturn="True" TextWrapping="Wrap"
@@ -43,7 +43,7 @@
             <!-- 图片预览 -->
             <DockPanel Grid.Row="1">
                 <TextBlock DockPanel.Dock="Top" Text="预览" FontWeight="Bold" Margin="2,0,0,4" />
-                <Border BorderBrush="#22000000" BorderThickness="1" Background="#FAFAFA">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Background="#FAFAFA">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <Image x:Name="PreviewImage" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8" />
                     </ScrollViewer>

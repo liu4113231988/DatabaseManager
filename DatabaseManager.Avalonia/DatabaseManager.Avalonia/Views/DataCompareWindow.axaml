@@ -80,7 +80,7 @@
                         </ListBox>
 
                         <TextBlock DockPanel.Dock="Top" Text="对比结果" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                             <ListBox ItemsSource="{Binding Results}"
                                      SelectedItem="{Binding SelectedResult}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -111,12 +111,12 @@
                         </Border>
                     </DockPanel>
 
-                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="4" Background="{DynamicResource AppDividerBrush}" />
 
                     <!-- 右：明细 + 日志 -->
                     <DockPanel Grid.Column="2" Margin="0,0,0,6">
                         <TextBlock DockPanel.Dock="Top" Text="数据明细" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,6">
+                        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,6">
                             <DataGrid x:Name="DetailGrid" AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       ItemsSource="{Binding DetailRows}"
@@ -129,7 +129,7 @@
                         </Border>
 
                         <TextBlock DockPanel.Dock="Top" Text="日志" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                             <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -151,7 +151,7 @@
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
                         <TextBlock Text="生成的目标库同步脚本（DELETE/UPDATE/INSERT）" VerticalAlignment="Center" Opacity="0.8" />
                     </StackPanel>
-                    <Border BorderBrush="#22000000" BorderThickness="1">
+                    <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                         <ListBox ItemsSource="{Binding Scripts}" IsHitTestVisible="False"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"

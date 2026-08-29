@@ -10,7 +10,7 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="20" Background="#F7F9FC">
+    <DockPanel Margin="20" Background="{DynamicResource AppWindowBgBrush}">
 
         <!-- 顶部：源/目标选择与模式 -->
         <Border DockPanel.Dock="Top" Classes="surface" Padding="18" Margin="0,0,0,16">
@@ -18,7 +18,7 @@
 
             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
                 <StackPanel Spacing="2">
-                    <TextBlock Text="数据库转换" FontSize="20" FontWeight="SemiBold" Foreground="#172033" />
+                    <TextBlock Text="数据库转换" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                     <TextBlock Text="在源数据库与目标数据库之间迁移结构和数据。" FontSize="12" Foreground="#6B7C93" />
                 </StackPanel>
                 <Border Grid.Column="1" Background="#E8F3FF" CornerRadius="12" Padding="10,4" VerticalAlignment="Center">
@@ -28,18 +28,18 @@
 
             <!-- 源/目标连接 -->
             <Grid ColumnDefinitions="90,*,40,90,*">
-                <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#253858" />
+                <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" />
 
                 <TextBlock Grid.Column="2" Text="→" FontSize="20" Foreground="#246BCE" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#253858" />
+                <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" />
             </Grid>
 
             <!-- 模式 -->
             <Grid ColumnDefinitions="90,*,*">
-                <TextBlock Grid.Column="0" Text="转换模式" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#253858" />
+                <TextBlock Grid.Column="0" Text="转换模式" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboMode" Grid.Column="1" HorizontalAlignment="Stretch" />
             </Grid>
 
@@ -62,6 +62,9 @@
                              IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="执行转换" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="取消" Command="{Binding CancelExecuteCommand}"
+                             IsEnabled="{Binding IsBusy}"
+                             ToolTip.Tip="取消正在执行的转换（任务中心中仍可见）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -69,9 +72,9 @@
         </Border>
 
         <!-- 状态栏 -->
-        <Border DockPanel.Dock="Bottom" Background="#F1F5F9" BorderBrush="#E3E8F0" BorderThickness="1"
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                 CornerRadius="6" Padding="12,6" Margin="0,12,0,0">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#52657F"
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppTextSecondaryBrush}"
                        VerticalAlignment="Center" Opacity="0.9" FontSize="11" TextWrapping="Wrap" />
         </Border>
 
@@ -112,7 +115,7 @@
                         </Border>
                     </DockPanel>
 
-                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="4" Background="{DynamicResource AppDividerBrush}" />
 
                     <!-- 右：列定义 -->
                     <DockPanel Grid.Column="2" Margin="0,0,0,4">

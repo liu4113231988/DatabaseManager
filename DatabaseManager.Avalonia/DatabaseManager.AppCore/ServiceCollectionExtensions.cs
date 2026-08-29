@@ -35,6 +35,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IQueryHistoryService, DefaultQueryHistoryService>();
         services.AddSingleton<IScriptLibraryService, DefaultScriptLibraryService>();
         services.AddSingleton<IExecutionPlanService, DefaultExecutionPlanService>();
+        services.AddSingleton<ITaskCenterService, DefaultTaskCenterService>();
+        services.AddSingleton<IAppSettingsService, DefaultAppSettingsService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
@@ -50,6 +52,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<QueryHistoryViewModel>();
         services.AddTransient<ScriptLibraryViewModel>();
         services.AddTransient<ExecutionPlanViewModel>();
+        services.AddTransient<TaskCenterViewModel>();
         services.AddTransient<DiagnoseViewModel>();
         services.AddTransient<OptimizeViewModel>();
         services.AddTransient<DependencyViewModel>();

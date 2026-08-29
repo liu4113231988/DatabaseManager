@@ -38,7 +38,7 @@
         </StackPanel>
 
         <!-- 结果列表 -->
-        <Border BorderBrush="#22000000" BorderThickness="1">
+        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
             <DataGrid x:Name="ResultsGrid"
                       ItemsSource="{Binding Results}"
                       SelectedItem="{Binding SelectedResult}"
