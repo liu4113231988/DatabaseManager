@@ -17,6 +17,9 @@ public class ConnectionVisualInfo
 
     /// <summary>颜色标签（hex，如 #1E88E5；空表示无色）。</summary>
     public string? ColorTag { get; set; }
+
+    /// <summary>KingbaseES 服务端兼容模式（连接档案尚无字段时由侧车保存）。</summary>
+    public string? KingbaseCompatibilityMode { get; set; }
 }
 
 /// <summary>连接可视化标注服务。</summary>
@@ -28,8 +31,8 @@ public interface IConnectionVisualService
     /// <summary>按连接 Id 查找标注（未设置时返回 null）。</summary>
     ConnectionVisualInfo? Find(string? connectionId);
 
-    /// <summary>保存/更新标注（group/colorTag 传空串表示清除该项）。</summary>
-    void Save(string connectionId, string connectionName, string? group, string? colorTag);
+    /// <summary>保存/更新标注及 KingbaseES 兼容模式（group/colorTag 传空串表示清除该项）。</summary>
+    void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null);
 
     /// <summary>删除标注（连接被删除时调用）。</summary>
     void Remove(string connectionId);
@@ -68,13 +71,14 @@ public class DefaultConnectionVisualService : IConnectionVisualService
             ? null
             : _items.FirstOrDefault(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
 
-    public void Save(string connectionId, string connectionName, string? group, string? colorTag)
+    public void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null)
     {
         if (string.IsNullOrEmpty(connectionId))
             return;
 
         group = string.IsNullOrWhiteSpace(group) ? null : group.Trim();
         colorTag = string.IsNullOrWhiteSpace(colorTag) ? null : colorTag.Trim();
+        kingbaseCompatibilityMode = string.IsNullOrWhiteSpace(kingbaseCompatibilityMode) ? null : kingbaseCompatibilityMode.Trim();
 
         var existing = Find(connectionId);
         if (existing is not null)
@@ -82,6 +86,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
             existing.ConnectionName = connectionName;
             existing.Group = group;
             existing.ColorTag = colorTag;
+            existing.KingbaseCompatibilityMode = kingbaseCompatibilityMode;
         }
         else
         {
@@ -91,6 +96,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
                 ConnectionName = connectionName,
                 Group = group,
                 ColorTag = colorTag,
+                KingbaseCompatibilityMode = kingbaseCompatibilityMode,
             });
         }
 

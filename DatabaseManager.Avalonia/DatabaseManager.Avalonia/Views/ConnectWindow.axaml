@@ -5,7 +5,7 @@
         x:Class="DatabaseManager.Avalonia.Views.ConnectWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
-        Width="560" Height="620"
+        Width="560" Height="680"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
@@ -23,6 +23,12 @@
             <atom:ComboBox x:Name="ComboDatabaseType"
                            HorizontalAlignment="Stretch"
                            SelectionChanged="ComboDatabaseType_SelectionChanged" />
+        </StackPanel>
+
+        <StackPanel x:Name="PanelKingbaseMode" Spacing="6" IsVisible="False">
+            <TextBlock Text="KingbaseES 兼容模式" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+            <atom:ComboBox x:Name="ComboKingbaseMode" HorizontalAlignment="Stretch" />
+            <TextBlock Text="当前仅验证 PG 兼容模式；Auto 将按 PG 路径尝试连接。" FontSize="11" Foreground="#6B7C93" TextWrapping="Wrap" />
         </StackPanel>
 
         <StackPanel Spacing="6">

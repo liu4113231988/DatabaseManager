@@ -552,10 +552,10 @@ public class DefaultDbSchemaService : IDbSchemaService
     {
         try
         {
-            // 仅对支持多 Schema 的数据库（SQL Server/Postgres/Oracle）枚举；其余返回空。
-            if (connection.DatabaseType is "SqlServer" or "Postgres")
+            // 仅对支持多 Schema 的数据库（SQL Server/Postgres/KingbaseES/Oracle）枚举；其余返回空。
+            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES")
             {
-                // SQL Server 与 Postgres 的 Schema 是每个数据库独立的，需用目标库自己的解释器查询（避免跨库复用默认库的 schema）。
+                // SQL Server、Postgres 与 KingbaseES 的 Schema 是每个数据库独立的，需用目标库自己的解释器查询（避免跨库复用默认库的 schema）。
                 // Oracle 的 Schema 即当前用户，且覆盖 Database 会破坏 Oracle 连接串（服务名），故用默认解释器。
                 var dbInterpreter = CreateInterpreter(connection, databaseName);
                 return await dbInterpreter.GetDatabaseSchemasAsync();

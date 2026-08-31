@@ -75,6 +75,13 @@ public class ProfileDbConnectionService : IDbConnectionService
         };
 
         var dbType = ParseDatabaseType(connection.DatabaseType);
+        if (dbType == DatabaseType.KingbaseES)
+        {
+            var blockReason = KingbaseCompatibilityModes.GetConnectionBlockReason(connection.KingbaseCompatibilityMode);
+            if (blockReason is not null)
+                throw new NotSupportedException(blockReason);
+        }
+
         var dbInterpreter = DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, new DbInterpreterOption());
 
         var databases = await dbInterpreter.GetDatabasesAsync();
@@ -152,6 +159,7 @@ public class ProfileDbConnectionService : IDbConnectionService
         {
             item.Group = visual.Group;
             item.ColorTag = visual.ColorTag;
+            item.KingbaseCompatibilityMode = visual.KingbaseCompatibilityMode;
         }
 
         return item;

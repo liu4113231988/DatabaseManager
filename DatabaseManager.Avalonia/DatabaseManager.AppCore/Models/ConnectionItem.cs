@@ -57,6 +57,12 @@ public class ConnectionItem
     /// <summary>颜色标签（hex，如 #1E88E5；空表示无色）。</summary>
     public string? ColorTag { get; set; }
 
+    /// <summary>
+    /// KingbaseES 连接对应的服务端兼容模式（Auto / Postgres / Oracle / SqlServer）。
+    /// 该设置仅描述目标实例，不会由客户端改变服务端模式。
+    /// </summary>
+    public string? KingbaseCompatibilityMode { get; set; }
+
     /// <summary>展示用描述信息。</summary>
     public string Description =>
         string.IsNullOrEmpty(Name)

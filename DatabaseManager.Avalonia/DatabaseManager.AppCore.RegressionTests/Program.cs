@@ -1,4 +1,5 @@
 using DatabaseInterpreter.Model;
+using DatabaseInterpreter.Core;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -40,6 +41,15 @@ static class Program
         AssertContains("STATISTICS XML", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.SqlServer, "SELECT 1"));
         AssertContains("DISPLAY_CURSOR", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.Oracle, "SELECT 1"));
         AssertEqual("1000", ChartSampling.NormalizeLimit(9999).ToString());
+        var kingbaseConnection = new ConnectionInfo { Server = "127.0.0.1", Database = "test", UserId = "system", Password = "secret" };
+        AssertContains("Port=54321", new KingbaseConnectionBuilder().BuildConntionString(kingbaseConnection));
+        AssertTrue(DbInterpreterHelper.GetDbInterpreter(DatabaseType.KingbaseES, kingbaseConnection) is KingbaseInterpreter,
+            "KingbaseES 应注册独立解释器，而不是伪装为 Postgres。");
+        AssertEqual(KingbaseCompatibilityModes.Postgres,
+            KingbaseCompatibilityModes.Normalize("postgres"));
+        AssertContains("尚未完成", KingbaseCompatibilityModes.GetConnectionBlockReason(KingbaseCompatibilityModes.SqlServer)!);
+        AssertTrue(QueryProfilerSql.SupportsAnalyze(DatabaseType.KingbaseES), "已验证的 KingbaseES PG 路径应提供 EXPLAIN ANALYZE。 ");
+        AssertContains("EXPLAIN ANALYZE", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.KingbaseES, "SELECT 1"));
         Console.WriteLine("All regression checks passed.");
         return 0;
     }

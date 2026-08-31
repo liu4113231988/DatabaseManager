@@ -47,6 +47,7 @@ public class DefaultExecutionPlanService : IExecutionPlanService
                     return await ReadPlanAsync(conn, $"{(analyze ? "EXPLAIN ANALYZE " : "EXPLAIN ")}{statement}", sw, 60, cancellationToken);
 
                 case DatabaseType.Postgres:
+                case DatabaseType.KingbaseES:
                     return await ReadPlanAsync(conn, $"EXPLAIN {(analyze ? "ANALYZE " : string.Empty)}{statement}", sw, 60, cancellationToken);
 
                 case DatabaseType.Sqlite:
