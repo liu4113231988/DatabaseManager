@@ -30,7 +30,7 @@ public class QueryProfileResult
 
     public List<QueryProfileRunStat> Runs { get; } = new();
 
-    /// <summary>服务端 EXPLAIN ANALYZE 输出（MySQL/PostgreSQL 支持时）。</summary>
+    /// <summary>服务端 EXPLAIN/实际计划输出（MySQL/PostgreSQL/SQL Server/Oracle 支持时）。</summary>
     public string? AnalyzeText { get; set; }
 
     public string? Error { get; set; }
@@ -50,7 +50,7 @@ public class QueryProfileResult
 /// </summary>
 public interface IQueryProfilerService
 {
-    /// <summary>指定数据库类型是否支持 EXPLAIN ANALYZE。</summary>
+    /// <summary>指定数据库类型是否支持服务端剖析输出。</summary>
     bool SupportsAnalyze(string databaseType);
 
     Task<QueryProfileResult> ProfileAsync(

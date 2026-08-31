@@ -145,7 +145,7 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        var window = new ChartWindow(chart, result, _dashboardService);
+        var window = new ChartWindow(chart, result, _dashboardService, _queryService);
         window.Show(this);
     }
 
@@ -199,9 +199,10 @@ internal static class ChartModelBuilder
 
         var rows = result.Rows;
 
+        int sampleLimit = ChartSampling.NormalizeLimit(chart.SampleLimit);
         if (chart.Aggregation == ChartAggregations.None)
         {
-            foreach (var row in rows.Take(100))
+            foreach (var row in rows.Take(sampleLimit))
             {
                 model.Labels.Add(GetValue(row, xIndex));
             }
@@ -209,7 +210,7 @@ internal static class ChartModelBuilder
             foreach (int yIndex in yIndexes)
             {
                 var series = new ChartSeriesModel { Name = columns[yIndex] };
-                foreach (var row in rows.Take(100))
+                foreach (var row in rows.Take(sampleLimit))
                 {
                     series.Values.Add(TryParse(GetValue(row, yIndex)));
                 }
@@ -228,7 +229,7 @@ internal static class ChartModelBuilder
             var groups = rows
                 .Select((row, index) => (Row: row, Index: index))
                 .GroupBy(t => GetValue(t.Row, xIndex), StringComparer.OrdinalIgnoreCase)
-                .Take(100)
+                .Take(sampleLimit)
                 .ToList();
 
             var values = new List<double>();

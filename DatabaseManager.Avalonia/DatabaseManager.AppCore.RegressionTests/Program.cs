@@ -1,5 +1,6 @@
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Common;
+using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 
 static class Program
@@ -35,6 +36,10 @@ static class Program
         AssertContains("VIEW SERVER STATE", DbAdminGuidance.GetSessionPermissionHint(DatabaseType.SqlServer));
         AssertContains("pg_read_all_stats", DbAdminGuidance.GetUserPermissionHint(DatabaseType.Postgres));
         AssertContains("不存在", DbAdminGuidance.ValidateClientToolPath("C:\\missing-tool.exe")!);
+        AssertTrue(QueryProfilerSql.SupportsAnalyze(DatabaseType.SqlServer), "SQL Server 应支持服务端剖析输出。");
+        AssertContains("STATISTICS XML", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.SqlServer, "SELECT 1"));
+        AssertContains("DISPLAY_CURSOR", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.Oracle, "SELECT 1"));
+        AssertEqual("1000", ChartSampling.NormalizeLimit(9999).ToString());
         Console.WriteLine("All regression checks passed.");
         return 0;
     }

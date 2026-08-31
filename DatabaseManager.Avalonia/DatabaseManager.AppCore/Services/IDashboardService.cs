@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
 
@@ -24,6 +25,9 @@ public class DashboardChart
 
     /// <summary>聚合方式：无 / 计数 / 求和 / 平均。</summary>
     public string Aggregation { get; set; } = "无";
+
+    /// <summary>渲染时最多取用的结果/分组数量（1-1000）。</summary>
+    public int SampleLimit { get; set; } = ChartSampling.DefaultLimit;
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 }

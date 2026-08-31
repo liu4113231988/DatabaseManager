@@ -22,6 +22,7 @@ public partial class ChartWindow : Window
     private DashboardChart? _existingChart;
 
     private readonly IDashboardService? _dashboardService;
+    private readonly IQueryService? _queryService;
 
     public ChartWindow()
     {
@@ -50,10 +51,11 @@ public partial class ChartWindow : Window
     }
 
     /// <summary>从仪表盘图表定义创建（重新执行 SQL 获取数据）。</summary>
-    public ChartWindow(DashboardChart chart, QueryResult result, IDashboardService? dashboardService)
+    public ChartWindow(DashboardChart chart, QueryResult result, IDashboardService? dashboardService, IQueryService? queryService = null)
         : this()
     {
         _dashboardService = dashboardService;
+        _queryService = queryService;
         _existingChart = chart;
 
         if (result.IsSuccess && !result.IsNonQuery)
@@ -75,6 +77,9 @@ public partial class ChartWindow : Window
         ComboXColumn.SelectedItem = chart.XColumn;
         ComboAggregation.SelectedItem = chart.Aggregation;
         TxtChartName.Text = chart.Name;
+        TxtSampleLimit.Text = ChartSampling.NormalizeLimit(chart.SampleLimit).ToString();
+        TxtSourceSql.Text = chart.Sql;
+        SelectYColumns(chart.YColumns);
 
         BtnRender_Click(this, new RoutedEventArgs());
     }
@@ -88,6 +93,8 @@ public partial class ChartWindow : Window
         {
             ComboXColumn.SelectedIndex = 0;
         }
+
+        TxtSourceSql.Text = sql ?? string.Empty;
 
         if (_existingChart is null)
         {
@@ -136,10 +143,12 @@ public partial class ChartWindow : Window
             return model;
         }
 
+        int sampleLimit = ChartSampling.NormalizeLimit(int.TryParse(TxtSampleLimit.Text, out var limit) ? limit : ChartSampling.DefaultLimit);
+        TxtSampleLimit.Text = sampleLimit.ToString();
         if (aggregation == ChartAggregations.None)
         {
             // 每行一个数据点（最多 100 行）。
-            foreach (var row in _rows.Take(100))
+            foreach (var row in _rows.Take(sampleLimit))
             {
                 model.Labels.Add(Shorten(row.GetValueOrDefault(xColumn, string.Empty)));
             }
@@ -147,7 +156,7 @@ public partial class ChartWindow : Window
             foreach (var yColumn in yColumns)
             {
                 var series = new ChartSeriesModel { Name = yColumn };
-                foreach (var row in _rows.Take(100))
+                foreach (var row in _rows.Take(sampleLimit))
                 {
                     series.Values.Add(TryParse(row.GetValueOrDefault(yColumn, string.Empty)));
                 }
@@ -161,7 +170,7 @@ public partial class ChartWindow : Window
             string yColumn = yColumns[0];
             var groups = _rows
                 .GroupBy(r => r.GetValueOrDefault(xColumn, string.Empty), StringComparer.OrdinalIgnoreCase)
-                .Take(100)
+                .Take(sampleLimit)
                 .ToList();
 
             foreach (var group in groups)
@@ -230,6 +239,8 @@ public partial class ChartWindow : Window
         chart.XColumn = xColumn;
         chart.YColumns = yColumns;
         chart.Aggregation = (ComboAggregation.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? ChartAggregations.None;
+        chart.SampleLimit = ChartSampling.NormalizeLimit(int.TryParse(TxtSampleLimit.Text, out var limit) ? limit : ChartSampling.DefaultLimit);
+        chart.Sql = TxtSourceSql.Text?.Trim() ?? string.Empty;
 
         if (_existingChart is null)
         {
@@ -247,6 +258,44 @@ public partial class ChartWindow : Window
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e) => Close();
+
+    private async void BtnReloadSql_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_queryService is null || _existingChart is null)
+        {
+            TxtHint.Text = "当前查询结果来源无需刷新；保存后的仪表盘图表可在此处修改 SQL 并刷新。";
+            return;
+        }
+
+        string sql = TxtSourceSql.Text?.Trim() ?? string.Empty;
+        if (sql.Length == 0)
+        {
+            TxtHint.Text = "请输入用于图表的数据查询 SQL。";
+            return;
+        }
+
+        var result = await _queryService.ExecuteAsync(_existingChart.ConnectionName, sql, CancellationToken.None, 120);
+        if (!result.IsSuccess || result.IsNonQuery)
+        {
+            TxtHint.Text = result.ErrorMessage ?? "SQL 未返回结果集。";
+            return;
+        }
+
+        _columns = result.Columns.ToList();
+        _rows = result.Rows.Select(r => _columns.Select((c, i) => new KeyValuePair<string, string>(c, i < r.Count ? r[i] ?? string.Empty : string.Empty))
+            .ToDictionary(kv => kv.Key, kv => kv.Value)).ToList();
+        PopulateColumns(_existingChart.ConnectionName, _existingChart.Database, sql);
+        TxtHint.Text = $"已刷新 {Math.Min(_rows.Count, ChartSampling.NormalizeLimit(int.TryParse(TxtSampleLimit.Text, out var limit) ? limit : ChartSampling.DefaultLimit))} 条取样数据；保存后更新仪表盘定义。";
+        BtnRender_Click(this, new RoutedEventArgs());
+    }
+
+    private void SelectYColumns(IEnumerable<string> names)
+    {
+        var selected = names.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        ListYColumns.SelectedItems?.Clear();
+        foreach (var column in _columns.Where(selected.Contains))
+            ListYColumns.SelectedItems?.Add(column);
+    }
 
     private static double TryParse(string value)
         => double.TryParse(value, out double result) ? result : 0;

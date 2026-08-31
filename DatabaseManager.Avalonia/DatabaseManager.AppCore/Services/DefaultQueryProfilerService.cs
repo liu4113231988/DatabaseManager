@@ -16,7 +16,7 @@ public class DefaultQueryProfilerService : IQueryProfilerService
     public bool SupportsAnalyze(string databaseType)
     {
         var dbType = ParseDatabaseType(databaseType);
-        return dbType is DatabaseType.MySql or DatabaseType.Postgres;
+        return QueryProfilerSql.SupportsAnalyze(dbType);
     }
 
     public async Task<QueryProfileResult> ProfileAsync(
@@ -104,9 +104,7 @@ public class DefaultQueryProfilerService : IQueryProfilerService
             {
                 try
                 {
-                    string analyzeSql = dbType == DatabaseType.MySql
-                        ? $"EXPLAIN ANALYZE {statement}"
-                        : $"EXPLAIN ANALYZE {statement}";
+                    string analyzeSql = QueryProfilerSql.BuildAnalyzeSql(dbType, statement);
 
                     await using var cmd = conn.CreateCommand();
                     cmd.CommandTimeout = 120;
@@ -115,14 +113,20 @@ public class DefaultQueryProfilerService : IQueryProfilerService
                     await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
                     var text = new StringBuilder();
 
-                    while (await reader.ReadAsync(cancellationToken))
+                    do
                     {
-                        var cells = Enumerable.Range(0, reader.FieldCount)
-                            .Select(i => reader.IsDBNull(i) ? string.Empty : reader.GetValue(i)?.ToString() ?? string.Empty);
-                        text.AppendLine(string.Join(" | ", cells));
+                        while (await reader.ReadAsync(cancellationToken))
+                        {
+                            var cells = Enumerable.Range(0, reader.FieldCount)
+                                .Select(i => reader.IsDBNull(i) ? string.Empty : reader.GetValue(i)?.ToString() ?? string.Empty);
+                            text.AppendLine(string.Join(" | ", cells));
+                        }
                     }
+                    while (await reader.NextResultAsync(cancellationToken));
 
-                    result.AnalyzeText = text.ToString();
+                    result.AnalyzeText = text.Length > 0
+                        ? text.ToString()
+                        : "（服务端未返回可展示的计划文本；SQL Server 请确认驱动支持 STATISTICS XML，Oracle 请确认 DBMS_XPLAN 与 V$SQL 权限。）";
                 }
                 catch (Exception ex)
                 {
