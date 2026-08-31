@@ -806,7 +806,7 @@ namespace DatabaseInterpreter.Core
                 #region User defined type
                 if (column.IsUserDefined)
                 {
-                    if (this.DatabaseType == DatabaseType.Postgres)
+                    if (this.DatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                     {
                         if (!DataTypeHelper.IsGeometryType(column.DataType))
                         {
@@ -1029,7 +1029,7 @@ namespace DatabaseInterpreter.Core
         protected virtual void SubscribeInfoMessage(DbCommand dbCommand) { }
         public string GetQuotedDbObjectNameWithSchema(DatabaseObject obj)
         {
-            if (this.DatabaseType == DatabaseType.SqlServer || this.DatabaseType == DatabaseType.Postgres)
+            if (this.DatabaseType is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 if (!string.IsNullOrEmpty(obj.Schema))
                 {
@@ -1251,7 +1251,7 @@ namespace DatabaseInterpreter.Core
 
         public DataTypeInfo GetDataTypeInfo(string dataType)
         {
-            if (!(this.DatabaseType == DatabaseType.Postgres && dataType == "\"char\""))
+            if (!((this.DatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES) && dataType == "\"char\""))
             {
                 if (this.QuotationLeftChar.HasValue)
                 {

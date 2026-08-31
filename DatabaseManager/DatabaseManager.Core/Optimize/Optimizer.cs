@@ -1,4 +1,4 @@
-﻿using Dapper;
+﻿﻿using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Core.Model;
@@ -115,7 +115,7 @@ namespace DatabaseManager.Core
 
                         result.IsOK = true;
                     }
-                    else if (databaseType == DatabaseType.Postgres)
+                    else if (databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                     {
                         // Postgres / Kingbase：执行 VACUUM（全库）。若需要可扩展为 per-table VACUUM FULL。
                         OptimizeResultDetail detail = new OptimizeResultDetail() { ObjectType = nameof(Database), ObjectName = connectionInfo.Database ?? "postgres" };
@@ -208,7 +208,7 @@ namespace DatabaseManager.Core
                     else
                     {
                         result.IsOK = false;
-                        result.Message = $"当前数据库类型 {databaseType} 暂不支持自动优化。仅支持 SQLite（VACUUM）、MySQL（InnoDB 重建）、Postgres（VACUUM）、SQL Server（索引重组）与 Oracle（SHRINK COMPACT）。";
+                        result.Message = $"当前数据库类型 {databaseType} 暂不支持自动优化。仅支持 SQLite（VACUUM）、MySQL（InnoDB 重建）、Postgres/KingbaseES（VACUUM）、SQL Server（索引重组）与 Oracle（SHRINK COMPACT）。";
                     }
                 }
             }

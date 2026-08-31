@@ -117,7 +117,7 @@ namespace DatabaseManager.Core
 
             DatabaseType databaseType = this.sourceInterpreter.DatabaseType;
 
-            if (databaseType == DatabaseType.SqlServer || databaseType == DatabaseType.Postgres)
+            if (databaseType is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 targetDbSchema = sourceScriptDbObject.Schema ?? targetScriptDbObject.Schema;
             }
@@ -152,7 +152,7 @@ namespace DatabaseManager.Core
 
             DatabaseType databaseType = this.sourceInterpreter.DatabaseType;
 
-            if (databaseType == DatabaseType.SqlServer || databaseType == DatabaseType.Postgres)
+            if (databaseType is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 targetDbSchema = source.Schema ?? target.Schema;
             }
@@ -187,7 +187,7 @@ namespace DatabaseManager.Core
 
             DatabaseType databaseType = this.sourceInterpreter.DatabaseType;
 
-            if (databaseType == DatabaseType.SqlServer || databaseType == DatabaseType.Postgres)
+            if (databaseType is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 targetDbSchema = sourceTable.Schema ?? targetTable.Schema;
             }

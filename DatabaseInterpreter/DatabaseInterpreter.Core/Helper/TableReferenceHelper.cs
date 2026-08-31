@@ -18,7 +18,7 @@ namespace DatabaseInterpreter.Core
                 DatabaseType databaseType = dbInterpreter.DatabaseType;
 
                 #region Handle partition tables for Postgres 
-                if (databaseType == DatabaseType.Postgres)
+                if (databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                 {
                     clonedTableForeignKeys = tableForeignKeys.Select(item => ObjectHelper.CloneObject<TableForeignKey>(item)).ToList();
 

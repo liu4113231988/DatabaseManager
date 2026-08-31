@@ -13,9 +13,23 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class DefaultConvertService : IConvertService
 {
+    /// <summary>
+    /// KingbaseES 跨库转换尚未按兼容模式逐一验证。首期只验证了 PG 兼容路径的编
+    /// 译与 SQL 生成，未验证的转换不得静默套用 PostgreSQL 翻译规则，因此在能力标记
+    /// 中明确禁用，并返回面向用户的提示。
+    /// </summary>
+    public static readonly IReadOnlySet<DatabaseType> UnverifiedConversionTypes =
+        new HashSet<DatabaseType> { DatabaseType.KingbaseES };
+
+    public static string? GetConversionBlockReason(DatabaseType dbType)
+        => UnverifiedConversionTypes.Contains(dbType)
+            ? "KingbaseES 跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。"
+            : null;
+
     public IReadOnlyList<string> GetSupportedConverters()
     {
-        // 所有非 Unknown 的数据库类型均可作为源/目标进行转换。
+        // 所有非 Unknown 的数据库类型均可作为源/目标列出；未验证的类型由
+        // <see cref="GetConversionBlockReason"/> 在转换入口明确拦截，而不是静默执行。
         var types = Enum.GetValues<DatabaseType>()
                         .Where(t => t != DatabaseType.Unknown)
                         .Select(t => t.ToString())
@@ -218,6 +232,14 @@ public class DefaultConvertService : IConvertService
                 return result;
             }
 
+            var blockReason = GetConversionBlockReason(sourceDbType) ?? GetConversionBlockReason(targetDbType);
+            if (blockReason != null)
+            {
+                result.IsSuccess = false;
+                result.Message = blockReason;
+                return result;
+            }
+
             // 复用 DbConverter 的静态方法加载两侧 Schema 并自动映射。
             var sourceInfo = ConnectionHelper.ToConnectionInfo(source);
             var targetInfo = ConnectionHelper.ToConnectionInfo(target);
@@ -278,6 +300,15 @@ public class DefaultConvertService : IConvertService
             return false;
         }
 
+        // 能力门控：未验证的数据库类型不得静默执行转换。
+        var blockReason = GetConversionBlockReason(sourceDbType) ?? GetConversionBlockReason(targetDbType);
+        if (blockReason != null)
+        {
+            result.ResultType = ConvertResultType.Error;
+            result.Message = blockReason;
+            return false;
+        }
+
         return true;
     }
 
@@ -315,6 +346,16 @@ public class DefaultConvertService : IConvertService
             result.IsSuccess = false;
             result.ResultType = ConvertResultType.Error;
             result.Message = "源/目标数据库类型无效。";
+            return false;
+        }
+
+        // 能力门控：未验证的数据库类型不得静默执行转换。
+        var blockReason = GetConversionBlockReason(sourceDbType) ?? GetConversionBlockReason(targetDbType);
+        if (blockReason != null)
+        {
+            result.IsSuccess = false;
+            result.ResultType = ConvertResultType.Error;
+            result.Message = blockReason;
             return false;
         }
 

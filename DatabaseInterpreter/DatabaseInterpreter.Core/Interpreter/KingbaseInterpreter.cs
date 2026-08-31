@@ -17,6 +17,12 @@ namespace DatabaseInterpreter.Core
 
         public override DatabaseType DatabaseType => DatabaseType.KingbaseES;
 
+        /// <summary>
+        /// PostgreSQL 的二进制 COPY 实现依赖 NpgsqlConnection，不能用于 Kdbndp。
+        /// 在拿到并验证供应商批量接口前，保持参数化 INSERT 回退路径。
+        /// </summary>
+        public override bool SupportBulkCopy => false;
+
         public override DbConnector GetDbConnector()
             => new DbConnector(new KingbaseProvider(), new KingbaseConnectionBuilder(), ConnectionInfo);
     }

@@ -185,7 +185,7 @@ namespace DatabaseManager.Core
                 }
             }
 
-            if (databaseType == DatabaseType.Postgres)
+            if (databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 var partitionInfos = (await (dbInterpreter as PostgresInterpreter).GetPartitionInfos(filter, true));
 
@@ -252,7 +252,7 @@ namespace DatabaseManager.Core
                     table.ExtraInfo.PartitionSummary = await mySqlInterpreter.GetPartitionSummary(table, true);
                 }
             }
-            else if (databaseType == DatabaseType.Postgres)
+            else if (databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 PostgresInterpreter postgresInterpreter = dbInterpreter as PostgresInterpreter;
 
@@ -363,7 +363,7 @@ namespace DatabaseManager.Core
             {
                 string dataType = this.dbInterpreter.ParseDataType(column);
 
-                if (databaseType == DatabaseType.Oracle || databaseType == DatabaseType.Postgres)
+                if (databaseType is DatabaseType.Oracle or DatabaseType.Postgres or DatabaseType.KingbaseES)
                 {
                     int parenthesesIndex = dataType.IndexOf("(");
 
@@ -484,6 +484,7 @@ BEGIN
 END {procedureName};";
                     break;
                 case DatabaseType.Postgres:
+                case DatabaseType.KingbaseES:
                     script =
 $@"CREATE OR REPLACE PROCEDURE {procedureName}
 (
@@ -542,7 +543,7 @@ $$;";
             }
             else
             {
-                if (databaseType == DatabaseType.MySql || databaseType == DatabaseType.Postgres)
+                if (databaseType is DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES)
                 {
                     action = "CALL";
                 }

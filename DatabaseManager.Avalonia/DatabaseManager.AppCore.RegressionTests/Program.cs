@@ -3,6 +3,8 @@ using DatabaseInterpreter.Core;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
+using DatabaseManager.Core;
+using DatabaseManager.Core.Model;
 
 static class Program
 {
@@ -50,6 +52,34 @@ static class Program
         AssertContains("尚未完成", KingbaseCompatibilityModes.GetConnectionBlockReason(KingbaseCompatibilityModes.SqlServer)!);
         AssertTrue(QueryProfilerSql.SupportsAnalyze(DatabaseType.KingbaseES), "已验证的 KingbaseES PG 路径应提供 EXPLAIN ANALYZE。 ");
         AssertContains("EXPLAIN ANALYZE", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.KingbaseES, "SELECT 1"));
+        var kingbaseInterpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.KingbaseES, kingbaseConnection);
+        AssertTrue(DbScriptGeneratorHelper.GetDbScriptGenerator(kingbaseInterpreter) is PostgresScriptGenerator,
+            "KingbaseES PG 兼容路径应使用 PostgreSQL 脚本生成器。 ");
+        AssertTrue(!kingbaseInterpreter.SupportBulkCopy,
+            "Kdbndp 二进制批量导入尚未验证前，KingbaseES 必须退回可回放的参数化批量插入。 ");
+        var kingbaseCondition = new QueryConditionBuilder
+        {
+            DatabaseType = DatabaseType.KingbaseES,
+            QuotationLeftChar = '"',
+            QuotationRightChar = '"',
+        };
+        kingbaseCondition.Add(new QueryConditionItem
+        {
+            ColumnName = "created_at",
+            DataType = typeof(DateTime),
+            Mode = QueryConditionMode.Single,
+            Operator = "=",
+            Value = "2026-08-31",
+        });
+        AssertContains("::CHARACTER VARYING", kingbaseCondition.ToString());
+
+        // 阶段 D 任务 5：跨库转换能力标记。KingbaseES 未用真实实例验证前，必须
+        // 禁用并返回明确提示，而不是静默套用 PostgreSQL 翻译规则。
+        AssertContains("未验证", DefaultConvertService.GetConversionBlockReason(DatabaseType.KingbaseES)!);
+        AssertEqual(null, DefaultConvertService.GetConversionBlockReason(DatabaseType.Postgres));
+        AssertTrue(DefaultConvertService.UnverifiedConversionTypes.Contains(DatabaseType.KingbaseES),
+            "KingbaseES 应列入未验证转换能力集合，避免静默执行。 ");
+
         Console.WriteLine("All regression checks passed.");
         return 0;
     }

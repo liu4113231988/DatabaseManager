@@ -36,7 +36,7 @@ namespace DatabaseManager.Core
 
             if(item.NeedQuoted)
             {
-                if(this.DatabaseType == DatabaseType.Postgres)
+                if(this.DatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                 {
                     typeConvert = "::CHARACTER VARYING ";
                 }

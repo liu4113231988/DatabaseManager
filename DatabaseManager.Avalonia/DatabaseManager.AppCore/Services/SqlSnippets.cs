@@ -52,7 +52,7 @@ public static class SqlSnippets
         new ScriptLibraryItem
         {
             Id = "snippet.paging-mysql",
-            Name = "分页（MySQL / PostgreSQL / SQLite）",
+            Name = "分页（MySQL / PostgreSQL / KingbaseES / SQLite）",
             Category = "内置片段",
             SqlText = "SELECT *\nFROM table_name\nORDER BY id\nLIMIT 20 OFFSET 40;  -- 第 3 页，每页 20 行\n",
         },
@@ -89,7 +89,7 @@ public static class SqlSnippets
             Id = "snippet.upsert",
             Name = "存在则更新，否则插入",
             Category = "内置片段",
-            SqlText = "-- MySQL\nINSERT INTO table_name (id, col1)\nVALUES (1, 'value')\nON DUPLICATE KEY UPDATE col1 = VALUES(col1);\n\n-- PostgreSQL / SQLite\n-- INSERT INTO table_name (id, col1) VALUES (1, 'value')\n-- ON CONFLICT (id) DO UPDATE SET col1 = EXCLUDED.col1;\n",
+            SqlText = "-- MySQL\nINSERT INTO table_name (id, col1)\nVALUES (1, 'value')\nON DUPLICATE KEY UPDATE col1 = VALUES(col1);\n\n-- PostgreSQL / KingbaseES / SQLite\n-- INSERT INTO table_name (id, col1) VALUES (1, 'value')\n-- ON CONFLICT (id) DO UPDATE SET col1 = EXCLUDED.col1;\n",
         },
         new ScriptLibraryItem
         {
@@ -103,7 +103,7 @@ public static class SqlSnippets
             Id = "snippet.explain",
             Name = "执行计划",
             Category = "内置片段",
-            SqlText = "-- MySQL / PostgreSQL\nEXPLAIN SELECT * FROM table_name WHERE col1 = 1;\n\n-- 实际执行并输出耗时（PostgreSQL / MySQL 8.0.18+）\nEXPLAIN ANALYZE SELECT * FROM table_name WHERE col1 = 1;\n\n-- SQLite\nEXPLAIN QUERY PLAN SELECT * FROM table_name WHERE col1 = 1;\n",
+            SqlText = "-- MySQL / PostgreSQL / KingbaseES\nEXPLAIN SELECT * FROM table_name WHERE col1 = 1;\n\n-- 实际执行并输出耗时（PostgreSQL / KingbaseES / MySQL 8.0.18+）\nEXPLAIN ANALYZE SELECT * FROM table_name WHERE col1 = 1;\n\n-- SQLite\nEXPLAIN QUERY PLAN SELECT * FROM table_name WHERE col1 = 1;\n",
         },
     };
 }

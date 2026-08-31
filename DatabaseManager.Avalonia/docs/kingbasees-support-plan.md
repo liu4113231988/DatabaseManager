@@ -87,7 +87,11 @@ KingbaseES 官方提供 ADO.NET 数据提供程序 `Kdbndp`，包含 `KdbndpConn
 
 **验收数据**：至少 3 个 Schema、50 张表、跨 Schema 外键、中文/引号标识符、视图/函数/触发器各不少于 2 个。
 
-### 阶段 D：查询、编辑、DDL 与数据工具（5–8 人日）
+### 阶段 D：查询、编辑、DDL 与数据工具（进行中）
+
+当前已完成：KingbaseES 复用 PG 方言的标识符、分页、服务端排序、查询剖析与执行计划路径；脚本生成器及同步脚本的默认 Schema 已接入；代码生成的数据类型→C#/Java 类型映射已与 PG 一致接入；`DbConverter` 的 `CreateSchemaIfNotExists` 已放行 KingbaseES（PG 语义）。由于 PostgreSQL 的二进制 COPY 实现绑定 `NpgsqlConnection`，金仓当前明确禁用该快捷路径并退回参数化批量插入，避免在 Kdbndp 连接上发生类型转换或运行时失败。阶段 D 任务 5 的“数据库转换能力标记”已落地：KingbaseES 在未用真实实例验证前被列入未验证转换集合，转换/预览/加载 Schema 映射三个入口均明确拦截并返回提示，不再静默套用 PostgreSQL 翻译规则。
+
+> 代码级核查小结（2026 阶段 D 收尾）：逐项核查了所有 `DatabaseType.Postgres` 分支与金仓入口。MVP 范围内的连接、对象树/搜索、查询、同步脚本、执行计划/剖析、脚本生成、`CodeGenerator` 类型映射与批量导入回退均已纳入 KingbaseES。核查中发现并修复一处遗漏：`Optimizer.cs` 的注释已声明“Postgres / Kingbase：执行 VACUUM”，但分支条件漏加 KingbaseES，现已补上并更新提示消息。会话/锁、用户/权限、备份恢复、诊断/碎片分析（`DbSessionSql`、`IDbUserService`、`DefaultBackupService`、`DbDiagnosis`、`Analysiser`）属于阶段 E，强依赖真实实例目录与权限，按“未验证不得静默套用 PG 规则”原则刻意未补，待 E 阶段按环境验收后接入。
 
 1. 验证参数符号、分页（`LIMIT/OFFSET`）、列序号排序、标识符引用、`RETURNING`、事务与锁行为；实现专属 SQL 方言帮助器。
 2. 适配 `SimpleSelectParser`、数据编辑主键定位、插入/更新/删除模板及默认值/序列行为。
@@ -98,6 +102,8 @@ KingbaseES 官方提供 ADO.NET 数据提供程序 `Kdbndp`，包含 `KdbndpConn
 **验收标准**：CRUD、分页、服务端排序、事务回滚、DDL 回放和五种导入导出在基准库通过。
 
 ### 阶段 E：运维与高级功能（5–10 人日）
+
+> 当前状态：尚未接入。代码中已有 PG 方言路径（会话/锁、用户/权限、备份、诊断等），但金仓在这些功能的 `DatabaseType` 分支上**刻意未纳入 KingbaseES**——因为这些 SQL 与工具路径强依赖版本、兼容模式和权限，未用真实实例验证前不能静默套用 PG 规则。接入前须按下面每项完成实例验收。
 
 1. **会话/锁**：依据金仓系统视图实现会话、阻塞链和终止会话；在权限不足时展示所需角色/权限。
 2. **用户/权限**：实现用户、角色、对象授权与成员关系读取；写操作始终经二次确认。

@@ -576,7 +576,7 @@ namespace DatabaseManager.Core
                                 selectStatement.Columns.Add(columnName);
                             };
 
-                            if (databaseType == DatabaseType.MySql || databaseType == DatabaseType.Postgres || databaseType == DatabaseType.Sqlite)
+                            if (databaseType is DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.Sqlite)
                             {
                                 useNormalPagination();
                             }

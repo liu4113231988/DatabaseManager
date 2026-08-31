@@ -456,7 +456,7 @@ public class DefaultSyncScriptService : ISyncScriptService
         {
             DatabaseType.Oracle => ((OracleInterpreter)targetInterpreter).GetDbSchema(),
             DatabaseType.MySql => targetInterpreter.ConnectionInfo.Database,
-            DatabaseType.SqlServer or DatabaseType.Postgres => targetInterpreter.DefaultSchema,
+            DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES => targetInterpreter.DefaultSchema,
             _ => null,
         };
 
