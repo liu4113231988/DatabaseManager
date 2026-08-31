@@ -1329,12 +1329,26 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>创建菜单项（带 Header 文本和 ToolTip）。</summary>
     private static MenuItem CreateMenuItem(string header, string? toolTip = null)
     {
-        var item = new MenuItem { Header = header };
+        var item = new MenuItem { Header = header, Icon = new TextBlock { Text = GetMenuGlyph(header), FontSize = 13 } };
         if (toolTip is not null)
         {
             ToolTip.SetTip(item, toolTip);
         }
         return item;
+    }
+
+    private static string GetMenuGlyph(string header)
+    {
+        if (header.Contains("删除") || header.Contains("DROP")) return "🗑";
+        if (header.Contains("刷新") || header.Contains("重新连接")) return "↻";
+        if (header.Contains("复制")) return "⧉";
+        if (header.Contains("导入")) return "⇩";
+        if (header.Contains("导出")) return "⇧";
+        if (header.Contains("新建") || header.Contains("CREATE")) return "＋";
+        if (header.Contains("编辑") || header.Contains("设计") || header.Contains("重命名")) return "✎";
+        if (header.Contains("SQL") || header.Contains("数据") || header.Contains("查看")) return "▤";
+        if (header.Contains("比较") || header.Contains("转换")) return "⇄";
+        return "•";
     }
 
     private static Control? CreateIcon(string uri)

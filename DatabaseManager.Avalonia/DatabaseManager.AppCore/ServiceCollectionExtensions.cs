@@ -37,6 +37,13 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IExecutionPlanService, DefaultExecutionPlanService>();
         services.AddSingleton<ITaskCenterService, DefaultTaskCenterService>();
         services.AddSingleton<IAppSettingsService, DefaultAppSettingsService>();
+        services.AddSingleton<IConnectionVisualService, DefaultConnectionVisualService>();
+        services.AddSingleton<IFullDataSearchService, DefaultFullDataSearchService>();
+        services.AddSingleton<IDbSessionService, DefaultDbSessionService>();
+        services.AddSingleton<IDbUserService, DefaultDbUserService>();
+        services.AddSingleton<IQueryProfilerService, DefaultQueryProfilerService>();
+        services.AddSingleton<IDashboardService, DefaultDashboardService>();
+        services.AddSingleton<IScheduleService, DefaultScheduleService>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();

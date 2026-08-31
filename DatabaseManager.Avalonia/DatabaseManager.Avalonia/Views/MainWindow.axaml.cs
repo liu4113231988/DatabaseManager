@@ -27,6 +27,7 @@ public partial class MainWindow : Window
 {
     private IServiceProvider? _services;
     private QueryTabViewModel? _currentQueryTab;
+    private DispatcherTimer? _scheduleTimer;
 
     public MainWindow()
     {
@@ -53,10 +54,20 @@ public partial class MainWindow : Window
 
             vm.QueryTabs.CollectionChanged += (_, args) =>
             {
-                if (args.NewItems is null)
-                    return;
+                // 关闭标签时同步关闭其结果浮动窗口，避免窗口继续持有已移除的标签 VM。
+                if (args.OldItems is not null)
+                {
+                    foreach (var item in args.OldItems.OfType<QueryTabViewModel>())
+                    {
+                        if (_floatingResults.Remove(item.TabId, out var floating))
+                        {
+                            item.IsResultFloating = false;
+                            floating.Close();
+                        }
+                    }
+                }
 
-                foreach (var item in args.NewItems.OfType<QueryTabViewModel>())
+                foreach (var item in args.NewItems?.OfType<QueryTabViewModel>() ?? Enumerable.Empty<QueryTabViewModel>())
                 {
                     item.RequestDangerousExecution = RequestDangerousExecutionAsync;
                     item.RequestLocateRow = LocateRowInResultGrid;
@@ -95,6 +106,16 @@ public partial class MainWindow : Window
         {
             ApplyThemeMode(appSettings.Settings.ThemeMode);
             ApplyFontScale(appSettings.Settings.FontScale);
+        }
+
+        // 任务定时调度：每 30 秒检查到期计划（经任务中心执行，UI 线程触发）。
+        var scheduleService = _services?.GetService<IScheduleService>();
+        if (scheduleService is not null)
+        {
+            _scheduleTimer = new DispatcherTimer(
+                TimeSpan.FromSeconds(30), DispatcherPriority.Background,
+                (_, _) => scheduleService.CheckAndRunDue(DateTime.Now));
+            _scheduleTimer.Start();
         }
     }
 
@@ -636,10 +657,138 @@ public partial class MainWindow : Window
         (DataContext as MainWindowViewModel)?.RefreshConnections();
     }
 
+    /// <summary>打开全库数据搜索窗口（跨表搜索数据内容）。</summary>
+    private void MenuFullDataSearch_Click(object? sender, RoutedEventArgs e)
+    {        if (_services is null)
+            return;
+
+        var searchService = _services.GetRequiredService<IFullDataSearchService>();
+        var connectionService = _services.GetRequiredService<IDbConnectionService>();
+
+        var window = new FullDataSearchWindow(
+            searchService,
+            connectionService,
+            (connectionName, databaseName, sql) => OpenSqlInNewTab(connectionName, sql, databaseName));
+        window.Show(this);
+    }
+
+    /// <summary>打开会话与锁监控窗口。</summary>
+    private void MenuSessionMonitor_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var window = new SessionMonitorWindow(
+            _services.GetRequiredService<IDbSessionService>(),
+            _services.GetRequiredService<IDbConnectionService>());
+        window.Show(this);
+    }
+
+    /// <summary>打开用户与权限管理窗口。</summary>
+    private void MenuUserManagement_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var window = new UserManagementWindow(
+            _services.GetRequiredService<IDbUserService>(),
+            _services.GetRequiredService<IDbConnectionService>());
+        window.Show(this);
+    }
+
+    /// <summary>打开查询性能剖析窗口（预填当前查询标签的连接与 SQL）。</summary>
+    private void MenuQueryProfiler_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var window = new QueryProfilerWindow(
+            _services.GetRequiredService<IQueryProfilerService>(),
+            _services.GetRequiredService<IDbConnectionService>());
+
+        var tab = _currentQueryTab;
+        if (tab is not null)
+        {
+            window.SetContext(tab.ConnectionName, tab.SqlText);
+        }
+
+        window.Show(this);
+    }
+
+    /// <summary>打开仪表盘窗口。</summary>
+    private void MenuDashboard_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var window = new DashboardWindow(
+            _services.GetRequiredService<IDashboardService>(),
+            _services.GetRequiredService<IQueryService>());
+        window.Show(this);
+    }
+
+    /// <summary>打开任务定时调度窗口。</summary>
+    private void MenuSchedule_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null)
+            return;
+
+        var window = new ScheduleWindow(
+            _services.GetRequiredService<IScheduleService>(),
+            _services.GetRequiredService<IDbConnectionService>());
+        window.Show(this);
+    }
+
+    /// <summary>把当前查询结果绘制为图表。</summary>
+    private void ToolChartResults_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null || _currentQueryTab is null)
+            return;
+
+        var window = new ChartWindow(_currentQueryTab, _services.GetService<IDashboardService>());
+        window.Show(this);
+    }
+
+    /// <summary>浮动结果窗口表（按标签页 Id）。</summary>
+    private readonly Dictionary<int, FloatingResultWindow> _floatingResults = new();
+
+    /// <summary>把当前查询标签的结果区浮动为独立窗口。</summary>
+    private void ToolFloatResult_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_currentQueryTab is null)
+            return;
+
+        if (_floatingResults.TryGetValue(_currentQueryTab.TabId, out var existing))
+        {
+            existing.Activate();
+            return;
+        }
+
+        var tab = _currentQueryTab;
+        tab.IsResultFloating = true;
+
+        var window = new FloatingResultWindow(tab, () =>
+        {
+            tab.IsResultFloating = false;
+            _floatingResults.Remove(tab.TabId);
+        });
+
+        window.Show(this);
+        _floatingResults[tab.TabId] = window;
+    }
+
+    /// <summary>在新查询标签中打开 SQL（供工具窗口回调）。</summary>
+    private void OpenSqlInNewTab(string connectionName, string sql, string? databaseName = null)
+    {
+        if (DataContext is MainWindowViewModel vm)
+        {
+            vm.OpenSqlInNewTab(connectionName, sql, databaseName);
+        }
+    }
+
     /// <summary>打开元数据搜索窗口（P0：DB Metadata Search / Open Database Object）。</summary>
     private async void MenuSearch_Click(object? sender, RoutedEventArgs e)
-    {
-        if (_services is null || DataContext is not MainWindowViewModel vm)
+    {        if (_services is null || DataContext is not MainWindowViewModel vm)
             return;
 
         // 仅提供已活动的连接供搜索；默认选中当前查询标签使用的连接。
@@ -1366,6 +1515,119 @@ public partial class MainWindow : Window
         _currentQueryTab?.RevertEdits();
     }
 
+    #region 结果网格筛选/排序
+
+    /// <summary>从筛选条控件解析出所在查询标签的 ViewModel 与相关控件。</summary>
+    private static (QueryTabViewModel? Vm, ComboBox? ColumnCombo, ComboBox? OpCombo, TextBox? ValueBox)
+        ResolveFilterBar(Control source)
+    {
+        if (source.DataContext is not QueryTabViewModel vm)
+            return (null, null, null, null);
+
+        var bar = source.FindAncestorOfType<StackPanel>()
+                  ?? source.GetVisualAncestors().OfType<StackPanel>().FirstOrDefault(p => p.Name == "QueryFilterBar");
+        if (bar is null)
+            return (vm, null, null, null);
+
+        var combos = bar.GetVisualDescendants().OfType<ComboBox>().ToList();
+        return (
+            vm,
+            combos.FirstOrDefault(c => c.Name == "QueryFilterColumn"),
+            combos.FirstOrDefault(c => c.Name == "QueryFilterOp"),
+            bar.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(t => t.Name == "QueryFilterValue"));
+    }
+
+    /// <summary>应用当前筛选条中的条件到查询结果视图。</summary>
+    private void QueryFilterApply_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Control source)
+            return;
+
+        var (vm, columnCombo, opCombo, valueBox) = ResolveFilterBar(source);
+        if (vm is null || columnCombo?.SelectedIndex is not int colIndex || colIndex < 0)
+        {
+            if (vm is not null)
+            {
+                vm.StatusMessage = "请先选择要筛选的列。";
+            }
+            return;
+        }
+
+        string op = (opCombo?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "包含";
+        string value = valueBox?.Text ?? string.Empty;
+        vm.ApplyViewFilter(colIndex, op, value);
+    }
+
+    /// <summary>筛选值框内按 Enter 直接应用筛选。</summary>
+    private void QueryFilterValue_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is Control source)
+        {
+            QueryFilterApply_Click(source, e);
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>清除全部筛选与排序。</summary>
+    private void QueryFilterClear_Click(object? sender, RoutedEventArgs e)
+    {
+        if ((sender as Control)?.DataContext is not QueryTabViewModel vm)
+            return;
+
+        vm.ClearViewFilters();
+        vm.SetViewSort(-1, null);
+    }
+
+    /// <summary>结果网格列头排序：重执行简单 SELECT，并以列序号生成跨方言 ORDER BY。</summary>
+    private async void QueryResultGrid_Sorting(object? sender, DataGridColumnEventArgs e)
+    {
+        if (sender is not DataGrid grid || grid.DataContext is not QueryTabViewModel tab)
+            return;
+
+        int columnIndex = grid.Columns.IndexOf(e.Column);
+        if (columnIndex < 0)
+            return;
+
+        e.Handled = true;
+        await tab.SortByServerAsync(columnIndex);
+    }
+
+    /// <summary>排序方向切换（升序/降序/无排序）。</summary>
+    private void QuerySortDirection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox combo || combo.SelectedIndex <= 0)
+            return;
+
+        if (combo.DataContext is not QueryTabViewModel vm)
+            return;
+
+        int columnIndex = 0;
+        // 通过同栏的列选择框确定排序列。
+        var bar = combo.FindAncestorOfType<StackPanel>();
+        var columnCombo = bar?.GetVisualDescendants().OfType<ComboBox>().FirstOrDefault(c => c.Name == "QueryFilterColumn");
+        if (columnCombo?.SelectedIndex is int idx && idx >= 0)
+        {
+            columnIndex = idx;
+        }
+        else
+        {
+            vm.StatusMessage = "请先选择要排序的列。";
+            combo.SelectedIndex = 0;
+            return;
+        }
+
+        bool? descending = combo.SelectedIndex switch
+        {
+            1 => false,
+            2 => true,
+            _ => null,
+        };
+
+        vm.SetViewSort(columnIndex, descending);
+    }
+
+    #endregion
+
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
     {
         (DataContext as MainWindowViewModel)?.RefreshConnections();
@@ -1633,33 +1895,9 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>按查询标签的列集合重建指定结果网格的数据列。</summary>
+    /// <summary>按查询标签的列集合重建指定结果网格的数据列（共享实现见 ResultGridHelper）。</summary>
     private static void RebuildResultGridColumns(DataGrid grid, QueryTabViewModel tabVm)
-    {
-        grid.Columns.Clear();
-
-        for (int i = 0; i < tabVm.Columns.Count; i++)
-        {
-            // 内联编辑模式：非只读列（映射到表的非自增/计算/二进制列）开放双向编辑；否则只读。
-            bool editableColumn = tabVm.IsColumnEditable(i);
-            bool isPrimaryKey = tabVm.IsPrimaryKeyColumn(i);
-
-            grid.Columns.Add(new DataGridTextColumn
-            {
-                // 主键列头加 🔑 标识，便于用户识别编辑定位依据。
-                Header = isPrimaryKey ? $"🔑 {tabVm.Columns[i]}" : tabVm.Columns[i],
-                // 使用 Values[i] 绑定，避免直接索引器路径解析在不同 Avalonia 版本/主题下的兼容性问题
-                Binding = new Binding($"Values[{i}]")
-                {
-                    Mode = editableColumn ? BindingMode.TwoWay : BindingMode.OneWay,
-                },
-                IsReadOnly = !editableColumn,
-                CanUserResize = true,
-                Width = DataGridLength.Auto,
-                MinWidth = 40,
-            });
-        }
-    }
+        => Controls.ResultGridHelper.RebuildColumns(grid, tabVm);
 
     /// <summary>在 Visual Tree 中查找指定名称的 DataGrid。</summary>
     private static DataGrid? FindDataGridInVisualTree(Control parent)

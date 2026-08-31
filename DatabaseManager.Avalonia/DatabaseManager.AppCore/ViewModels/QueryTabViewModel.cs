@@ -94,6 +94,14 @@ public partial class QueryTabViewModel : ViewModelBase
 
     private readonly List<QueryResultRow> _allRows = new();
 
+    // 视图层：筛选/排序后的可见行（未启用时与 _allRows 同序）。
+    private readonly List<QueryResultRow> _viewRows = new();
+    private readonly List<GridFilterCondition> _activeFilters = new();
+    private int _sortColumnIndex = -1;
+    private bool _sortDescending;
+    private int _serverSortColumnIndex = -1;
+    private bool _serverSortDescending;
+
     /// <summary>查询结果列名。</summary>
     public ObservableCollection<string> Columns { get; } = new();
 
@@ -105,6 +113,10 @@ public partial class QueryTabViewModel : ViewModelBase
 
     [ObservableProperty]
     private int _currentPage = 1;
+
+    /// <summary>结果区是否已浮动到独立窗口（主窗口停靠的结果区随之隐藏）。</summary>
+    [ObservableProperty]
+    private bool _isResultFloating;
 
     #region 内联编辑状态
 
@@ -157,15 +169,45 @@ public partial class QueryTabViewModel : ViewModelBase
     /// <summary>总行数。</summary>
     public int TotalRows => _allRows.Count;
 
+    /// <summary>当前筛选/排序后可见的行数。</summary>
+    public int VisibleRowCount => _viewRows.Count;
+
+    /// <summary>全量行快照（供图表等消费方读取，不暴露内部集合引用）。</summary>
+    public IReadOnlyList<QueryResultRow> GetAllRowsSnapshot() => _allRows.ToList();
+
     /// <summary>总行数（含待删除行）。</summary>
     public int TotalRowsIncludingDeleted => _allRows.Count + _pendingDeletes.Count;
 
-    /// <summary>总页数。</summary>
-    public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(_allRows.Count / (double)PageSize) : 0;
+    /// <summary>总页数（按可见行数计算）。</summary>
+    public int TotalPages => PageSize > 0 ? (int)Math.Ceiling(_viewRows.Count / (double)PageSize) : 0;
 
-    /// <summary>分页信息文案（如「第 2 / 5 页 · 共 243 行」）。</summary>
+    /// <summary>分页信息文案（启用筛选时显示「显示 X / 共 Y 行」）。</summary>
     public string PageInfo =>
-        TotalRows == 0 ? "共 0 行" : $"第 {CurrentPage} / {Math.Max(1, TotalPages)} 页 · 共 {TotalRows} 行";
+        _viewRows.Count == 0
+            ? $"共 0 行{(_activeFilters.Count > 0 ? $"（筛选自 {_allRows.Count} 行）" : string.Empty)}"
+            : HasActiveViewFilters
+                ? $"第 {CurrentPage} / {Math.Max(1, TotalPages)} 页 · 显示 {_viewRows.Count} / 共 {_allRows.Count} 行"
+                : $"第 {CurrentPage} / {Math.Max(1, TotalPages)} 页 · 共 {TotalRows} 行";
+
+    /// <summary>筛选/排序摘要文案（如「筛选 1 项 · 排序 id ↓」）。</summary>
+    public string FilterSummary
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_activeFilters.Count > 0)
+            {
+                parts.Add($"筛选 {_activeFilters.Count} 项：{string.Join(" 且 ", _activeFilters)}");
+            }
+
+            if (_sortColumnIndex >= 0 && _sortColumnIndex < Columns.Count)
+            {
+                parts.Add($"排序 {Columns[_sortColumnIndex]} {(_sortDescending ? "↓" : "↑")}");
+            }
+
+            return string.Join(" · ", parts);
+        }
+    }
 
     /// <summary>是否可以翻到上一页。</summary>
     public bool CanGoPrevPage => CurrentPage > 1;
@@ -665,6 +707,9 @@ public partial class QueryTabViewModel : ViewModelBase
         Columns.Clear();
         _allRows.Clear();
 
+        // 新结果集重置视图层（筛选/排序针对的是上一次的结果集）。
+        ResetView();
+
         if (!result.IsSuccess)
         {
             LastErrorLine = result.ErrorLine;
@@ -856,6 +901,18 @@ public partial class QueryTabViewModel : ViewModelBase
 
         HasPendingChanges = true;
         RefreshPage();
+
+        // 筛选/排序生效时新增行可能落在其它页：按视图位置跳页，保证可见可编辑。
+        int viewIndex = _viewRows.IndexOf(row);
+        if (viewIndex >= 0 && PageSize > 0)
+        {
+            int targetPage = viewIndex / PageSize + 1;
+            if (targetPage != CurrentPage)
+            {
+                GoToPage(targetPage);
+            }
+        }
+
         newRow = row;
     }
 
@@ -1007,6 +1064,11 @@ public partial class QueryTabViewModel : ViewModelBase
                 return;
             }
 
+            // 必须在 MarkAsSaved 前收集主键；否则新增/修改状态被清除后无法定位。
+            var savedKeys = AutoRefreshAfterSave
+                ? CollectSavedPrimaryKeyValues()
+                : new List<Dictionary<string, object?>>();
+
             // 保存成功：提交所有行状态，清空待删除列表。
             foreach (var (row, _) in _pendingDeletes)
             {
@@ -1022,7 +1084,6 @@ public partial class QueryTabViewModel : ViewModelBase
             RefreshPage();
 
             // 保存后自动重新执行查询并定位保存过的记录（自增列/默认值等数据库生成值会刷新）。
-            var savedKeys = AutoRefreshAfterSave ? CollectSavedPrimaryKeyValues() : new List<Dictionary<string, object?>>();
             if (savedKeys.Count > 0)
             {
                 await RefreshAndLocateAsync(savedKeys);
@@ -1109,11 +1170,19 @@ public partial class QueryTabViewModel : ViewModelBase
 
         if (target is not null)
         {
-            int rowIndex = _allRows.IndexOf(target);
-            int page = PageSize > 0 ? rowIndex / PageSize + 1 : 1;
-            GoToPage(page);
-            RequestLocateRow?.Invoke(target);
-            StatusMessage = $"保存成功，已刷新并定位到目标记录。";
+            // 定位按可见行（视图）计算；目标被筛选隐藏时只刷新不跳页。
+            int rowIndex = _viewRows.IndexOf(target);
+            if (rowIndex >= 0)
+            {
+                int page = PageSize > 0 ? rowIndex / PageSize + 1 : 1;
+                GoToPage(page);
+                RequestLocateRow?.Invoke(target);
+                StatusMessage = $"保存成功，已刷新并定位到目标记录。";
+            }
+            else
+            {
+                StatusMessage = "保存成功，已刷新结果集（目标记录被当前筛选隐藏）。";
+            }
         }
         else
         {
@@ -1151,9 +1220,208 @@ public partial class QueryTabViewModel : ViewModelBase
 
     #endregion
 
-    /// <summary>按当前页码刷新 Rows（当前页切片）与分页状态。</summary>
+    #region 结果视图（筛选与排序）
+
+    /// <summary>筛选/排序可用的运算符。</summary>
+    public static readonly string[] FilterOperators =
+    {
+        "包含", "等于", "不等于", "开头为", "结尾为", ">", ">=", "<", "<=", "为空", "非空",
+    };
+
+    /// <summary>是否存在生效的视图筛选。</summary>
+    public bool HasActiveViewFilters => _activeFilters.Count > 0;
+
+    /// <summary>应用一条筛选条件（作用于当前结果集的内存行）。</summary>
+    public void ApplyViewFilter(int columnIndex, string op, string value)
+    {
+        if (columnIndex < 0 || columnIndex >= Columns.Count || string.IsNullOrWhiteSpace(op))
+            return;
+
+        // 同列重复应用时替换旧条件（一次一条，避免组合复杂度）。
+        _activeFilters.RemoveAll(f => f.ColumnIndex == columnIndex);
+        _activeFilters.Add(new GridFilterCondition(columnIndex, Columns[columnIndex], op, value));
+        OnPropertyChanged(nameof(HasActiveViewFilters));
+        OnPropertyChanged(nameof(FilterSummary));
+
+        CurrentPage = 1;
+        RefreshPage();
+    }
+
+    /// <summary>清除全部筛选（保留排序）。</summary>
+    public void ClearViewFilters()
+    {
+        if (_activeFilters.Count == 0)
+            return;
+
+        _activeFilters.Clear();
+        OnPropertyChanged(nameof(HasActiveViewFilters));
+        OnPropertyChanged(nameof(FilterSummary));
+        CurrentPage = 1;
+        RefreshPage();
+    }
+
+    /// <summary>设置排序（descending：true=降序 false=升序 null=清除排序）。</summary>
+    public void SetViewSort(int columnIndex, bool? descending)
+    {
+        if (descending is null)
+        {
+            if (_sortColumnIndex == -1)
+                return;
+            _sortColumnIndex = -1;
+        }
+        else
+        {
+            if (columnIndex < 0 || columnIndex >= Columns.Count)
+                return;
+            _sortColumnIndex = columnIndex;
+            _sortDescending = descending.Value;
+        }
+
+        OnPropertyChanged(nameof(FilterSummary));
+        RefreshPage();
+    }
+
+    /// <summary>按结果列序号重新执行当前 SELECT，实现跨方言的服务端排序。</summary>
+    public async Task SortByServerAsync(int columnIndex)
+    {
+        if (columnIndex < 0 || columnIndex >= Columns.Count || IsExecuting)
+            return;
+
+        if (HasPendingChanges)
+        {
+            StatusMessage = "请先保存或还原内联编辑，再执行服务端排序。";
+            return;
+        }
+
+        string sortedSql;
+        try
+        {
+            _serverSortDescending = _serverSortColumnIndex == columnIndex && !_serverSortDescending;
+            _serverSortColumnIndex = columnIndex;
+            sortedSql = SqlQueryTransform.AppendOrdinalOrderBy(SqlText, columnIndex + 1, _serverSortDescending);
+        }
+        catch (ArgumentException ex)
+        {
+            StatusMessage = ex.Message;
+            return;
+        }
+
+        // ORDER BY 列序号是 MySQL/PostgreSQL/SQL Server/Oracle/SQLite 共同支持的语法，避免将显示列名直接拼入 SQL。
+        await ExecuteWithSqlAsync(sortedSql);
+    }
+
+    /// <summary>重置视图层（新结果集时调用）。</summary>
+    private void ResetView()
+    {
+        _activeFilters.Clear();
+        _sortColumnIndex = -1;
+        _sortDescending = false;
+        _viewRows.Clear();
+        OnPropertyChanged(nameof(HasActiveViewFilters));
+        OnPropertyChanged(nameof(FilterSummary));
+    }
+
+    /// <summary>重建视图行：过滤（新增行始终可见）+ 排序。</summary>
+    private void RebuildViewRows()
+    {
+        IEnumerable<QueryResultRow> rows = _allRows;
+
+        if (_activeFilters.Count > 0)
+        {
+            // 新增行（尚未保存）始终显示，避免填写中被筛选吞掉。
+            rows = rows.Where(r => r.State == DataRowState.Added || MatchesAllFilters(r));
+        }
+
+        if (_sortColumnIndex >= 0 && _sortColumnIndex < Columns.Count)
+        {
+            int idx = _sortColumnIndex;
+            var sorted = rows.OrderBy(r => (object?)r[idx], Comparer<object?>.Create(CompareSortValues)).ToList();
+            if (_sortDescending)
+            {
+                sorted.Reverse();
+            }
+
+            rows = sorted;
+        }
+
+        _viewRows.Clear();
+        _viewRows.AddRange(rows);
+    }
+
+    private bool MatchesAllFilters(QueryResultRow row)
+        => _activeFilters.All(f => MatchesFilter(row, f));
+
+    private static bool MatchesFilter(QueryResultRow row, GridFilterCondition f)
+    {
+        if (f.ColumnIndex < 0 || row.Values.Count <= f.ColumnIndex)
+            return true;
+
+        var cell = row[f.ColumnIndex] ?? string.Empty;
+        var value = f.Value ?? string.Empty;
+
+        switch (f.Operator)
+        {
+            case "包含": return cell.Contains(value, StringComparison.OrdinalIgnoreCase);
+            case "等于": return string.Equals(cell, value, StringComparison.OrdinalIgnoreCase);
+            case "不等于": return !string.Equals(cell, value, StringComparison.OrdinalIgnoreCase);
+            case "开头为": return cell.StartsWith(value, StringComparison.OrdinalIgnoreCase);
+            case "结尾为": return cell.EndsWith(value, StringComparison.OrdinalIgnoreCase);
+            case "为空": return string.IsNullOrEmpty(cell);
+            case "非空": return !string.IsNullOrEmpty(cell);
+            case ">":
+            case ">=":
+            case "<":
+            case "<=":
+                if (double.TryParse(cell, out double a) && double.TryParse(value, out double b))
+                {
+                    return f.Operator switch
+                    {
+                        ">" => a > b,
+                        ">=" => a >= b,
+                        "<" => a < b,
+                        _ => a <= b,
+                    };
+                }
+
+                int ordinal = string.CompareOrdinal(cell, value);
+                return f.Operator switch
+                {
+                    ">" => ordinal > 0,
+                    ">=" => ordinal >= 0,
+                    "<" => ordinal < 0,
+                    _ => ordinal <= 0,
+                };
+            default:
+                return true;
+        }
+    }
+
+    /// <summary>排序比较：数值优先（两侧都可解析为数值按数值比较），否则按字符串序。</summary>
+    private static int CompareSortValues(object? x, object? y)
+    {
+        string xs = x?.ToString() ?? string.Empty;
+        string ys = y?.ToString() ?? string.Empty;
+
+        bool xNum = double.TryParse(xs, out double xn);
+        bool yNum = double.TryParse(ys, out double yn);
+
+        if (xNum && yNum)
+            return xn.CompareTo(yn);
+        if (xNum)
+            return -1; // 数值排在字符串前
+        if (yNum)
+            return 1;
+
+        return string.CompareOrdinal(xs, ys);
+    }
+
+    #endregion
+
+    /// <summary>按当前页码刷新 Rows（可见行切片）与分页状态。</summary>
     private void RefreshPage()
     {
+        RebuildViewRows();
+
         var maxPage = Math.Max(1, TotalPages);
         var page = Math.Clamp(CurrentPage, 1, maxPage);
         if (page != CurrentPage)
@@ -1163,16 +1431,17 @@ public partial class QueryTabViewModel : ViewModelBase
         }
 
         Rows.Clear();
-        if (_allRows.Count > 0)
+        if (_viewRows.Count > 0)
         {
             var start = (page - 1) * PageSize;
-            foreach (var row in _allRows.Skip(start).Take(PageSize))
+            foreach (var row in _viewRows.Skip(start).Take(PageSize))
             {
                 Rows.Add(row);
             }
         }
 
         OnPropertyChanged(nameof(TotalRows));
+        OnPropertyChanged(nameof(VisibleRowCount));
         OnPropertyChanged(nameof(TotalPages));
         OnPropertyChanged(nameof(PageInfo));
         OnPropertyChanged(nameof(CanGoPrevPage));
@@ -1212,6 +1481,7 @@ public partial class QueryTabViewModel : ViewModelBase
     {
         Columns.Clear();
         _allRows.Clear();
+        ResetView();
         Rows.Clear();
         ResetEditingState();
         CurrentPage = 1;
@@ -1229,4 +1499,27 @@ public partial class QueryParameterItem : ViewModelBase
 
     [ObservableProperty]
     private string _value = string.Empty;
+}
+
+/// <summary>结果网格视图筛选条件（列 + 运算符 + 值，作用于当前结果集的内存行）。</summary>
+public sealed class GridFilterCondition
+{
+    public int ColumnIndex { get; }
+
+    public string ColumnName { get; }
+
+    public string Operator { get; }
+
+    public string Value { get; }
+
+    public GridFilterCondition(int columnIndex, string columnName, string op, string value)
+    {
+        ColumnIndex = columnIndex;
+        ColumnName = columnName;
+        Operator = op;
+        Value = value;
+    }
+
+    public override string ToString()
+        => Operator is "为空" or "非空" ? $"{ColumnName} {Operator}" : $"{ColumnName} {Operator} \"{Value}\"";
 }

@@ -344,7 +344,10 @@ public class DefaultDdlService : IDdlService
             insertableColumns = columns.ToList();
 
         string columnList = string.Join($",{Environment.NewLine}    ", insertableColumns.Select(c => c.Name));
-        string valueList = string.Join($",{Environment.NewLine}    ", insertableColumns.Select(c => $"/* {c.Name} */ ?"));
+        string valueList = string.Join($",{Environment.NewLine}    ", insertableColumns.Select(c =>
+            string.IsNullOrWhiteSpace(c.DefaultValue)
+                ? $"/* {c.Name} */ ?"
+                : $"/* {c.Name}，默认值: {c.DefaultValue} */ ?"));
 
         return $"INSERT INTO {quotedName}{Environment.NewLine}({Environment.NewLine}    {columnList}{Environment.NewLine}){Environment.NewLine}VALUES{Environment.NewLine}({Environment.NewLine}    {valueList}{Environment.NewLine});";
     }
@@ -361,7 +364,10 @@ public class DefaultDdlService : IDdlService
         if (setColumns.Count == 0)
             setColumns = columns.ToList();
 
-        string setClause = string.Join($",{Environment.NewLine}    ", setColumns.Select(c => $"{c.Name} = /* {c.Name} */ ?"));
+        string setClause = string.Join($",{Environment.NewLine}    ", setColumns.Select(c =>
+            string.IsNullOrWhiteSpace(c.DefaultValue)
+                ? $"{c.Name} = /* {c.Name} */ ?"
+                : $"{c.Name} = /* {c.Name}，默认值: {c.DefaultValue} */ ?"));
 
         string whereClause = pkColumnNames.Count > 0
             ? string.Join($"{Environment.NewLine}  AND ", pkColumnNames.Select(c => $"{c} = /* 原值 */ ?"))

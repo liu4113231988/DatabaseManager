@@ -12,6 +12,13 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class ProfileDbConnectionService : IDbConnectionService
 {
+    private readonly IConnectionVisualService _visualService;
+
+    public ProfileDbConnectionService(IConnectionVisualService visualService)
+    {
+        _visualService = visualService;
+    }
+
     public IReadOnlyList<ConnectionItem> GetConnections()
     {
         var result = new List<ConnectionItem>();
@@ -119,9 +126,9 @@ public class ProfileDbConnectionService : IDbConnectionService
         return await ConnectionProfileManager.IsNameExisted(isAdd, accountId, name, id);
     }
 
-    private static ConnectionItem ToItem(ConnectionProfileInfo profile, string databaseType)
+    private ConnectionItem ToItem(ConnectionProfileInfo profile, string databaseType)
     {
-        return new ConnectionItem
+        var item = new ConnectionItem
         {
             Id = profile.Id,
             AccountId = profile.AccountId,
@@ -138,6 +145,16 @@ public class ProfileDbConnectionService : IDbConnectionService
             UseSsl = profile.UseSsl,
             Priority = profile.Priority,
         };
+
+        // 合并侧车存储的分组与颜色标注。
+        var visual = _visualService.Find(profile.Id);
+        if (visual is not null)
+        {
+            item.Group = visual.Group;
+            item.ColorTag = visual.ColorTag;
+        }
+
+        return item;
     }
 
     private static DatabaseType ParseDatabaseType(string databaseType)

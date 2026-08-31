@@ -267,9 +267,59 @@ public static class SimpleSelectParser
     /// <summary>去除 SQL 注释（-- 行注释与块注释）。</summary>
     private static string StripComments(string sql)
     {
-        var linePattern = new Regex(@"--.*?$", RegexOptions.Multiline);
-        var blockPattern = new Regex(@"/\*.*?\*/", RegexOptions.Singleline);
-        return linePattern.Replace(blockPattern.Replace(sql, string.Empty), string.Empty);
+        var result = new System.Text.StringBuilder(sql.Length);
+        bool singleQuoted = false, doubleQuoted = false, backtickQuoted = false, bracketQuoted = false;
+
+        for (int i = 0; i < sql.Length; i++)
+        {
+            char ch = sql[i];
+            char next = i + 1 < sql.Length ? sql[i + 1] : '\0';
+
+            if (!singleQuoted && !doubleQuoted && !backtickQuoted && !bracketQuoted && ch == '-' && next == '-')
+            {
+                while (i < sql.Length && sql[i] != '\r' && sql[i] != '\n')
+                {
+                    result.Append(' ');
+                    i++;
+                }
+                i--;
+                continue;
+            }
+            if (!singleQuoted && !doubleQuoted && !backtickQuoted && !bracketQuoted && ch == '/' && next == '*')
+            {
+                result.Append(' ').Append(' ');
+                i += 2;
+                while (i < sql.Length)
+                {
+                    if (sql[i] == '*' && i + 1 < sql.Length && sql[i + 1] == '/')
+                    {
+                        result.Append(' ').Append(' ');
+                        i++;
+                        break;
+                    }
+                    result.Append(sql[i] is '\r' or '\n' ? sql[i] : ' ');
+                    i++;
+                }
+                continue;
+            }
+
+            result.Append(ch);
+            if (ch == '\'' && !doubleQuoted && !backtickQuoted && !bracketQuoted)
+            {
+                if (singleQuoted && next == '\'')
+                {
+                    result.Append(next);
+                    i++;
+                }
+                else singleQuoted = !singleQuoted;
+            }
+            else if (ch == '"' && !singleQuoted && !backtickQuoted && !bracketQuoted) doubleQuoted = !doubleQuoted;
+            else if (ch == '`' && !singleQuoted && !doubleQuoted && !bracketQuoted) backtickQuoted = !backtickQuoted;
+            else if (ch == '[' && !singleQuoted && !doubleQuoted && !backtickQuoted) bracketQuoted = true;
+            else if (ch == ']' && bracketQuoted) bracketQuoted = false;
+        }
+
+        return result.ToString();
     }
 
     private static string Unquote(string identifier)

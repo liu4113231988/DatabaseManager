@@ -1,0 +1,52 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="using:DatabaseManager.Avalonia.Controls"
+        x:Class="DatabaseManager.Avalonia.Views.ChartWindow"
+        Title="查询结果图表"
+        Width="860" Height="620"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto,Auto">
+
+        <!-- 配置 -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <TextBlock Text="类型:" VerticalAlignment="Center" FontSize="11" />
+            <ComboBox x:Name="ComboChartType" Width="90" FontSize="11">
+                <ComboBoxItem>柱状图</ComboBoxItem>
+                <ComboBoxItem>折线图</ComboBoxItem>
+                <ComboBoxItem>饼图</ComboBoxItem>
+            </ComboBox>
+            <TextBlock Text="X 列:" VerticalAlignment="Center" FontSize="11" />
+            <ComboBox x:Name="ComboXColumn" Width="140" FontSize="11" />
+            <TextBlock Text="Y 列（可多选）:" VerticalAlignment="Center" FontSize="11" />
+            <ListBox x:Name="ListYColumns" Width="180" Height="70" FontSize="11" SelectionMode="Multiple,Toggle" />
+            <TextBlock Text="聚合:" VerticalAlignment="Center" FontSize="11" />
+            <ComboBox x:Name="ComboAggregation" Width="80" FontSize="11" SelectionChanged="ComboAggregation_SelectionChanged">
+                <ComboBoxItem>无</ComboBoxItem>
+                <ComboBoxItem>计数</ComboBoxItem>
+                <ComboBoxItem>求和</ComboBoxItem>
+                <ComboBoxItem>平均</ComboBoxItem>
+            </ComboBox>
+            <Button x:Name="BtnRender" Content="生成图表" Click="BtnRender_Click" />
+        </StackPanel>
+
+        <!-- 图表 -->
+        <Border Grid.Row="1" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4"
+                Background="{DynamicResource AppSurfaceBrush}">
+            <ctrl:ChartRenderControl x:Name="Chart" Margin="8" />
+        </Border>
+
+        <!-- 提示 -->
+        <TextBlock Grid.Row="2" x:Name="TxtHint" FontSize="10" Opacity="0.55" Margin="0,6,0,0"
+                   Text="聚合为「无」时每行一个数据点（最多前 100 行）；「计数/求和/平均」按 X 列分组统计，仅使用第一个选中的 Y 列。" TextWrapping="Wrap" />
+
+        <!-- 保存到仪表盘 -->
+        <Grid Grid.Row="3" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,8,0,0">
+            <TextBlock Grid.Column="0" Text="仪表盘名称:" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0" />
+            <TextBox Grid.Column="1" x:Name="TxtChartName" VerticalContentAlignment="Center" FontSize="11" Watermark="保存到仪表盘的名称" />
+            <Button Grid.Column="2" Content="保存到仪表盘" Click="BtnSaveToDashboard_Click" Margin="8,0,0,0" />
+            <Button Grid.Column="3" Content="关闭" Click="BtnClose_Click" Margin="8,0,0,0" />
+        </Grid>
+    </Grid>
+</Window>

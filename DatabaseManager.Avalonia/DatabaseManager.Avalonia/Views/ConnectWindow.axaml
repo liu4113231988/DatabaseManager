@@ -66,6 +66,26 @@
             <atom:CheckBox x:Name="ChkUseSsl" Content="使用 SSL" />
         </StackPanel>
 
+        <Grid ColumnDefinitions="*,Auto">
+            <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,8,0">
+                <TextBlock Text="分组" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <atom:TextBox x:Name="TxtGroup" PlaceholderText="分组名（留空则不分组，如：生产环境）" />
+            </StackPanel>
+            <StackPanel Spacing="6" Grid.Column="1" Width="180">
+                <TextBlock Text="颜色标签" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <ComboBox x:Name="ComboColorTag" HorizontalAlignment="Stretch">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Border Width="12" Height="12" CornerRadius="2" Background="{Binding}" />
+                                <TextBlock Text="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
         <StackPanel Spacing="6">
             <TextBlock Text="数据库" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
             <Grid ColumnDefinitions="*,Auto,Auto">

@@ -33,7 +33,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
     /// <summary>当前已建立连接的连接名称集合（用于区分各连接节点的连接状态）。</summary>
     private readonly HashSet<string> _activeConnections = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>加载全部已保存连接为对象树根节点（dbeaver 风格：所有连接平铺展示）。</summary>
+    /// <summary>加载全部已保存连接为对象树根节点。配置了分组的连接归入「📁 分组」文件夹节点，其余平铺展示。</summary>
     public void LoadConnections(IEnumerable<ConnectionItem>? connections)
     {
         // 增量更新：复用已有连接节点，避免重建导致 TreeView 展开状态被重置（整棵树折叠）。
@@ -41,6 +41,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             return;
 
         var newList = connections.ToList();
+        bool hasAnyGroup = newList.Any(c => !string.IsNullOrWhiteSpace(c.Group));
 
         // 1) 建立旧节点索引（按连接名，不区分大小写）
         var existingMap = new Dictionary<string, DbObjectTreeNode>(StringComparer.OrdinalIgnoreCase);
@@ -62,8 +63,28 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             }
         }
 
-        // 3) 按新列表顺序重建 RootNodes（复用旧节点，新增则创建）
+        // 3) 按新列表顺序重建 RootNodes（复用旧节点，新增则创建）；
+        //    启用分组时：分组连接挂到「📁 分组」节点下，未分组连接保持平铺在前。
         RootNodes.Clear();
+
+        var groupNodes = new Dictionary<string, DbObjectTreeNode>(StringComparer.OrdinalIgnoreCase);
+
+        DbObjectTreeNode GetGroupNode(string group)
+        {
+            if (!groupNodes.TryGetValue(group, out var folder))
+            {
+                folder = new DbObjectTreeNode
+                {
+                    Name = group,
+                    Text = $"📁 {group}",
+                    NodeType = DbObjectTreeNodeType.Folder,
+                };
+                groupNodes[group] = folder;
+                RootNodes.Add(folder);
+            }
+
+            return folder;
+        }
 
         foreach (var item in newList)
         {
@@ -80,8 +101,9 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
 
                 existing.Connection = item;
                 existing.Text = item.Name;
+                existing.ColorTag = item.ColorTag;
                 existing.IsConnectionActive = _activeConnections.Contains(item.Name);
-                RootNodes.Add(existing);
+                AttachConnectionNode(existing, item, hasAnyGroup, GetGroupNode);
                 existingMap.Remove(item.Name);
             }
             else
@@ -94,9 +116,10 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
                     NodeType = DbObjectTreeNodeType.Connection,
                     Connection = item,
                     DatabaseObjectType = DatabaseObjectType.None,
+                    ColorTag = item.ColorTag,
                     IsConnectionActive = _activeConnections.Contains(item.Name),
                 };
-                RootNodes.Add(node);
+                AttachConnectionNode(node, item, hasAnyGroup, GetGroupNode);
             }
         }
 
@@ -185,13 +208,50 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         _activeConnections.Remove(name);
     }
 
+    /// <summary>把连接节点挂到根集合或所属分组节点下（启用分组且有分组名时归组）。</summary>
+    private void AttachConnectionNode(
+        DbObjectTreeNode node,
+        ConnectionItem item,
+        bool hasAnyGroup,
+        Func<string, DbObjectTreeNode> getGroupNode)
+    {
+        if (hasAnyGroup && !string.IsNullOrWhiteSpace(item.Group))
+        {
+            getGroupNode(item.Group.Trim()).AddChild(node);
+        }
+        else
+        {
+            RootNodes.Add(node);
+        }
+    }
+
     /// <summary>判断指定连接是否已连接。</summary>
     public bool IsConnected(string connectionName)
         => _activeConnections.Contains(connectionName);
 
-    /// <summary>根据连接名查找连接根节点。</summary>
+    /// <summary>根据连接名查找连接根节点（含分组文件夹内的连接节点）。</summary>
     public DbObjectTreeNode? FindConnectionNode(string connectionName)
-        => RootNodes.FirstOrDefault(n => n.NodeType == DbObjectTreeNodeType.Connection && string.Equals(n.Name, connectionName, StringComparison.OrdinalIgnoreCase));
+    {
+        foreach (var node in RootNodes)
+        {
+            if (node.NodeType == DbObjectTreeNodeType.Connection
+                && string.Equals(node.Name, connectionName, StringComparison.OrdinalIgnoreCase))
+            {
+                return node;
+            }
+
+            foreach (var child in node.Children)
+            {
+                if (child.NodeType == DbObjectTreeNodeType.Connection
+                    && string.Equals(child.Name, connectionName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return child;
+                }
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>加载指定连接下的对象树（兼容旧调用，加载到对应连接节点下）。</summary>
     public async Task LoadAsync(string connectionName)

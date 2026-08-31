@@ -78,15 +78,23 @@
             <MenuItem Header="搜索">
                 <MenuItem Header="元数据搜索..." Click="MenuSearch_Click"
                           ToolTip.Tip="按名称搜索表/视图/列/存储过程等（Ctrl+Shift+D / Ctrl+H）" />
+                <Separator />
+                <MenuItem Header="全库数据搜索..." Click="MenuFullDataSearch_Click"
+                          ToolTip.Tip="跨表/视图搜索数据内容，结果可生成 SELECT 打开到新查询标签" />
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
             </MenuItem>
             <MenuItem Header="工具">
                 <MenuItem Header="任务中心..." Click="MenuTaskCenter_Click" />
+                <MenuItem Header="任务定时调度..." Click="MenuSchedule_Click" />
                 <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
                 <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
                 <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
+                <Separator />
+                <MenuItem Header="会话与锁监控..." Click="MenuSessionMonitor_Click" />
+                <MenuItem Header="用户与权限管理..." Click="MenuUserManagement_Click" />
+                <MenuItem Header="查询性能剖析..." Click="MenuQueryProfiler_Click" />
                 <Separator />
                 <MenuItem Header="数据库转换..." Click="MenuConvert_Click" />
                 <MenuItem Header="结构对比..." Click="MenuSchemaCompare_Click" />
@@ -103,6 +111,8 @@
                 <Separator />
                 <MenuItem Header="数据导出..." Click="MenuExport_Click" />
                 <MenuItem Header="数据导入..." Click="MenuImport_Click" />
+                <Separator />
+                <MenuItem Header="仪表盘..." Click="MenuDashboard_Click" />
                 <Separator />
                 <MenuItem Header="图像查看器..." Click="MenuImageViewer_Click" />
                 <MenuItem Header="JSON 查看器..." Click="MenuJsonViewer_Click" />
@@ -389,6 +399,12 @@
                                                    Margin="0"
                                                    VerticalAlignment="Center"
                                                    RenderOptions.BitmapInterpolationMode="HighQuality" />
+                                            <!-- 连接颜色标签点（连接编辑器中设置） -->
+                                            <Border Width="8" Height="8" CornerRadius="4"
+                                                    Background="{Binding ColorTagBrush}"
+                                                    IsVisible="{Binding HasColorTag}"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip.Tip="连接颜色标签" />
                                             <TextBlock Text="{Binding Text}"
                                                        VerticalAlignment="Center"
                                                        Margin="0"
@@ -481,9 +497,10 @@
                                     </DataGrid>
                                 </Expander>
 
-                                <!-- 结果区 -->
-                                <Grid Grid.Row="4">
+                                <!-- 结果区（浮动时整体隐藏，由浮动窗口承载同一结果集） -->
+                                <Grid Grid.Row="4" IsVisible="{Binding IsResultFloating, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
                                     <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="*" />
                                         <RowDefinition Height="Auto" />
@@ -516,12 +533,59 @@
                                         <Button Classes="compact" Click="QueryRevert_Click" Content="↺ 还原"
                                                 IsEnabled="{Binding HasPendingChanges}" />
                                     </StackPanel>
-                                    <DataGrid Grid.Row="1" ItemsSource="{Binding Rows}"
+                                    <!-- 筛选/排序条：作用于当前结果集的内存行（新增行始终可见） -->
+                                    <Border Grid.Row="1" IsVisible="{Binding HasResult}"
+                                            Background="{DynamicResource AppSubtleBrush}" CornerRadius="4"
+                                            Padding="6,3" Margin="4,0,4,2">
+                                        <StackPanel Orientation="Horizontal" Spacing="4" x:Name="QueryFilterBar">
+                                            <TextBlock Text="筛选/排序:" VerticalAlignment="Center" FontSize="11" Opacity="0.7" />
+                                            <ComboBox x:Name="QueryFilterColumn" ItemsSource="{Binding Columns}"
+                                                      MinWidth="110" FontSize="11" MinHeight="0"
+                                                      ToolTip.Tip="选择要筛选/排序的列" />
+                                            <ComboBox x:Name="QueryFilterOp" MinWidth="88" FontSize="11" MinHeight="0"
+                                                      ToolTip.Tip="筛选条件运算符">
+                                                <ComboBoxItem>包含</ComboBoxItem>
+                                                <ComboBoxItem>等于</ComboBoxItem>
+                                                <ComboBoxItem>不等于</ComboBoxItem>
+                                                <ComboBoxItem>开头为</ComboBoxItem>
+                                                <ComboBoxItem>结尾为</ComboBoxItem>
+                                                <ComboBoxItem>&gt;</ComboBoxItem>
+                                                <ComboBoxItem>&gt;=</ComboBoxItem>
+                                                <ComboBoxItem>&lt;</ComboBoxItem>
+                                                <ComboBoxItem>&lt;=</ComboBoxItem>
+                                                <ComboBoxItem>为空</ComboBoxItem>
+                                                <ComboBoxItem>非空</ComboBoxItem>
+                                            </ComboBox>
+                                            <TextBox x:Name="QueryFilterValue" MinWidth="110" FontSize="11" MinHeight="0"
+                                                     VerticalContentAlignment="Center" Watermark="筛选值"
+                                                     KeyDown="QueryFilterValue_KeyDown" />
+                                            <Button Classes="compact" Content="筛选" Click="QueryFilterApply_Click"
+                                                    ToolTip.Tip="按所选列与条件筛选当前结果集（再次筛选同列会替换该列条件）" />
+                                            <ComboBox x:Name="QuerySortDirection" MinWidth="76" FontSize="11" MinHeight="0"
+                                                      SelectionChanged="QuerySortDirection_SelectionChanged"
+                                                      ToolTip.Tip="对所选列排序（数值优先按数值比较）">
+                                                <ComboBoxItem>排序</ComboBoxItem>
+                                                <ComboBoxItem>升序 ↑</ComboBoxItem>
+                                                <ComboBoxItem>降序 ↓</ComboBoxItem>
+                                                <ComboBoxItem>无排序</ComboBoxItem>
+                                            </ComboBox>
+                                            <Button Classes="compact" Content="清除" Click="QueryFilterClear_Click"
+                                                    ToolTip.Tip="清除全部筛选与排序" />
+                                            <TextBlock Text="{Binding FilterSummary}" FontSize="10" Opacity="0.65"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="280" ToolTip.Tip="{Binding FilterSummary}" />
+                                            <Button Classes="compact" Click="ToolFloatResult_Click" Content="⇱ 浮动"
+                                                    Margin="8,0,0,0"
+                                                    ToolTip.Tip="把结果区浮动为独立窗口（与主窗口实时同步）" />
+                                        </StackPanel>
+                                    </Border>
+                                    <DataGrid Grid.Row="2" ItemsSource="{Binding Rows}"
                                               IsVisible="{Binding HasResult}"
                                               AutoGenerateColumns="False"
                                               GridLinesVisibility="All"
                                               CanUserResizeColumns="True"
                                               CanUserSortColumns="True"
+                                              Sorting="QueryResultGrid_Sorting"
                                               FontSize="11"
                                               AttachedToVisualTree="QueryResultGrid_AttachedToVisualTree"
                                               Margin="2" x:Name="QueryResultGrid">
@@ -537,7 +601,7 @@
                                         </DataGrid.Columns>
                                     </DataGrid>
                                     <!-- 空结果状态：消息与“无结果”作为一个整体居中，拖动上下分隔条后仍保持稳定。 -->
-                                    <StackPanel Grid.Row="1"
+                                    <StackPanel Grid.Row="2"
                                                 IsVisible="{Binding ShowNoResult}"
                                                 HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
@@ -557,7 +621,7 @@
                                     </StackPanel>
 
                                     <!-- 分页栏（大数据量分页显示） -->
-                                    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6"
+                                    <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="6"
                                                 Margin="4,2,4,4"
                                                 IsVisible="{Binding HasResult}">
                                         <Button Classes="compact" Command="{Binding FirstPageCommand}" Content="首页" />
@@ -575,6 +639,8 @@
                                                    Opacity="0.6" />
                                         <Button Classes="compact" Click="ToolExportResults_Click" Content="⇩ 导出结果" Margin="12,0,0,0"
                                                 ToolTip.Tip="把当前结果集导出为 CSV / JSON 文件" />
+                                        <Button Classes="compact" Click="ToolChartResults_Click" Content="📊 图表" Margin="8,0,0,0"
+                                                ToolTip.Tip="把当前结果集绘制为图表（柱状/折线/饼图），可保存到仪表盘" />
                                     </StackPanel>
                                 </Grid>
                             </Grid>

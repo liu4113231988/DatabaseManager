@@ -85,6 +85,46 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。</summary>
     public bool IsConnectionActive { get; set; }
 
+    private string? _colorTag;
+    /// <summary>连接颜色标签（hex；仅 Connection 类型节点使用）。</summary>
+    public string? ColorTag
+    {
+        get => _colorTag;
+        set
+        {
+            if (_colorTag == value) return;
+            _colorTag = value;
+            OnPropertyChanged(nameof(ColorTag));
+            OnPropertyChanged(nameof(HasColorTag));
+            OnPropertyChanged(nameof(ColorTagBrush));
+        }
+    }
+
+    /// <summary>是否显示颜色标签点。</summary>
+    public bool HasColorTag => !string.IsNullOrEmpty(_colorTag);
+
+    /// <summary>颜色标签对应的画刷（解析失败时返回透明，不渲染可见点）。</summary>
+    public Avalonia.Media.IBrush ColorTagBrush
+    {
+        get
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(_colorTag))
+                {
+                    var color = Avalonia.Media.Color.Parse(_colorTag);
+                    return new Avalonia.Media.SolidColorBrush(color);
+                }
+            }
+            catch
+            {
+                // 无效颜色字符串按无色处理。
+            }
+
+            return Avalonia.Media.Brushes.Transparent;
+        }
+    }
+
     private bool _isExpanded;
     /// <summary>节点展开状态（与 TreeViewItem.IsExpanded 双向绑定，容器重建后据此恢复展开）。</summary>
     public bool IsExpanded

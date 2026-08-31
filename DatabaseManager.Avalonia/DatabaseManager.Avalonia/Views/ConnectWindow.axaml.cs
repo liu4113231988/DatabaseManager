@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -16,6 +17,7 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class ConnectWindow : Window
 {
     private readonly ConnectionManagerViewModel _vm;
+    private readonly IConnectionVisualService? _visualService;
     private readonly bool _isAdd;
     private readonly ConnectionItem _working;
 
@@ -29,6 +31,7 @@ public partial class ConnectWindow : Window
         _vm = vm;
         _isAdd = connection is null;
         _working = connection ?? ConnectionItem.New(string.Empty);
+        _visualService = (App.Current as App)?.Services?.GetService(typeof(IConnectionVisualService)) as IConnectionVisualService;
 
         LoadDatabaseTypes();
 
@@ -43,6 +46,7 @@ public partial class ConnectWindow : Window
             {
                 ComboDatabaseType.SelectedItem = _vm.SelectedDatabaseType;
             }
+            ComboColorTag.SelectedItem = "无";
         }
 
         UpdateAuthVisibility();
@@ -51,6 +55,9 @@ public partial class ConnectWindow : Window
     private void LoadDatabaseTypes()
     {
         ComboDatabaseType.ItemsSource = _vm.DatabaseTypes;
+        ComboColorTag.ItemsSource = new List<string> { "无" }
+            .Concat(_visualService?.PaletteColors ?? new List<string>())
+            .ToList();
     }
 
     private void LoadConnection(ConnectionItem connection)
@@ -66,6 +73,10 @@ public partial class ConnectWindow : Window
         ChkIsDba.IsChecked = connection.IsDba;
         ChkUseSsl.IsChecked = connection.UseSsl;
         ComboDatabase.Text = connection.Database;
+        TxtGroup.Text = connection.Group ?? string.Empty;
+        ComboColorTag.SelectedItem = string.IsNullOrEmpty(connection.ColorTag)
+            ? "无"
+            : (ComboColorTag.Items.Cast<object?>().FirstOrDefault(i => string.Equals(i as string, connection.ColorTag, StringComparison.OrdinalIgnoreCase)) ?? "无");
 
         UpdateAuthVisibility();
     }
@@ -243,8 +254,20 @@ public partial class ConnectWindow : Window
             return;
         }
 
+        // 保存分组与颜色标签（侧车存储，随连接 Id 关联）。
+        connection.Group = TxtGroup.Text?.Trim();
+        connection.ColorTag = ResolveSelectedColorTag();
+        _visualService?.Save(connection.Id ?? string.Empty, connection.Name, connection.Group, connection.ColorTag);
+
         Result = connection;
         Close();
+    }
+
+    /// <summary>取当前选中的颜色标签（「无」或未选择时返回 null）。</summary>
+    private string? ResolveSelectedColorTag()
+    {
+        var color = ComboColorTag.SelectedItem as string;
+        return string.IsNullOrEmpty(color) || color == "无" ? null : color;
     }
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)

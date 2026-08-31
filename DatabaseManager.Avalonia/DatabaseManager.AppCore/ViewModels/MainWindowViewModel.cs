@@ -213,7 +213,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public void NewQuery()
     {
         var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
-        
+
         // 如果有当前连接，自动设置到新标签
         if (SelectedConnection is not null)
         {
@@ -223,6 +223,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
         QueryTabs.Add(newTab);
         SelectedQueryTab = newTab;
+    }
+
+    /// <summary>打开一个新查询标签并填充 SQL（供全库数据搜索等工具窗口回调）。</summary>
+    public QueryTabViewModel OpenSqlInNewTab(string connectionName, string sql, string? databaseName = null)
+    {
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService)
+        {
+            ConnectionName = connectionName,
+            DatabaseName = databaseName ?? CurrentDatabase,
+            SqlText = sql,
+        };
+        newTab.MarkAsSaved();
+
+        QueryTabs.Add(newTab);
+        SelectedQueryTab = newTab;
+        return newTab;
     }
 
     /// <summary>关闭指定的查询标签页（带未保存提示）。返回是否真正关闭（false=用户取消）。</summary>

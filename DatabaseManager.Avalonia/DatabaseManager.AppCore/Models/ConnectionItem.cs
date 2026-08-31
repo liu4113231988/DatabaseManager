@@ -51,6 +51,12 @@ public class ConnectionItem
     /// <summary>是否记住密码。</summary>
     public bool RememberPassword { get; set; }
 
+    /// <summary>分组名（由 IConnectionVisualService 侧车存储合并而来；空表示未分组）。</summary>
+    public string? Group { get; set; }
+
+    /// <summary>颜色标签（hex，如 #1E88E5；空表示无色）。</summary>
+    public string? ColorTag { get; set; }
+
     /// <summary>展示用描述信息。</summary>
     public string Description =>
         string.IsNullOrEmpty(Name)
