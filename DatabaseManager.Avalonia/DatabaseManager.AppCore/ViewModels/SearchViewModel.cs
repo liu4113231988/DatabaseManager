@@ -26,6 +26,16 @@ public partial class SearchViewModel : ViewModelBase
     [ObservableProperty]
     private string? _selectedConnectionName;
 
+    /// <summary>打开搜索窗口时的数据库范围；为空表示当前连接下所有数据库。</summary>
+    [ObservableProperty]
+    private string? _databaseName;
+
+    /// <summary>打开搜索窗口时的 Schema 范围；为空表示当前数据库下所有 Schema。</summary>
+    [ObservableProperty]
+    private string? _schema;
+
+    private string? _scopeConnectionName;
+
     [ObservableProperty]
     private string _keyword = string.Empty;
 
@@ -63,7 +73,11 @@ public partial class SearchViewModel : ViewModelBase
     }
 
     /// <summary>打开窗口时由主窗口注入活动连接列表与默认连接。</summary>
-    public void SetConnections(IEnumerable<string> activeConnectionNames, string defaultConnectionName)
+    public void SetConnections(
+        IEnumerable<string> activeConnectionNames,
+        string defaultConnectionName,
+        string? databaseName = null,
+        string? schema = null)
     {
         Connections.Clear();
 
@@ -75,6 +89,22 @@ public partial class SearchViewModel : ViewModelBase
         SelectedConnectionName = !string.IsNullOrEmpty(defaultConnectionName) && Connections.Contains(defaultConnectionName)
             ? defaultConnectionName
             : Connections.FirstOrDefault();
+        _scopeConnectionName = SelectedConnectionName;
+        DatabaseName = databaseName;
+        Schema = schema;
+
+        // 刷新「搜索可用性」等依赖连接集合的布尔值，避免窗口打开后停留在禁用态。
+        OnPropertyChanged(nameof(CanSearch));
+    }
+
+    partial void OnSelectedConnectionNameChanged(string? value)
+    {
+        // 数据库 / Schema 是对象树中当前连接的上下文；切换连接后不能把它误用到另一连接。
+        if (!string.Equals(value, _scopeConnectionName, StringComparison.Ordinal))
+        {
+            DatabaseName = null;
+            Schema = null;
+        }
     }
 
     /// <summary>执行元数据搜索。</summary>
@@ -102,7 +132,11 @@ public partial class SearchViewModel : ViewModelBase
 
         try
         {
-            var items = await _schemaService.SearchMetadataAsync(SelectedConnectionName, keyword);
+            var items = await _schemaService.SearchMetadataAsync(
+                SelectedConnectionName,
+                keyword,
+                databaseName: DatabaseName,
+                schema: Schema);
 
             foreach (var item in items)
             {

@@ -67,15 +67,19 @@ public interface IDbSchemaService
 
     /// <summary>
     /// 元数据搜索：按关键字模糊匹配表 / 视图 / 列 / 存储过程 / 函数 / 序列名称。
-    /// 跨该连接下的数据库逐个搜索；列搜索仅扫描名称命中的表（控制成本）。
+    /// 未指定数据库时跨该连接下的数据库逐个搜索；指定数据库或 Schema 时只搜索该范围。
     /// </summary>
     /// <param name="connectionName">连接名称。</param>
     /// <param name="keyword">关键字（不区分大小写的包含匹配）。</param>
     /// <param name="limitPerKind">单个类别的结果数上限。</param>
+    /// <param name="databaseName">限定搜索的数据库名；为空时搜索连接下所有可枚举的数据库。</param>
+    /// <param name="schema">限定搜索的 Schema；为空时搜索数据库下所有 Schema。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task<IReadOnlyList<SearchResultItem>> SearchMetadataAsync(
         string connectionName,
         string keyword,
         int limitPerKind = 100,
+        string? databaseName = null,
+        string? schema = null,
         CancellationToken cancellationToken = default);
 }

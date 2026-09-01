@@ -564,11 +564,15 @@ public partial class MainWindow : Window
 
         if (ObjectsTree.SelectedItem is DbObjectTreeNode node)
         {
-            // 连接节点被选中时同步 SelectedConnection，使工具栏按钮（连接/重连/断开）
-            // 能根据节点 IsConnectionActive 状态自动启用/禁用。
-            if (node.NodeType == DbObjectTreeNodeType.Connection)
+            // 无论选中连接本身还是它的任意子节点，都同步所属连接和数据库 / Schema 上下文。
+            // 元数据搜索等操作因此始终作用于用户当前浏览的对象，而不是上一次选中的连接。
+            var connectionNode = node.NodeType == DbObjectTreeNodeType.Connection
+                ? node
+                : FindConnectionNode(node);
+            if (connectionNode?.Connection is not null &&
+                !string.Equals(vm.SelectedConnection?.Name, connectionNode.Connection.Name, StringComparison.Ordinal))
             {
-                vm.SelectedConnection = node.Connection;
+                vm.SelectedConnection = connectionNode.Connection;
             }
 
             // 更新当前数据库/Schema 上下文
@@ -795,26 +799,43 @@ public partial class MainWindow : Window
 
     /// <summary>打开元数据搜索窗口（P0：DB Metadata Search / Open Database Object）。</summary>
     private async void MenuSearch_Click(object? sender, RoutedEventArgs e)
-    {        if (_services is null || DataContext is not MainWindowViewModel vm)
+    {
+        if (_services is null || DataContext is not MainWindowViewModel vm)
             return;
 
-        // 仅提供已活动的连接供搜索；默认选中当前查询标签使用的连接。
-        var activeNames = vm.ObjectsExplorer.RootNodes
-            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
-            .Select(n => n.Name)
-            .ToList();
+        // 获取当前选中的连接（优先：对象树当前选中节点所属连接 → SelectedConnection → 最后连接的连接）。
+        // 搜索范围默认限定为当前选中的连接与其当前数据库。
+        var activeConnectionName = ResolveActiveConnectionForSearch(vm);
 
-        if (activeNames.Count == 0)
-        {
-            vm.QueryEditor.StatusMessage = "请先在对象浏览器中连接一个连接，再使用元数据搜索。";
-            return;
-        }
-
+        // 始终弹出搜索窗口（即使尚未连接，也在窗口内给出可操作的提示），避免点击无反应。
         var searchVm = _services.GetRequiredService<SearchViewModel>();
-        var defaultConnection = vm.SelectedQueryTab?.ConnectionName;
-        searchVm.SetConnections(
-            activeNames,
-            string.IsNullOrEmpty(defaultConnection) ? activeNames[0] : defaultConnection);
+
+        if (string.IsNullOrEmpty(activeConnectionName))
+        {
+            searchVm.SetConnections(Array.Empty<string>(), string.Empty);
+            searchVm.StatusMessage = "尚未连接任何连接。请先连接，再使用元数据搜索。";
+        }
+        else
+        {
+            var activeNames = vm.ObjectsExplorer.RootNodes
+                .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
+                .Select(n => n.Name)
+                .ToList();
+
+            // 默认选中当前连接；界面保留其他活动连接供切换（对齐 DBeaver 下拉选择）。
+            searchVm.SetConnections(
+                activeNames,
+                activeConnectionName,
+                vm.CurrentDatabase,
+                vm.CurrentSchema);
+
+            // 限定为当前选中的数据库 / Schema，避免界面范围提示与实际查询不一致。
+            searchVm.StatusMessage = string.IsNullOrEmpty(vm.CurrentDatabase)
+                ? $"将在连接「{activeConnectionName}」下搜索..."
+                : string.IsNullOrEmpty(vm.CurrentSchema)
+                    ? $"将在连接「{activeConnectionName}」的数据库「{vm.CurrentDatabase}」下搜索..."
+                    : $"将在连接「{activeConnectionName}」的数据库「{vm.CurrentDatabase}」和 Schema「{vm.CurrentSchema}」下搜索...";
+        }
 
         var window = new SearchWindow(searchVm);
         await window.ShowDialog<object?>(this);
@@ -852,6 +873,40 @@ public partial class MainWindow : Window
         {
             SetQueryStatus($"未能在对象树中定位「{result.DisplayText}」，请确认该连接已展开加载。");
         }
+    }
+
+    /// <summary>
+    /// 解析用于元数据搜索的当前活动连接名称。
+    /// 优先级：对象树当前选中节点所属连接 → SelectedConnection → 任意活动连接 → null。
+    /// </summary>
+    private string? ResolveActiveConnectionForSearch(MainWindowViewModel vm)
+    {
+        // 1) 对象树当前选中节点所属的连接（前提是已活动）。
+        var selectedTreeConnection = ObjectsTree.SelectedItem is DbObjectTreeNode selectedTreeNode
+            ? FindConnectionNode(selectedTreeNode)
+            : null;
+        if (selectedTreeConnection?.IsConnectionActive == true)
+        {
+            return selectedTreeConnection.Name;
+        }
+
+        // 2) 当前查询标签使用的连接（若来自已活动连接）。
+        var queryTabConn = vm.SelectedQueryTab?.ConnectionName;
+        if (!string.IsNullOrEmpty(queryTabConn) && vm.ObjectsExplorer.IsConnected(queryTabConn))
+        {
+            return queryTabConn;
+        }
+
+        // 3) 主窗口当前选中的连接（若已活动）。
+        if (vm.SelectedConnection?.Name is { } selName && vm.ObjectsExplorer.IsConnected(selName))
+        {
+            return selName;
+        }
+
+        // 4) 退回任意一个活动连接。
+        return vm.ObjectsExplorer.RootNodes
+            .FirstOrDefault(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
+            ?.Name;
     }
 
     /// <summary>

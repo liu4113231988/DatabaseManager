@@ -270,14 +270,13 @@ public class DefaultDbSchemaService : IDbSchemaService
         return nodes;
     }
 
-    /// <summary>单个类别在搜索结果中的上限；列扫描的表数上限。</summary>
-    private const int MetadataSearchMaxColumnScanTables = 30;
-
     /// <inheritdoc cref="IDbSchemaService.SearchMetadataAsync" />
     public async Task<IReadOnlyList<SearchResultItem>> SearchMetadataAsync(
         string connectionName,
         string keyword,
         int limitPerKind = 100,
+        string? databaseName = null,
+        string? schema = null,
         CancellationToken cancellationToken = default)
     {
         var result = new List<SearchResultItem>();
@@ -289,8 +288,8 @@ public class DefaultDbSchemaService : IDbSchemaService
         if (connection is null)
             return result;
 
-        // 枚举该连接下的数据库（目标库优先，其余按名称排序），逐库搜索。
-        var databaseNames = await GetDatabaseNamesForSearchAsync(connection);
+        // 未指定范围时枚举该连接下的数据库；指定时严格限制到调用方所选数据库。
+        var databaseNames = await GetDatabaseNamesForSearchAsync(connection, databaseName);
         var counters = new Dictionary<SearchObjectKind, int>();
 
         foreach (var dbName in databaseNames)
@@ -312,12 +311,11 @@ public class DefaultDbSchemaService : IDbSchemaService
             }
 
             // 表 / 视图 / 过程 / 函数 / 序列：取全量后内存模糊过滤（跨库一致，不依赖方言 SQL）。
-            var matchedTables = new List<DatabaseObject>();
-
-            matchedTables.AddRange(await SafeFetchAsync(
-                () => interpreter.GetTablesAsync(new SchemaInfoFilter()),
+            var objectFilter = new SchemaInfoFilter { Schema = schema };
+            var matchedTables = await SafeFetchAsync(
+                () => interpreter.GetTablesAsync(objectFilter),
                 item => MatchesKeyword(item.Name, keyword),
-                limitPerKind));
+                limitPerKind);
 
             foreach (var t in matchedTables)
             {
@@ -326,7 +324,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             }
 
             var views = await SafeFetchAsync(
-                () => interpreter.GetViewsAsync(new SchemaInfoFilter()),
+                () => interpreter.GetViewsAsync(objectFilter),
                 item => MatchesKeyword(item.Name, keyword),
                 limitPerKind);
 
@@ -339,7 +337,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Procedure))
             {
                 var procedures = await SafeFetchAsync(
-                    () => interpreter.GetProceduresAsync(new SchemaInfoFilter()),
+                    () => interpreter.GetProceduresAsync(objectFilter),
                     item => MatchesKeyword(item.Name, keyword),
                     limitPerKind);
 
@@ -353,7 +351,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Function))
             {
                 var functions = await SafeFetchAsync(
-                    () => interpreter.GetFunctionsAsync(new SchemaInfoFilter()),
+                    () => interpreter.GetFunctionsAsync(objectFilter),
                     item => MatchesKeyword(item.Name, keyword),
                     limitPerKind);
 
@@ -367,7 +365,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             if (interpreter.SupportDbObjectType.HasFlag(DatabaseObjectType.Sequence))
             {
                 var sequences = await SafeFetchAsync(
-                    () => interpreter.GetSequencesAsync(new SchemaInfoFilter()),
+                    () => interpreter.GetSequencesAsync(objectFilter),
                     item => MatchesKeyword(item.Name, keyword),
                     limitPerKind);
 
@@ -378,40 +376,25 @@ public class DefaultDbSchemaService : IDbSchemaService
                 }
             }
 
-            // 列搜索：仅扫描名称已命中的表（控制成本），一次查询取这些表的全部列后再过滤列名。
-            var tableNamesToScan = matchedTables
-                .Select(t => t.Name)
-                .Distinct()
-                .Take(MetadataSearchMaxColumnScanTables)
-                .ToList();
-
-            if (tableNamesToScan.Count > 0)
+            // 列名和表名是独立条件。必须扫描当前范围内的全部列，不能以表名是否命中
+            // 作为前提，否则搜索 "id" 会遗漏 users.id、orders.id 等绝大多数结果。
+            try
             {
-                try
+                var columns = await SafeFetchAsync(
+                    () => interpreter.GetTableColumnsAsync(new SchemaInfoFilter { Schema = schema }),
+                    column => MatchesKeyword(column.Name, keyword),
+                    limitPerKind);
+
+                foreach (var column in columns)
                 {
-                    var columnFilter = new SchemaInfoFilter
-                    {
-                        Strict = true,
-                        TableNames = tableNamesToScan.ToArray(),
-                        DatabaseObjectType = DatabaseObjectType.Column,
-                    };
-
-                    var schemaInfo = await interpreter.GetSchemaInfoAsync(columnFilter);
-
-                    foreach (var column in schemaInfo?.TableColumns ?? Enumerable.Empty<TableColumn>().ToList())
-                    {
-                        if (!MatchesKeyword(column.Name, keyword))
-                            continue;
-
-                        AddResult(result, counters, SearchObjectKind.Column,
-                            connection.Name, dbName, column.Schema,
-                            column.Name, column.TableName, limitPerKind);
-                    }
+                    AddResult(result, counters, SearchObjectKind.Column,
+                        connection.Name, dbName, column.Schema,
+                        column.Name, column.TableName, limitPerKind);
                 }
-                catch
-                {
-                    // 列搜索失败不影响其他结果。
-                }
+            }
+            catch
+            {
+                // 列搜索失败不影响其他结果。
             }
         }
 
@@ -419,8 +402,11 @@ public class DefaultDbSchemaService : IDbSchemaService
     }
 
     /// <summary>枚举参与搜索的数据库列表：目标库优先，其余按名称排序。</summary>
-    private async Task<List<string>> GetDatabaseNamesForSearchAsync(ConnectionItem connection)
+    private async Task<List<string>> GetDatabaseNamesForSearchAsync(ConnectionItem connection, string? databaseName)
     {
+        if (!string.IsNullOrWhiteSpace(databaseName))
+            return new List<string> { databaseName };
+
         var names = new List<string>();
         var targetDb = connection.Database;
 
