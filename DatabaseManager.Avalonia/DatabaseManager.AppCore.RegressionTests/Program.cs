@@ -52,6 +52,10 @@ static class Program
         AssertContains("尚未完成", KingbaseCompatibilityModes.GetConnectionBlockReason(KingbaseCompatibilityModes.SqlServer)!);
         AssertTrue(QueryProfilerSql.SupportsAnalyze(DatabaseType.KingbaseES), "已验证的 KingbaseES PG 路径应提供 EXPLAIN ANALYZE。 ");
         AssertContains("EXPLAIN ANALYZE", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.KingbaseES, "SELECT 1"));
+        AssertContains("sys_stat_activity", DbSessionSql.BuildSessionsSql(DatabaseType.KingbaseES));
+        AssertContains("sys_blocking_pids", DbSessionSql.BuildLocksSql(DatabaseType.KingbaseES));
+        AssertEqual("SELECT sys_terminate_backend(12345)", DbSessionSql.BuildTerminateSessionSql(DatabaseType.KingbaseES, "12345"));
+        AssertEqual(null, DbSessionSql.BuildTerminateSessionSql(DatabaseType.KingbaseES, "12345; SELECT 1"));
         var kingbaseInterpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.KingbaseES, kingbaseConnection);
         AssertTrue(DbScriptGeneratorHelper.GetDbScriptGenerator(kingbaseInterpreter) is PostgresScriptGenerator,
             "KingbaseES PG 兼容路径应使用 PostgreSQL 脚本生成器。 ");

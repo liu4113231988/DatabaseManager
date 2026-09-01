@@ -1,5 +1,4 @@
 using System.Data;
-using System.Text.RegularExpressions;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
@@ -23,6 +22,13 @@ public class DefaultDbSessionService : IDbSessionService
     {
         var snapshot = new DbSessionSnapshot();
         var dbType = ParseDatabaseType(connection.DatabaseType);
+
+        if (dbType == DatabaseType.KingbaseES &&
+            KingbaseCompatibilityModes.GetConnectionBlockReason(connection.KingbaseCompatibilityMode) is { } compatibilityReason)
+        {
+            snapshot.Error = compatibilityReason;
+            return snapshot;
+        }
 
         if (!IsSupported(connection.DatabaseType))
         {
@@ -95,17 +101,17 @@ public class DefaultDbSessionService : IDbSessionService
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
-        string sql = dbType switch
+        if (dbType == DatabaseType.KingbaseES &&
+            KingbaseCompatibilityModes.GetConnectionBlockReason(connection.KingbaseCompatibilityMode) is { } compatibilityReason)
         {
-            // 数字校验防注入。
-            DatabaseType.MySql => Regex.IsMatch(sessionId, @"^\d+$") ? $"KILL {sessionId}" : null,
-            DatabaseType.Postgres => Regex.IsMatch(sessionId, @"^\d+$") ? $"SELECT pg_terminate_backend({sessionId})" : null,
-            DatabaseType.SqlServer => Regex.IsMatch(sessionId, @"^\d+$") ? $"KILL {sessionId}" : null,
-            DatabaseType.Oracle => Regex.IsMatch(sessionId, @"^[\w,]+$")
+            return (false, compatibilityReason);
+        }
+
+        string? sql = dbType == DatabaseType.Oracle
+            ? System.Text.RegularExpressions.Regex.IsMatch(sessionId, @"^[\w,]+$")
                 ? $"ALTER SYSTEM KILL SESSION '{sessionId}' IMMEDIATE"
-                : null,
-            _ => null,
-        };
+                : null
+            : DbSessionSql.BuildTerminateSessionSql(dbType, sessionId);
 
         if (sql is null)
         {

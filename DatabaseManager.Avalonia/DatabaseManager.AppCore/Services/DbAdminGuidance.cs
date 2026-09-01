@@ -9,6 +9,7 @@ public static class DbAdminGuidance
     {
         DatabaseType.MySql => "需要 PROCESS 权限；读取锁信息通常还需要 PERFORMANCE_SCHEMA 或相应 InnoDB 视图权限。",
         DatabaseType.Postgres => "建议授予 pg_read_all_stats（或使用超级用户）；终止其他会话需要 pg_signal_backend。",
+        DatabaseType.KingbaseES => "需要读取 sys_stat_activity、sys_locks 的监控权限；终止其他会话需为目标角色成员，或被授予 sys_signal_backend；只有超级用户能终止超级用户会话。",
         DatabaseType.SqlServer => "需要 VIEW SERVER STATE 以读取 dm_exec_sessions/dm_exec_requests；终止会话需要 processadmin 或 sysadmin。",
         DatabaseType.Oracle => "需要 SELECT_CATALOG_ROLE（或 v_$session/v_$lock 的 SELECT 权限）；终止会话需要 ALTER SYSTEM。",
         _ => "请使用具备服务器监控权限的账号。",
