@@ -88,8 +88,23 @@ public partial class OptimizeViewModel : ViewModelBase
                 Results.Add(result);
             }
 
-            StatusMessage = $"优化完成，共处理 {results.Count} 个对象。";
-            AppendLog(StatusMessage);
+            var okCount = results.Count(r => r.IsOK);
+            var failCount = results.Count - okCount;
+            if (results.Count > 0 && okCount == 0)
+            {
+                StatusMessage = $"优化失败，共 {results.Count} 个对象全部失败。";
+                AppendLog(StatusMessage);
+            }
+            else if (failCount > 0)
+            {
+                StatusMessage = $"优化完成，共处理 {results.Count} 个对象（成功 {okCount}，失败 {failCount}）。";
+                AppendLog(StatusMessage);
+            }
+            else
+            {
+                StatusMessage = $"优化完成，共处理 {results.Count} 个对象。";
+                AppendLog(StatusMessage);
+            }
         }
         catch (Exception ex)
         {

@@ -1,5 +1,5 @@
+using AtomUI;
 using Avalonia;
-using ReactiveUI.Avalonia;
 using System;
 
 namespace DatabaseManager.Avalonia;
@@ -16,8 +16,7 @@ sealed class Program
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
-            .UsePlatformDetect()
-            .UseReactiveUI() // AtomUI 依赖 ReactiveUI
-            .WithInterFont()
+            .UseAtomUIPlatformDetect() // AtomUI 6.x：AtomUI 依赖的平台初始化
+            .WithAtomUIDefaultOptions() // AtomUI 6.x：默认主题选项
             .LogToTrace();
 }

@@ -1,5 +1,5 @@
 ﻿using DatabaseInterpreter.Model;
-using System.Text;
+using System;
 
 namespace DatabaseInterpreter.Core
 {
@@ -7,18 +7,44 @@ namespace DatabaseInterpreter.Core
     {
         public string BuildConntionString(ConnectionInfo connectionInfo)
         {
-            StringBuilder sb = new StringBuilder($"Data Source={connectionInfo.Server};Initial Catalog={connectionInfo.Database};TrustServerCertificate=true;");
-
-            if(connectionInfo.IntegratedSecurity)
+            var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder
             {
-                sb.Append("Integrated Security=true;");
+                TrustServerCertificate = true,
+                PersistSecurityInfo = false,
+            };
+
+            // DataSource 支持 Server,Port 与 Server\Instance 形式
+            string server = connectionInfo.Server?.Trim() ?? string.Empty;
+            string port = connectionInfo.Port?.Trim() ?? string.Empty;
+            if (!string.IsNullOrEmpty(port) && !server.Contains(","))
+            {
+                // 若 Server 已含逗号端口则不再追加
+                builder.DataSource = $"{server},{port}";
             }
             else
             {
-                sb.Append($"User Id={connectionInfo.UserId};Password={connectionInfo.Password};");
+                builder.DataSource = server;
             }
 
-            return sb.ToString();
+            if (!string.IsNullOrWhiteSpace(connectionInfo.Database))
+            {
+                builder.InitialCatalog = connectionInfo.Database.Trim();
+            }
+
+            if (connectionInfo.IntegratedSecurity)
+            {
+                builder.IntegratedSecurity = true;
+            }
+            else
+            {
+                builder.IntegratedSecurity = false;
+                if (!string.IsNullOrEmpty(connectionInfo.UserId))
+                    builder.UserID = connectionInfo.UserId;
+                if (connectionInfo.Password != null)
+                    builder.Password = connectionInfo.Password;
+            }
+
+            return builder.ConnectionString;
         }
     }
 }

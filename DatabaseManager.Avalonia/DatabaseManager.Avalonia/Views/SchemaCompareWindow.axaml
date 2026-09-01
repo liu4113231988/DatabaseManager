@@ -1,13 +1,14 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:conv="using:DatabaseManager.Avalonia.Converters"
         x:Class="DatabaseManager.Avalonia.Views.SchemaCompareWindow"
         x:DataType="vm:SchemaCompareViewModel"
-        Title="结构对比 (Schema Compare)"
+        Title="结构对比"
         Width="980" Height="680"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <Window.Resources>
@@ -40,6 +41,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="执行对比" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成变更脚本..." Command="{Binding GenerateScriptsCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的差异生成可审阅的同步脚本并预览" />
+                <atom:Button Content="生成回滚脚本..." Command="{Binding GenerateRollbackCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的差异生成回滚脚本（恢复目标库为对比前状态）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -63,7 +70,7 @@
 
             <!-- 差异树 -->
             <Border Grid.Column="0" Grid.Row="0"
-                    BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,6">
+                    BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,6">
                 <TreeView ItemsSource="{Binding DifferenceRoots}"
                           SelectedItem="{Binding SelectedDifference}"
                           ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -72,6 +79,9 @@
                         <TreeDataTemplate x:DataType="models:SchemaCompareItem"
                                           ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                          MinWidth="0" Margin="0,0,2,0"
+                                          ToolTip.Tip="勾选后参与变更/回滚脚本生成" />
                                 <TextBlock Text="{Binding Text}" FontWeight="SemiBold" />
                                 <TextBlock Text="{Binding DifferenceTypeText}"
                                            Foreground="{Binding Converter={StaticResource DiffColorConverter}}" />
@@ -81,13 +91,13 @@
                 </TreeView>
             </Border>
 
-            <GridSplitter Grid.Column="1" Grid.Row="0" Width="4" Background="#22000000" />
+            <GridSplitter Grid.Column="1" Grid.Row="0" Width="4" Background="{DynamicResource AppDividerBrush}" />
 
             <!-- 右侧：详情 + 日志 -->
             <DockPanel Grid.Column="2" Grid.Row="0" Margin="0,0,0,6">
                 <!-- 详情 -->
                 <TextBlock DockPanel.Dock="Top" Text="详情" FontWeight="Bold" Margin="2,0,0,4" />
-                <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1"
+                <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
                         MinHeight="90" MaxHeight="180" Margin="0,0,0,8">
                     <TextBox Text="{Binding DetailText}" IsReadOnly="True" TextWrapping="Wrap"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
@@ -96,7 +106,7 @@
 
                 <!-- 日志 -->
                 <TextBlock DockPanel.Dock="Top" Text="日志" FontWeight="Bold" Margin="2,0,0,4" />
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">

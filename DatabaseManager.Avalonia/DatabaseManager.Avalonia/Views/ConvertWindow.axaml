@@ -1,37 +1,50 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.ConvertWindow"
         x:DataType="vm:ConvertViewModel"
         Title="数据库转换"
         Width="980" Height="720"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <DockPanel Margin="20" Background="{DynamicResource AppWindowBgBrush}">
 
         <!-- 顶部：源/目标选择与模式 -->
-        <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,12">
+        <Border DockPanel.Dock="Top" Classes="surface" Padding="18" Margin="0,0,0,16">
+        <StackPanel Spacing="14">
+
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,2">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="数据库转换" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                    <TextBlock Text="在源数据库与目标数据库之间迁移结构和数据。" FontSize="12" Foreground="#6B7C93" />
+                </StackPanel>
+                <Border Grid.Column="1" Background="#E8F3FF" CornerRadius="12" Padding="10,4" VerticalAlignment="Center">
+                    <TextBlock Text="迁移工作台" FontSize="11" Foreground="#246BCE" FontWeight="SemiBold" />
+                </Border>
+            </Grid>
 
             <!-- 源/目标连接 -->
-            <Grid ColumnDefinitions="110,*,40,110,*">
-                <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" />
+            <Grid ColumnDefinitions="90,*,40,90,*">
+                <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" />
 
-                <TextBlock Grid.Column="2" Text="→" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="→" FontSize="20" Foreground="#246BCE" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" />
             </Grid>
 
             <!-- 模式 -->
-            <Grid ColumnDefinitions="110,*,*">
-                <TextBlock Grid.Column="0" Text="转换模式" VerticalAlignment="Center" />
+            <Grid ColumnDefinitions="90,*,*">
+                <TextBlock Grid.Column="0" Text="转换模式" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboMode" Grid.Column="1" HorizontalAlignment="Stretch" />
             </Grid>
 
             <!-- 选项 -->
+            <Border Background="#F5F8FC" CornerRadius="6" Padding="10,8">
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <atom:CheckBox Content="目标执行" IsChecked="{Binding ExecuteOnTargetServer}" />
                 <atom:CheckBox Content="使用事务" IsChecked="{Binding UseTransaction}" />
@@ -40,6 +53,7 @@
                 <atom:CheckBox Content="自动建 Schema" IsChecked="{Binding CreateSchemaIfNotExists}" />
                 <atom:CheckBox Content="Schema 预览" IsChecked="{Binding NeedPreview}" />
             </StackPanel>
+            </Border>
 
             <!-- 执行按钮 -->
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
@@ -48,17 +62,24 @@
                              IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="执行转换" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="取消" Command="{Binding CancelExecuteCommand}"
+                             IsEnabled="{Binding IsBusy}"
+                             ToolTip.Tip="取消正在执行的转换（任务中心中仍可见）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>
+        </Border>
 
         <!-- 状态栏 -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                CornerRadius="6" Padding="12,6" Margin="0,12,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppTextSecondaryBrush}"
+                       VerticalAlignment="Center" Opacity="0.9" FontSize="11" TextWrapping="Wrap" />
+        </Border>
 
         <!-- 中部：TabControl（预览 / 日志） -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
 
             <!-- Schema 预览页 -->
             <TabItem Header="Schema 预览" IsEnabled="{Binding HasPreview}">
@@ -72,7 +93,7 @@
                     <!-- 左：表列表 -->
                     <DockPanel Grid.Column="0" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Top" Text="目标库表结构" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border Classes="surface" Padding="4">
                             <ListBox ItemsSource="{Binding PreviewTables}"
                                      SelectedItem="{Binding SelectedPreviewTable}"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -94,13 +115,13 @@
                         </Border>
                     </DockPanel>
 
-                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="4" Background="{DynamicResource AppDividerBrush}" />
 
                     <!-- 右：列定义 -->
                     <DockPanel Grid.Column="2" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Top" Text="列定义（可编辑数据类型/长度/精度/小数位/默认值）"
                                    FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border Classes="surface" Padding="4">
                             <DataGrid ItemsSource="{Binding SelectedPreviewTable.Columns}"
                                       AutoGenerateColumns="False"
                                       GridLinesVisibility="All"
@@ -126,7 +147,7 @@
 
             <!-- 日志页 -->
             <TabItem Header="转换日志">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border Classes="surface" Padding="4">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -138,7 +159,7 @@
                     </ListBox>
                 </Border>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

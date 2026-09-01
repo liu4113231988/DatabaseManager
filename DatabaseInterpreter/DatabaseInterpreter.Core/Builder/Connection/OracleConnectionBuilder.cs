@@ -1,5 +1,4 @@
 ﻿using DatabaseInterpreter.Model;
-using System.Text;
 
 namespace DatabaseInterpreter.Core
 {
@@ -7,39 +6,45 @@ namespace DatabaseInterpreter.Core
     {
         public string BuildConntionString(ConnectionInfo connectionInfo)
         {
-            string server = connectionInfo.Server;
+            string server = connectionInfo.Server?.Trim() ?? string.Empty;
             string serviceName = OracleInterpreter.DEFAULT_SERVICE_NAME;
-            string port = connectionInfo.Port;
+            string portStr = connectionInfo.Port?.Trim() ?? string.Empty;
+            int port = OracleInterpreter.DEFAULT_PORT;
+            if (int.TryParse(portStr, out int p) && p > 0) port = p;
 
-            if (string.IsNullOrEmpty(port))
+            if (!string.IsNullOrEmpty(server) && server.Contains("/"))
             {
-                port = OracleInterpreter.DEFAULT_PORT.ToString();
+                string[] parts = server.Split('/', 2);
+                server = parts[0].Trim();
+                if (parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]))
+                    serviceName = parts[1].Trim();
             }
 
-            if (server != null && server.Contains("/"))
+            // 使用 Oracle 托管驱动的连接字符串构造器，自动转义特殊字符
+            var builder = new Oracle.ManagedDataAccess.Client.OracleConnectionStringBuilder
             {
-                string[] serverService = connectionInfo.Server.Split('/');
-                server = serverService[0];
-                serviceName = serverService[1];
-            }
-
-            StringBuilder sb = new StringBuilder($"Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={server})(PORT={port})))(CONNECT_DATA=(SERVICE_NAME={serviceName})));");
+                DataSource = $"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST={server})(PORT={port})))(CONNECT_DATA=(SERVICE_NAME={serviceName})))"
+            };
 
             if (connectionInfo.IntegratedSecurity)
             {
-                sb.Append($"User Id=/;");
+                builder.UserID = "/";
+                // 口令由外部集成认证提供，无需设置
             }
             else
             {
-                sb.Append($"User Id={connectionInfo.UserId};Password={connectionInfo.Password};");
+                if (!string.IsNullOrEmpty(connectionInfo.UserId))
+                    builder.UserID = connectionInfo.UserId;
+                if (connectionInfo.Password != null)
+                    builder.Password = connectionInfo.Password;
             }
 
             if (connectionInfo.IsDba)
             {
-                sb.Append("DBA PRIVILEGE=SYSDBA;");
+                builder["DBA Privilege"] = "SYSDBA";
             }
 
-            return sb.ToString();
+            return builder.ConnectionString;
         }
     }
 }

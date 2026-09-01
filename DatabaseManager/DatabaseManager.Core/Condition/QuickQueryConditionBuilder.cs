@@ -77,7 +77,7 @@ namespace DatabaseManager.Core
                                     fieldName = $"CAST({fieldName} AS VARCHAR2(4000))";
                                 }
                             }
-                            else if(this.databaseType == DatabaseType.Postgres)
+                            else if(this.databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                             {
                                 if(!isCharType)
                                 {

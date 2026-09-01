@@ -9,9 +9,134 @@
 		<local:ViewLocator />
 	</Application.DataTemplates>
 
+	<Application.Resources>
+		<ResourceDictionary>
+			<!-- 主题颜色令牌：亮色 / 深色 / 高对比（视图层一律通过 DynamicResource 引用） -->
+			<ResourceDictionary.ThemeDictionaries>
+				<ResourceDictionary x:Key="Default">
+					<SolidColorBrush x:Key="AppWindowBgBrush">#F7F9FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSurfaceBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#F1F5F9</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#E3E8F0</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#22000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#1F2A44</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#52657F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#EAF2FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#C9DEFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#DDEBFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#8C8C8C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#E3F5E8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
+					<SolidColorBrush x:Key="AppNodeBadgeBrush">#FFF3D6</SolidColorBrush>
+				</ResourceDictionary>
+				<ResourceDictionary x:Key="Light">
+					<SolidColorBrush x:Key="AppWindowBgBrush">#F7F9FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSurfaceBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#F1F5F9</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#E3E8F0</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#22000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#1F2A44</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#52657F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#EAF2FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#C9DEFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#DDEBFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#8C8C8C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#E3F5E8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
+					<SolidColorBrush x:Key="AppNodeBadgeBrush">#FFF3D6</SolidColorBrush>
+				</ResourceDictionary>
+				<ResourceDictionary x:Key="Dark">
+					<SolidColorBrush x:Key="AppWindowBgBrush">#161B26</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSurfaceBrush">#1F2531</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#262D3B</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#39414F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#33FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#E8ECF4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#9FACC4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#2C3442</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#40608F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#1E3A5F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#9AA4B5</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHighlightBrush">#4A3B15</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#16321F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowModifiedBrush">#3A2F10</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowDeletedBrush">#3B1D20</SolidColorBrush>
+					<SolidColorBrush x:Key="AppNodeBadgeBrush">#4A3F1A</SolidColorBrush>
+				</ResourceDictionary>
+				<ResourceDictionary x:Key="{x:Static local:AppThemeVariants.HighContrast}">
+					<SolidColorBrush x:Key="AppWindowBgBrush">#000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSurfaceBrush">#000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#0D0D0D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#E6E6E6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#262626</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#FFD966</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#1F4C7A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHighlightBrush">#664D00</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#005A2B</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowModifiedBrush">#5A4500</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowDeletedBrush">#6B0018</SolidColorBrush>
+					<SolidColorBrush x:Key="AppNodeBadgeBrush">#7A6520</SolidColorBrush>
+				</ResourceDictionary>
+			</ResourceDictionary.ThemeDictionaries>
+		</ResourceDictionary>
+	</Application.Resources>
+
 	<Application.Styles>
 		<!-- 基础主题；AtomUI 在 App.OnFrameworkInitializationCompleted 中通过 UseAtomUI 覆盖为 Ant Design 风格 -->
 		<FluentTheme />
+		<!-- AvaloniaEdit 控件主题（必须引入，否则 TextEditor 无模板：黑块且无法输入） -->
+		<StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+		<!-- DataGrid 控件主题（必须引入，否则结果表格无模板、完全不可见） -->
+		<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+
+		<!-- DatabaseManager visual language: restrained, high-contrast and optimised for dense daily work. -->
+		<Style Selector="Window">
+			<Setter Property="FontFamily" Value="Inter, Microsoft YaHei UI, Segoe UI, sans-serif" />
+			<Setter Property="Background" Value="{DynamicResource AppWindowBgBrush}" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+		</Style>
+		<Style Selector="TextBox, ComboBox">
+			<Setter Property="MinHeight" Value="32" />
+		</Style>
+		<Style Selector="Button">
+			<Setter Property="MinHeight" Value="32" />
+			<!-- 小字号密集按钮在 32px 高度下文字偏上，统一垂直居中，避免底部留白偏大 -->
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
+		<!-- 紧凑按钮：用于查询结果区/分页栏等密集小按钮（FontSize 11 场景） -->
+		<Style Selector="Button.compact">
+			<Setter Property="MinHeight" Value="24" />
+			<Setter Property="MinWidth" Value="0" />
+			<Setter Property="Padding" Value="8,2" />
+			<Setter Property="HorizontalContentAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
+		<Style Selector="Button.toolbar">
+			<Setter Property="MinWidth" Value="32" />
+			<Setter Property="MinHeight" Value="32" />
+			<Setter Property="Padding" Value="7" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+			<Setter Property="BorderThickness" Value="1" />
+		</Style>
+		<Style Selector="Button.toolbar:pointerover">
+			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppHoverBorderBrush}" />
+		</Style>
+		<Style Selector="Border.surface">
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="CornerRadius" Value="8" />
+		</Style>
 	</Application.Styles>
 
 </Application>

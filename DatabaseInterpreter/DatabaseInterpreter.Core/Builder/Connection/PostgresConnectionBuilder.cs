@@ -1,5 +1,4 @@
 ﻿using DatabaseInterpreter.Model;
-using System.Text;
 
 namespace DatabaseInterpreter.Core
 {
@@ -7,27 +6,33 @@ namespace DatabaseInterpreter.Core
     {
         public string BuildConntionString(ConnectionInfo connectionInfo)
         {
-            string server = connectionInfo.Server;          
-            string port = connectionInfo.Port;
-            int timeout = DbInterpreter.Setting.CommandTimeout;
-
-            if (string.IsNullOrEmpty(port))
+            var builder = new Npgsql.NpgsqlConnectionStringBuilder
             {
-                port = PostgresInterpreter.DEFAULT_PORT.ToString();
-            }          
+                Host = connectionInfo.Server?.Trim() ?? string.Empty,
+                CommandTimeout = DbInterpreter.Setting.CommandTimeout,
+                Pooling = true,
+            };
 
-            StringBuilder sb = new StringBuilder($"Host={server};Port={port};Database={connectionInfo.Database};CommandTimeout={timeout};Pooling=true;");
-
-            if (connectionInfo.IntegratedSecurity)
-            {
-                sb.Append($"Username={connectionInfo.UserId};");
-            }
+            string port = connectionInfo.Port?.Trim() ?? string.Empty;
+            if (int.TryParse(port, out int p) && p > 0)
+                builder.Port = p;
             else
-            {
-                sb.Append($"Username={connectionInfo.UserId};Password={connectionInfo.Password};");
-            }
+                builder.Port = PostgresInterpreter.DEFAULT_PORT;
 
-            return sb.ToString();
+            if (!string.IsNullOrWhiteSpace(connectionInfo.Database))
+                builder.Database = connectionInfo.Database.Trim();
+
+            // Postgres 的 IntegratedSecurity 在 Npgsql 中通常映射为 IntegratedSecurity，但此处按原逻辑区分
+            if (!string.IsNullOrEmpty(connectionInfo.UserId))
+                builder.Username = connectionInfo.UserId;
+            if (connectionInfo.Password != null)
+                builder.Password = connectionInfo.Password;
+
+            // SSL 选项：若 UseSsl 为 true 则要求 SSL，Npgsql 默认会协商
+            if (connectionInfo.UseSsl)
+                builder.SslMode = Npgsql.SslMode.Require;
+
+            return builder.ConnectionString;
         }
     }
 }

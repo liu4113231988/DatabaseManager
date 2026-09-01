@@ -468,7 +468,7 @@ namespace DatabaseInterpreter.Core
 
                                 string parameterPlaceholder = this.dbInterpreter.CommandParameterChar + parameterName;
 
-                                if (this.databaseType != DatabaseType.Postgres && isBitArray)
+                                if (this.databaseType is not (DatabaseType.Postgres or DatabaseType.KingbaseES) && isBitArray)
                                 {
                                     var bitArray = parsedValue as BitArray;
                                     byte[] bytes = new byte[bitArray.Length];
@@ -504,7 +504,7 @@ namespace DatabaseInterpreter.Core
 
                     if (DataTypeHelper.IsUserDefinedType(column))
                     {
-                        if (this.databaseType == DatabaseType.Postgres)
+                        if (this.databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                         {
                             parsedValue = $"row({parsedValue})";
                         }
@@ -684,7 +684,7 @@ namespace DatabaseInterpreter.Core
 
                     case nameof(Boolean):
 
-                        if (this.databaseType == DatabaseType.Postgres)
+                        if (this.databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                         {
                             strValue = value.ToString().ToLower();
                         }
@@ -868,7 +868,7 @@ namespace DatabaseInterpreter.Core
                 {
                     if (pgi.IsGeography)
                     {
-                        if (this.databaseType != DatabaseType.Postgres && dataType != "geography")
+                        if (this.databaseType is not (DatabaseType.Postgres or DatabaseType.KingbaseES) && dataType != "geography")
                         {
                             PostgresGeometryHelper.ReverseCoordinates(pg);
 

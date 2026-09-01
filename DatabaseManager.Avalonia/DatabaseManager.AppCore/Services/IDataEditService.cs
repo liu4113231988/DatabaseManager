@@ -21,6 +21,7 @@ public interface IDataEditService
     /// <param name="isView">是否为视图。</param>
     /// <param name="pageSize">每页行数。</param>
     /// <param name="pageNumber">页码（从 1 开始）。</param>
+    /// <param name="loadTotalCount">是否统计总行数（COUNT）。翻页时传 false 可避免大表全表扫描，提升性能。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     Task<DataLoadResult> LoadDataAsync(
         string connectionName,
@@ -30,6 +31,18 @@ public interface IDataEditService
         bool isView,
         int pageSize,
         long pageNumber,
+        bool loadTotalCount = true,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 读取指定表的元数据（列、主键、标识列），不加载行数据。
+    /// 用于查询结果内联编辑前的可编辑性判定。
+    /// </summary>
+    Task<TableMetadataResult> GetTableMetadataAsync(
+        string connectionName,
+        string databaseName,
+        string tableName,
+        string? schema,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -65,6 +78,28 @@ public class DataLoadResult
 
     /// <summary>总行数。</summary>
     public long TotalCount { get; set; }
+
+    /// <summary>总行数是否未知（跳过 COUNT 统计时）。</summary>
+    public bool TotalCountUnknown { get; set; }
+
+    /// <summary>表是否具有主键（无主键的表无法安全定位行，编辑时应置为只读）。</summary>
+    public bool HasPrimaryKey { get; set; } = true;
+
+    /// <summary>错误信息（若失败）。</summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>是否成功。</summary>
+    public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage);
+}
+
+/// <summary>表元数据查询结果。</summary>
+public class TableMetadataResult
+{
+    /// <summary>表元数据（列定义、主键等）。</summary>
+    public DataTableInfo TableInfo { get; set; } = new();
+
+    /// <summary>表是否具有主键（无主键的表无法安全定位行，编辑时应置为只读）。</summary>
+    public bool HasPrimaryKey { get; set; } = true;
 
     /// <summary>错误信息（若失败）。</summary>
     public string? ErrorMessage { get; set; }

@@ -1,0 +1,89 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:DatabaseManager.AppCore.Services"
+        xmlns:m="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.FullDataSearchWindow"
+        Title="全库数据搜索"
+        Width="780" Height="640"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+        <!-- 连接 / 数据库 / Schema -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,*,Auto,*" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0"
+                      SelectionChanged="CmbConnection_SelectionChanged">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="m:ConnectionItem">
+                        <TextBlock Text="{Binding Description}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Column="2" Text="数据库:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Grid.Column="3" x:Name="CmbDatabase" IsEditable="True" MinWidth="120" Margin="0,0,10,0" />
+            <TextBlock Grid.Column="4" Text="Schema:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Grid.Column="5" x:Name="TxtSchema" Watermark="可选" MinWidth="90" />
+        </Grid>
+
+        <!-- 关键字与选项 -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="关键字:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Grid.Column="1" x:Name="TxtKeyword" Watermark="要搜索的数据内容（LIKE 模糊匹配）"
+                     VerticalContentAlignment="Center" KeyDown="TxtKeyword_KeyDown" />
+            <CheckBox Grid.Column="2" x:Name="ChkTextOnly" Content="仅文本列" IsChecked="True"
+                      VerticalAlignment="Center" Margin="10,0,0,0" />
+            <CheckBox Grid.Column="3" x:Name="ChkIncludeViews" Content="含视图" IsChecked="False"
+                      VerticalAlignment="Center" Margin="10,0,0,0" />
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" Margin="10,0,0,0" VerticalAlignment="Center">
+                <TextBlock Text="每表上限:" VerticalAlignment="Center" FontSize="11" />
+                <TextBox x:Name="TxtPerTable" Text="20" Width="46" FontSize="11" VerticalContentAlignment="Center" />
+                <TextBlock Text="表数上限:" VerticalAlignment="Center" FontSize="11" Margin="6,0,0,0" />
+                <TextBox x:Name="TxtMaxTables" Text="500" Width="56" FontSize="11" VerticalContentAlignment="Center" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 操作与进度 -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <Button x:Name="BtnSearch" Content="搜索" Click="BtnSearch_Click" HorizontalAlignment="Left" />
+            <Button x:Name="BtnCancel" Content="取消" Click="BtnCancel_Click" IsEnabled="False" />
+            <ProgressBar x:Name="Progress" IsIndeterminate="True" Width="140" Height="8"
+                         VerticalAlignment="Center" IsVisible="False" />
+            <TextBlock x:Name="TxtProgress" VerticalAlignment="Center" FontSize="11" Opacity="0.7"
+                       TextTrimming="CharacterEllipsis" />
+        </StackPanel>
+
+        <!-- 汇总 -->
+        <TextBlock Grid.Row="3" x:Name="TxtSummary" FontSize="11" Opacity="0.8" Margin="0,0,0,6" />
+
+        <!-- 结果树：对象 → 匹配行预览 -->
+        <Border Grid.Row="4" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4">
+            <TreeView x:Name="ResultsTree" DoubleTapped="ResultsTree_DoubleTapped">
+                <TreeView.DataTemplates>
+                    <TreeDataTemplate x:DataType="models:FullDataSearchTableResult"
+                                      ItemsSource="{Binding Rows}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="▦" Opacity="0.6" />
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding Rows.Count, StringFormat='（{0} 行匹配）'}" FontSize="11" Opacity="0.6" />
+                            <TextBlock Text="{Binding Error, StringFormat='⚠ {0}'}" FontSize="11" Foreground="#D97706" />
+                        </StackPanel>
+                        <!-- 行节点的子模板由下方 Row 模板提供 -->
+                    </TreeDataTemplate>
+                    <DataTemplate x:DataType="models:FullDataSearchRow">
+                        <TextBlock Text="{Binding Preview}" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="640" />
+                    </DataTemplate>
+                </TreeView.DataTemplates>
+            </TreeView>
+        </Border>
+
+        <!-- 底部说明与操作 -->
+        <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
+            <TextBlock Grid.Column="0" Text="双击对象或行可生成带条件的 SELECT 并在新查询标签打开；文本列按方言 LIKE 匹配，单表错误不影响整体。"
+                       FontSize="10" Opacity="0.5" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <Button Grid.Column="1" x:Name="BtnOpenSelect" Content="打开 SELECT" Click="BtnOpenSelect_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="2" Content="关闭" Click="BtnClose_Click" />
+        </Grid>
+    </Grid>
+</Window>

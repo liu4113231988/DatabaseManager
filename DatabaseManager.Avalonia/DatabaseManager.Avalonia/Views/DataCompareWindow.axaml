@@ -1,6 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
         xmlns:svc="using:DatabaseManager.AppCore.Services"
@@ -8,6 +8,7 @@
         x:DataType="vm:DataCompareViewModel"
         Title="数据对比 (Data Compare)"
         Width="1080" Height="720"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -36,8 +37,12 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="执行对比" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="生成同步脚本" Command="{Binding GenerateScriptsCommand}"
-                             IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="生成同步脚本..." Command="{Binding GenerateScriptsCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的表生成可审阅的同步脚本并预览，可在预览窗口执行" />
+                <atom:Button Content="生成回滚脚本..." Command="{Binding GenerateDataRollbackCommand}"
+                             IsEnabled="{Binding !IsBusy}"
+                             ToolTip.Tip="按勾选的表生成回滚脚本（恢复目标库为对比前状态）" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -48,7 +53,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：TabControl（结果 / 脚本） -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
 
             <!-- 结果页 -->
             <TabItem Header="对比结果">
@@ -75,7 +80,7 @@
                         </ListBox>
 
                         <TextBlock DockPanel.Dock="Top" Text="对比结果" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                             <ListBox ItemsSource="{Binding Results}"
                                      SelectedItem="{Binding SelectedResult}"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -83,12 +88,17 @@
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="models:DataCompareResultItem">
                                         <StackPanel Spacing="2">
-                                            <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
-                                            <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.8">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          MinWidth="0" Margin="0,0,2,0"
+                                                          ToolTip.Tip="勾选后参与同步/回滚脚本生成" />
+                                                <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Opacity="0.8" Margin="22,0,0,0">
                                                 <TextBlock Text="{Binding SourceRecordCount, StringFormat='源:{0}'}" FontSize="11" />
                                                 <TextBlock Text="{Binding TargetRecordCount, StringFormat='目标:{0}'}" FontSize="11" />
                                             </StackPanel>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="22,0,0,0">
                                                 <TextBlock Text="{Binding DifferentCount, StringFormat='差异:{0}'}" Foreground="#C0392B" FontSize="11" />
                                                 <TextBlock Text="{Binding OnlyInSourceCount, StringFormat='仅源:{0}'}" Foreground="#E67E22" FontSize="11" />
                                                 <TextBlock Text="{Binding OnlyInTargetCount, StringFormat='仅目标:{0}'}" Foreground="#2980B9" FontSize="11" />
@@ -101,12 +111,12 @@
                         </Border>
                     </DockPanel>
 
-                    <GridSplitter Grid.Column="1" Width="4" Background="#22000000" />
+                    <GridSplitter Grid.Column="1" Width="4" Background="{DynamicResource AppDividerBrush}" />
 
                     <!-- 右：明细 + 日志 -->
                     <DockPanel Grid.Column="2" Margin="0,0,0,6">
                         <TextBlock DockPanel.Dock="Top" Text="数据明细" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border DockPanel.Dock="Top" BorderBrush="#22000000" BorderThickness="1" Margin="0,0,0,6">
+                        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,6">
                             <DataGrid x:Name="DetailGrid" AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       ItemsSource="{Binding DetailRows}"
@@ -119,7 +129,7 @@
                         </Border>
 
                         <TextBlock DockPanel.Dock="Top" Text="日志" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="#22000000" BorderThickness="1">
+                        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                             <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -141,7 +151,7 @@
                     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
                         <TextBlock Text="生成的目标库同步脚本（DELETE/UPDATE/INSERT）" VerticalAlignment="Center" Opacity="0.8" />
                     </StackPanel>
-                    <Border BorderBrush="#22000000" BorderThickness="1">
+                    <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                         <ListBox ItemsSource="{Binding Scripts}" IsHitTestVisible="False"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -155,7 +165,7 @@
                     </Border>
                 </DockPanel>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

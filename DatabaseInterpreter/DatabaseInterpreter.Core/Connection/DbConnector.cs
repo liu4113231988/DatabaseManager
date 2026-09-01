@@ -3,6 +3,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Npgsql;
 using Oracle.ManagedDataAccess.Client;
+using Kdbndp;
 using System.Data.Common;
 
 namespace DatabaseInterpreter.Core
@@ -50,6 +51,10 @@ namespace DatabaseInterpreter.Core
                 var dataSource = dataSourceBuilder.Build();
 
                 return dataSource.CreateConnection();
+            }
+            else if (lowerProviderName.Contains("kdbndp"))
+            {
+                factory = KdbndpFactory.Instance;
             }
             else if(lowerProviderName.Contains("sqlite"))
             {

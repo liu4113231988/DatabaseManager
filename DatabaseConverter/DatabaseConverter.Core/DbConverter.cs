@@ -1,4 +1,4 @@
-﻿using DatabaseConverter.Model;
+﻿﻿using DatabaseConverter.Model;
 using DatabaseConverter.Profile;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
@@ -244,7 +244,7 @@ namespace DatabaseConverter.Core
 
             #region Create schema if not exists
 
-            if (!dataModeOnly && this.Option.CreateSchemaIfNotExists && (targetDbType == DatabaseType.SqlServer || targetDbType == DatabaseType.Postgres))
+            if (!dataModeOnly && this.Option.CreateSchemaIfNotExists && (targetDbType == DatabaseType.SqlServer || targetDbType == DatabaseType.Postgres || targetDbType == DatabaseType.KingbaseES))
             {
                 using (DbConnection dbConnection = targetDbInterpreter.CreateConnection())
                 {

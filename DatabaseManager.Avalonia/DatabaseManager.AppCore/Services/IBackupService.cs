@@ -23,4 +23,12 @@ public interface IBackupService
         bool zipFile,
         Action<string>? onFeedback = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>按数据库类型恢复备份。调用方必须已取得用户对覆盖操作的确认。</summary>
+    Task<BackupResultItem> RestoreAsync(
+        ConnectionItem connection,
+        string backupFilePath,
+        string? clientToolFilePath,
+        Action<string>? onFeedback = null,
+        CancellationToken cancellationToken = default);
 }

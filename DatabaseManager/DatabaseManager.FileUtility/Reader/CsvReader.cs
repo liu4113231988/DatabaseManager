@@ -18,7 +18,9 @@ namespace DatabaseManager.FileUtility
             string filePath = this.info.FilePath;
             bool firstRowIsColumnName = this.info.FirstRowIsColumnName;
 
-            using (StreamReader textReader = new StreamReader(filePath))
+            var encoding = TextEncoding.Resolve(this.info.EncodingName);
+
+            using (StreamReader textReader = encoding == null ? new StreamReader(filePath) : new StreamReader(filePath, encoding))
             {
                 CsvConfiguration configuration = new CsvConfiguration(System.Globalization.CultureInfo.CurrentCulture);
 

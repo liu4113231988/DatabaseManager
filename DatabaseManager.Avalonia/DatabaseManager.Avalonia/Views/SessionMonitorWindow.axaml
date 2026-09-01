@@ -1,0 +1,75 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:m="using:DatabaseManager.AppCore.Services"
+        xmlns:mods="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.SessionMonitorWindow"
+        Title="会话与锁监控"
+        Width="900" Height="620"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- 连接与刷新 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="mods:ConnectionItem">
+                        <TextBlock Text="{Binding Description}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <CheckBox Grid.Column="2" x:Name="ChkAutoRefresh" Content="自动刷新" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <TextBox Grid.Column="3" x:Name="TxtInterval" Text="10" Width="44" VerticalContentAlignment="Center" FontSize="11" Margin="0,0,4,0"
+                     ToolTip.Tip="自动刷新间隔（秒）" />
+            <TextBlock Grid.Column="4" Text="秒" VerticalAlignment="Center" FontSize="11" Margin="0,0,10,0" />
+            <Button Grid.Column="5" x:Name="BtnRefresh" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="6" Content="关闭" Click="BtnClose_Click" />
+        </Grid>
+
+        <!-- 摘要与操作 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <TextBlock x:Name="TxtSummary" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
+            <Button x:Name="BtnKill" Content="终止会话" Click="BtnKill_Click"
+                    ToolTip.Tip="终止选中的会话（需要相应权限；操作前会二次确认）" />
+        </StackPanel>
+
+        <!-- 会话 / 锁 选项卡 -->
+        <TabControl Grid.Row="2">
+            <TabItem Header="会话">
+                <DataGrid x:Name="SessionsGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
+                          IsReadOnly="True"
+                          x:DataType="m:DbSessionInfo">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="会话" Binding="{Binding SessionId}" Width="90" />
+                        <DataGridTextColumn Header="用户" Binding="{Binding User}" Width="90" />
+                        <DataGridTextColumn Header="客户端" Binding="{Binding Client}" Width="150" />
+                        <DataGridTextColumn Header="数据库" Binding="{Binding Database}" Width="90" />
+                        <DataGridTextColumn Header="状态" Binding="{Binding State}" Width="80" />
+                        <DataGridTextColumn Header="等待" Binding="{Binding WaitInfo}" Width="110" />
+                        <DataGridTextColumn Header="开始/时长" Binding="{Binding Duration}" Width="130" />
+                        <DataGridTextColumn Header="当前 SQL" Binding="{Binding CurrentSql}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="锁 / 阻塞">
+                <DataGrid x:Name="LocksGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
+                          IsReadOnly="True"
+                          x:DataType="m:DbLockInfo">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="被阻塞会话" Binding="{Binding BlockedSession}" Width="140" />
+                        <DataGridTextColumn Header="阻塞来源会话" Binding="{Binding BlockingSession}" Width="140" />
+                        <DataGridTextColumn Header="等待资源/事件" Binding="{Binding WaitResource}" Width="*" />
+                        <DataGridTextColumn Header="等待时长" Binding="{Binding WaitTime}" Width="140" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+
+        <TextBlock Grid.Row="3" Text="会话/锁查询按数据库类型适配（MySQL/PostgreSQL/KingbaseES/SQL Server/Oracle）；锁查询失败不影响会话列表。"
+                   FontSize="10" Opacity="0.5" Margin="0,6,0,0" />
+    </Grid>
+</Window>

@@ -1,0 +1,91 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:m="using:DatabaseManager.AppCore.Services"
+        xmlns:mods="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.UserManagementWindow"
+        Title="用户与权限管理"
+        Width="880" Height="600"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+
+        <!-- 连接与操作 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="mods:ConnectionItem">
+                        <TextBlock Text="{Binding Description}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Grid.Column="2" x:Name="BtnRefresh" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="3" Content="新建用户" Click="BtnCreateUser_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="4" Content="授权..." Click="BtnGrant_Click" Margin="0,0,8,0"
+                    ToolTip.Tip="对选中用户授予对象权限（生成 SQL 并确认后执行）" />
+            <Button Grid.Column="5" Content="删除用户" Click="BtnDropUser_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="6" Content="查看权限" Click="BtnShowGrants_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="7" Content="关闭" Click="BtnClose_Click" />
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,2*">
+            <!-- 用户列表 -->
+            <DataGrid Grid.Column="0" x:Name="UsersGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
+                      IsReadOnly="True" Margin="0,0,8,0"
+                      x:DataType="m:DbUserInfo">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="用户" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="主机" Binding="{Binding Host}" Width="90" />
+                    <DataGridTextColumn Header="属性/状态" Binding="{Binding Attributes}" Width="*" />
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding Created}" Width="100" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 权限文本 -->
+            <TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                     Watermark="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
+        </Grid>
+
+        <!-- 表单区（新建用户 / 授权 共用，按模式显示字段） -->
+        <Border Grid.Row="2" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
+                CornerRadius="6" Padding="10,8" Margin="0,8,0,0">
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="FormTitle" Text="新建用户" FontWeight="SemiBold" FontSize="12" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="用户名:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBox x:Name="TxtFormUser" Width="130" VerticalContentAlignment="Center" FontSize="11" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPassword">
+                        <TextBlock Text="密码:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBox x:Name="TxtFormPassword" Width="130" PasswordChar="*" VerticalContentAlignment="Center" FontSize="11" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelHost">
+                        <TextBlock Text="主机:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBox x:Name="TxtFormHost" Text="%" Width="90" VerticalContentAlignment="Center" FontSize="11" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPrivilege">
+                        <TextBlock Text="权限:" VerticalAlignment="Center" FontSize="11" />
+                        <ComboBox x:Name="ComboPrivilege" Width="110" FontSize="11">
+                            <ComboBoxItem>SELECT</ComboBoxItem>
+                            <ComboBoxItem>INSERT</ComboBoxItem>
+                            <ComboBoxItem>UPDATE</ComboBoxItem>
+                            <ComboBoxItem>DELETE</ComboBoxItem>
+                            <ComboBoxItem>ALL PRIVILEGES</ComboBoxItem>
+                        </ComboBox>
+                        <TextBlock Text="ON 对象:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBox x:Name="TxtFormObject" Width="120" VerticalContentAlignment="Center" FontSize="11"
+                                 ToolTip.Tip="MySQL：db.table 或 *.*；PostgreSQL/SQL Server：schema.table 或 schema.*；Oracle：schema.table" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="BtnFormConfirm" Content="执行" Click="BtnFormConfirm_Click" />
+                    <Button Content="取消" Click="BtnFormCancel_Click" />
+                    <TextBlock Text="执行前会显示生成的 SQL 并要求确认。" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

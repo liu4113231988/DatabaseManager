@@ -2,6 +2,7 @@
 using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
+using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -473,7 +474,20 @@ namespace DatabaseInterpreter.Core
         {
             if (connection.State == ConnectionState.Closed)
             {
-                await connection.OpenAsync();
+                try
+                {
+                    await connection.OpenAsync();
+                }
+                catch (SqlException ex) when (ex.Number == 4060 && connection is SqlConnection)
+                {
+                    var sqlConnection = (SqlConnection)connection;
+                    var builder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = string.Empty
+                    };
+                    sqlConnection.ConnectionString = builder.ConnectionString;
+                    await sqlConnection.OpenAsync();
+                }
             }
         }
 
@@ -507,7 +521,7 @@ namespace DatabaseInterpreter.Core
             DbCommand command = dbConnection.CreateCommand();
             command.CommandType = commandInfo.CommandType;
             command.CommandText = commandInfo.CommandText;
-            command.CommandTimeout = Setting.CommandTimeout;
+            command.CommandTimeout = commandInfo.CommandTimeoutSeconds ?? Setting.CommandTimeout;
 
             if (this.Option.RequireInfoMessage)
             {
@@ -678,7 +692,12 @@ namespace DatabaseInterpreter.Core
             return dbConnection.ExecuteReader(sql);
         }
 
-        public async Task<DataTable> GetDataTableAsync(DbConnection dbConnection, string sql, CancellationToken cancellationToken, bool ignoreSchema = false)
+        public async Task<DataTable> GetDataTableAsync(
+            DbConnection dbConnection,
+            string sql,
+            CancellationToken cancellationToken,
+            bool ignoreSchema = false,
+            int? commandTimeoutSeconds = null)
         {
             if (this.DatabaseType == DatabaseType.Oracle)
             {
@@ -693,7 +712,7 @@ namespace DatabaseInterpreter.Core
             var cmd = dbConnection.CreateCommand();
 
             cmd.CommandText = sql;
-            cmd.CommandTimeout = Setting.CommandTimeout;
+            cmd.CommandTimeout = commandTimeoutSeconds ?? Setting.CommandTimeout;
 
             DbDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
@@ -801,7 +820,7 @@ namespace DatabaseInterpreter.Core
                 #region User defined type
                 if (column.IsUserDefined)
                 {
-                    if (this.DatabaseType == DatabaseType.Postgres)
+                    if (this.DatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                     {
                         if (!DataTypeHelper.IsGeometryType(column.DataType))
                         {
@@ -1024,7 +1043,7 @@ namespace DatabaseInterpreter.Core
         protected virtual void SubscribeInfoMessage(DbCommand dbCommand) { }
         public string GetQuotedDbObjectNameWithSchema(DatabaseObject obj)
         {
-            if (this.DatabaseType == DatabaseType.SqlServer || this.DatabaseType == DatabaseType.Postgres)
+            if (this.DatabaseType is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES)
             {
                 if (!string.IsNullOrEmpty(obj.Schema))
                 {
@@ -1246,7 +1265,7 @@ namespace DatabaseInterpreter.Core
 
         public DataTypeInfo GetDataTypeInfo(string dataType)
         {
-            if (!(this.DatabaseType == DatabaseType.Postgres && dataType == "\"char\""))
+            if (!((this.DatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES) && dataType == "\"char\""))
             {
                 if (this.QuotationLeftChar.HasValue)
                 {

@@ -36,6 +36,10 @@ namespace DatabaseInterpreter.Core
             {
                 dbInterpreter = new SqliteInterpreter(connectionInfo, option);
             }
+            else if (dbType == DatabaseType.KingbaseES)
+            {
+                dbInterpreter = new KingbaseInterpreter(connectionInfo, option);
+            }
 
             return dbInterpreter;
         }

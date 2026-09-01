@@ -79,6 +79,9 @@ public partial class ConnectionManagerWindow : Window
             UseSsl = selected.UseSsl,
             RememberPassword = selected.RememberPassword,
             Priority = selected.Priority,
+            Group = selected.Group,
+            ColorTag = selected.ColorTag,
+            KingbaseCompatibilityMode = selected.KingbaseCompatibilityMode,
         };
 
         var dialog = new ConnectWindow(_vm, item) { DataContext = _vm };

@@ -132,6 +132,8 @@
     <PackageReference Include="MySqlConnector" Version="2.5.0" />
     <PackageReference Include="Npgsql" Version="10.0.1" />
     <PackageReference Include="Npgsql.NetTopologySuite" Version="10.0.1" />
+    <!-- 金仓官方 ADO.NET 驱动；首期用于 KingbaseES PG 兼容模式。 -->
+    <PackageReference Include="SqlSugarCore.Kdbndp" Version="9.3.8.413" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
   </ItemGroup>

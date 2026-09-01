@@ -1,11 +1,12 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.CodeGenerateWindow"
         x:DataType="vm:CodeGenerateViewModel"
         Title="代码生成 (Code Generator)"
         Width="940" Height="660"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -49,11 +50,11 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：目标列表 + 日志 -->
-        <atom:TabControl x:Name="MainTabs">
+        <TabControl x:Name="MainTabs">
             <TabItem Header="选择对象 (表/视图)">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="勾选要生成代码的表或视图，然后点击「生成代码」" FontWeight="Bold" Margin="2,0,0,4" />
-                    <Border BorderBrush="#22000000" BorderThickness="1">
+                    <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                         <DataGrid ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
                                   IsReadOnly="True" GridLinesVisibility="All" HeadersVisibility="Column"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -69,7 +70,7 @@
             </TabItem>
 
             <TabItem Header="日志">
-                <Border BorderBrush="#22000000" BorderThickness="1">
+                <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
                              ScrollViewer.VerticalScrollBarVisibility="Auto">
@@ -82,7 +83,7 @@
                     </ListBox>
                 </Border>
             </TabItem>
-        </atom:TabControl>
+        </TabControl>
 
     </DockPanel>
 </Window>

@@ -1,11 +1,12 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.BackupWindow"
         x:DataType="vm:BackupViewModel"
         Title="数据库备份 (Backup)"
         Width="920" Height="600"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -19,15 +20,22 @@
 
             <Grid ColumnDefinitions="120,*,Auto">
                 <TextBlock Grid.Column="0" Text="保存文件夹" VerticalAlignment="Center" />
-                <atom:TextBox Grid.Column="1" Text="{Binding SaveFolder}" Watermark="备份文件保存目录（默认 Backup）"
+                <atom:TextBox Grid.Column="1" Text="{Binding SaveFolder}" PlaceholderText="备份文件保存目录（默认 Backup）"
                               HorizontalAlignment="Stretch" />
                 <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseFolder_Click" />
             </Grid>
 
             <Grid ColumnDefinitions="120,*,Auto">
+                <TextBlock Grid.Column="0" Text="恢复文件" VerticalAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" PlaceholderText="选择要恢复的备份文件"
+                              HorizontalAlignment="Stretch" />
+                <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseRestoreFile_Click" />
+            </Grid>
+
+            <Grid ColumnDefinitions="120,*,Auto">
                 <TextBlock Grid.Column="0" Text="客户端工具" VerticalAlignment="Center" />
                 <atom:TextBox Grid.Column="1" Text="{Binding ClientToolFilePath}"
-                              Watermark="MySql 需 mysqldump.exe / Postgres 需 pg_dump.exe / Oracle 需 exp.exe（SQL Server 无需）"
+                              PlaceholderText="MySql 需 mysqldump.exe / Postgres 需 pg_dump.exe / Oracle 需 exp.exe（SQL Server 无需）"
                               HorizontalAlignment="Stretch" />
                 <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseTool_Click" />
             </Grid>
@@ -39,6 +47,7 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="开始备份" ButtonType="Primary" Command="{Binding BackupCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="恢复备份" Click="BtnRestore_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -49,7 +58,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：日志 -->
-        <Border BorderBrush="#22000000" BorderThickness="1">
+        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
             <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.VerticalScrollBarVisibility="Auto">

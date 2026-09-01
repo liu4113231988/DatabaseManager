@@ -1,0 +1,93 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.ScriptPreviewWindow"
+        x:DataType="vm:ScriptPreviewViewModel"
+        Title="脚本预览与执行"
+        Width="1080" Height="720"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Margin="12">
+
+        <!-- 顶部：来源与目标说明 + 操作按钮 -->
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <TextBlock Text="{Binding SourceDescription}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding TargetDescription, StringFormat='执行目标：{0}'}" Opacity="0.75" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <atom:Button Content="全选" Command="{Binding SelectAllCommand}" />
+                <atom:Button Content="全不选" Command="{Binding SelectNoneCommand}" />
+                <atom:Button Content="保存脚本..." Click="BtnSaveScripts_Click" />
+                <atom:Button Content="执行选中" ButtonType="Primary" Command="{Binding ExecuteSelectedCommand}"
+                             ToolTip.Tip="在目标库上执行勾选的脚本（结构脚本在单事务内执行）" />
+                <atom:Button Content="关闭" Click="BtnClose_Click" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- 状态栏 -->
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
+
+        <!-- 中部：脚本列表 + SQL 预览 + 日志 -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="330" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 左：脚本列表（可勾选） -->
+            <Border Grid.Column="0" Grid.Row="0" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
+                <ListBox ItemsSource="{Binding Scripts}"
+                         SelectedItem="{Binding SelectedScript}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:ScriptItem">
+                            <StackPanel Spacing="2">
+                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Title}" />
+                                <TextBlock Text="{Binding Description}" FontSize="11" Opacity="0.7"
+                                           Margin="22,0,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Grid.Row="0" Width="6" Background="{DynamicResource AppDividerBrush}" />
+
+            <!-- 右：SQL 预览 -->
+            <Border Grid.Column="2" Grid.Row="0" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
+                <TextBox Text="{Binding SelectedScriptText, Mode=OneWay}" IsReadOnly="True"
+                         FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                         TextWrapping="NoWrap"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Border>
+
+            <!-- 下：执行日志（跨列） -->
+            <Border Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
+                <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap"
+                                       FontFamily="Consolas,Menlo,monospace" FontSize="12" />
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </Grid>
+
+    </DockPanel>
+</Window>

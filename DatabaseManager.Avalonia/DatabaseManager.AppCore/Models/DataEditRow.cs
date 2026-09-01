@@ -115,6 +115,9 @@ public class DataEditRow : INotifyPropertyChanged
 
         OnPropertyChanged($"Item[{index}]");
         OnPropertyChanged($"Item[{column.Name}]");
+        OnPropertyChanged($"[{index}]");
+        OnPropertyChanged($"[{column.Name}]");
+        OnPropertyChanged("Item[]");
         OnPropertyChanged(nameof(IsDirty));
     }
 
@@ -125,6 +128,9 @@ public class DataEditRow : INotifyPropertyChanged
         _values[index] = NormalizeValue(value);
         OnPropertyChanged($"Item[{index}]");
         OnPropertyChanged($"Item[{_columns[index].Name}]");
+        OnPropertyChanged($"[{index}]");
+        OnPropertyChanged($"[{_columns[index].Name}]");
+        OnPropertyChanged("Item[]");
     }
 
     private void SetValueDirect(int index, object? value)

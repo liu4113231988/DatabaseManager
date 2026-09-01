@@ -16,6 +16,10 @@ public partial class SchemaCompareViewModel : ViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly ICompareService _compareService;
+    private readonly ISyncScriptService _syncScriptService;
+
+    /// <summary>最近一次结构对比的完整上下文（供生成变更/回滚脚本）。</summary>
+    private SchemaCompareContext? _context;
 
     /// <summary>全部已保存连接（源/目标下拉共用）。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -51,10 +55,14 @@ public partial class SchemaCompareViewModel : ViewModelBase
     [ObservableProperty]
     private string _detailText = string.Empty;
 
-    public SchemaCompareViewModel(IDbConnectionService connectionService, ICompareService compareService)
+    /// <summary>由窗口注入的脚本预览窗口打开回调。</summary>
+    public Action<ScriptPreviewViewModel>? RequestScriptPreview { get; set; }
+
+    public SchemaCompareViewModel(IDbConnectionService connectionService, ICompareService compareService, ISyncScriptService syncScriptService)
     {
         _connectionService = connectionService;
         _compareService = compareService;
+        _syncScriptService = syncScriptService;
 
         ObjectTypes = new[]
         {
@@ -141,30 +149,114 @@ public partial class SchemaCompareViewModel : ViewModelBase
             AppendLog($"对象类型：{SelectedObjectType.DisplayName}");
             AppendLog("开始对比...");
 
-            var roots = await _compareService.CompareSchemaAsync(
+            var context = await _compareService.CompareSchemaAsync(
                 SourceConnection,
                 TargetConnection,
                 SelectedObjectType.Value,
                 CollectFeedback);
+
+            _context = context;
 
             foreach (var line in feedbackBuffer)
             {
                 AppendLog(line);
             }
 
-            foreach (var root in roots)
+            foreach (var root in context.Roots)
             {
                 DifferenceRoots.Add(root);
             }
 
-            StatusMessage = roots.Count == 0
+            StatusMessage = context.Roots.Count == 0
                 ? "对比完成，未发现差异。"
-                : $"对比完成，共 {roots.Count} 类对象存在差异。";
+                : $"对比完成，共 {context.Roots.Count} 类对象存在差异。";
             AppendLog(StatusMessage);
         }
         catch (Exception ex)
         {
             StatusMessage = $"对比失败：{ex.Message}";
+            AppendLog(StatusMessage);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>生成选中差异的变更脚本（应用到目标库）并打开脚本预览窗口。</summary>
+    [RelayCommand]
+    private async Task GenerateScriptsAsync()
+    {
+        await GenerateAndPreviewAsync(isRollback: false);
+    }
+
+    /// <summary>生成选中差异的回滚脚本（恢复目标库为对比前状态）并打开脚本预览窗口。</summary>
+    [RelayCommand]
+    private async Task GenerateRollbackAsync()
+    {
+        await GenerateAndPreviewAsync(isRollback: true);
+    }
+
+    private async Task GenerateAndPreviewAsync(bool isRollback)
+    {
+        if (_context is null || _context.Roots.Count == 0)
+        {
+            StatusMessage = "请先执行结构对比。";
+            return;
+        }
+
+        if (IsBusy)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        try
+        {
+            var feedbackBuffer = new List<string>();
+            void CollectFeedback(string message) => feedbackBuffer.Add(message);
+
+            var scripts = isRollback
+                ? await _syncScriptService.GenerateStructuralRollbackScriptsAsync(_context, _context.Roots, CollectFeedback)
+                : await _syncScriptService.GenerateStructuralScriptsAsync(_context, _context.Roots, CollectFeedback);
+
+            foreach (var line in feedbackBuffer)
+            {
+                AppendLog(line);
+            }
+
+            if (scripts.Count == 0)
+            {
+                StatusMessage = isRollback
+                    ? "选中的差异没有可生成的回滚脚本。"
+                    : "选中的差异没有可生成的变更脚本。";
+                AppendLog(StatusMessage);
+                return;
+            }
+
+            var previewVm = new ScriptPreviewViewModel(_syncScriptService)
+            {
+                TargetConnection = _context.Target,
+                SourceDescription = isRollback
+                    ? $"结构对比回滚（{_context.Source.Database} → 恢复 {_context.Target.Database}）"
+                    : $"结构对比（{_context.Source.Database} → 应用到 {_context.Target.Database}）",
+            };
+            foreach (var script in scripts)
+            {
+                previewVm.Scripts.Add(script);
+            }
+
+            StatusMessage = $"已生成 {scripts.Count} 项脚本，请审阅后选择执行。";
+            AppendLog(StatusMessage);
+            RequestScriptPreview?.Invoke(previewVm);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "脚本生成已取消。";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"生成脚本失败：{ex.Message}";
             AppendLog(StatusMessage);
         }
         finally

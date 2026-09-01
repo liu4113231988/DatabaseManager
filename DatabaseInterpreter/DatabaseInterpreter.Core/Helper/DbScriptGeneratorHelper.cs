@@ -20,6 +20,7 @@ namespace DatabaseInterpreter.Core
                     dbScriptGenerator = new OracleScriptGenerator(dbInterpreter);
                     break;
                 case DatabaseType.Postgres:
+                case DatabaseType.KingbaseES:
                     dbScriptGenerator = new PostgresScriptGenerator(dbInterpreter);
                     break;
                 case DatabaseType.Sqlite:

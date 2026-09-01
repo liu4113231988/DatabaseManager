@@ -18,8 +18,8 @@ public interface ICompareService
     /// <param name="databaseObjectType">要对比的数据库对象类型（表/视图/函数/过程等）。</param>
     /// <param name="onFeedback">进度/反馈回调。</param>
     /// <param name="cancellationToken">取消令牌。</param>
-    /// <returns>结构差异树根节点列表。</returns>
-    Task<IReadOnlyList<SchemaCompareItem>> CompareSchemaAsync(
+    /// <returns>结构对比上下文（差异树 + 扁平差异 + 源/目标 SchemaInfo），供生成变更/回滚脚本使用。</returns>
+    Task<SchemaCompareContext> CompareSchemaAsync(
         ConnectionItem source,
         ConnectionItem target,
         DatabaseObjectType databaseObjectType,

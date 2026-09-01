@@ -1,0 +1,62 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:m="using:DatabaseManager.AppCore.Services"
+        xmlns:mods="using:DatabaseManager.AppCore.Models"
+        x:Class="DatabaseManager.Avalonia.Views.QueryProfilerWindow"
+        Title="查询性能剖析"
+        Width="860" Height="640"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <!-- 连接与参数 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+            <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="mods:ConnectionItem">
+                        <TextBlock Text="{Binding Description}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Column="2" Text="运行次数:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Grid.Column="3" x:Name="TxtRuns" Text="5" Width="50" VerticalContentAlignment="Center" FontSize="11" Margin="0,0,10,0" />
+            <CheckBox Grid.Column="4" x:Name="ChkAnalyze" Content="服务端计划" VerticalAlignment="Center" Margin="0,0,10,0"
+                      ToolTip.Tip="MySQL/PostgreSQL：EXPLAIN ANALYZE；SQL Server：STATISTICS XML；Oracle：DBMS_XPLAN 实际统计" />
+            <Button Grid.Column="5" x:Name="BtnRun" Content="剖析" Click="BtnRun_Click" Margin="0,0,8,0" />
+            <Button Grid.Column="6" Content="关闭" Click="BtnClose_Click" />
+        </Grid>
+
+        <!-- SQL -->
+        <TextBox Grid.Row="1" x:Name="TxtSql" Watermark="粘贴要剖析的 SELECT 语句（以分号结尾会被忽略）"
+                 MinHeight="90" AcceptsReturn="True" TextWrapping="Wrap" FontSize="12"
+                 FontFamily="Consolas, Microsoft YaHei UI, monospace" Margin="0,0,0,8" />
+
+        <!-- 摘要 -->
+        <TextBlock Grid.Row="2" x:Name="TxtSummary" FontSize="11" Opacity="0.8" Margin="0,0,0,6" />
+
+        <!-- 运行明细 + 服务端输出 -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,*">
+            <DataGrid Grid.Column="0" x:Name="RunsGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
+                      IsReadOnly="True" Margin="0,0,8,0"
+                      x:DataType="m:QueryProfileRunStat">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="#" Binding="{Binding Index}" Width="36" />
+                    <DataGridTextColumn Header="执行(ms)" Binding="{Binding ExecuteMs}" Width="80" />
+                    <DataGridTextColumn Header="取数(ms)" Binding="{Binding FetchMs}" Width="80" />
+                    <DataGridTextColumn Header="合计(ms)" Binding="{Binding TotalMs}" Width="80" />
+                    <DataGridTextColumn Header="行数" Binding="{Binding Rows}" Width="60" />
+                    <DataGridTextColumn Header="错误" Binding="{Binding Error}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+            <TextBox Grid.Column="1" x:Name="TxtAnalyze" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                     FontSize="11" FontFamily="Consolas, Microsoft YaHei UI, monospace"
+                     Watermark="服务端执行计划/阶段输出（勾选后且数据库支持时显示）" />
+        </Grid>
+
+        <TextBlock Grid.Row="4" Text="剖析会实际重复执行 SQL（写操作请勿使用）；分阶段计时：执行（提交到取回第一行）、取数（读取全部行）。"
+                   FontSize="10" Opacity="0.5" Margin="0,6,0,0" />
+    </Grid>
+</Window>

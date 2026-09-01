@@ -10,11 +10,13 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// <summary>
 /// 数据库统计 ViewModel（阶段 5）。
 /// 选择连接与统计类型（表记录数 / 列内容最大长度），执行并查看结果。
+/// 执行经任务中心登记（可脱离本窗口观测/取消）。
 /// </summary>
-public partial class StatisticViewModel : ViewModelBase
+public partial class StatisticViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IStatisticService _statisticService;
+    private readonly ITaskCenterService _taskCenter;
 
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -32,25 +34,17 @@ public partial class StatisticViewModel : ViewModelBase
     /// <summary>列长度统计结果。</summary>
     public ObservableCollection<ColumnLengthItem> ColumnLengths { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
     [ObservableProperty]
     private StatisticTypeOption? _selectedStatisticType;
 
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
-    public StatisticViewModel(IDbConnectionService connectionService, IStatisticService statisticService)
+    public StatisticViewModel(IDbConnectionService connectionService, IStatisticService statisticService, ITaskCenterService taskCenter)
     {
         _connectionService = connectionService;
         _statisticService = statisticService;
+        _taskCenter = taskCenter;
         SelectedStatisticType = StatisticTypes.FirstOrDefault();
     }
 
@@ -73,6 +67,21 @@ public partial class StatisticViewModel : ViewModelBase
         ClearResults();
     }
 
+    /// <summary>请求取消正在执行的统计。</summary>
+    [RelayCommand(CanExecute = nameof(IsBusy))]
+    private void CancelExecute()
+    {
+        if (_currentRun is not { State: TaskRunState.Running } run)
+        {
+            return;
+        }
+
+        StatusMessage = "正在取消统计...";
+        _taskCenter.Cancel(run.Id);
+    }
+
+    protected override void OnBusyChanged() => CancelExecuteCommand.NotifyCanExecuteChanged();
+
     [RelayCommand]
     private async Task ExecuteAsync()
     {
@@ -93,73 +102,74 @@ public partial class StatisticViewModel : ViewModelBase
         StatusMessage = string.Empty;
         ClearResults();
 
+        var connection = SelectedConnection;
+        var typeName = statType.DisplayName;
+
         var feedbackBuffer = new List<string>();
-        void CollectFeedback(string message) => feedbackBuffer.Add(message);
-
-        try
+        void CollectFeedback(string message)
         {
-            AppendLog($"连接：{SelectedConnection.Description}");
-            AppendLog($"统计类型：{statType.DisplayName}");
-            AppendLog("开始统计...");
+            feedbackBuffer.Add(message);
+            _currentRun?.Report(message);
+        }
 
-            if (statType.Value == StatisticTypeOption.RecordCount.Value)
+        AppendLog($"连接：{connection.Description}");
+        AppendLog($"统计类型：{typeName}");
+        AppendLog("开始统计...");
+
+        // 经任务中心登记：窗口中途关闭后统计仍可观测/取消。
+        _currentRun = _taskCenter.Run($"统计 {connection.Description}（{typeName}）", "统计", async (run, ct) =>
+        {
+            try
             {
-                var results = await _statisticService.CountTableRecordsAsync(SelectedConnection, CollectFeedback);
-
-                foreach (var line in feedbackBuffer)
+                if (statType.Value == StatisticTypeOption.RecordCount.Value)
                 {
-                    AppendLog(line);
+                    var results = await _statisticService.CountTableRecordsAsync(connection, CollectFeedback, ct);
+
+                    foreach (var line in feedbackBuffer)
+                    {
+                        AppendLog(line);
+                    }
+
+                    foreach (var item in results)
+                    {
+                        RecordCounts.Add(item);
+                    }
+
+                    StatusMessage = $"统计完成，共 {results.Count} 张表。";
+                }
+                else
+                {
+                    var results = await _statisticService.GetTableColumnLengthsAsync(connection, CollectFeedback, ct);
+
+                    foreach (var line in feedbackBuffer)
+                    {
+                        AppendLog(line);
+                    }
+
+                    foreach (var item in results)
+                    {
+                        ColumnLengths.Add(item);
+                    }
+
+                    StatusMessage = $"统计完成，共 {results.Count} 个字符列。";
                 }
 
-                foreach (var item in results)
-                {
-                    RecordCounts.Add(item);
-                }
-
-                StatusMessage = $"统计完成，共 {results.Count} 张表。";
+                AppendLog(StatusMessage);
+                run.ResultSummary = StatusMessage;
             }
-            else
+            finally
             {
-                var results = await _statisticService.GetTableColumnLengthsAsync(SelectedConnection, CollectFeedback);
-
-                foreach (var line in feedbackBuffer)
-                {
-                    AppendLog(line);
-                }
-
-                foreach (var item in results)
-                {
-                    ColumnLengths.Add(item);
-                }
-
-                StatusMessage = $"统计完成，共 {results.Count} 个字符列。";
+                _currentRun = null;
+                IsBusy = false;
             }
-
-            AppendLog(StatusMessage);
-        }
-        catch (Exception ex)
-        {
-            StatusMessage = $"统计失败：{ex.Message}";
-            AppendLog(StatusMessage);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        });
     }
+
+    private TaskRun? _currentRun;
 
     private void ClearResults()
     {
         RecordCounts.Clear();
         ColumnLengths.Clear();
-    }
-
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
     }
 }

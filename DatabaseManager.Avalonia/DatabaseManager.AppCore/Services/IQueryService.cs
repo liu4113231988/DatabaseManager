@@ -8,7 +8,12 @@ namespace DatabaseManager.AppCore.Services;
 public interface IQueryService
 {
     /// <summary>执行一条 SQL 语句，返回查询结果（含列、行数据、受影响行数与耗时）。</summary>
-    Task<QueryResult> ExecuteAsync(string connectionName, string sql, CancellationToken cancellationToken = default);
+    /// <param name="commandTimeoutSeconds">命令超时秒数；传入非正数时使用引擎默认值。</param>
+    Task<QueryResult> ExecuteAsync(
+        string connectionName,
+        string sql,
+        CancellationToken cancellationToken = default,
+        int commandTimeoutSeconds = 60);
 
     /// <summary>开启一个事务（持久化连接）。若已存在活动事务则返回 false。</summary>
     Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default);
@@ -30,4 +35,10 @@ public interface IQueryService
 
     /// <summary>关闭并释放连接（含活动事务连接）。</summary>
     void CloseConnection(string connectionName);
+
+    /// <summary>查询指定连接是否处于已连接状态（对象浏览器已建立连接）。</summary>
+    bool IsConnected(string connectionName);
+
+    /// <summary>标记指定连接为已连接（对象浏览器连接成功后调用）。</summary>
+    void NotifyConnected(string connectionName);
 }

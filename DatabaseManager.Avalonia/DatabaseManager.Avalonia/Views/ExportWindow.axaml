@@ -1,12 +1,13 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:atom="using:AtomUI.Controls"
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:svc="using:DatabaseManager.AppCore.Services"
         x:Class="DatabaseManager.Avalonia.Views.ExportWindow"
         x:DataType="vm:ExportViewModel"
         Title="数据导出"
         Width="760" Height="560"
+        Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
     <DockPanel Margin="12">
@@ -43,12 +44,24 @@
             <!-- 选项 -->
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <atom:CheckBox Content="包含列名" IsChecked="{Binding ShowColumnNames}" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="编码：" VerticalAlignment="Center" FontSize="12" />
+                    <ComboBox x:Name="ComboEncoding" ItemsSource="{Binding EncodingOptions}" MinWidth="150"
+                              SelectedItem="{Binding SelectedEncoding}" FontSize="12" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Text="起始页：" VerticalAlignment="Center" FontSize="12"
+                               ToolTip.Tip="大于 1 时跳过前面的页从该页续传导出（CSV/Excel 全量导出）" />
+                    <TextBox Text="{Binding StartPageNumber}" Width="60" VerticalContentAlignment="Center" FontSize="12" />
+                </StackPanel>
             </StackPanel>
 
             <!-- 操作按钮 -->
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="导出" ButtonType="Primary" Command="{Binding ExportCommand}"
                              IsEnabled="{Binding !IsBusy}" />
+                <atom:Button Content="取消" Command="{Binding CancelExportCommand}"
+                             IsEnabled="{Binding IsBusy}" />
                 <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
@@ -59,7 +72,7 @@
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 日志区 -->
-        <Border BorderBrush="#22000000" BorderThickness="1">
+        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
             <ListBox ItemsSource="{Binding Logs}" IsHitTestVisible="False"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.VerticalScrollBarVisibility="Auto">

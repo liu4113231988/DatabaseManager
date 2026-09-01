@@ -1,4 +1,4 @@
-﻿using DatabaseInterpreter.Core;
+﻿﻿using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
@@ -712,6 +712,7 @@ namespace DatabaseManager.Core
                         #endregion
                         #region Postgres
                         case DatabaseType.Postgres:
+                        case DatabaseType.KingbaseES:
                             switch (dataType)
                             {
                                 case "bigint":
@@ -1108,6 +1109,7 @@ namespace DatabaseManager.Core
                         #endregion
                         #region Postgres
                         case DatabaseType.Postgres:
+                        case DatabaseType.KingbaseES:
                             switch (dataType)
                             {
                                 case "bigint":

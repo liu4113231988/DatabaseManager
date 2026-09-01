@@ -3,6 +3,7 @@ using Avalonia.Interactivity;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -16,6 +17,7 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class ConnectWindow : Window
 {
     private readonly ConnectionManagerViewModel _vm;
+    private readonly IConnectionVisualService? _visualService;
     private readonly bool _isAdd;
     private readonly ConnectionItem _working;
 
@@ -29,6 +31,7 @@ public partial class ConnectWindow : Window
         _vm = vm;
         _isAdd = connection is null;
         _working = connection ?? ConnectionItem.New(string.Empty);
+        _visualService = (App.Current as App)?.Services?.GetService(typeof(IConnectionVisualService)) as IConnectionVisualService;
 
         LoadDatabaseTypes();
 
@@ -43,6 +46,8 @@ public partial class ConnectWindow : Window
             {
                 ComboDatabaseType.SelectedItem = _vm.SelectedDatabaseType;
             }
+            ComboColorTag.SelectedItem = "无";
+            ComboKingbaseMode.SelectedItem = KingbaseCompatibilityModes.Auto;
         }
 
         UpdateAuthVisibility();
@@ -51,6 +56,10 @@ public partial class ConnectWindow : Window
     private void LoadDatabaseTypes()
     {
         ComboDatabaseType.ItemsSource = _vm.DatabaseTypes;
+        ComboColorTag.ItemsSource = new List<string> { "无" }
+            .Concat(_visualService?.PaletteColors ?? new List<string>())
+            .ToList();
+        ComboKingbaseMode.ItemsSource = KingbaseCompatibilityModes.All;
     }
 
     private void LoadConnection(ConnectionItem connection)
@@ -66,6 +75,11 @@ public partial class ConnectWindow : Window
         ChkIsDba.IsChecked = connection.IsDba;
         ChkUseSsl.IsChecked = connection.UseSsl;
         ComboDatabase.Text = connection.Database;
+        TxtGroup.Text = connection.Group ?? string.Empty;
+        ComboColorTag.SelectedItem = string.IsNullOrEmpty(connection.ColorTag)
+            ? "无"
+            : (ComboColorTag.Items.Cast<object?>().FirstOrDefault(i => string.Equals(i as string, connection.ColorTag, StringComparison.OrdinalIgnoreCase)) ?? "无");
+        ComboKingbaseMode.SelectedItem = KingbaseCompatibilityModes.Normalize(connection.KingbaseCompatibilityMode);
 
         UpdateAuthVisibility();
     }
@@ -90,8 +104,9 @@ public partial class ConnectWindow : Window
         // 仅 Oracle 显示 DBA
         ChkIsDba.IsVisible = dbType == DatabaseType.Oracle;
 
-        // 仅 MySql 显示 SSL
-        ChkUseSsl.IsVisible = dbType == DatabaseType.MySql;
+        // MySql 与 KingbaseES 均支持通过连接串传递 SSL 设置。
+        ChkUseSsl.IsVisible = dbType is DatabaseType.MySql or DatabaseType.KingbaseES;
+        PanelKingbaseMode.IsVisible = dbType == DatabaseType.KingbaseES;
 
         // 默认端口
         if (string.IsNullOrEmpty(TxtPort.Text))
@@ -101,6 +116,7 @@ public partial class ConnectWindow : Window
                 DatabaseType.MySql => MySqlInterpreter.DEFAULT_PORT.ToString(),
                 DatabaseType.Oracle => OracleInterpreter.DEFAULT_PORT.ToString(),
                 DatabaseType.Postgres => PostgresInterpreter.DEFAULT_PORT.ToString(),
+                DatabaseType.KingbaseES => KingbaseInterpreter.DEFAULT_PORT.ToString(),
                 _ => string.Empty,
             };
         }
@@ -127,13 +143,32 @@ public partial class ConnectWindow : Window
         connection.UseSsl = ChkUseSsl.IsChecked == true;
         connection.Database = ComboDatabase.Text?.Trim() ?? string.Empty;
         connection.RememberPassword = ChkRememberPassword.IsChecked == true;
+        connection.KingbaseCompatibilityMode = GetDatabaseType() == DatabaseType.KingbaseES
+            ? KingbaseCompatibilityModes.Normalize(ComboKingbaseMode.SelectedItem as string)
+            : null;
 
         return connection;
+    }
+
+    private async Task<bool> EnsureSupportedKingbaseModeAsync(ConnectionItem connection)
+    {
+        if (connection.DatabaseType != nameof(DatabaseType.KingbaseES))
+            return true;
+
+        var reason = KingbaseCompatibilityModes.GetConnectionBlockReason(connection.KingbaseCompatibilityMode);
+        if (reason is null)
+            return true;
+
+        await ShowErrorAsync(reason);
+        return false;
     }
 
     private async void BtnLoadDatabases_Click(object? sender, RoutedEventArgs e)
     {
         var connection = BuildConnection();
+
+        if (!await EnsureSupportedKingbaseModeAsync(connection))
+            return;
 
         if (string.IsNullOrEmpty(connection.Server))
         {
@@ -160,6 +195,9 @@ public partial class ConnectWindow : Window
     private async void BtnTestConnection_Click(object? sender, RoutedEventArgs e)
     {
         var connection = BuildConnection();
+
+        if (!await EnsureSupportedKingbaseModeAsync(connection))
+            return;
 
         if (string.IsNullOrEmpty(connection.Server))
         {
@@ -203,6 +241,9 @@ public partial class ConnectWindow : Window
     {
         var connection = BuildConnection();
 
+        if (!await EnsureSupportedKingbaseModeAsync(connection))
+            return;
+
         // 基本校验
         if (string.IsNullOrEmpty(connection.Server))
         {
@@ -243,8 +284,21 @@ public partial class ConnectWindow : Window
             return;
         }
 
+        // 保存分组与颜色标签（侧车存储，随连接 Id 关联）。
+        connection.Group = TxtGroup.Text?.Trim();
+        connection.ColorTag = ResolveSelectedColorTag();
+        _visualService?.Save(connection.Id ?? string.Empty, connection.Name, connection.Group, connection.ColorTag,
+            connection.KingbaseCompatibilityMode);
+
         Result = connection;
         Close();
+    }
+
+    /// <summary>取当前选中的颜色标签（「无」或未选择时返回 null）。</summary>
+    private string? ResolveSelectedColorTag()
+    {
+        var color = ComboColorTag.SelectedItem as string;
+        return string.IsNullOrEmpty(color) || color == "无" ? null : color;
     }
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e)
