@@ -39,6 +39,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
+    /// <summary>当前选中连接在对象树中对应的节点（用于按节点状态计算工具栏按钮可用性）。</summary>
+    [ObservableProperty]
+    private DbObjectTreeNode? _selectedConnectionNode;
+
     [ObservableProperty]
     private QueryTabViewModel? _selectedQueryTab;
 
@@ -98,6 +102,75 @@ public partial class MainWindowViewModel : ViewModelBase
         _appSettingsService = appSettingsService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
+    }
+
+    /// <summary>连接被选中时同步对象树节点，便于工具栏按节点状态计算可用性。</summary>
+    partial void OnSelectedConnectionChanged(ConnectionItem? value)
+    {
+        // 解绑旧节点的属性变更
+        if (SelectedConnectionNode is not null)
+        {
+            SelectedConnectionNode.PropertyChanged -= OnSelectedConnectionNodePropertyChanged;
+        }
+
+        SelectedConnectionNode = value is null
+            ? null
+            : ObjectsExplorer.FindConnectionNode(value.Name);
+
+        // 订阅新节点的 IsConnectionActive 变化
+        if (SelectedConnectionNode is not null)
+        {
+            SelectedConnectionNode.PropertyChanged += OnSelectedConnectionNodePropertyChanged;
+        }
+
+        RaiseCommandStateChanged();
+    }
+
+    /// <summary>当前选中连接节点的 IsConnectionActive 变更时刷新命令可用性。</summary>
+    private void OnSelectedConnectionNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DbObjectTreeNode.IsConnectionActive))
+        {
+            RaiseCommandStateChanged();
+        }
+    }
+
+    /// <summary>通知工具栏命令可用性相关属性已变化（CanConnect/CanReconnect/CanDisconnect/CanDisconnectAll）。</summary>
+    private void RaiseCommandStateChanged()
+    {
+        OnPropertyChanged(nameof(CanConnect));
+        OnPropertyChanged(nameof(CanReconnect));
+        OnPropertyChanged(nameof(CanDisconnect));
+        OnPropertyChanged(nameof(CanDisconnectAll));
+    }
+
+    /// <summary>已选中连接且该连接未建立连接时可用（用于工具栏「连接」按钮）。</summary>
+    public bool CanConnect => SelectedConnectionNode is not null && !SelectedConnectionNode.IsConnectionActive;
+
+    /// <summary>已选中连接且该连接已建立连接时可用（用于工具栏「重连」按钮）。</summary>
+    public bool CanReconnect => SelectedConnectionNode is not null && SelectedConnectionNode.IsConnectionActive;
+
+    /// <summary>已选中连接且该连接已建立连接时可用（用于工具栏「断开」按钮）。</summary>
+    public bool CanDisconnect => SelectedConnectionNode is not null && SelectedConnectionNode.IsConnectionActive;
+
+    /// <summary>至少存在一个已建立连接的节点时可用（用于工具栏「断开全部」按钮）。</summary>
+    public bool CanDisconnectAll => HasActiveConnection();
+
+    /// <summary>判断对象树中是否存在已激活的连接节点。</summary>
+    private bool HasActiveConnection()
+    {
+        foreach (var node in ObjectsExplorer.RootNodes)
+        {
+            if (node.NodeType == DbObjectTreeNodeType.Connection && node.IsConnectionActive)
+                return true;
+
+            foreach (var child in node.Children)
+            {
+                if (child.NodeType == DbObjectTreeNodeType.Connection && child.IsConnectionActive)
+                    return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>初始化：枚举受支持的数据库类型，加载已保存连接，并恢复上次会话的查询标签。</summary>
@@ -309,6 +382,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             _queryService.NotifyConnected(connectionNode.Connection.Name);
         }
+
+        RaiseCommandStateChanged();
     }
 
     /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
@@ -335,6 +410,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CurrentSchema = string.Empty;
         SchemaSelectorVisible = false;
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
+        RaiseCommandStateChanged();
     }
 
     /// <summary>重连指定连接节点。</summary>
@@ -391,6 +467,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentDatabase = string.Empty;
             CurrentSchema = string.Empty;
             SchemaSelectorVisible = false;
+            RaiseCommandStateChanged();
         }
     }
 

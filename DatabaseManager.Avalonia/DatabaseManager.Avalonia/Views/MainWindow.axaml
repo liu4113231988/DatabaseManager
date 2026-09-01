@@ -60,11 +60,11 @@
                 <MenuItem Header="新建连接" Click="MenuNewConnection_Click" />
                 <MenuItem Header="连接管理" Click="MenuConnectionManager_Click" />
                 <Separator />
-                <MenuItem Header="连接" Command="{Binding ConnectCommand}" />
-                <MenuItem Header="重连" Command="{Binding ReconnectCommand}" />
-                <MenuItem Header="断开" Command="{Binding DisconnectCommand}" />
+                <MenuItem Header="连接" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanConnect}" />
+                <MenuItem Header="重连" Command="{Binding ReconnectCommand}" IsEnabled="{Binding CanReconnect}" />
+                <MenuItem Header="断开" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnect}" />
                 <Separator />
-                <MenuItem Header="断开全部" Command="{Binding DisconnectAllCommand}" />
+                <MenuItem Header="断开全部" Command="{Binding DisconnectAllCommand}" IsEnabled="{Binding CanDisconnectAll}" />
             </MenuItem>
             <MenuItem Header="数据库">
                 <MenuItem Header="危险 SQL 执行前确认" ToggleType="CheckBox"
@@ -144,13 +144,13 @@
 
                 <!-- 连接组 -->
                 <StackPanel Orientation="Horizontal" Spacing="1">
-                    <Button Classes="toolbar" Command="{Binding ConnectCommand}" AutomationProperties.Name="连接" ToolTip.Tip="连接">
+                    <Button Classes="toolbar" Command="{Binding ConnectCommand}" IsEnabled="{Binding CanConnect}" AutomationProperties.Name="连接" ToolTip.Tip="连接">
                         <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M7 12V17C7 18.66 9.24 20 12 20S17 18.66 17 17V12M19 15L21 17L19 19M14 17H21" Stroke="#0F8B8D" StrokeThickness="1.6" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Command="{Binding ReconnectCommand}" AutomationProperties.Name="重连" ToolTip.Tip="重连">
+                    <Button Classes="toolbar" Command="{Binding ReconnectCommand}" IsEnabled="{Binding CanReconnect}" AutomationProperties.Name="重连" ToolTip.Tip="重连">
                         <Path Data="M18.5 8.5A7 7 0 1 0 19 15M18 4V9H13" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
-                    <Button Classes="toolbar" Command="{Binding DisconnectCommand}" AutomationProperties.Name="断开" ToolTip.Tip="断开">
+                    <Button Classes="toolbar" Command="{Binding DisconnectCommand}" IsEnabled="{Binding CanDisconnect}" AutomationProperties.Name="断开" ToolTip.Tip="断开">
                         <Path Data="M7 7C7 5.34 9.24 4 12 4S17 5.34 17 7 14.76 10 12 10 7 8.66 7 7ZM7 7V12C7 13.66 9.24 15 12 15S17 13.66 17 12V7M5 19L19 5" Stroke="#C44545" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" />
                     </Button>
                     <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="4,2" />

@@ -82,8 +82,21 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>关联的连接项（当节点为 Connection 类型时有效）。</summary>
     public ConnectionItem? Connection { get; set; }
 
-    /// <summary>该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。</summary>
-    public bool IsConnectionActive { get; set; }
+    private bool _isConnectionActive;
+    /// <summary>
+    /// 该连接节点是否已建立连接（用于区分已连接/未连接状态与图标）。
+    /// 变化时通知属性变更，供工具栏/上下文菜单等根据节点状态计算可用性。
+    /// </summary>
+    public bool IsConnectionActive
+    {
+        get => _isConnectionActive;
+        set
+        {
+            if (_isConnectionActive == value) return;
+            _isConnectionActive = value;
+            OnPropertyChanged(nameof(IsConnectionActive));
+        }
+    }
 
     private string? _colorTag;
     /// <summary>连接颜色标签（hex；仅 Connection 类型节点使用）。</summary>

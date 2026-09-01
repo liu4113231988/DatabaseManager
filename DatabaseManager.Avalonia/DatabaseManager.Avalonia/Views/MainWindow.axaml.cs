@@ -564,6 +564,13 @@ public partial class MainWindow : Window
 
         if (ObjectsTree.SelectedItem is DbObjectTreeNode node)
         {
+            // 连接节点被选中时同步 SelectedConnection，使工具栏按钮（连接/重连/断开）
+            // 能根据节点 IsConnectionActive 状态自动启用/禁用。
+            if (node.NodeType == DbObjectTreeNodeType.Connection)
+            {
+                vm.SelectedConnection = node.Connection;
+            }
+
             // 更新当前数据库/Schema 上下文
             if (node.NodeType == DbObjectTreeNodeType.Database)
             {
