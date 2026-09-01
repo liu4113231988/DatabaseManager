@@ -2,18 +2,15 @@
 
 一个基于 **.NET 8** 的多数据库管理与迁移工具，提供对象浏览、SQL 开发、数据编辑、表设计、结构/数据转换、差异对比与同步、导入导出、诊断优化、备份恢复等一站式数据库运维能力。
 
-提供两个客户端：
+当前产品客户端为 **DatabaseManager.Avalonia**：基于 Avalonia UI + AtomUI，支持 Windows / Linux / macOS。它通过 `DatabaseManager.AppCore` 承载 UI 无关的业务服务和 ViewModel，并复用 `DatabaseInterpreter`、`DatabaseConverter` 与 `DatabaseManager.Core` 等核心引擎。
 
-- **DatabaseManager.Avalonia**（主线，跨平台）：基于 AvaloniaUI + AtomUI，支持 Windows / Linux / macOS。
-- **DatabaseManager.CoreApp**（原版，Windows）：基于 WinForms，功能与 Avalonia 版基本对齐，并额外提供数据库关系图。
-
-两个客户端复用同一套核心引擎（`DatabaseInterpreter` / `DatabaseConverter` / `DatabaseManager.Core`）。
+> ⚠️ `DatabaseManager.CoreApp` 是历史 WinForms 实现，仅为兼容既有代码和功能参考而保留，**已过时且不再作为主线维护或新功能交付目标**。新功能、缺陷修复和跨平台使用请统一使用 Avalonia 客户端。
 
 ---
 
 ## 解决方案结构
 
-`DatabaseManager.sln` 包含 WinForms 客户端与全部核心引擎（同时含 Avalonia 客户端）；`DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln` 为 Avalonia 客户端的轻量子集。
+推荐使用 `DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln`，其中包含 Avalonia 客户端及其所需核心项目。根目录 `DatabaseManager.sln` 保留完整历史解决方案，包含已过时的 WinForms 客户端。
 
 | 项目 | 说明 |
 | --- | --- |
@@ -23,9 +20,9 @@
 | **DatabaseConverter.Core** | 数据库结构与数据迁移（转换）核心引擎 |
 | **SqlAnalyser.Core** | SQL 解析/分析库（多方言语法解析） |
 | **DatabaseManager.Core** | 客户端共享的核心模型、配置、通用逻辑 |
-| **DatabaseManager.CoreApp** | WinForms 客户端（原版 UI 与业务入口） |
-| **DatabaseManager.AppCore** | Avalonia 客户端的 UI 无关业务层（23 个服务接口 + ViewModel + DI） |
-| **DatabaseManager.Avalonia** | Avalonia 跨平台客户端（UI 层） |
+| **DatabaseManager.CoreApp** | 已过时的 WinForms 客户端，仅供兼容和历史功能参考 |
+| **DatabaseManager.AppCore** | Avalonia 客户端的 UI 无关业务层（服务、ViewModel、配置与 DI） |
+| **DatabaseManager.Avalonia** | 推荐使用的 Avalonia 跨平台 UI 客户端 |
 | **DatabaseManager.FileUtility** | 文件/导出辅助工具库 |
 | **DatabaseManager.Profile** | 连接配置（Profile）持久化与管理 |
 
@@ -36,6 +33,7 @@
 - Oracle
 - PostgreSQL
 - SQLite
+- 人大金仓 KingbaseES（当前以 PG 兼容模式为支持边界；会话、锁监控和终止会话已接入）
 
 ---
 
@@ -177,7 +175,7 @@
 | 9 | **NoSQL 支持** | MongoDB / Redis 的连接与文档浏览、查询 | DBeaver / Navicat / DbGate |
 | 10 | **数据 Notebook** | 交互式 SQL + Markdown + 结果混排的笔记本（类 Jupyter / Azure Data Studio） | Azure Data Studio |
 | 11 | **团队协作与云同步** | 连接配置加密同步、脚本库共享、团队 SQL 审计 | Beekeeper / Navicat Cloud |
-| 12 | **更多数据库类型** | ClickHouse、DuckDB、达梦/人大金仓等国产数据库（引擎层按方言适配器扩展） | DBeaver |
+| 12 | **更多数据库类型** | ClickHouse、DuckDB、达梦等数据库（引擎层按方言适配器扩展）；KingbaseES 的其余兼容模式和真实实例验收另行推进 | DBeaver |
 | 13 | **完整 Dock 拖拽布局** | 基于 Dock.Avalonia 的面板级停靠/浮动/布局持久化（当前已实现结果区浮动/停靠） | DBeaver / DataGrip |
 | 14 | **对象树右键菜单图标补全** | 当前仅部分菜单项有图标，需统一图标集与主题适配（`todo.md` P2） | — |
 | 15 | **代码模板外部化** | 代码生成/文档生成模板开放为可自定义（占位符模板文件） | — |
@@ -188,25 +186,19 @@
 
 ### 环境要求
 - .NET 8 SDK
-- Avalonia 版：Windows / Linux / macOS（需 GUI 环境）；WinForms 版：仅 Windows
+- Windows / Linux / macOS（需 GUI 环境）
 - 对应数据库的客户端驱动（随 NuGet 包引入）；备份/恢复功能需对应数据库客户端工具（mysqldump、pg_dump 等）
 
 ### 构建
 ```powershell
-# 还原并构建主解决方案（WinForms + 核心引擎）
-dotnet build DatabaseManager.sln
-
-# 还原并构建 Avalonia 跨平台解决方案
+# 构建推荐的 Avalonia 跨平台解决方案
 dotnet build DatabaseManager.Avalonia\DatabaseManager.Avalonia.sln
 ```
 
 ### 运行
 ```powershell
-# 运行 Avalonia 跨平台客户端（推荐）
+# 运行 Avalonia 跨平台客户端
 dotnet run --project DatabaseManager.Avalonia\DatabaseManager.Avalonia\DatabaseManager.Avalonia.csproj
-
-# 运行 WinForms 客户端（Windows）
-dotnet run --project DatabaseManager\DatabaseManager.CoreApp\DatabaseManager.CoreApp.csproj
 ```
 
 ---
@@ -215,8 +207,8 @@ dotnet run --project DatabaseManager\DatabaseManager.CoreApp\DatabaseManager.Cor
 
 - `DatabaseInterpreter/`：核心数据访问与 Schema 解析引擎及各数据库适配器。
 - `DatabaseConverter/`：结构与数据迁移引擎及各数据库适配器。
-- `DatabaseManager/`：WinForms 客户端（`CoreApp`）、客户端核心（`Core`）、工具（`FileUtility`、`Profile`）。
-- `DatabaseManager.Avalonia/`：Avalonia 跨平台客户端（`AppCore` 业务层 + `Avalonia` UI 层 + `docs` 迁移记录）。
+- `DatabaseManager/`：共享客户端核心（`Core`）、工具（`FileUtility`、`Profile`），以及已过时的 WinForms `CoreApp`。
+- `DatabaseManager.Avalonia/`：主线 Avalonia 跨平台客户端（`AppCore` 业务层 + `Avalonia` UI 层 + 技术与测试文档）。
 
 ---
 
