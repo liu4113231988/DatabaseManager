@@ -29,7 +29,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
-        var interpreter = CreateInterpreter(connection);
+        var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
 
         var databases = (await interpreter.GetDatabasesAsync().WaitAsync(cancellationToken)).OrderBy(d => d.Name).ToList();
         var result = new List<DbObjectTreeNode>();
@@ -426,7 +426,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         try
         {
-            var interpreter = CreateInterpreter(connection);
+            var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
             var databases = await interpreter.GetDatabasesAsync();
             names.AddRange(databases.Select(d => d.Name).Where(n => !string.IsNullOrEmpty(n)));
         }
@@ -707,7 +707,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         return sb.ToString();
     }
 
-    private DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseOverride = null)
+    private DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseOverride = null, bool useConnectionDatabase = true)
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
@@ -716,7 +716,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             Server = connection.Server,
             Port = connection.Port,
             ServerVersion = connection.ServerVersion,
-            Database = string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride,
+            Database = useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null,
             IntegratedSecurity = connection.IntegratedSecurity,
             UserId = connection.UserId,
             Password = connection.Password,

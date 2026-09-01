@@ -444,12 +444,12 @@
                         <DataTemplate DataType="vm:QueryTabViewModel">
                             <Grid>
                                 <Grid.RowDefinitions>
-                                    <!-- 状态栏 / 编辑器 / 分割条 / 参数面板 / 结果区；编辑器与结果区按 2:1 分配，可拖动分割条调整 -->
+                                    <!-- 状态栏 / 编辑器 / 分割条 / 结果区 / 参数面板；编辑器与结果区按 2:1 分配，可拖动分割条调整 -->
                                     <RowDefinition Height="Auto" />
                                     <RowDefinition Height="2*" MinHeight="100" />
                                     <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
                                     <RowDefinition Height="*" MinHeight="60" />
+                                    <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
                                 <!-- SQL 状态栏 -->
@@ -481,7 +481,7 @@
                                               Background="#E0E0E0" />
 
                                 <!-- 参数面板（启用参数化执行时显示） -->
-                                <Expander Grid.Row="3" IsExpanded="{Binding ParametersEnabled}"
+                                <Expander Grid.Row="4" IsExpanded="{Binding ParametersEnabled}"
                                           IsVisible="{Binding ParametersEnabled}"
                                           Header="执行参数" FontSize="11" Margin="4,1"
                                           HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -498,7 +498,7 @@
                                 </Expander>
 
                                 <!-- 结果区（浮动时整体隐藏，由浮动窗口承载同一结果集） -->
-                                <Grid Grid.Row="4" IsVisible="{Binding IsResultFloating, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
+                                <Grid Grid.Row="3" IsVisible="{Binding IsResultFloating, Converter={x:Static conv:BoolOppositeConverter.Instance}}">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />

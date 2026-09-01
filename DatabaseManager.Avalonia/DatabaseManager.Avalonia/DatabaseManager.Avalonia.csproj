@@ -8,6 +8,9 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\database-manager.ico</ApplicationIcon>
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
+    <!-- 仅保留 win-x64 与 linux-x64 运行时，避免发布包携带大量其他平台原生依赖 -->
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+	  <SatelliteResourceLanguages>zh-Hans;es;</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
@@ -47,5 +50,22 @@
     <!-- AppCore 业务层（UI 无关） -->
     <ProjectReference Include="..\DatabaseManager.AppCore\DatabaseManager.AppCore.csproj" />
   </ItemGroup>
+
+  <!--
+    构建后清理：仅保留 win-x64 与 linux-x64 运行时目录，删除其他平台原生依赖以减小输出体积。
+    dotnet build 阶段 NuGet 会将所有受支持平台的原生依赖复制到 runtimes/，需要手动剔除。
+    同时清理 runtimes/ 下残留的 pdb 调试符号文件。
+  -->
+  <Target Name="RemoveUnwantedRuntimes" AfterTargets="Build">
+    <ItemGroup>
+      <_UnwantedRuntimes Include="browser-wasm;linux;linux-arm;linux-arm64;linux-armel;linux-bionic-arm64;linux-bionic-x64;linux-loongarch64;linux-mips64;linux-musl-arm;linux-musl-arm64;linux-musl-loongarch64;linux-musl-riscv64;linux-musl-s390x;linux-musl-x64;linux-ppc64le;linux-riscv64;linux-s390x;linux-x86;maccatalyst-arm64;maccatalyst-x64;osx;osx-arm64;osx-x64;unix;win;win-arm;win-arm64;win-x86" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_UnwantedRuntimes->'$(OutDir)runtimes\%(Identity)')" Condition="Exists('$(OutDir)runtimes\%(Identity)')" />
+    <!-- 清理 runtimes/ 下所有 pdb 调试符号文件（保留 dll/so/dylib 等运行时资产） -->
+    <ItemGroup>
+      <_RuntimePdbFiles Include="$(OutDir)runtimes\**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_RuntimePdbFiles)" />
+  </Target>
 
 </Project>

@@ -2,6 +2,7 @@
 using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
+using Microsoft.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -473,7 +474,20 @@ namespace DatabaseInterpreter.Core
         {
             if (connection.State == ConnectionState.Closed)
             {
-                await connection.OpenAsync();
+                try
+                {
+                    await connection.OpenAsync();
+                }
+                catch (SqlException ex) when (ex.Number == 4060 && connection is SqlConnection)
+                {
+                    var sqlConnection = (SqlConnection)connection;
+                    var builder = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = string.Empty
+                    };
+                    sqlConnection.ConnectionString = builder.ConnectionString;
+                    await sqlConnection.OpenAsync();
+                }
             }
         }
 
