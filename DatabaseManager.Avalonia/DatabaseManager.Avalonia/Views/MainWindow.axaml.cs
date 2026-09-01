@@ -28,6 +28,7 @@ public partial class MainWindow : Window
     private IServiceProvider? _services;
     private QueryTabViewModel? _currentQueryTab;
     private DispatcherTimer? _scheduleTimer;
+    private bool _restoreMaximizedAfterFirstRender;
 
     public MainWindow()
     {
@@ -106,6 +107,16 @@ public partial class MainWindow : Window
         {
             ApplyThemeMode(appSettings.Settings.ThemeMode);
             ApplyFontScale(appSettings.Settings.FontScale);
+        }
+
+        // 最大化会扩展原生客户区。将其放到首帧布局/绘制之后，避免启动时短暂露出尚未重绘的黑色区域。
+        if (_restoreMaximizedAfterFirstRender)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _restoreMaximizedAfterFirstRender = false;
+                WindowState = global::Avalonia.Controls.WindowState.Maximized;
+            }, DispatcherPriority.Background);
         }
 
         // 任务定时调度：每 30 秒检查到期计划（经任务中心执行，UI 线程触发）。
@@ -348,7 +359,7 @@ public partial class MainWindow : Window
 
         if (string.Equals(ws.WindowState, "Maximized", StringComparison.OrdinalIgnoreCase))
         {
-            WindowState = global::Avalonia.Controls.WindowState.Maximized;
+            _restoreMaximizedAfterFirstRender = true;
         }
     }
 

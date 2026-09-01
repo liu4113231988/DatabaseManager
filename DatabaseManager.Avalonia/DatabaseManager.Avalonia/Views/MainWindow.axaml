@@ -17,7 +17,7 @@
         WindowStartupLocation="CenterScreen"
         KeyDown="MainWindow_KeyDown">
 
-    <Grid>
+    <Grid Background="{DynamicResource AppWindowBgBrush}">
         <!-- 字体缩放容器（设置中的缩放比例应用到整个工作区；Toast 层不缩放） -->
         <LayoutTransformControl x:Name="RootScaler">
         <DockPanel Background="{DynamicResource AppWindowBgBrush}">

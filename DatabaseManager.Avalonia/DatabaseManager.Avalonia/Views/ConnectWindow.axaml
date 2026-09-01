@@ -5,7 +5,7 @@
         x:Class="DatabaseManager.Avalonia.Views.ConnectWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
-        Width="600" Height="760"
+        Width="600" Height="720"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
@@ -13,11 +13,10 @@
     <Border Margin="20" Classes="surface" Padding="24">
     <Grid RowDefinitions="*,Auto">
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="16" MaxWidth="640">
+        <StackPanel Spacing="12" MaxWidth="620">
 
             <StackPanel Spacing="2">
                 <TextBlock Text="新建数据库连接" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <TextBlock Text="填写连接信息并测试可用性。" FontSize="12" Foreground="#6B7C93" />
             </StackPanel>
 
             <StackPanel Spacing="6">
@@ -68,7 +67,7 @@
                 </StackPanel>
             </Grid>
 
-            <StackPanel Orientation="Horizontal" Spacing="16">
+            <StackPanel Orientation="Horizontal" Spacing="12">
                 <atom:CheckBox x:Name="ChkRememberPassword" Content="记住密码" IsChecked="True" />
                 <atom:CheckBox x:Name="ChkIsDba" Content="DBA" />
                 <atom:CheckBox x:Name="ChkUseSsl" Content="使用 SSL" />
