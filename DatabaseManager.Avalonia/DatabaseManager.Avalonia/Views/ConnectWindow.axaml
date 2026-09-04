@@ -5,7 +5,7 @@
         x:Class="DatabaseManager.Avalonia.Views.ConnectWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
-        Width="600" Height="720"
+        Width="600" Height="760"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
@@ -13,7 +13,7 @@
     <Border Margin="20" Classes="surface" Padding="24">
     <Grid RowDefinitions="*,Auto">
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Spacing="12" MaxWidth="620">
+        <StackPanel Spacing="12" MaxWidth="660">
 
             <StackPanel Spacing="2">
                 <TextBlock Text="新建数据库连接" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
