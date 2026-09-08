@@ -98,6 +98,19 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
+    private string? _connectionState;
+    /// <summary>连接状态：null / "Connecting" / "Failed"，用于驱动状态点颜色。</summary>
+    public string? ConnectionState
+    {
+        get => _connectionState;
+        set
+        {
+            if (_connectionState == value) return;
+            _connectionState = value;
+            OnPropertyChanged(nameof(ConnectionState));
+        }
+    }
+
     private string? _colorTag;
     /// <summary>连接颜色标签（hex；仅 Connection 类型节点使用）。</summary>
     public string? ColorTag

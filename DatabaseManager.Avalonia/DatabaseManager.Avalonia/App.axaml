@@ -11,131 +11,439 @@
 
 	<Application.Resources>
 		<ResourceDictionary>
-			<!-- 主题颜色令牌：亮色 / 深色 / 高对比（视图层一律通过 DynamicResource 引用） -->
+			<!--
+				主题令牌：VS/SSMS 专业风。
+				- 浅色基调：窗口灰、内容白、菜单/工具栏浅灰、状态栏蓝条
+				- 紧凑：按钮高 26、列表行 24、字号 12（次要 11）
+				- 主色 VS Blue #0078D4
+			-->
+			<ResourceDictionary.MergedDictionaries>
+				<ResourceInclude Source="avares://DatabaseManager.Avalonia/Resources/Converters.axaml" />
+			</ResourceDictionary.MergedDictionaries>
 			<ResourceDictionary.ThemeDictionaries>
 				<ResourceDictionary x:Key="Default">
-					<SolidColorBrush x:Key="AppWindowBgBrush">#F7F9FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWindowBgBrush">#F3F3F3</SolidColorBrush>
 					<SolidColorBrush x:Key="AppSurfaceBrush">#FFFFFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSubtleBrush">#F1F5F9</SolidColorBrush>
-					<SolidColorBrush x:Key="AppBorderBrush">#E3E8F0</SolidColorBrush>
-					<SolidColorBrush x:Key="AppDividerBrush">#22000000</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextBrush">#1F2A44</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextSecondaryBrush">#52657F</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBrush">#EAF2FF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBorderBrush">#C9DEFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSelectedBrush">#DDEBFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppChevronBrush">#8C8C8C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#FAFAFA</SolidColorBrush>
+					<SolidColorBrush x:Key="AppPanelBrush">#F6F6F6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#D4D4D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderStrongBrush">#B0B0B0</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#1F000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#1F1F1F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#5A5A5A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextMutedBrush">#8A8A8A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#E5F1FB</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#0078D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#CCE8FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedStrongBrush">#99D1FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentBrush">#0078D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentHoverBrush">#106EBE</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentPressedBrush">#005A9E</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#606060</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
-					<SolidColorBrush x:Key="AppRowAddedBrush">#E3F5E8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#DFF6DD</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
 					<SolidColorBrush x:Key="AppNodeBadgeBrush">#FFF3D6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarBrush">#007ACC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarSecondaryTextBrush">#D6E9F8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSuccessBrush">#107C10</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningBrush">#9D5D00</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDangerBrush">#C42B1C</SolidColorBrush>
 				</ResourceDictionary>
 				<ResourceDictionary x:Key="Light">
-					<SolidColorBrush x:Key="AppWindowBgBrush">#F7F9FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWindowBgBrush">#F3F3F3</SolidColorBrush>
 					<SolidColorBrush x:Key="AppSurfaceBrush">#FFFFFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSubtleBrush">#F1F5F9</SolidColorBrush>
-					<SolidColorBrush x:Key="AppBorderBrush">#E3E8F0</SolidColorBrush>
-					<SolidColorBrush x:Key="AppDividerBrush">#22000000</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextBrush">#1F2A44</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextSecondaryBrush">#52657F</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBrush">#EAF2FF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBorderBrush">#C9DEFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSelectedBrush">#DDEBFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppChevronBrush">#8C8C8C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#FAFAFA</SolidColorBrush>
+					<SolidColorBrush x:Key="AppPanelBrush">#F6F6F6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#D4D4D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderStrongBrush">#B0B0B0</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDividerBrush">#1F000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#1F1F1F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#5A5A5A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextMutedBrush">#8A8A8A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#E5F1FB</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#0078D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#CCE8FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedStrongBrush">#99D1FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentBrush">#0078D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentHoverBrush">#106EBE</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentPressedBrush">#005A9E</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#606060</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
-					<SolidColorBrush x:Key="AppRowAddedBrush">#E3F5E8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppRowAddedBrush">#DFF6DD</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
 					<SolidColorBrush x:Key="AppNodeBadgeBrush">#FFF3D6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarBrush">#007ACC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarSecondaryTextBrush">#D6E9F8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSuccessBrush">#107C10</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningBrush">#9D5D00</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDangerBrush">#C42B1C</SolidColorBrush>
 				</ResourceDictionary>
 				<ResourceDictionary x:Key="Dark">
-					<SolidColorBrush x:Key="AppWindowBgBrush">#161B26</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSurfaceBrush">#1F2531</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSubtleBrush">#262D3B</SolidColorBrush>
-					<SolidColorBrush x:Key="AppBorderBrush">#39414F</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWindowBgBrush">#1E1E1E</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSurfaceBrush">#252526</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubtleBrush">#2D2D30</SolidColorBrush>
+					<SolidColorBrush x:Key="AppPanelBrush">#2A2A2D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderBrush">#3F3F46</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderStrongBrush">#5A5A5F</SolidColorBrush>
 					<SolidColorBrush x:Key="AppDividerBrush">#33FFFFFF</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextBrush">#E8ECF4</SolidColorBrush>
-					<SolidColorBrush x:Key="AppTextSecondaryBrush">#9FACC4</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBrush">#2C3442</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBorderBrush">#40608F</SolidColorBrush>
-					<SolidColorBrush x:Key="AppSelectedBrush">#1E3A5F</SolidColorBrush>
-					<SolidColorBrush x:Key="AppChevronBrush">#9AA4B5</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextBrush">#F1F1F1</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextSecondaryBrush">#B5B5B5</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextMutedBrush">#7A7A7A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#2A2D2E</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBorderBrush">#0098FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedBrush">#094771</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedStrongBrush">#0078D4</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentBrush">#0098FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentHoverBrush">#3FA9FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentPressedBrush">#006FCB</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppChevronBrush">#B5B5B5</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#4A3B15</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#16321F</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#3A2F10</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#3B1D20</SolidColorBrush>
 					<SolidColorBrush x:Key="AppNodeBadgeBrush">#4A3F1A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarBrush">#007ACC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarSecondaryTextBrush">#D6E9F8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSuccessBrush">#16C60C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningBrush">#FCE100</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDangerBrush">#E81123</SolidColorBrush>
 				</ResourceDictionary>
 				<ResourceDictionary x:Key="{x:Static local:AppThemeVariants.HighContrast}">
 					<SolidColorBrush x:Key="AppWindowBgBrush">#000000</SolidColorBrush>
 					<SolidColorBrush x:Key="AppSurfaceBrush">#000000</SolidColorBrush>
 					<SolidColorBrush x:Key="AppSubtleBrush">#0D0D0D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppPanelBrush">#0D0D0D</SolidColorBrush>
 					<SolidColorBrush x:Key="AppBorderBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppBorderStrongBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppDividerBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppTextBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppTextSecondaryBrush">#E6E6E6</SolidColorBrush>
-					<SolidColorBrush x:Key="AppHoverBrush">#262626</SolidColorBrush>
+					<SolidColorBrush x:Key="AppTextMutedBrush">#C0C0C0</SolidColorBrush>
+					<SolidColorBrush x:Key="AppHoverBrush">#1F4C7A</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHoverBorderBrush">#FFD966</SolidColorBrush>
 					<SolidColorBrush x:Key="AppSelectedBrush">#1F4C7A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSelectedStrongBrush">#1F4C7A</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentBrush">#FFD966</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentHoverBrush">#FFD966</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentPressedBrush">#FFD966</SolidColorBrush>
+					<SolidColorBrush x:Key="AppAccentTextBrush">#000000</SolidColorBrush>
 					<SolidColorBrush x:Key="AppChevronBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#664D00</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#005A2B</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#5A4500</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#6B0018</SolidColorBrush>
 					<SolidColorBrush x:Key="AppNodeBadgeBrush">#7A6520</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarBrush">#007ACC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarTextBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppStatusBarSecondaryTextBrush">#D6E9F8</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSuccessBrush">#16C60C</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningBrush">#FCE100</SolidColorBrush>
+					<SolidColorBrush x:Key="AppDangerBrush">#E81123</SolidColorBrush>
 				</ResourceDictionary>
 			</ResourceDictionary.ThemeDictionaries>
 		</ResourceDictionary>
 	</Application.Resources>
 
 	<Application.Styles>
-		<!-- 基础主题；AtomUI 在 App.OnFrameworkInitializationCompleted 中通过 UseAtomUI 覆盖为 Ant Design 风格 -->
 		<FluentTheme />
-		<!-- AvaloniaEdit 控件主题（必须引入，否则 TextEditor 无模板：黑块且无法输入） -->
 		<StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
-		<!-- DataGrid 控件主题（必须引入，否则结果表格无模板、完全不可见） -->
 		<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
 
-		<!-- DatabaseManager visual language: restrained, high-contrast and optimised for dense daily work. -->
+		<!-- 全局基础样式：VS/SSMS 专业风（紧凑、信息密度高、明确主次） -->
 		<Style Selector="Window">
-			<Setter Property="FontFamily" Value="Inter, Microsoft YaHei UI, Segoe UI, sans-serif" />
+			<Setter Property="FontFamily" Value="Inter, Segoe UI, Microsoft YaHei UI, sans-serif" />
 			<Setter Property="Background" Value="{DynamicResource AppWindowBgBrush}" />
 			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+			<Setter Property="FontSize" Value="12" />
 		</Style>
-		<Style Selector="TextBox, ComboBox">
-			<Setter Property="MinHeight" Value="32" />
-		</Style>
-		<Style Selector="Button">
-			<Setter Property="MinHeight" Value="32" />
-			<!-- 小字号密集按钮在 32px 高度下文字偏上，统一垂直居中，避免底部留白偏大 -->
+
+		<!--
+			TextBox / ComboBox：紧凑 26px，圆角 2px（VS 风格），聚焦蓝边框
+		-->
+		<Style Selector="TextBox">
+			<Setter Property="MinHeight" Value="26" />
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Padding" Value="6,3" />
 			<Setter Property="VerticalContentAlignment" Value="Center" />
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="1" />
 		</Style>
-		<!-- 紧凑按钮：用于查询结果区/分页栏等密集小按钮（FontSize 11 场景） -->
-		<Style Selector="Button.compact">
-			<Setter Property="MinHeight" Value="24" />
-			<Setter Property="MinWidth" Value="0" />
-			<Setter Property="Padding" Value="8,2" />
+		<Style Selector="ComboBox">
+			<Setter Property="MinHeight" Value="26" />
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Padding" Value="6,2" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+		</Style>
+
+		<!--
+			Button：VS 风格紧凑 26px。Primary 蓝实色；Ghost 透明仅 hover 显示。
+		-->
+		<Style Selector="Button">
+			<Setter Property="MinHeight" Value="26" />
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Padding" Value="10,3" />
 			<Setter Property="HorizontalContentAlignment" Value="Center" />
 			<Setter Property="VerticalContentAlignment" Value="Center" />
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
 		</Style>
+		<Style Selector="Button:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppHoverBorderBrush}" />
+		</Style>
+		<Style Selector="Button:pressed /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppSelectedBrush}" />
+		</Style>
+		<!-- Primary：实色蓝（执行/确定/保存/生成） -->
+		<Style Selector="Button.primary">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+			<Setter Property="Foreground" Value="{DynamicResource AppAccentTextBrush}" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+		</Style>
+		<Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentHoverBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentHoverBrush}" />
+		</Style>
+		<Style Selector="Button.primary:pressed /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentPressedBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentPressedBrush}" />
+		</Style>
+		<!-- Ghost：纯文字（次要操作） -->
+		<Style Selector="Button.ghost">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+		</Style>
+		<Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+		</Style>
+		<!-- Danger：危险操作（删除/断开） -->
+		<Style Selector="Button.danger">
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+			<Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+		</Style>
+		<!-- Success：提交 -->
+		<Style Selector="Button.success">
+			<Setter Property="Background" Value="{DynamicResource AppSuccessBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+			<Setter Property="Foreground" Value="White" />
+		</Style>
+		<!-- 紧凑按钮：结果区分页/筛选/小图标按钮 -->
+		<Style Selector="Button.compact">
+			<Setter Property="MinHeight" Value="22" />
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Padding" Value="6,1" />
+		</Style>
+		<!-- 工具栏：透明按钮 + hover 显示蓝底 -->
 		<Style Selector="Button.toolbar">
-			<Setter Property="MinWidth" Value="32" />
-			<Setter Property="MinHeight" Value="32" />
-			<Setter Property="Padding" Value="7" />
+			<Setter Property="MinWidth" Value="28" />
+			<Setter Property="MinHeight" Value="26" />
+			<Setter Property="Padding" Value="5" />
 			<Setter Property="Background" Value="Transparent" />
 			<Setter Property="BorderBrush" Value="Transparent" />
 			<Setter Property="BorderThickness" Value="1" />
 		</Style>
-		<Style Selector="Button.toolbar:pointerover">
+		<Style Selector="Button.toolbar:pointerover /template/ ContentPresenter">
 			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
 			<Setter Property="BorderBrush" Value="{DynamicResource AppHoverBorderBrush}" />
 		</Style>
+		<Style Selector="Button.toolbar:pressed /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppSelectedBrush}" />
+		</Style>
+		<!-- 主操作工具栏按钮（执行 SQL、连接） -->
+		<Style Selector="Button.toolbar.primary">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+		</Style>
+		<Style Selector="Button.toolbar.primary:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentHoverBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentHoverBrush}" />
+		</Style>
+		<Style Selector="Button.toolbar.primary:pressed /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppAccentPressedBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppAccentPressedBrush}" />
+		</Style>
+		<!-- Success 工具栏（提交事务） -->
+		<Style Selector="Button.toolbar.success">
+			<Setter Property="Background" Value="{DynamicResource AppSuccessBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
+		</Style>
+		<Style Selector="Button.toolbar.success:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="#0B5E0B" />
+			<Setter Property="BorderBrush" Value="#0B5E0B" />
+		</Style>
+		<Style Selector="Button.toolbar.danger">
+			<Setter Property="Background" Value="{DynamicResource AppDangerBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+		</Style>
+		<Style Selector="Button.toolbar.danger:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="#A3211A" />
+			<Setter Property="BorderBrush" Value="#A3211A" />
+		</Style>
+		<!-- 工具栏分组：浅灰圆角底 + 1px 边线，让分组有视觉聚合（VS 风格） -->
+		<Style Selector="Border.toolbar-group">
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="CornerRadius" Value="3" />
+			<Setter Property="Margin" Value="0,1" />
+		</Style>
+
+		<!-- 标签：去掉过大的默认 padding；紧凑且不抢主视觉 -->
+		<Style Selector="TextBlock.label">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+		</Style>
+		<Style Selector="TextBlock.muted">
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+		</Style>
+		<Style Selector="TextBlock.caption">
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextMutedBrush}" />
+		</Style>
+		<Style Selector="TextBlock.heading">
+			<Setter Property="FontSize" Value="14" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+		</Style>
+
+		<!-- CheckBox / RadioButton：紧凑 -->
+		<Style Selector="CheckBox">
+			<Setter Property="MinHeight" Value="22" />
+			<Setter Property="FontSize" Value="12" />
+		</Style>
+		<Style Selector="RadioButton">
+			<Setter Property="MinHeight" Value="22" />
+			<Setter Property="FontSize" Value="12" />
+		</Style>
+
+		<!-- TabControl / TabItem：VS 风格扁平 tab 头，无凸起 -->
+		<Style Selector="TabControl">
+			<Setter Property="Padding" Value="0" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="0" />
+		</Style>
+		<Style Selector="TabItem">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Padding" Value="10,4" />
+			<Setter Property="MinHeight" Value="28" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+		</Style>
+		<Style Selector="TabItem:selected">
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+		</Style>
+
+		<!-- DataGrid：紧凑 24px 行，VS 风格列头底色 -->
+		<Style Selector="DataGrid">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="RowHeight" Value="24" />
+			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="GridLinesVisibility" Value="Horizontal" />
+			<Setter Property="HorizontalGridLinesBrush" Value="#EAEAEA" />
+		</Style>
+		<Style Selector="DataGridColumnHeader">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+			<Setter Property="Background" Value="{DynamicResource AppSubtleBrush}" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextBrush}" />
+			<Setter Property="Padding" Value="8,4" />
+			<Setter Property="MinHeight" Value="28" />
+		</Style>
+		<Style Selector="DataGridRow">
+			<Setter Property="MinHeight" Value="24" />
+		</Style>
+
+		<!-- GroupBox / Expander：VS 风格扁平方框 -->
+		<Style Selector="GroupBox">
+			<Setter Property="Padding" Value="8,6" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="1" />
+		</Style>
+		<Style Selector="Expander">
+			<Setter Property="Padding" Value="0,2" />
+		</Style>
+
+		<!-- StatusBar-like Border：底部蓝条 -->
+		<Style Selector="Border.statusbar">
+			<Setter Property="Background" Value="{DynamicResource AppStatusBarBrush}" />
+			<Setter Property="Padding" Value="10,3" />
+		</Style>
+		<Style Selector="Border.statusbar TextBlock">
+			<Setter Property="Foreground" Value="{DynamicResource AppStatusBarTextBrush}" />
+			<Setter Property="FontSize" Value="11" />
+		</Style>
+
+		<!-- Menu / MenuItem：VS 风格紧凑 24px 菜单项高度 -->
+		<Style Selector="Menu">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Height" Value="26" />
+		</Style>
+		<Style Selector="MenuItem">
+			<Setter Property="FontSize" Value="12" />
+		</Style>
+
+		<!-- Toolbar/ToolBar-like Border：浅灰底 + 底部分隔线 -->
+		<Style Selector="Border.toolbar">
+			<Setter Property="Background" Value="{DynamicResource AppSubtleBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="0,0,0,1" />
+			<Setter Property="Padding" Value="8,3" />
+		</Style>
+
+		<!-- Surface：内容区白底卡片 -->
 		<Style Selector="Border.surface">
 			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
 			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
 			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="CornerRadius" Value="2" />
+		</Style>
+		<!-- Panel：浅灰分组底 -->
+		<Style Selector="Border.panel">
+			<Setter Property="Background" Value="{DynamicResource AppPanelBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+			<Setter Property="BorderThickness" Value="0,1,0,1" />
+		</Style>
+
+		<!-- Empty state placeholder：空内容居中提示 -->
+		<Style Selector="TextBlock.empty">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Foreground" Value="{DynamicResource AppTextMutedBrush}" />
+		</Style>
+
+		<!-- GridSplitter：默认透明；hover / 拖动时显示 2px 主色线作为提示（VS/SSMS 风格） -->
+		<Style Selector="GridSplitter">
+			<Setter Property="Background" Value="Transparent" />
+		</Style>
+		<Style Selector="GridSplitter:pointerover /template/ Border#PART_Root">
+			<Setter Property="Background" Value="#220078D4" />
+		</Style>
+		<Style Selector="GridSplitter:pressed /template/ Border#PART_Root">
+			<Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+		</Style>
+
+		<!-- ListBoxItem / TreeViewItem 紧凑（TreeViewItem 仍用 MainWindow 内自定义样式覆盖） -->
+		<Style Selector="ListBoxItem">
+			<Setter Property="MinHeight" Value="24" />
+			<Setter Property="Padding" Value="6,2" />
 		</Style>
 	</Application.Styles>
 

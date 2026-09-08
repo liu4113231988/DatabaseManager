@@ -9,7 +9,6 @@
   <Color name="DataType" foreground="#267F99" />
   <Color name="Function" foreground="#795E26" />
   <Color name="Variable" foreground="#001080" />
-
   <RuleSet ignoreCase="true">
 
     <!-- 单行注释（两个连字符起始） -->

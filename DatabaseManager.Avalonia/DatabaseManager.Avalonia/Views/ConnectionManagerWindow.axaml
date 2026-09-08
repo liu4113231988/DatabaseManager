@@ -3,60 +3,113 @@
         xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         xmlns:models="using:DatabaseManager.AppCore.Models"
+        xmlns:conv="using:DatabaseManager.Avalonia.Converters"
         x:Class="DatabaseManager.Avalonia.Views.ConnectionManagerWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接管理"
-        Width="760" Height="520"
+        Width="780" Height="560"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="20" Background="{DynamicResource AppWindowBgBrush}">
+    <DockPanel Margin="0" Background="{DynamicResource AppWindowBgBrush}">
 
-        <!-- 顶部工具栏 -->
-        <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto"
-              Margin="0,0,0,16">
-            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
-                <TextBlock Text="数据库类型" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <atom:ComboBox x:Name="ComboDatabaseType" Width="160" MinWidth="160"
-                               SelectionChanged="ComboDatabaseType_SelectionChanged" />
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="连接管理" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="管理已保存的数据库连接；可测试、编辑、删除或按数据库类型筛选" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
+        </Border>
 
-            <atom:Button Grid.Column="3" Content="刷新" Margin="6,0,0,0"
-                         Click="BtnRefresh_Click" />
-            <atom:Button Grid.Column="4" Content="新增" ButtonType="Primary" Margin="6,0,0,0"
-                         Click="BtnAdd_Click" />
-            <atom:Button Grid.Column="5" Content="编辑" Margin="6,0,0,0"
-                         Click="BtnEdit_Click" />
-            <atom:Button Grid.Column="6" Content="删除" Margin="6,0,0,0"
-                         Click="BtnDelete_Click" />
-        </Grid>
+        <!-- 状态条：SSMS 风格底部蓝条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Connections.Count, Mode=OneWay}" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                           FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Text="条连接" Foreground="{DynamicResource AppStatusBarSecondaryTextBrush}"
+                           FontSize="11" VerticalAlignment="Center" />
+                <TextBlock Text="·" Foreground="{DynamicResource AppStatusBarSecondaryTextBrush}"
+                           FontSize="11" VerticalAlignment="Center" Margin="6,0" />
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                           FontSize="11" VerticalAlignment="Center" />
+            </StackPanel>
+        </Border>
 
-        <!-- 底部按钮（先 Dock 到底部，位于状态栏上方） -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+        <!-- 工具栏 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto">
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <TextBlock Text="数据库类型" FontSize="11" VerticalAlignment="Center"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    <atom:ComboBox x:Name="ComboDatabaseType" Width="160" MinWidth="160"
+                                   SelectionChanged="ComboDatabaseType_SelectionChanged" />
+                </StackPanel>
+
+                <atom:Button Grid.Column="2" Content="刷新" Margin="6,0,0,0"
+                             Click="BtnRefresh_Click" />
+                <atom:Button Grid.Column="3" Content="新增" ButtonType="Primary" Margin="6,0,0,0"
+                             Click="BtnAdd_Click" />
+                <atom:Button Grid.Column="4" Content="编辑" Margin="6,0,0,0"
+                             Click="BtnEdit_Click" />
+                <atom:Button Grid.Column="5" Content="删除" Margin="6,0,0,0"
+                             Click="BtnDelete_Click">
+                    <atom:Button.Styles>
+                        <Style Selector="atom|Button">
+                            <Setter Property="Foreground" Value="#C44545" />
+                        </Style>
+                    </atom:Button.Styles>
+                </atom:Button>
+            </Grid>
+        </Border>
+
+        <!-- 底部右侧按钮（先 Dock 到底部） -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,16,12">
             <atom:Button Content="关闭" Click="BtnClose_Click" />
         </StackPanel>
 
-        <!-- 状态栏（Dock 到最底，位于按钮下方） -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,8,0,0" Opacity="0.7" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+        <!-- 连接列表（Fill：填满工具栏与底部之间的剩余空间） -->
+        <Grid Margin="16,12,16,0">
+            <Border Classes="surface" Padding="4">
+                <ListBox x:Name="ConnectionList" ItemsSource="{Binding Connections}"
+                         SelectedItem="{Binding SelectedConnection}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:ConnectionItem">
+                            <Border Padding="12,10" Margin="2" CornerRadius="6">
+                                <Grid ColumnDefinitions="Auto,*,Auto">
+                                    <Border Grid.Column="0" Width="8" Height="32" CornerRadius="4"
+                                            Background="{Binding ColorTag, Converter={StaticResource StringToBrushConverter}}"
+                                            VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center" Margin="10,0,0,0">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                   Foreground="{DynamicResource AppTextBrush}" />
+                                        <TextBlock Text="{Binding Description}" FontSize="11" Opacity="0.7" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Text="{Binding Server}" FontSize="11" Opacity="0.55"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
 
-        <!-- 连接列表（Fill：填满工具栏与底部之间的剩余空间，避免下边错位） -->
-        <Border Classes="surface" Margin="0,0,0,14" Padding="6">
-            <ListBox x:Name="ConnectionList" ItemsSource="{Binding Connections}"
-                     SelectedItem="{Binding SelectedConnection}"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="models:ConnectionItem">
-                        <Border Padding="10,8" Margin="2" CornerRadius="6">
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                            <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#6B7C93" />
-                        </StackPanel>
-                        </Border>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Border>
+            <!-- 空态：连接数为 0 时显示 -->
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10"
+                        IsVisible="{Binding Connections.Count, Converter={x:Static conv:BoolOppositeConverter.Instance}, FallbackValue=False}">
+                <Border Width="56" Height="56" CornerRadius="28" Background="{DynamicResource AppSubtleBrush}">
+                    <TextBlock Text="🔌" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <TextBlock Text="还没有保存的连接" FontSize="13" FontWeight="SemiBold"
+                           HorizontalAlignment="Center" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="点击「新增」创建第一条连接" FontSize="11" Opacity="0.7"
+                           HorizontalAlignment="Center" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Grid>
 
     </DockPanel>
 </Window>

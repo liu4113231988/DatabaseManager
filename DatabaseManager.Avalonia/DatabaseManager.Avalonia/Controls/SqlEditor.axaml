@@ -7,7 +7,6 @@
     <Border Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" CornerRadius="4">
         <ae:TextEditor x:Name="PART_TextEditor"
                        Background="{DynamicResource AppSurfaceBrush}"
-                       Foreground="{DynamicResource AppTextBrush}"
                        FontFamily="Consolas, Cascadia Mono, Courier New, monospace"
                        FontSize="13"
                        Padding="6,4"

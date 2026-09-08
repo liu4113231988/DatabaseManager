@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using DatabaseManager.AppCore;
 using DatabaseManager.AppCore.ViewModels;
 using DatabaseManager.Avalonia.Views;
@@ -53,6 +54,26 @@ public partial class App : Application
                 DataContext = _services.GetRequiredService<MainWindowViewModel>(),
                 Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
             };
+
+            // 冒烟测试模式：主窗口就绪后异步驱动全界面拍屏；完成后自动 Shutdown。
+            if (Program.SmokeRequested)
+            {
+                _ = Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
+                    }
+                    catch (Exception ex)
+                    {
+                        try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
+                    }
+                    finally
+                    {
+                        try { desktop.Shutdown(); } catch { /* ignore */ }
+                    }
+                });
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
