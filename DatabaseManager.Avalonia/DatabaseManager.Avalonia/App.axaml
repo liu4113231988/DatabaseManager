@@ -253,11 +253,16 @@
 		<Style Selector="Button.toolbar">
 			<Setter Property="MinWidth" Value="28" />
 			<Setter Property="MinHeight" Value="26" />
-			<Setter Property="Padding" Value="5" />
+			<Setter Property="Height" Value="28" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+			<Setter Property="HorizontalContentAlignment" Value="Center" />
+			<Setter Property="Padding" Value="5,0" />
 			<Setter Property="Background" Value="Transparent" />
 			<Setter Property="BorderBrush" Value="Transparent" />
 			<Setter Property="BorderThickness" Value="1" />
 		</Style>
+		<!-- 工具栏分组：浅灰圆角底 + 1px 边线，让分组有视觉聚合（VS 风格） -->
 		<Style Selector="Button.toolbar:pointerover /template/ ContentPresenter">
 			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
 			<Setter Property="BorderBrush" Value="{DynamicResource AppHoverBorderBrush}" />
@@ -302,6 +307,8 @@
 			<Setter Property="BorderThickness" Value="1" />
 			<Setter Property="CornerRadius" Value="3" />
 			<Setter Property="Margin" Value="0,1" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+			<Setter Property="MinHeight" Value="28" />
 		</Style>
 
 		<!-- 标签：去掉过大的默认 padding；紧凑且不抢主视觉 -->
