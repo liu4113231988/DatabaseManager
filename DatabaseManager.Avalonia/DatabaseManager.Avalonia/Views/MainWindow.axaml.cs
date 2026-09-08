@@ -636,6 +636,19 @@ public partial class MainWindow : Window
                 await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
         }
+
+        // 任意节点展开后通知所有打开的 SQL 编辑器重建对象名缓存，
+        // 让 DbObjectColorizingTransformer 立刻把新加载的表/视图/列高亮。
+        NotifyAllSqlEditorsObjectTreeChanged();
+    }
+
+    private void NotifyAllSqlEditorsObjectTreeChanged()
+    {
+        // 群发所有活动 SqlEditor 实例：对象树展开后重建对象名缓存，让 DB 对象高亮即时生效。
+        foreach (var editor in Controls.SqlEditor.LiveInstances)
+        {
+            editor.NotifyObjectTreeChanged();
+        }
     }
 
     /// <summary>向上查找节点所属的连接根节点。</summary>

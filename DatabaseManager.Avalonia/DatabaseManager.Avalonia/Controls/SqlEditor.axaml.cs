@@ -14,6 +14,7 @@ using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Highlighting;
 using AvaloniaEdit.Highlighting.Xshd;
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 
@@ -64,8 +65,67 @@ public partial class SqlEditor : UserControl
     private CompletionWindow? _completionWindow;
     private readonly Dictionary<string, IReadOnlyList<string>> _columnCompletionCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _loadingColumnCompletions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _dbObjectNames = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _dbColumnNames = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly string[] ReservedKeywords = new[]
+    {
+        // 关键字（与 Sql.xshd Keywords/Datatypes/Functions 取并集）
+        "SELECT","FROM","WHERE","AND","OR","NOT","IN","IS","LIKE","BETWEEN","INTO","VALUES",
+        "INSERT","UPDATE","DELETE","SET","CREATE","ALTER","DROP","TABLE","VIEW","INDEX","PROCEDURE",
+        "FUNCTION","TRIGGER","SCHEMA","DATABASE","IF","EXISTS","USE","GO","BEGIN","END","DECLARE",
+        "EXEC","EXECUTE","RETURN","WHILE","BREAK","CONTINUE","COMMIT","ROLLBACK","SAVEPOINT",
+        "TRANSACTION","WORK","GRANT","REVOKE","WITH","RECURSIVE","UNION","ALL","DISTINCT","INTERSECT",
+        "EXCEPT","JOIN","INNER","OUTER","FULL","CROSS","ON","USING","GROUP","BY","HAVING","ORDER",
+        "ASC","DESC","LIMIT","OFFSET","FETCH","FIRST","NEXT","ONLY","ROWS","RANGE","UNBOUNDED",
+        "PRECEDING","FOLLOWING","CURRENT","ROW","PARTITION","OVER","WINDOW","CASE","WHEN","THEN",
+        "ELSE","PRIMARY","FOREIGN","KEY","REFERENCES","CONSTRAINT","UNIQUE","CHECK","DEFAULT",
+        "AUTO_INCREMENT","AUTOINCREMENT","IDENTITY","COMMENT","COLUMN","ADD","MODIFY","CHANGE",
+        "RENAME","TO","CASCADE","RESTRICT","TRUNCATE","MERGE","MATCHED","SOURCE","TARGET","OUTPUT",
+        "LOCK","SHARE","MODE","EXPLAIN","ANALYZE","VACUUM","SHOW","DESCRIBE","PRAGMA","ATTACH",
+        "DETACH","RETURNING","TOP","PERCENT","TIES","COLLATE","CAST","CONVERT","CHARSET","ENGINE",
+        "UNSIGNED","SIGNED","ZEROFILL","LOCAL","TEMP","TEMPORARY","GLOBAL","SESSION","ISOLATION",
+        "LEVEL","READ","WRITE","SNAPSHOT","SERIALIZABLE","REPEATABLE","COMMITTED","UNCOMMITTED",
+        "ACTION","NOWAIT","WAIT","STORED","GENERATED","VIRTUAL","ALWAYS","START","CACHE","INCREMENT",
+        "MINVALUE","MAXVALUE","CYCLE","OWNED","SEQUENCE","PIVOT","UNPIVOT","APPLY","BULK","FOR",
+        "EACH","NULL","AS",
+        // 常用数据类型
+        "INT","INTEGER","SMALLINT","BIGINT","TINYINT","MEDIUMINT","DECIMAL","NUMERIC","DEC",
+        "FLOAT","REAL","DOUBLE","PRECISION","BIT","BOOLEAN","BOOL","CHAR","CHARACTER","VARCHAR",
+        "VARCHAR2","NCHAR","NVARCHAR","TEXT","NTEXT","TINYTEXT","MEDIUMTEXT","LONGTEXT","CLOB",
+        "NCLOB","BLOB","TINYBLOB","MEDIUMBLOB","LONGBLOB","BINARY","VARBINARY","IMAGE","RAW",
+        "ROWID","BFILE","DATE","TIME","DATETIME","DATETIME2","SMALLDATETIME","TIMESTAMP",
+        "INTERVAL","YEAR","ENUM","SET","JSON","JSONB","XML","UUID","MONEY","SMALLMONEY",
+        "SERIAL","BIGSERIAL","UNIQUEIDENTIFIER","SQL_VARIANT","HIERARCHYID","GEOMETRY",
+        "GEOGRAPHY","NUMBER",
+    };
 
     private static IHighlightingDefinition? _cachedHighlighting;
+
+    /// <summary>
+    /// 当前进程内已初始化的所有 SqlEditor 实例列表（弱引用），供主窗口在对象树展开后群发刷新通知。
+    /// 主窗口的 NotifyAllSqlEditorsObjectTreeChanged 会枚举这个列表。
+    /// </summary>
+    private static readonly List<WeakReference<SqlEditor>> _liveInstances = new();
+
+    public static IReadOnlyList<SqlEditor> LiveInstances
+    {
+        get
+        {
+            // 清理已被 GC 的弱引用并返回强引用快照
+            var alive = new List<SqlEditor>(_liveInstances.Count);
+            var dead = new List<int>();
+            for (int i = 0; i < _liveInstances.Count; i++)
+            {
+                if (_liveInstances[i].TryGetTarget(out var editor))
+                    alive.Add(editor);
+                else
+                    dead.Add(i);
+            }
+            for (int i = dead.Count - 1; i >= 0; i--)
+                _liveInstances.RemoveAt(dead[i]);
+            return alive;
+        }
+    }
 
     public SqlEditor()
     {
@@ -105,6 +165,13 @@ public partial class SqlEditor : UserControl
             _editor.SyntaxHighlighting = highlighting;
         }
 
+        // 注入动态着色器：把已加载的"数据库对象"用另一种颜色区分于关键字。
+        // 每次 TextChanged 都会触发 Colorize，扫描开销取决于标识符数量，可接受。
+        _editor.TextArea.TextView.LineTransformers.Add(new DbObjectColorizingTransformer(
+            objectNamesProvider: () => _dbObjectNames.Count == 0 ? null : _dbObjectNames,
+            columnNamesProvider: () => _dbColumnNames.Count == 0 ? null : _dbColumnNames,
+            reservedKeywords: ReservedKeywords));
+
         // 同步初始文本（可能在初始化前已通过属性设置）
         if (!string.IsNullOrEmpty(SqlText) && _editor.Document.Text != SqlText)
         {
@@ -122,6 +189,12 @@ public partial class SqlEditor : UserControl
         _editor.TextArea.TextEntered += OnTextEntered;
         _editor.TextArea.TextEntering += OnTextEntering;
         _editor.TextArea.KeyDown += OnKeyDown;
+
+        // 初始化时若对象树已绑定，立刻构建一次对象名缓存，避免首次显示无高亮。
+        RefreshDbObjectCache();
+
+        // 注册到活动实例列表（弱引用，自动 GC 失效的实例）
+        lock (_liveInstances) { _liveInstances.Add(new WeakReference<SqlEditor>(this)); }
     }
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
@@ -464,6 +537,7 @@ public partial class SqlEditor : UserControl
         {
             _columnCompletionCache.Clear();
             _loadingColumnCompletions.Clear();
+            RefreshDbObjectCache();
         }
 
         if (e.Property != SqlTextProperty)
@@ -488,6 +562,74 @@ public partial class SqlEditor : UserControl
         }
     }
 
+    /// <summary>
+    /// 重建当前连接的"已加载数据库对象名"与"已加载列名"缓存，供动态着色器命中。
+    /// 仅遍历对象树已展开的节点（懒加载语义：未展开的表/列不上色），不发起任何 IO。
+    /// </summary>
+    private void RefreshDbObjectCache()
+    {
+        _dbObjectNames.Clear();
+        _dbColumnNames.Clear();
+
+        if (ObjectTreeRoots is null || string.IsNullOrWhiteSpace(ConnectionName))
+        {
+            InvalidateEditorLines();
+            return;
+        }
+
+        var connection = ObjectTreeRoots.FirstOrDefault(node =>
+            node.NodeType == DbObjectTreeNodeType.Connection &&
+            string.Equals(node.Name, ConnectionName, StringComparison.OrdinalIgnoreCase));
+        if (connection is null)
+        {
+            InvalidateEditorLines();
+            return;
+        }
+
+        foreach (var node in EnumerateLoadedDescendants(connection))
+        {
+            if (node.NodeType != DbObjectTreeNodeType.DbObject || node.IsPlaceholder) continue;
+            if (string.IsNullOrWhiteSpace(node.Name)) continue;
+
+            if (node.DatabaseObjectType is DatabaseObjectType.Table
+                or DatabaseObjectType.View
+                or DatabaseObjectType.Procedure
+                or DatabaseObjectType.Function
+                or DatabaseObjectType.Sequence)
+            {
+                _dbObjectNames.Add(node.Name);
+            }
+
+            if (node.DatabaseObjectType is DatabaseObjectType.Column && !string.IsNullOrWhiteSpace(node.Name))
+            {
+                _dbColumnNames.Add(node.Name);
+            }
+        }
+
+        InvalidateEditorLines();
+    }
+
+    private void InvalidateEditorLines()
+    {
+        if (_editor?.Document is null) return;
+        // 触发 LineTransformers 重跑：变更文档 TextLength 不会改变内容但会通知重绘。
+        _editor.TextArea.TextView.Redraw();
+    }
+
+    private static IEnumerable<DbObjectTreeNode> EnumerateLoadedDescendants(DbObjectTreeNode node)
+    {
+        // 仅访问已展开的子树（Children 已填充即视为已加载）。
+        foreach (var child in node.Children)
+        {
+            yield return child;
+            if (child.IsLoaded)
+            {
+                foreach (var descendant in EnumerateLoadedDescendants(child))
+                    yield return descendant;
+            }
+        }
+    }
+
     /// <summary>将光标定位到数据库返回的错误行，便于用户立即修正 SQL。</summary>
     public void GoToLine(int lineNumber)
     {
@@ -498,6 +640,51 @@ public partial class SqlEditor : UserControl
         _editor.CaretOffset = line.Offset;
         _editor.TextArea.Caret.BringCaretToView();
         _editor.Focus();
+    }
+
+    /// <summary>
+    /// 公开给主窗口的对象树展开事件使用：当用户在对象树里展开 Schema / 表后，
+    /// 主动调一下让 SqlEditor 重建对象名缓存并重绘。
+    /// </summary>
+    public void NotifyObjectTreeChanged()
+    {
+        if (!_initialized) return;
+        RefreshDbObjectCache();
+    }
+
+    /// <summary>
+    /// 测试/演示用：手动注入一组视为"已加载数据库对象"的名称，
+    /// 立即让 DbObjectColorizingTransformer 用红色刷这些标识符。
+    /// 生产路径不调用此方法（仅在冒烟截图脚本里使用）。
+    /// </summary>
+    public void SeedDemoObjectNames(IEnumerable<string> names)
+    {
+        if (!_initialized) return;
+        foreach (var n in names ?? Array.Empty<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(n))
+                _dbObjectNames.Add(n);
+        }
+        // 强制 TextView 重建可见行，让 DocumentColorizingTransformer 重新跑一遍。
+        _editor?.TextArea.TextView.Redraw();
+    }
+
+    /// <summary>
+    /// 测试/演示用：直接把 SQL 文本写入编辑器（绕过 TwoWay 绑定回写，避免被会话恢复覆盖）。
+    /// </summary>
+    public void SeedDemoSqlText(string sql)
+    {
+        if (!_initialized || _editor is null) return;
+        _syncing = true;
+        try
+        {
+            _editor.Document.Text = sql ?? string.Empty;
+            _editor.CaretOffset = 0;
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     /// <summary>从嵌入资源或 Avalonia 资源加载 SQL 高亮定义（带缓存）。</summary>
