@@ -24,13 +24,13 @@
             <TextBlock Grid.Column="2" Text="数据库:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox Grid.Column="3" x:Name="CmbDatabase" IsEditable="True" MinWidth="120" Margin="0,0,10,0" />
             <TextBlock Grid.Column="4" Text="Schema:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox Grid.Column="5" x:Name="TxtSchema" Watermark="可选" MinWidth="90" />
+            <TextBox Grid.Column="5" x:Name="TxtSchema" PlaceholderText="可选" MinWidth="90" />
         </Grid>
 
         <!-- 关键字与选项 -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Grid.Column="0" Text="关键字:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox Grid.Column="1" x:Name="TxtKeyword" Watermark="要搜索的数据内容（LIKE 模糊匹配）"
+            <TextBox Grid.Column="1" x:Name="TxtKeyword" PlaceholderText="要搜索的数据内容（LIKE 模糊匹配）"
                      VerticalContentAlignment="Center" KeyDown="TxtKeyword_KeyDown" />
             <CheckBox Grid.Column="2" x:Name="ChkTextOnly" Content="仅文本列" IsChecked="True"
                       VerticalAlignment="Center" Margin="10,0,0,0" />

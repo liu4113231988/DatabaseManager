@@ -9,6 +9,8 @@ namespace DatabaseManager.AppCore.Services;
 /// 会话与锁监控实现（方言 SQL）：
 /// - MySQL: information_schema.processlist / innodb_lock_waits，KILL {id}；
 /// - PostgreSQL: pg_stat_activity / pg_blocking_pids，pg_terminate_backend；
+/// - KingbaseES（PG 兼容）：首选 sys_stat_activity / sys_locks / sys_terminate_backend；
+///   实例未暴露 sys_* 时探测回退到 pg_* 同名对象（PG 兼容模式始终存在）。
 /// - SQL Server: sys.dm_exec_sessions + dm_exec_requests，KILL {id}；
 /// - Oracle: v$session，ALTER SYSTEM KILL SESSION。
 /// </summary>
@@ -36,14 +38,25 @@ public class DefaultDbSessionService : IDbSessionService
             return snapshot;
         }
 
+        bool useKingbaseFallback = false;
+        System.Data.Common.DbConnection? openConn = null;
+
         try
         {
             var interpreter = CreateInterpreter(connection);
-            await using var conn = interpreter.CreateConnection();
+            var conn = interpreter.CreateConnection();
+            openConn = conn;
             await conn.OpenAsync(cancellationToken);
 
+            if (dbType == DatabaseType.KingbaseES)
+            {
+                useKingbaseFallback = !await ProbeKingbaseSysCatalogAsync(conn, cancellationToken);
+            }
+
             // 会话列表。
-            var sessionsSql = DbSessionSql.BuildSessionsSql(dbType);
+            var sessionsSql = useKingbaseFallback
+                ? DbSessionSql.BuildKingbaseFallbackSessionsSql()
+                : DbSessionSql.BuildSessionsSql(dbType);
 
             if (sessionsSql.Length > 0)
             {
@@ -67,7 +80,9 @@ public class DefaultDbSessionService : IDbSessionService
             // 锁/阻塞（失败不影响会话列表）。
             try
             {
-                var locksSql = DbSessionSql.BuildLocksSql(dbType);
+                var locksSql = useKingbaseFallback
+                    ? DbSessionSql.BuildKingbaseFallbackLocksSql()
+                    : DbSessionSql.BuildLocksSql(dbType);
 
                 if (locksSql.Length > 0)
                 {
@@ -91,7 +106,18 @@ public class DefaultDbSessionService : IDbSessionService
         }
         catch (Exception ex)
         {
-            snapshot.Error = $"会话读取失败：{ex.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetSessionPermissionHint(dbType)}";
+            var hint = DbAdminGuidance.GetSessionPermissionHint(dbType);
+            var note = useKingbaseFallback
+                ? "（已自动回退到 pg_* 路径）"
+                : string.Empty;
+            snapshot.Error = $"会话读取失败{note}：{ex.Message}{Environment.NewLine}权限提示：{hint}";
+        }
+        finally
+        {
+            if (openConn is not null)
+            {
+                await openConn.DisposeAsync();
+            }
         }
 
         return snapshot;
@@ -107,13 +133,15 @@ public class DefaultDbSessionService : IDbSessionService
             return (false, compatibilityReason);
         }
 
-        string? sql = dbType == DatabaseType.Oracle
-            ? System.Text.RegularExpressions.Regex.IsMatch(sessionId, @"^[\w,]+$")
-                ? $"ALTER SYSTEM KILL SESSION '{sessionId}' IMMEDIATE"
-                : null
-            : DbSessionSql.BuildTerminateSessionSql(dbType, sessionId);
+        string? primarySql = dbType == DatabaseType.KingbaseES
+            ? DbSessionSql.BuildTerminateSessionSql(dbType, sessionId)
+            : dbType == DatabaseType.Oracle
+                ? System.Text.RegularExpressions.Regex.IsMatch(sessionId, @"^[\w,]+$")
+                    ? $"ALTER SYSTEM KILL SESSION '{sessionId}' IMMEDIATE"
+                    : null
+                : DbSessionSql.BuildTerminateSessionSql(dbType, sessionId);
 
-        if (sql is null)
+        if (primarySql is null)
         {
             return (false, "会话标识无效或数据库类型不支持。");
         }
@@ -124,6 +152,12 @@ public class DefaultDbSessionService : IDbSessionService
             await using var conn = interpreter.CreateConnection();
             await conn.OpenAsync(cancellationToken);
 
+            bool useFallback = dbType == DatabaseType.KingbaseES
+                && !await ProbeKingbaseSysCatalogAsync(conn, cancellationToken);
+            string sql = useFallback
+                ? DbSessionSql.BuildKingbaseFallbackTerminateSessionSql(sessionId) ?? primarySql
+                : primarySql;
+
             await using var cmd = conn.CreateCommand();
             cmd.CommandTimeout = 15;
             cmd.CommandText = sql;
@@ -133,6 +167,26 @@ public class DefaultDbSessionService : IDbSessionService
         catch (Exception ex)
         {
             return (false, $"{ex.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetSessionPermissionHint(dbType)}");
+        }
+    }
+
+    /// <summary>
+    /// 探测 KingbaseES 是否暴露 sys_catalog 视图（sys_stat_activity 等）。
+    /// 探测失败（视图不存在、权限不足、连接异常）一律视为回退场景。
+    /// </summary>
+    private static async Task<bool> ProbeKingbaseSysCatalogAsync(System.Data.Common.DbConnection conn, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandTimeout = 5;
+            cmd.CommandText = DbSessionSql.BuildKingbaseProbeSql();
+            var result = await cmd.ExecuteScalarAsync(cancellationToken);
+            return result is not null && result is not DBNull;
+        }
+        catch
+        {
+            return false;
         }
     }
 

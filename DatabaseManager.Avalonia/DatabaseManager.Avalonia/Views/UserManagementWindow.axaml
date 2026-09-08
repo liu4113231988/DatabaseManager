@@ -45,7 +45,7 @@
 
             <!-- 权限文本 -->
             <TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
-                     Watermark="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
+                     PlaceholderText="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
         </Grid>
 
         <!-- 表单区（新建用户 / 授权 共用，按模式显示字段） -->

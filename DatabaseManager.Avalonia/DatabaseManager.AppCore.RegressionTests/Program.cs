@@ -56,6 +56,11 @@ static class Program
         AssertContains("sys_blocking_pids", DbSessionSql.BuildLocksSql(DatabaseType.KingbaseES));
         AssertEqual("SELECT sys_terminate_backend(12345)", DbSessionSql.BuildTerminateSessionSql(DatabaseType.KingbaseES, "12345"));
         AssertEqual(null, DbSessionSql.BuildTerminateSessionSql(DatabaseType.KingbaseES, "12345; SELECT 1"));
+        AssertContains("pg_stat_activity", DbSessionSql.BuildKingbaseFallbackSessionsSql());
+        AssertContains("pg_blocking_pids", DbSessionSql.BuildKingbaseFallbackLocksSql());
+        AssertEqual("SELECT pg_terminate_backend(12345)", DbSessionSql.BuildKingbaseFallbackTerminateSessionSql("12345"));
+        AssertEqual(null, DbSessionSql.BuildKingbaseFallbackTerminateSessionSql("12345; SELECT 1"));
+        AssertContains("sys_catalog", DbSessionSql.BuildKingbaseProbeSql());
         var kingbaseInterpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.KingbaseES, kingbaseConnection);
         AssertTrue(DbScriptGeneratorHelper.GetDbScriptGenerator(kingbaseInterpreter) is PostgresScriptGenerator,
             "KingbaseES PG 兼容路径应使用 PostgreSQL 脚本生成器。 ");

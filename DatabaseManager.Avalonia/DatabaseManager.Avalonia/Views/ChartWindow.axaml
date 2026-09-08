@@ -43,7 +43,7 @@
         <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
             <TextBlock Grid.Column="0" Text="图表 SQL:" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0" />
             <TextBox Grid.Column="1" x:Name="TxtSourceSql" FontSize="11" FontFamily="Consolas, Microsoft YaHei UI, monospace"
-                     Watermark="保存到仪表盘的查询 SQL（修改后可刷新数据）" />
+                     PlaceholderText="保存到仪表盘的查询 SQL（修改后可刷新数据）" />
             <Button Grid.Column="2" Content="执行 SQL 刷新" Click="BtnReloadSql_Click" Margin="8,0,0,0" />
         </Grid>
 
@@ -54,7 +54,7 @@
         <!-- 保存到仪表盘 -->
         <Grid Grid.Row="4" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,8,0,0">
             <TextBlock Grid.Column="0" Text="仪表盘名称:" VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0" />
-            <TextBox Grid.Column="1" x:Name="TxtChartName" VerticalContentAlignment="Center" FontSize="11" Watermark="保存到仪表盘的名称" />
+            <TextBox Grid.Column="1" x:Name="TxtChartName" VerticalContentAlignment="Center" FontSize="11" PlaceholderText="保存到仪表盘的名称" />
             <Button Grid.Column="2" Content="保存到仪表盘" Click="BtnSaveToDashboard_Click" Margin="8,0,0,0" />
             <Button Grid.Column="3" Content="关闭" Click="BtnClose_Click" Margin="8,0,0,0" />
         </Grid>

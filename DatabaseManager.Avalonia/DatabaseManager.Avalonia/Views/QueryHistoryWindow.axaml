@@ -17,7 +17,7 @@
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="过滤：" VerticalAlignment="Center" />
                 <TextBox Text="{Binding FilterText}" Width="280"
-                         Watermark="按连接名或 SQL 内容过滤"
+                         PlaceholderText="按连接名或 SQL 内容过滤"
                          VerticalContentAlignment="Center" />
                 <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
             </StackPanel>
