@@ -20,7 +20,7 @@ public partial class SearchViewModel : ViewModelBase
         _schemaService = schemaService;
     }
 
-    /// <summary>可选连接列表（仅已活动的连接，由主窗口注入）。</summary>
+    /// <summary>可选连接列表（全部已保存连接、活动连接排前，由主窗口注入；搜索按连接名按需连接）。</summary>
     public ObservableCollection<string> Connections { get; } = new();
 
     [ObservableProperty]
@@ -72,7 +72,7 @@ public partial class SearchViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanSearch));
     }
 
-    /// <summary>打开窗口时由主窗口注入活动连接列表与默认连接。</summary>
+    /// <summary>打开窗口时由主窗口注入可选连接列表与默认连接。</summary>
     public void SetConnections(
         IEnumerable<string> activeConnectionNames,
         string defaultConnectionName,

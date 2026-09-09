@@ -7,6 +7,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -33,6 +34,36 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // Avalonia 12 Fluent 的 TreeViewItem 模板中，展开箭头容器（PART_ExpandCollapseChevronContainer）
+        // 的 12,0,12,0 Margin 是主题在代码中设置的本地值，样式无法覆盖；导致对象树根节点左侧
+        // 有约 36px 的死空隙。这里在容器就绪后用本地值将其收紧（层级缩进来自模板嵌套，不受影响）。
+        ObjectsTree.ContainerPrepared += ObjectsTree_ContainerPrepared;
+    }
+
+    private void ObjectsTree_ContainerPrepared(object? sender, ContainerPreparedEventArgs e)
+    {
+        if (e.Container is TreeViewItem item)
+        {
+            // 模板部件在容器准备时尚未实例化，延后到下一帧再调整。
+            Dispatcher.UIThread.Post(() => TightenTreeItemLeftSpacing(item), DispatcherPriority.Loaded);
+        }
+    }
+
+    private static void TightenTreeItemLeftSpacing(TreeViewItem item)
+    {
+        foreach (var d in item.GetVisualDescendants())
+        {
+            switch (d.Name)
+            {
+                case "PART_ExpandCollapseChevronContainer":
+                    ((Layoutable)d).Margin = new Thickness(0, 0, 2, 0);
+                    break;
+                case "PART_HeaderPresenter":
+                    ((Layoutable)d).Margin = new Thickness(0);
+                    break;
+            }
+        }
     }
 
     protected override void OnOpened(EventArgs e)
@@ -283,12 +314,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        var activeNames = vm.ObjectsExplorer.RootNodes
-            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive && !string.IsNullOrEmpty(n.Name))
-            .Select(n => n.Name!)
-            .ToList();
-
-        if (activeNames.Count == 0)
+        // 元数据搜索按连接名按需连接，因此下拉框收录全部已保存连接（活动连接排前），
+        // 避免尚未连接任何连接时下拉框为空、无法搜索。
+        var searchableNames = GetSearchableConnectionNames(vm);
+        if (searchableNames.Count == 0)
         {
             vm.QueryEditor.StatusMessage = "请先在对象浏览器中连接一个连接，再搜索对象。";
             return;
@@ -297,8 +326,8 @@ public partial class MainWindow : Window
         var preferred = vm.SelectedQueryTab?.ConnectionName;
         var searchVm = _services.GetRequiredService<SearchViewModel>();
         searchVm.SetConnections(
-            activeNames,
-            !string.IsNullOrEmpty(preferred) && activeNames.Contains(preferred) ? preferred : activeNames[0]);
+            searchableNames,
+            !string.IsNullOrEmpty(preferred) && searchableNames.Contains(preferred) ? preferred : searchableNames[0]);
         searchVm.Keyword = keyword;
 
         var window = new SearchWindow(searchVm);
@@ -831,34 +860,34 @@ public partial class MainWindow : Window
         // 搜索范围默认限定为当前选中的连接与其当前数据库。
         var activeConnectionName = ResolveActiveConnectionForSearch(vm);
 
-        // 始终弹出搜索窗口（即使尚未连接，也在窗口内给出可操作的提示），避免点击无反应。
+        // 始终弹出搜索窗口。下拉框收录全部已保存连接（活动连接排前），
+        // 搜索服务按连接名按需连接，未连接也能直接搜索，避免下拉框为空无法使用。
         var searchVm = _services.GetRequiredService<SearchViewModel>();
 
-        if (string.IsNullOrEmpty(activeConnectionName))
+        var searchableNames = GetSearchableConnectionNames(vm);
+        if (searchableNames.Count == 0)
         {
             searchVm.SetConnections(Array.Empty<string>(), string.Empty);
-            searchVm.StatusMessage = "尚未连接任何连接。请先连接，再使用元数据搜索。";
+            searchVm.StatusMessage = "尚未保存任何连接。请先新建连接，再使用元数据搜索。";
         }
         else
         {
-            var activeNames = vm.ObjectsExplorer.RootNodes
-                .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
-                .Select(n => n.Name)
-                .ToList();
+            var defaultName = !string.IsNullOrEmpty(activeConnectionName) && searchableNames.Contains(activeConnectionName)
+                ? activeConnectionName
+                : searchableNames[0];
 
-            // 默认选中当前连接；界面保留其他活动连接供切换（对齐 DBeaver 下拉选择）。
             searchVm.SetConnections(
-                activeNames,
-                activeConnectionName,
-                vm.CurrentDatabase,
-                vm.CurrentSchema);
+                searchableNames,
+                defaultName,
+                string.Equals(defaultName, activeConnectionName, StringComparison.Ordinal) ? vm.CurrentDatabase : null,
+                string.Equals(defaultName, activeConnectionName, StringComparison.Ordinal) ? vm.CurrentSchema : null);
 
             // 限定为当前选中的数据库 / Schema，避免界面范围提示与实际查询不一致。
-            searchVm.StatusMessage = string.IsNullOrEmpty(vm.CurrentDatabase)
-                ? $"将在连接「{activeConnectionName}」下搜索..."
+            searchVm.StatusMessage = string.IsNullOrEmpty(vm.CurrentDatabase) || defaultName != activeConnectionName
+                ? $"将在连接「{defaultName}」下搜索..."
                 : string.IsNullOrEmpty(vm.CurrentSchema)
-                    ? $"将在连接「{activeConnectionName}」的数据库「{vm.CurrentDatabase}」下搜索..."
-                    : $"将在连接「{activeConnectionName}」的数据库「{vm.CurrentDatabase}」和 Schema「{vm.CurrentSchema}」下搜索...";
+                    ? $"将在连接「{defaultName}」的数据库「{vm.CurrentDatabase}」下搜索..."
+                    : $"将在连接「{defaultName}」的数据库「{vm.CurrentDatabase}」和 Schema「{vm.CurrentSchema}」下搜索...";
         }
 
         var window = new SearchWindow(searchVm);
@@ -903,6 +932,20 @@ public partial class MainWindow : Window
     /// 解析用于元数据搜索的当前活动连接名称。
     /// 优先级：对象树当前选中节点所属连接 → SelectedConnection → 任意活动连接 → null。
     /// </summary>
+    /// <summary>
+    /// 对象树中全部连接名（去重，活动连接排在前面）。元数据搜索服务按连接名按需连接，
+    /// 因此搜索范围可以包含未连接的已保存连接，避免下拉框为空。
+    /// </summary>
+    private static List<string> GetSearchableConnectionNames(MainWindowViewModel vm)
+    {
+        return vm.ObjectsExplorer.RootNodes
+            .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && !string.IsNullOrEmpty(n.Name))
+            .OrderByDescending(n => n.IsConnectionActive)
+            .Select(n => n.Name!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private string? ResolveActiveConnectionForSearch(MainWindowViewModel vm)
     {
         // 1) 对象树当前选中节点所属的连接（前提是已活动）。
