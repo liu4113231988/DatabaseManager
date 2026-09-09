@@ -238,11 +238,12 @@ public partial class TableDesignerWindow : Window
         {
             Title = title,
             Width = 320,
-            Height = 400,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
 
-        var listBox = new ListBox { SelectionMode = SelectionMode.Multiple };
+        var listBox = new ListBox { SelectionMode = SelectionMode.Multiple, MaxHeight = 300 };
         foreach (var c in candidates)
         {
             listBox.Items.Add(c);

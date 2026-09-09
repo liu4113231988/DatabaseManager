@@ -62,14 +62,22 @@ internal class ContentDialog : Control
         {
             Title = Title,
             Width = 400,
-            Height = 200,
+            SizeToContent = SizeToContent.Height,
+            CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
         };
 
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
 
         var textBlock = new TextBlock { Text = Content?.ToString(), TextWrapping = TextWrapping.Wrap };
-        panel.Children.Add(textBlock);
+        // 长提示滚动显示，短提示按内容收缩，按钮始终留在可见区域。
+        panel.Children.Add(new ScrollViewer
+        {
+            Content = textBlock,
+            MaxHeight = 320,
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        });
 
         var buttonPanel = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
 
@@ -103,14 +111,20 @@ internal class InputDialog : Window
     {
         Title = title;
         Width = 450;
-        Height = 200;
+        SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
 
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
 
         var textBlock = new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap };
-        panel.Children.Add(textBlock);
+        panel.Children.Add(new ScrollViewer
+        {
+            Content = textBlock,
+            MaxHeight = 320,
+            HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        });
 
         _textBox = new TextBox { Text = defaultValue, MinWidth = 300 };
         panel.Children.Add(_textBox);

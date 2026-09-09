@@ -31,6 +31,7 @@
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
+        <Grid>
         <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
                 IsVisible="{Binding HasResult}">
             <DataGrid x:Name="PlanGrid" ItemsSource="{Binding Rows}"
@@ -43,5 +44,6 @@
 
         <TextBlock Text="（无结果）" IsVisible="{Binding !HasResult}"
                    Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Grid>
     </DockPanel>
 </Window>

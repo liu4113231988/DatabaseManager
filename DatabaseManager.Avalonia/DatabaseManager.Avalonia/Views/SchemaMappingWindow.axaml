@@ -9,19 +9,18 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <Grid Margin="12" RowDefinitions="Auto,*,Auto,Auto">
 
-        <TextBlock DockPanel.Dock="Top" Text="配置源 Schema → 目标 Schema 映射（用于跨库结构转换）"
+        <TextBlock Grid.Row="0" Text="配置源 Schema → 目标 Schema 映射（用于跨库结构转换）"
                    FontWeight="SemiBold" Margin="0,0,0,10" />
 
         <!-- 映射列表 -->
-        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,8">
+        <Border Grid.Row="1" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1" Margin="0,0,0,8">
             <DataGrid ItemsSource="{Binding SchemaMappings}"
                       AutoGenerateColumns="False"
                       GridLinesVisibility="All"
                       IsReadOnly="False"
                       HeadersVisibility="Column"
-                      MinHeight="220"
                       CanUserResizeColumns="True"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
@@ -32,17 +31,17 @@
         </Border>
 
         <!-- 操作按钮 -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8">
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8">
             <atom:Button Content="＋ 新增映射" Command="{Binding AddSchemaMappingCommand}" />
             <atom:Button Content="－ 删除选中" Click="BtnRemoveMapping_Click" />
             <atom:Button Content="刷新（自动映射）" Command="{Binding LoadSchemaMappingsCommand}" />
         </StackPanel>
 
         <!-- 底部：状态与关闭 -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Opacity="0.8" TextWrapping="Wrap" />
-            <atom:Button Content="关闭" HorizontalAlignment="Right" Click="BtnClose_Click" />
-        </StackPanel>
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Opacity="0.8" TextWrapping="Wrap" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="1" Content="关闭" Click="BtnClose_Click" />
+        </Grid>
 
-    </DockPanel>
+    </Grid>
 </Window>

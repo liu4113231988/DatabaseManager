@@ -1,0 +1,32 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:DatabaseManager.Avalonia.Converters">
+
+    <!-- 节点高亮：搜索结果临时黄底 -->
+    <conv:HighlightBrushConverter x:Key="HighlightBrushConverter" />
+
+    <!-- 节点图标：按节点类型返回 DrawingImage -->
+    <conv:NodeIconConverter x:Key="NodeIconConverter" />
+
+    <!-- 节点字体粗细：连接/数据库节点加粗 -->
+    <conv:NodeFontWeightConverter x:Key="NodeFontWeightConverter" />
+
+    <!-- 行状态刷：DataGrid 行背景（编辑/新增/删除） -->
+    <conv:RowStateToBrushConverter x:Key="RowStateToBrushConverter" />
+
+    <!-- 差异色：比对结果中标红/标绿 -->
+    <conv:DiffColorConverter x:Key="DiffColorConverter" />
+
+    <!-- 仅 Connection 节点显示连接状态点 -->
+    <conv:ShowConnStatusConverter x:Key="ShowConnStatusConverter" />
+
+    <!-- 连接状态点颜色：绿/橙/红/灰 -->
+    <conv:ConnStatusBrushConverter x:Key="ConnStatusBrushConverter" />
+
+    <!-- 布尔取反 -->
+    <conv:BoolOppositeConverter x:Key="BoolOppositeConverter" />
+
+    <!-- 连接颜色标签字符串 → 画刷 -->
+    <conv:StringToBrushConverter x:Key="StringToBrushConverter" />
+
+</ResourceDictionary>

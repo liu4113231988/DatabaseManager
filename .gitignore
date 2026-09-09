@@ -262,3 +262,6 @@ nul
 
 # ZCode CLI workspace files
 .zcode/
+
+# Local verification build output
+.artifacts/

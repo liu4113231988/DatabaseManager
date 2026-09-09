@@ -5,7 +5,7 @@
         x:Class="DatabaseManager.Avalonia.Views.ConnectWindow"
         x:DataType="vm:ConnectionManagerViewModel"
         Title="连接配置"
-        Width="600" Height="760"
+        Width="600" SizeToContent="Height" MaxHeight="760"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner"
         CanResize="False">
