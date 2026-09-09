@@ -185,7 +185,13 @@
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
                     <StackPanel Orientation="Horizontal" Spacing="1">
                         <Button Classes="toolbar primary" Click="ToolExecute_Click" AutomationProperties.Name="执行" ToolTip.Tip="执行 SQL (F5) - 选中时仅执行选区">
-                            <Grid Width="16" Height="16"><Path Data="M7 4L19 12L7 20Z" RenderTransform="translate(1,0)" MaxWidth="14" MaxHeight="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="#FFFFFF" /></Grid>
+                            <Grid Width="16" Height="16">
+                                <Path Data="M7 4L19 12L7 20Z" MaxWidth="14" MaxHeight="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Fill="#FFFFFF">
+                                    <Path.RenderTransform>
+                                        <TranslateTransform X="1" Y="0" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Grid>
                         </Button>
                         <Button Classes="toolbar" Click="ToolCancelExecution_Click" AutomationProperties.Name="取消正在执行的 SQL" ToolTip.Tip="取消正在执行的 SQL"
                                 IsEnabled="{Binding SelectedQueryTab.IsExecuting}">
