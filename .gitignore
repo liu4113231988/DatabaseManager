@@ -265,3 +265,6 @@ nul
 
 # Local verification build output
 .artifacts/
+
+# Smoke 冒烟测试生成的临时截图/日志目录（脚本入 git，产物不入库）
+DatabaseManager.Avalonia/docs/smoke*/
