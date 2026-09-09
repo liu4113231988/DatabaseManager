@@ -11,6 +11,7 @@
     <!-- 仅保留 win-x64 与 linux-x64 运行时，避免发布包携带大量其他平台原生依赖 -->
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
 	  <SatelliteResourceLanguages>zh-Hans;es;</SatelliteResourceLanguages>
+	  <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -58,18 +59,13 @@
     其中 win/ 与 unix/ 是 win-x64 / linux-x64 的 RID 回退目录，许多包（如
     Microsoft.Data.SqlClient）将托管程序集放在这两个目录中，删除会导致
     FileNotFoundException。仅剔除具体架构变体（win-arm、linux-arm64 等）即可。
-    同时清理 runtimes/ 下残留的 pdb 调试符号文件。
+    PDB 清理由仓库根 Directory.Build.props 中的 RemoveReleasePdbFiles 统一处理。
   -->
   <Target Name="RemoveUnwantedRuntimes" AfterTargets="Build">
     <ItemGroup>
       <_UnwantedRuntimes Include="browser-wasm;linux-arm;linux-arm64;linux-armel;linux-bionic-arm64;linux-bionic-x64;linux-loongarch64;linux-mips64;linux-musl-arm;linux-musl-arm64;linux-musl-loongarch64;linux-musl-riscv64;linux-musl-s390x;linux-musl-x64;linux-ppc64le;linux-riscv64;linux-s390x;linux-x86;maccatalyst-arm64;maccatalyst-x64;osx;osx-arm64;osx-x64;win-arm;win-arm64;win-x86" />
     </ItemGroup>
     <RemoveDir Directories="@(_UnwantedRuntimes->'$(OutDir)runtimes\%(Identity)')" Condition="Exists('$(OutDir)runtimes\%(Identity)')" />
-    <!-- 清理 runtimes/ 下所有 pdb 调试符号文件（保留 dll/so/dylib 等运行时资产） -->
-    <ItemGroup>
-      <_RuntimePdbFiles Include="$(OutDir)runtimes\**\*.pdb" />
-    </ItemGroup>
-    <Delete Files="@(_RuntimePdbFiles)" />
   </Target>
 
 </Project>
