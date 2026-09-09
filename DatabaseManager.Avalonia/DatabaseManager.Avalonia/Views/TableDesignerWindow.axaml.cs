@@ -237,6 +237,8 @@ public partial class TableDesignerWindow : Window
         var dialog = new Window
         {
             Title = title,
+            Icon = Icon,
+            ShowInTaskbar = false,
             Width = 320,
             SizeToContent = SizeToContent.Height,
             CanResize = false,

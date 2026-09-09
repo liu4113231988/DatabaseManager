@@ -461,12 +461,12 @@ public class ObjectTreeContextMenuBuilder
         {
             var truncate = CreateMenuItem("截断表 (TRUNCATE)...", "生成 TRUNCATE TABLE 模板（清空数据，不可回滚）");
             truncate.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Translate.png");
-            truncate.Click += (_, _) => SetQueryText($"TRUNCATE TABLE {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的 TRUNCATE 模板。");
+            truncate.Click += (_, _) => SetQueryTextInNewTab(node, $"TRUNCATE TABLE {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的 TRUNCATE 模板。");
             menu.Items.Add(truncate);
 
             var count = CreateMenuItem("查看行数 (COUNT)...", "生成 SELECT COUNT(*) 查询");
             count.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Database16.png");
-            count.Click += (_, _) => SetQueryText($"SELECT COUNT(*) AS RowCount FROM {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的行数统计查询。");
+            count.Click += (_, _) => SetQueryTextInNewTab(node, $"SELECT COUNT(*) AS RowCount FROM {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的行数统计查询。");
             menu.Items.Add(count);
 
             menu.Items.Add(new Separator());
@@ -658,7 +658,7 @@ public class ObjectTreeContextMenuBuilder
             return;
         }
 
-        SetQueryText(result.Script!, $"已为表 {table.Name} 生成新建列模板，请编辑后执行。");
+        SetQueryTextInNewTab(node, result.Script!, $"已为表 {table.Name} 生成新建列模板，请编辑后执行。");
     }
 
     /// <summary>列节点右键菜单（P2增强版）。</summary>
@@ -1012,7 +1012,7 @@ public class ObjectTreeContextMenuBuilder
             return;
         }
 
-        SetQueryText(result.Script!, $"已生成 {node.DbObject.Name} 的 {templateType} 脚本（基于真实结构）。");
+        SetQueryTextInNewTab(node, result.Script!, $"已生成 {node.DbObject.Name} 的 {templateType} 脚本（基于真实结构）。");
     }
 
     /// <summary>P2: Filter 模板 - 生成带 WHERE 的 SELECT。</summary>
@@ -1024,21 +1024,13 @@ public class ObjectTreeContextMenuBuilder
         string objectName = GetQualifiedObjectName(node);
         string sql = $"SELECT * FROM {objectName}\nWHERE /* 过滤条件 */\nORDER BY 1;";
 
-        SetQueryText(sql, $"已生成 {node.DbObject.Name} 的过滤查询模板，请编辑 WHERE 条件。");
+        SetQueryTextInNewTab(node, sql, $"已生成 {node.DbObject.Name} 的过滤查询模板，请编辑 WHERE 条件。");
     }
 
-    /// <summary>将 SQL 填充到当前查询标签页并更新状态。</summary>
-    private void SetQueryText(string sql, string statusMessage)
+    /// <summary>在新的查询标签页中打开 SQL（避免覆盖用户当前编辑内容）。</summary>
+    private void SetQueryTextInNewTab(DbObjectTreeNode node, string sql, string statusMessage)
     {
-        if (_viewModel.SelectedQueryTab is not null)
-        {
-            _viewModel.SelectedQueryTab.SqlText = sql;
-            _viewModel.SelectedQueryTab.StatusMessage = statusMessage;
-        }
-
-        // 向后兼容（无标签页时仍填充全局编辑器）
-        _viewModel.QueryEditor.SqlText = sql;
-        _viewModel.QueryEditor.StatusMessage = statusMessage;
+        _viewModel.OpenNodeSqlInNewTab(node, sql, statusMessage);
     }
 
     #endregion
@@ -1060,8 +1052,7 @@ public class ObjectTreeContextMenuBuilder
             _ => string.Empty,
         };
 
-        _viewModel.QueryEditor.SqlText = sql;
-        _viewModel.QueryEditor.StatusMessage = $"已生成列 {column.Name} 的{templateType}模板脚本。";
+        _viewModel.OpenNodeSqlInNewTab(node, sql, $"已生成列 {column.Name} 的{templateType}模板脚本。");
     }
 
     #endregion

@@ -61,6 +61,8 @@ internal class ContentDialog : Control
         var window = new Window
         {
             Title = Title,
+            Icon = parent.Icon,
+            ShowInTaskbar = false,
             Width = 400,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
@@ -114,6 +116,7 @@ internal class InputDialog : Window
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         CanResize = false;
+        ShowInTaskbar = false;
 
         var panel = new StackPanel { Margin = new Thickness(16), Spacing = 12 };
 
@@ -146,6 +149,7 @@ internal class InputDialog : Window
 
     public new async Task<string?> ShowAsync(Window parent)
     {
+        Icon = parent.Icon;
         await ShowDialog(parent);
         return _result;
     }
