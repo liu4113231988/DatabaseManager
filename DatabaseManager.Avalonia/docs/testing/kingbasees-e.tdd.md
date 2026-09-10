@@ -9,6 +9,7 @@
 - `sys_stat_activity` 用于读取进程与会话信息；`sys_locks` 可与其按 `pid` 关联。
 - `sys_blocking_pids(pid)` 用于识别阻塞会话，优于自行比对锁模式。
 - `sys_terminate_backend(pid)` 终止会话；会导致该会话正在执行的事务回滚。调用者须是目标角色成员或拥有 `sys_signal_backend`，且终止超级用户会话仅限超级用户。
+- 部分金仓版本（如精简安装或历史版本）仅暴露 `pg_stat_activity` / `pg_terminate_backend`。客户端在探测到 `sys_catalog.stat_activity` 缺失时自动回退到 `pg_*` 路径，保证同一连接配置仍可工作。
 
 ## 自动化回归
 
@@ -17,6 +18,8 @@
 - KingbaseES 会话 SQL 使用 `sys_stat_activity`；
 - 阻塞链 SQL 使用 `sys_blocking_pids()`；
 - 终止会话 SQL 使用 `sys_terminate_backend(pid)`；
+- 未暴露 `sys_catalog.stat_activity` 时的回退 SQL（pg_* 系列）；
+- 探测 SQL 命中 `sys_catalog` Schema；
 - 非数值 PID 被拒绝，避免将用户输入拼接为可执行 SQL。
 
 ## 待真实 V8 实例验收
