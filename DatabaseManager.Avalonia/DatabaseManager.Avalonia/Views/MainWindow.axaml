@@ -333,20 +333,20 @@
                                   ContextRequested="ObjectsTree_ContextRequested"
                                   BorderThickness="0"
                                   Padding="0"
-                                  Margin="4,0,0,0"
+                                  Margin="0"
                                   FontFamily="Microsoft YaHei UI, Segoe UI, sans-serif"
                                   FontSize="12">
                             <TreeView.Styles>
                                 <!-- 消除 TreeView 内部 ScrollViewer 默认留白 -->
                                 <Style Selector="TreeView /template/ ScrollViewer">
-                                    <Setter Property="Padding" Value="2,0,0,0" />
+                                    <Setter Property="Padding" Value="0" />
                                 </Style>
                                 <Style Selector="TreeView /template/ ItemsPresenter">
-                                    <Setter Property="Margin" Value="2,0,0,0" />
+                                    <Setter Property="Margin" Value="0" />
                                 </Style>
                                 <Style Selector="TreeViewItem" x:DataType="models:DbObjectTreeNode">
                                     <!-- 直连通过 Padding 让文字整体更左靠，而不是不同平台默认模板差异 -->
-                                    <Setter Property="Padding" Value="2,0,0,0" />
+                                    <Setter Property="Padding" Value="0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="MinHeight" Value="26" />
                                     <!-- 展开状态持久化：绑定到模型，刷新/重建后容器自动恢复展开，避免整树折叠 -->
@@ -360,73 +360,16 @@
                                 <Style Selector="TreeViewItem:selected">
                                     <Setter Property="Background" Value="{DynamicResource AppSelectedBrush}" />
                                 </Style>
-                                <!-- 兼容不同版本 Avalonia TreeViewItem 模板：多重命中缩进容器 -->
-                                <Style Selector="TreeViewItem /template/ Border#PART_IndentContainer">
-                                    <Setter Property="Margin" Value="0,0,0,0" />
-                                </Style>
-                                <Style Selector="TreeViewItem /template/ Decorator#PART_IndentContainer">
-                                    <Setter Property="Margin" Value="0,0,0,0" />
-                                </Style>
-                                <Style Selector="TreeViewItem /template/ Panel#PART_IndentContainer">
-                                    <Setter Property="Margin" Value="0,0,0,0" />
-                                </Style>
-                                <Style Selector="TreeViewItem /template/ ToggleButton#PART_ExpandCollapseToggle">
-                                    <!-- 折叠/展开箭头：固定尺寸 + 左右负边距，让箭头右边距离后续图标正好约 2px -->
-                                    <Setter Property="Width" Value="14" />
-                                    <Setter Property="Height" Value="14" />
-                                    <Setter Property="Margin" Value="-14,0,-18,0" />
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="BorderThickness" Value="0" />
-                                    <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                                    <Setter Property="ContentTemplate">
-                                        <DataTemplate>
-                                            <Grid Width="12" Height="12" Margin="0">
-                                                <!-- 空心 Chevron：描边折线（V 型），Round 转角/端点，更清爽现代 -->
-                                                <Path x:Name="ArrowPath"
-                                                      Data="M3,2.5 L7.5,6 L3,9.5"
-                                                      Fill="Transparent"
-                                                      Stroke="{DynamicResource AppChevronBrush}"
-                                                      StrokeThickness="1.8"
-                                                      StrokeLineCap="Round"
-                                                      Stretch="Uniform"
-                                                      HorizontalAlignment="Center"
-                                                      VerticalAlignment="Center"
-                                                      RenderTransformOrigin="50% 50%">
-                                                    <Path.Transitions>
-                                                        <Transitions>
-                                                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.12" />
-                                                        </Transitions>
-                                                    </Path.Transitions>
-                                                </Path>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </Setter>
-                                </Style>
-                                <!-- 展开状态：Chevron 旋转 90° 朝下，AtomUI 主色 -->
-                                <Style Selector="TreeViewItem:expanded /template/ ToggleButton#PART_ExpandCollapseToggle Path#ArrowPath">
-                                    <Setter Property="RenderTransform">
-                                        <RotateTransform Angle="90" />
-                                    </Setter>
-                                    <Setter Property="Stroke" Value="#1677FF" />
-                                </Style>
-                                <!-- 收紧展开箭头与对象图标之间的模板预留区。 -->
-                                <Style Selector="TreeViewItem /template/ ContentPresenter#PART_HeaderPresenter">
-                                    <Setter Property="Margin" Value="-16,0,0,0" />
-                                    <Setter Property="Padding" Value="0" />
-                                </Style>
-                                <Style Selector="TreeViewItem /template/ ContentControl#PART_HeaderPresenter">
-                                    <Setter Property="Margin" Value="-16,0,0,0" />
-                                    <Setter Property="Padding" Value="0" />
-                                </Style>
+                                <!-- 说明：Avalonia 12 Fluent 的 TreeViewItem 模板部件（PART_ExpandCollapseChevronContainer 等）
+                                     由主题代码设置本地值，样式选择器无法覆盖，左对齐收紧逻辑在 MainWindow.axaml.cs 的
+                                     ObjectsTree_ContainerPrepared 中处理。 -->
                             </TreeView.Styles>
                             <TreeView.ItemTemplate>
                                 <TreeDataTemplate x:DataType="models:DbObjectTreeNode"
                                                   ItemsSource="{Binding Children}">
                                     <!-- 节点图标与文字保留适中的视觉间距。 -->
                                     <Border Background="{Binding IsHighlighted, Converter={StaticResource HighlightBrushConverter}}"
-                                            CornerRadius="4" Padding="4,2">
+                                            CornerRadius="4" Padding="0,1">
                                         <StackPanel Orientation="Horizontal" Spacing="6"
                                                     Tag="{Binding}"
                                                     VerticalAlignment="Center">
@@ -715,24 +658,27 @@
                     <!-- 标签头模板（带关闭按钮，右键菜单通过 ContextRequested 事件处理） -->
                     <TabControl.ItemTemplate>
                         <DataTemplate DataType="vm:QueryTabViewModel">
-                            <Border x:Name="TabHeaderBorder" 
-                                   Padding="4,2" 
+                            <Border x:Name="TabHeaderBorder"
+                                   Width="88"
+                                   Padding="6,4"
                                    Background="Transparent"
                                    ContextRequested="TabHeader_ContextRequested"
                                    Tag="{Binding}">
-                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="11" />
-                                    <Button Click="CloseTab_Click" Tag="{Binding}"
-                                            Width="16" Height="16" Padding="0"
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" Margin="0,0,4,0"
+                                               ToolTip.Tip="{Binding Title}" />
+                                    <Button Grid.Column="1" Click="CloseTab_Click" Tag="{Binding}"
+                                            Width="20" Height="20" MinWidth="0" MinHeight="0" Padding="0"
                                             Margin="0"
                                             BorderThickness="0"
                                             Background="Transparent"
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="关闭标签">
-                                        <TextBlock Text="×" FontSize="10" VerticalAlignment="Center"
+                                        <TextBlock Text="×" FontSize="14" VerticalAlignment="Center"
                                                    HorizontalAlignment="Center" Foreground="#666" />
                                     </Button>
-                                </StackPanel>
+                                </Grid>
                             </Border>
                         </DataTemplate>
                     </TabControl.ItemTemplate>

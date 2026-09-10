@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -70,7 +72,10 @@ public static class SmokeHarness
         var conn = EnsureDefaultConnection(services);
 
         // 2) 让主窗口在对象树里能看到这条连接。
-        var mainVm = services.GetRequiredService<MainWindowViewModel>();
+        //    注意：MainWindowViewModel 注册为 Transient，必须用窗口的 DataContext，
+        //    否则操作的是一个与界面无关的 VM 实例（树不会真正连接/展开）。
+        var mainVm = main.DataContext as MainWindowViewModel
+                     ?? services.GetRequiredService<MainWindowViewModel>();
         mainVm.RefreshConnections();
         if (conn is not null)
         {
@@ -90,7 +95,13 @@ public static class SmokeHarness
         }
         catch { /* ignore */ }
 
+        // 清空标签页后补一个空查询标签，避免截图时编辑区空白。
+        try { mainVm.NewQuery(); } catch { /* ignore */ }
+
         await SettleAsync(400, ct);
+
+        // 诊断：测量对象树各层级节点的左侧偏移。
+        await MeasureTreeDiagAsync(main, logFile);
 
         // 3) 截主窗口（含对象树、工具栏、状态栏）。
         await CaptureAsync(main, Path.Combine(outputDir, "01_main.png"), ct);
@@ -156,15 +167,21 @@ public static class SmokeHarness
             try
             {
                 var node = mainVm.ObjectsExplorer.FindConnectionNode(conn.Name);
+                AppendLog(logFile, $"[smoke] 连接节点查找：conn={conn.Name}，node={(node is null ? "未找到" : "已找到")}");
                 if (node is not null)
                 {
                     await mainVm.ConnectConnectionNodeAsync(node);
+                    AppendLog(logFile, $"[smoke] 连接结果：IsConnectionActive={node.IsConnectionActive}，Children={node.Children.Count}");
                 }
             }
             catch (Exception ex)
             {
                 AppendLog(logFile, $"[smoke] 连接默认库失败：{ex.Message}");
             }
+        }
+        else
+        {
+            AppendLog(logFile, "[smoke] 默认连接为 null，跳过连接步骤");
         }
         await SettleAsync(700, ct);
         await CaptureAsync(main, Path.Combine(outputDir, "25_main_connected.png"), ct);
@@ -186,6 +203,10 @@ public static class SmokeHarness
         }
         catch { /* ignore */ }
         await SettleAsync(400, ct);
+
+        // 诊断2：展开后再测各层级偏移。
+        await MeasureTreeDiagAsync(main, logFile);
+
         await CaptureAsync(main, Path.Combine(outputDir, "26_main_tree_expanded.png"), ct);
 
         // 9) 演示 DB 对象动态着色：注入示例 SQL 与一组假定的"已加载"对象名，
@@ -211,8 +232,67 @@ public static class SmokeHarness
         await SettleAsync(400, ct);
         await CaptureAsync(main, Path.Combine(outputDir, "27_query_dbobject_highlight.png"), ct);
 
-        // 10) 写一份结果摘要（Markdown 表格）。
+        // 10) 专项回归：窗口 Icon 与「已连接状态下」的元数据搜索下拉框。
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var icon = main.Icon;
+                AppendLog(logFile, $"[diag] 主窗口 Icon={(icon is null ? "为 null（任务栏将显示默认图标）" : "已加载非空 WindowIcon")}");
+            });
+        }
+        catch (Exception ex)
+        {
+            AppendLog(logFile, $"[diag] 读取 Icon 失败：{ex.Message}");
+        }
+
+        try
+        {
+            var searchVm = services.GetRequiredService<SearchViewModel>();
+            // 与 MainWindow.GetSearchableConnectionNames 一致：全部已保存连接、活动连接排前、去重。
+            var searchableNames = mainVm.ObjectsExplorer.RootNodes
+                .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && !string.IsNullOrEmpty(n.Name))
+                .OrderByDescending(n => n.IsConnectionActive)
+                .Select(n => n.Name!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            searchVm.SetConnections(searchableNames, searchableNames.FirstOrDefault() ?? string.Empty);
+            AppendLog(logFile, $"[diag] 元数据搜索可选连接数={searchableNames.Count}，默认={searchVm.SelectedConnectionName ?? "（空）"}");
+            await ShowAndCaptureAsync(() => new SearchWindow(searchVm),
+                Path.Combine(outputDir, "28_search_connected.png"), ct);
+        }
+        catch (Exception ex)
+        {
+            AppendLog(logFile, $"[smoke] 元数据搜索回归失败：{ex.Message}");
+        }
+
+        // 11) 写一份结果摘要（Markdown 表格）。
         WriteResultsIndex(outputDir);
+    }
+
+    /// <summary>诊断：输出对象树各层级 TreeViewItem 的模板部件偏移。</summary>
+    private static async Task MeasureTreeDiagAsync(MainWindow main, string logFile)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            try
+            {
+                var tree = main.FindControl<TreeView>("ObjectsTree");
+                var items = tree?.GetVisualDescendants().OfType<TreeViewItem>().Take(12).ToList() ?? new List<TreeViewItem>();
+                AppendLog(logFile, $"[diag] TreeViewItem 数量（最多前12个）：{items.Count}");
+                foreach (var item in items)
+                {
+                    var chevron = item.GetVisualDescendants().FirstOrDefault(d => d.Name == "PART_ExpandCollapseChevronContainer") as Layoutable;
+                    var header = item.GetVisualDescendants().FirstOrDefault(d => d.Name == "PART_HeaderPresenter") as Layoutable;
+                    AppendLog(logFile,
+                        $"[diag] item x={item.Bounds.X:F1} | chevron margin={chevron?.Margin} | header x={header?.Bounds.X:F1} margin={header?.Margin}");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppendLog(logFile, $"[diag] 失败：{ex.Message}");
+            }
+        });
     }
 
     private const string DemoSql =

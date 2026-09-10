@@ -542,24 +542,44 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshRecentScripts();
     }
 
-    /// <summary>根据选中的表/视图生成 SELECT 脚本并填充到查询编辑器。</summary>
+    /// <summary>根据选中的表/视图生成 SELECT 脚本并在新查询标签页中打开（避免覆盖当前编辑内容）。</summary>
     public void GenerateSelectScript(DbObjectTreeNode node)
     {
         if (node?.DbObject is not (Table or View))
             return;
 
         var sql = BuildSelectSql(node.DbObject);
-        
-        // 填充到当前选中的标签页
-        if (SelectedQueryTab is not null)
+        OpenNodeSqlInNewTab(
+            node,
+            sql,
+            $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。");
+    }
+
+    /// <summary>新建查询标签页并填入 SQL（用于对象树右键菜单的「查询数据/编辑数据/生成 SQL」等场景）。</summary>
+    public QueryTabViewModel OpenNodeSqlInNewTab(DbObjectTreeNode node, string sql, string? statusMessage = null)
+    {
+        var connectionName = FindNodeConnectionName(node);
+        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
+
+        if (!string.IsNullOrEmpty(connectionName))
         {
-            SelectedQueryTab.SqlText = sql;
-            SelectedQueryTab.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
+            newTab.ConnectionName = connectionName;
         }
-        
-        // 向后兼容
-        QueryEditor.SqlText = sql;
-        QueryEditor.StatusMessage = $"已生成 {node.DbObject.Name} 的查询脚本，点击「执行」运行。";
+        else if (SelectedConnection is not null)
+        {
+            newTab.ConnectionName = SelectedConnection.Name;
+        }
+        newTab.DatabaseName = string.IsNullOrEmpty(node.DatabaseName) ? CurrentDatabase : node.DatabaseName;
+
+        QueryTabs.Add(newTab);
+        SelectedQueryTab = newTab;
+
+        newTab.SqlText = sql;
+        if (!string.IsNullOrEmpty(statusMessage))
+        {
+            newTab.StatusMessage = statusMessage;
+        }
+        return newTab;
     }
 
     /// <summary>新建查询标签页并填入 SQL（用于新建对象模板 / 查看对象定义）。</summary>
