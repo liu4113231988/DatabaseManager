@@ -611,6 +611,18 @@ public partial class MainWindowViewModel : ViewModelBase
         if (node is null)
             return;
 
+        // 数据库/Schema 节点的子级在连接时随整棵树一次性构建（无按节点单独加载入口），
+        // 刷新时定位所属连接节点并重连，重建对象树。
+        if (node.NodeType is DbObjectTreeNodeType.Database or DbObjectTreeNodeType.Schema)
+        {
+            var connectionNode = FindAncestor(node, DbObjectTreeNodeType.Connection);
+            if (connectionNode is not null)
+            {
+                await ReconnectConnectionNodeAsync(connectionNode);
+            }
+            return;
+        }
+
         var connectionName = FindNodeConnectionName(node);
         if (string.IsNullOrEmpty(connectionName))
             return;

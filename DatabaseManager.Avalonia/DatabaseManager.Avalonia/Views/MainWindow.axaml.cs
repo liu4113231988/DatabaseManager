@@ -1843,23 +1843,7 @@ public partial class MainWindow : Window
             return;
 
         // 使用构建器模式按节点类型分发右键菜单（P2增强：含Compare/Migrate回调）
-        var connectionService = _services?.GetService<IDbConnectionService>();
-        var ddlService = _services?.GetService<IDdlService>();
-        var builder = new ObjectTreeContextMenuBuilder(
-            vm,
-            ObjectsTree,
-            asyncAction: async (action) => action(),
-            connectionService: connectionService,
-            ddlService: ddlService,
-            openConnectionManager: () => _ = OpenConnectionManagerAsync(),
-            openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
-
-            openExportWindow: (n) => _ = OpenExportWindowForTableAsync(n),
-            openImportWindow: (n) => _ = OpenImportWindowForTableAsync(n),
-            openSchemaCompare: (n) => _ = OpenSchemaCompareForNodeAsync(n),
-            openDataCompare: (n) => _ = OpenDataCompareForNodeAsync(n),
-            openConvert: (n) => _ = OpenConvertForNodeAsync(n));
-
+        var builder = CreateTreeMenuBuilder(vm);
         builder.BuildAndShow(node, e);
     }
 
@@ -1887,6 +1871,102 @@ public partial class MainWindow : Window
 
         // 回退：未命中任何树项（如右键空白区）时使用当前选中节点。
         return ObjectsTree.SelectedItem as DbObjectTreeNode;
+    }
+
+    /// <summary>
+    /// 对象树键盘快捷键（补齐右键菜单提示的快捷键，与菜单动作共用同一入口）：
+    /// Enter=连接连接节点、F5=刷新/重新连接、F4=查看数据(SELECT)、F2=重命名、Delete=删除、Ctrl+C=复制名称。
+    /// TreeView 先于主窗口收到 KeyDown，命中后置 Handled，避免同时触发全局快捷键
+    /// （如 F5 执行查询、F4 刷新连接）；未命中的按键继续冒泡，保留原有全局行为。
+    /// </summary>
+    private async void ObjectsTree_KeyDown(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        // 快捷键的作用目标为对象树当前选中节点。
+        if (ObjectsTree.SelectedItem is not DbObjectTreeNode node)
+            return;
+
+        var builder = CreateTreeMenuBuilder(vm);
+
+        switch (e.Key)
+        {
+            case Key.Enter or Key.Return:
+                // 连接节点未连接时：Enter 连接（对应菜单「连接\tEnter」）；
+                // 已连接时交由 TreeViewItem 内置按键行为（展开/双击语义）处理，不重复动作。
+                if (node.NodeType == DbObjectTreeNodeType.Connection && !node.IsConnectionActive)
+                {
+                    e.Handled = true;
+                    await builder.ConnectAsync(node);
+                }
+                break;
+
+            case Key.F5:
+                // 刷新节点 / 重新连接（对应菜单「刷新\tF5」「重新连接\tF5」）
+                e.Handled = true;
+                await builder.RefreshAsync(node);
+                break;
+
+            case Key.F4:
+                // 查看数据（对应菜单「查看数据 (SELECT)\tF4」），仅表/视图节点生效；
+                // 其余节点保留全局 F5/F4 行为（F4 刷新连接列表）。
+                if (node.NodeType == DbObjectTreeNodeType.DbObject && node.DbObject is Table or View)
+                {
+                    e.Handled = true;
+                    vm.GenerateSelectScript(node);
+                }
+                break;
+
+            case Key.F2:
+                // 重命名（对应菜单「重命名...\tF2」）
+                if (node.NodeType is DbObjectTreeNodeType.Connection
+                    or DbObjectTreeNodeType.DbObject
+                    or DbObjectTreeNodeType.ChildObject)
+                {
+                    e.Handled = true;
+                    await builder.RenameAsync(node);
+                }
+                break;
+
+            case Key.Delete:
+                // 删除（对应菜单「删除\tDelete」）
+                if (node.NodeType is DbObjectTreeNodeType.Connection
+                    or DbObjectTreeNodeType.DbObject
+                    or DbObjectTreeNodeType.ChildObject)
+                {
+                    e.Handled = true;
+                    await builder.DeleteAsync(node);
+                }
+                break;
+
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Control):
+                // 复制名称（对应菜单「复制名称\tCtrl+C」）
+                e.Handled = true;
+                builder.CopyName(node);
+                break;
+        }
+    }
+
+    /// <summary>创建对象树菜单构建器（右键菜单与键盘快捷键共用同一组动作入口，保证行为一致）。</summary>
+    private ObjectTreeContextMenuBuilder CreateTreeMenuBuilder(MainWindowViewModel vm)
+    {
+        var connectionService = _services?.GetService<IDbConnectionService>();
+        var ddlService = _services?.GetService<IDdlService>();
+
+        return new ObjectTreeContextMenuBuilder(
+            vm,
+            ObjectsTree,
+            asyncAction: async (action) => action(),
+            connectionService: connectionService,
+            ddlService: ddlService,
+            openConnectionManager: () => _ = OpenConnectionManagerAsync(),
+            openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
+            openExportWindow: (n) => _ = OpenExportWindowForTableAsync(n),
+            openImportWindow: (n) => _ = OpenImportWindowForTableAsync(n),
+            openSchemaCompare: (n) => _ = OpenSchemaCompareForNodeAsync(n),
+            openDataCompare: (n) => _ = OpenDataCompareForNodeAsync(n),
+            openConvert: (n) => _ = OpenConvertForNodeAsync(n));
     }
 
     /// <summary>P2: 为节点打开结构对比窗口。</summary>
@@ -2359,7 +2439,7 @@ public partial class MainWindow : Window
                 break;
 
             case Key.Delete:
-                // Delete：如果焦点在对象树，不处理（由右键菜单处理）
+                // Delete：对象树焦点时由 ObjectsTree_KeyDown 处理（删除选中节点）
                 break;
         }
     }

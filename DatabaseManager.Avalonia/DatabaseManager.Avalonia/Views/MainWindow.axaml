@@ -331,6 +331,7 @@
                                   ItemsSource="{Binding ObjectsExplorer.RootNodes}"
                                   DoubleTapped="ObjectsTree_DoubleTapped"
                                   ContextRequested="ObjectsTree_ContextRequested"
+                                  KeyDown="ObjectsTree_KeyDown"
                                   BorderThickness="0"
                                   Padding="0"
                                   Margin="0"

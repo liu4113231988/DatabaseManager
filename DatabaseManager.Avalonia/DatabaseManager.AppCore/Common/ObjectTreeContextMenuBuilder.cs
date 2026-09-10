@@ -19,6 +19,8 @@ namespace DatabaseManager.AppCore.Common;
 /// 对象树右键菜单构建器。
 /// 按节点类型分发，为不同类型的节点（连接/数据库/Schema/文件夹/对象/子对象）构建对应的右键菜单。
 /// P2 增强：菜单分组、快捷键提示、Generate SQL 扩展、Filter、Compare/Migrate、高级复制。
+/// 快捷键：对象树 KeyDown（Enter/F5/F4/F2/Delete/Ctrl+C）通过本类的 ConnectAsync/RefreshAsync/RenameAsync/DeleteAsync/CopyName
+/// 入口复用与右键菜单完全一致的动作逻辑，避免两套行为分叉。
 /// </summary>
 public class ObjectTreeContextMenuBuilder
 {
@@ -105,6 +107,82 @@ public class ObjectTreeContextMenuBuilder
         menu.Open(_treeView);
         e.Handled = true;
     }
+
+    #region 键盘快捷键动作入口（与右键菜单动作保持一致）
+
+    /// <summary>快捷键 Enter：连接连接节点（对应菜单「连接\tEnter」）。已连接时不动作（交给 TreeViewItem 内置按键行为处理）。</summary>
+    public async Task ConnectAsync(DbObjectTreeNode node)
+    {
+        if (node.NodeType != DbObjectTreeNodeType.Connection || node.IsConnectionActive)
+            return;
+
+        await _viewModel.ConnectConnectionNodeAsync(node);
+        ExpandNode(node);
+    }
+
+    /// <summary>快捷键 F5：刷新节点（对应菜单「刷新\tF5」「重新连接\tF5」）。
+    /// 连接节点=重连；数据库对象/子对象=刷新其父节点；其余（数据库/Schema/文件夹）=刷新自身。</summary>
+    public async Task RefreshAsync(DbObjectTreeNode node)
+    {
+        switch (node.NodeType)
+        {
+            case DbObjectTreeNodeType.Connection:
+                // 与右键菜单「刷新连接/重新连接」一致
+                if (node.IsConnectionActive)
+                {
+                    await _viewModel.ReconnectConnectionNodeAsync(node);
+                }
+                else
+                {
+                    await _viewModel.ConnectConnectionNodeAsync(node);
+                }
+                ExpandNode(node);
+                break;
+
+            case DbObjectTreeNodeType.DbObject:
+            case DbObjectTreeNodeType.ChildObject:
+                // 与右键菜单一致：对象/子对象刷新其父节点
+                if (node.Parent is DbObjectTreeNode parent)
+                {
+                    await _viewModel.RefreshNodeAsync(parent);
+                }
+                break;
+
+            default:
+                // 数据库/Schema/类型文件夹/子文件夹：刷新自身
+                await _viewModel.RefreshNodeAsync(node);
+                break;
+        }
+    }
+
+    /// <summary>快捷键 F2：重命名（对应菜单「重命名...\tF2」）。不支持的节点类型会给出提示。</summary>
+    public Task RenameAsync(DbObjectTreeNode node)
+        => node.NodeType switch
+        {
+            DbObjectTreeNodeType.Connection => RenameConnectionAsync(node),
+            DbObjectTreeNodeType.DbObject or DbObjectTreeNodeType.ChildObject => RenameDbObjectAsync(node),
+            _ => NotSupportedAsync("重命名"),
+        };
+
+    /// <summary>快捷键 Delete：删除（对应菜单「删除\tDelete」）。不支持的节点类型会给出提示。</summary>
+    public Task DeleteAsync(DbObjectTreeNode node)
+        => node.NodeType switch
+        {
+            DbObjectTreeNodeType.Connection => DeleteConnectionAsync(node),
+            DbObjectTreeNodeType.DbObject or DbObjectTreeNodeType.ChildObject => DeleteDbObjectAsync(node),
+            _ => NotSupportedAsync("删除"),
+        };
+
+    /// <summary>快捷键 Ctrl+C：复制节点名称（对应菜单「复制名称\tCtrl+C」）。</summary>
+    public void CopyName(DbObjectTreeNode node) => CopyToClipboard(node.Name);
+
+    private Task NotSupportedAsync(string action)
+    {
+        _viewModel.QueryEditor.StatusMessage = $"当前节点不支持{action}。";
+        return Task.CompletedTask;
+    }
+
+    #endregion
 
     #region 连接节点右键菜单
 
@@ -513,11 +591,11 @@ public class ObjectTreeContextMenuBuilder
         // ==== 管理组（删除/重命名）====
         if (node.DbObject is View or Function or Procedure or UserDefinedType or Sequence)
         {
-            var renameObj = CreateMenuItem("重命名对象...", "修改对象名称");
+            var renameObj = CreateMenuItem("重命名对象...\tF2", "修改对象名称");
             renameObj.Click += async (_, _) => await RenameDbObjectAsync(node);
             menu.Items.Add(renameObj);
 
-            var deleteObj = CreateMenuItem("删除对象", "删除此数据库对象");
+            var deleteObj = CreateMenuItem("删除对象\tDelete", "删除此数据库对象");
             deleteObj.Click += async (_, _) => await DeleteDbObjectAsync(node);
             menu.Items.Add(deleteObj);
 
@@ -907,7 +985,7 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>添加复制菜单项（基础 + 高级）。</summary>
     private void AddCopyMenuItems(ContextMenu menu, DbObjectTreeNode node, bool advanced = false)
     {
-        var copyName = CreateMenuItem("复制名称", "复制对象名称到剪贴板");
+        var copyName = CreateMenuItem("复制名称\tCtrl+C", "复制对象名称到剪贴板");
         copyName.Click += (_, _) => CopyToClipboard(node.Name);
         menu.Items.Add(copyName);
 
