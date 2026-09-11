@@ -73,7 +73,7 @@
                 <TextBlock Text="认证方式" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                 <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch">
                     <ComboBoxItem>Password</ComboBoxItem>
-                    <ComboBoxItem>Integrated Security</ComboBoxItem>
+                    <ComboBoxItem>Windows 身份验证</ComboBoxItem>
                 </atom:ComboBox>
             </StackPanel>
 

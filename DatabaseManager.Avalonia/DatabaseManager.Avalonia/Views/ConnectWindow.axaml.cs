@@ -68,7 +68,7 @@ public partial class ConnectWindow : Window
         TxtProfileName.Text = connection.Name;
         TxtServer.Text = connection.Server;
         TxtPort.Text = connection.Port;
-        ComboAuthentication.SelectedItem = connection.IntegratedSecurity ? "Integrated Security" : "Password";
+        ComboAuthentication.SelectedItem = connection.IntegratedSecurity ? "Windows 身份验证" : "Password";
         TxtUserId.Text = connection.UserId;
         TxtPassword.Text = connection.Password;
         ChkRememberPassword.IsChecked = connection.RememberPassword;
@@ -136,7 +136,7 @@ public partial class ConnectWindow : Window
         connection.Name = TxtProfileName.Text?.Trim() ?? string.Empty;
         connection.Server = TxtServer.Text?.Trim() ?? string.Empty;
         connection.Port = TxtPort.Text?.Trim();
-        connection.IntegratedSecurity = (ComboAuthentication.SelectedItem as string) == "Integrated Security";
+        connection.IntegratedSecurity = (ComboAuthentication.SelectedItem as string) == "Windows 身份验证";
         connection.UserId = TxtUserId.Text?.Trim();
         connection.Password = TxtPassword.Text;
         connection.IsDba = ChkIsDba.IsChecked == true;

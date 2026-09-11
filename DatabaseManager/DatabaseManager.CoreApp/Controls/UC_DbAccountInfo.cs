@@ -47,16 +47,15 @@ namespace DatabaseManager.Controls
             }
 
             var authTypes = Enum.GetNames(typeof(AuthenticationType));
-            this.cboAuthentication.Items.AddRange(authTypes);
+            this.cboAuthentication.Items.AddRange(new string[] { "Windows 身份验证", "密码" });
 
             if (this.DatabaseType != DatabaseType.SqlServer)
             {
-                this.cboAuthentication.Text = AuthenticationType.Password.ToString();
-                //this.cboAuthentication.Enabled = false;
+                this.cboAuthentication.Text = "密码";
             }
             else
             {
-                this.cboAuthentication.Text = AuthenticationType.IntegratedSecurity.ToString();
+                this.cboAuthentication.Text = "Windows 身份验证";
             }
 
             this.chkAsDba.Visible = this.DatabaseType == DatabaseType.Oracle;
@@ -70,28 +69,21 @@ namespace DatabaseManager.Controls
         {
             this.cboServer.Text = info.Server;
             this.txtPort.Text = info.Port;
-            this.cboAuthentication.Text = info.IntegratedSecurity ? AuthenticationType.IntegratedSecurity.ToString() : AuthenticationType.Password.ToString();
+            this.cboAuthentication.Text = info.IntegratedSecurity ? "Windows 身份验证" : "密码";
             this.txtUserId.Text = info.UserId;
             this.txtPassword.Text = info.Password;
             this.chkAsDba.Checked = info.IsDba;
             this.chkUseSsl.Checked = info.UseSsl;
             this.serverVersion = info.ServerVersion;
 
-            if (info.IntegratedSecurity)
+            if (!string.IsNullOrEmpty(password))
             {
-                this.cboAuthentication.Text = AuthenticationType.IntegratedSecurity.ToString();
-            }
-            else
-            {
-                if(!string.IsNullOrEmpty(password))
-                {
-                    this.txtPassword.Text = password;
-                }  
+                this.txtPassword.Text = password;
+            }  
                 
-                if(!string.IsNullOrEmpty(info.Password))
-                {
-                    this.chkRememberPassword.Checked = true;
-                }
+            if(!string.IsNullOrEmpty(info.Password))
+            {
+                this.chkRememberPassword.Checked = true;
             }
         }
 
@@ -108,7 +100,7 @@ namespace DatabaseManager.Controls
                 MessageBox.Show("Please select a authentication type.");
                 return false;
             }
-            else if (this.cboAuthentication.Text == AuthenticationType.Password.ToString())
+            else if (this.cboAuthentication.Text == "密码")
             {
                 if (string.IsNullOrEmpty(this.txtUserId.Text))
                 {
@@ -167,7 +159,7 @@ namespace DatabaseManager.Controls
             {
                 Server = this.cboServer.Text.Trim(),
                 Port = this.txtPort.Text.Trim(),
-                IntegratedSecurity = this.cboAuthentication.Text != AuthenticationType.Password.ToString(),
+                IntegratedSecurity = this.cboAuthentication.Text == "Windows 身份验证",
                 UserId = this.txtUserId.Text.Trim(),
                 Password = this.txtPassword.Text.Trim(),
                 IsDba = this.chkAsDba.Checked,
@@ -184,7 +176,7 @@ namespace DatabaseManager.Controls
 
         private void cboAuthentication_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool isWindowsAuth = this.cboAuthentication.Text == AuthenticationType.IntegratedSecurity.ToString();
+            bool isWindowsAuth = this.cboAuthentication.Text == "Windows 身份验证";
 
             if(this.DatabaseType != DatabaseType.Postgres)
             {
