@@ -243,6 +243,25 @@
 			<Setter Property="BorderBrush" Value="{DynamicResource AppSuccessBrush}" />
 			<Setter Property="Foreground" Value="White" />
 		</Style>
+		<!-- 状态栏按钮：透明背景，白色文字在蓝条上清晰可见 -->
+		<Style Selector="Button.status">
+			<Setter Property="MinHeight" Value="22" />
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Padding" Value="6,1" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="Foreground" Value="{DynamicResource AppStatusBarTextBrush}" />
+			<Setter Property="HorizontalContentAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
+		<Style Selector="Button.status:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppHoverBrush}" />
+			<Setter Property="BorderBrush" Value="{DynamicResource AppHoverBorderBrush}" />
+		</Style>
+		<Style Selector="Button.status:pressed /template/ ContentPresenter">
+			<Setter Property="Background" Value="{DynamicResource AppSelectedBrush}" />
+		</Style>
 		<!-- 紧凑按钮：结果区分页/筛选/小图标按钮 -->
 		<Style Selector="Button.compact">
 			<Setter Property="MinHeight" Value="22" />
