@@ -14,11 +14,13 @@ namespace DatabaseManager.Controls
 
     public partial class UC_DbAccountInfo : UserControl
     {
+        private const string WindowsAuthentication = "Windows 身份验证";
+        private const string PasswordAuthentication = "密码";
         private string serverVersion;
 
         public DatabaseType DatabaseType { get; set; }
 
-        public bool RememberPassword => this.cboAuthentication.Text == AuthenticationType.Password.ToString()
+        public bool RememberPassword => this.cboAuthentication.Text == PasswordAuthentication
             && this.chkRememberPassword.Checked;
 
         public TestDbConnectHandler OnTestConnect;         
@@ -49,19 +51,19 @@ namespace DatabaseManager.Controls
 
             var supportsIntegratedSecurity = DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType);
             var authTypes = supportsIntegratedSecurity
-                ? Enum.GetNames(typeof(AuthenticationType))
-                : new[] { AuthenticationType.Password.ToString() };
+                ? new[] { WindowsAuthentication, PasswordAuthentication }
+                : new[] { PasswordAuthentication };
             this.cboAuthentication.Items.Clear();
             this.cboAuthentication.Items.AddRange(authTypes);
             this.cboAuthentication.Enabled = supportsIntegratedSecurity;
 
             if (this.DatabaseType != DatabaseType.SqlServer)
             {
-                this.cboAuthentication.Text = AuthenticationType.Password.ToString();
+                this.cboAuthentication.Text = PasswordAuthentication;
             }
             else
             {
-                this.cboAuthentication.Text = AuthenticationType.IntegratedSecurity.ToString();
+                this.cboAuthentication.Text = WindowsAuthentication;
             }
 
             this.chkAsDba.Visible = this.DatabaseType == DatabaseType.Oracle;
@@ -77,7 +79,7 @@ namespace DatabaseManager.Controls
             this.txtPort.Text = info.Port;
             bool integratedSecurity = info.IntegratedSecurity
                 && DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType);
-            this.cboAuthentication.Text = integratedSecurity ? AuthenticationType.IntegratedSecurity.ToString() : AuthenticationType.Password.ToString();
+            this.cboAuthentication.Text = integratedSecurity ? WindowsAuthentication : PasswordAuthentication;
             this.txtUserId.Text = info.UserId;
             this.txtPassword.Text = info.Password;
             this.chkAsDba.Checked = info.IsDba;
@@ -86,7 +88,7 @@ namespace DatabaseManager.Controls
 
             if (integratedSecurity)
             {
-                this.cboAuthentication.Text = AuthenticationType.IntegratedSecurity.ToString();
+                this.cboAuthentication.Text = WindowsAuthentication;
             }
             else
             {
@@ -115,7 +117,7 @@ namespace DatabaseManager.Controls
                 MessageBox.Show("Please select a authentication type.");
                 return false;
             }
-            else if (this.cboAuthentication.Text == AuthenticationType.Password.ToString())
+            else if (this.cboAuthentication.Text == PasswordAuthentication)
             {
                 if (string.IsNullOrEmpty(this.txtUserId.Text))
                 {
@@ -171,7 +173,7 @@ namespace DatabaseManager.Controls
         public ConnectionInfo GetConnectionInfo()
         {
             bool integratedSecurity = DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType)
-                && this.cboAuthentication.Text == AuthenticationType.IntegratedSecurity.ToString();
+                && this.cboAuthentication.Text == WindowsAuthentication;
             ConnectionInfo connectionInfo = new ConnectionInfo()
             {
                 Server = this.cboServer.Text.Trim(),
@@ -194,7 +196,7 @@ namespace DatabaseManager.Controls
 
         private void cboAuthentication_SelectedIndexChanged(object sender, EventArgs e)
         {
-            bool isWindowsAuth = this.cboAuthentication.Text == AuthenticationType.IntegratedSecurity.ToString();
+            bool isWindowsAuth = this.cboAuthentication.Text == WindowsAuthentication;
 
             if(this.DatabaseType != DatabaseType.Postgres)
             {

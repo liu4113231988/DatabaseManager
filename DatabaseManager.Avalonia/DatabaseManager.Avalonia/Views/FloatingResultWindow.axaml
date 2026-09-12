@@ -28,11 +28,11 @@
         <!-- 分页 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
                     IsVisible="{Binding HasResult}">
-            <Button Classes="compact" Command="{Binding FirstPageCommand}" Content="首页" />
-            <Button Classes="compact" Command="{Binding PrevPageCommand}" Content="上一页" />
+            <Button Classes="status" Command="{Binding FirstPageCommand}" Content="首页" />
+            <Button Classes="status" Command="{Binding PrevPageCommand}" Content="上一页" />
             <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
-            <Button Classes="compact" Command="{Binding NextPageCommand}" Content="下一页" />
-            <Button Classes="compact" Command="{Binding LastPageCommand}" Content="末页" />
+            <Button Classes="status" Command="{Binding NextPageCommand}" Content="下一页" />
+            <Button Classes="status" Command="{Binding LastPageCommand}" Content="末页" />
         </StackPanel>
     </Grid>
 </Window>

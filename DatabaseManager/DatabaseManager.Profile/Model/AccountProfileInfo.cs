@@ -14,7 +14,7 @@ namespace DatabaseManager.Profile.Model
         {
             get
             {
-                return $"{((!string.IsNullOrEmpty(this.UserId) ? this.UserId : "Integrated Security"))}({this.Server}{(string.IsNullOrEmpty(this.Port) ? "" : (":" + this.Port))})";
+                return $"{((!string.IsNullOrEmpty(this.UserId) ? this.UserId : "Windows 身份验证"))}({this.Server}{(string.IsNullOrEmpty(this.Port) ? "" : (":" + this.Port))})";
             }
         }
     }

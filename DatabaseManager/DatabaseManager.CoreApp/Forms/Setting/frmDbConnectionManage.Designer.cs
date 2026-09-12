@@ -320,7 +320,7 @@ namespace DatabaseManager.Forms
             // colIntegratedSecurity
             // 
             colIntegratedSecurity.DataPropertyName = "IntegratedSecurity";
-            colIntegratedSecurity.HeaderText = "Integrated Security";
+            colIntegratedSecurity.HeaderText = "Windows 身份验证";
             colIntegratedSecurity.Name = "colIntegratedSecurity";
             colIntegratedSecurity.ReadOnly = true;
             colIntegratedSecurity.Resizable = System.Windows.Forms.DataGridViewTriState.True;

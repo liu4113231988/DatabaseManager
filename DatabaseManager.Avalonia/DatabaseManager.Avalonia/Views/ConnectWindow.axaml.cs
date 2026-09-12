@@ -17,7 +17,7 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class ConnectWindow : Window
 {
     private const string PasswordAuthentication = "Password";
-    private const string WindowsAuthentication = "Integrated Security";
+    private const string WindowsAuthentication = "Windows 身份验证";
     private readonly ConnectionManagerViewModel _vm;
     private readonly IConnectionVisualService? _visualService;
     private readonly bool _isAdd;

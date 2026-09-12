@@ -623,17 +623,13 @@
                                     <Border Grid.Row="3" IsVisible="{Binding HasResult}"
                                             Background="{DynamicResource AppStatusBarBrush}" Padding="8,3">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <Button Classes="compact" Command="{Binding FirstPageCommand}" Content="首页"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
-                                            <Button Classes="compact" Command="{Binding PrevPageCommand}" Content="上一页"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
+                                            <Button Classes="status" Command="{Binding FirstPageCommand}" Content="首页" />
+                                            <Button Classes="status" Command="{Binding PrevPageCommand}" Content="上一页" />
                                             <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center"
                                                        FontSize="11" Foreground="{DynamicResource AppStatusBarTextBrush}"
                                                        FontWeight="SemiBold" Margin="4,0" />
-                                            <Button Classes="compact" Command="{Binding NextPageCommand}" Content="下一页"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
-                                            <Button Classes="compact" Command="{Binding LastPageCommand}" Content="末页"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
+                                            <Button Classes="status" Command="{Binding NextPageCommand}" Content="下一页" />
+                                            <Button Classes="status" Command="{Binding LastPageCommand}" Content="末页" />
                                             <Border Width="1" Background="{DynamicResource AppStatusBarSecondaryTextBrush}"
                                                     Margin="6,2" Opacity="0.4" />
                                             <TextBlock Text="每页" VerticalAlignment="Center" FontSize="11"
@@ -643,11 +639,9 @@
                                                       FontSize="11" MinWidth="70" />
                                             <TextBlock Text="行" VerticalAlignment="Center" FontSize="11"
                                                        Foreground="{DynamicResource AppStatusBarTextBrush}" />
-                                            <Button Classes="compact" Click="ToolExportResults_Click" Content="⇩ 导出结果" Margin="12,0,0,0"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}"
+                                            <Button Classes="status" Click="ToolExportResults_Click" Content="⇩ 导出结果" Margin="12,0,0,0"
                                                     ToolTip.Tip="把当前结果集导出为 CSV / JSON 文件" />
-                                            <Button Classes="compact" Click="ToolChartResults_Click" Content="📊 图表" Margin="8,0,0,0"
-                                                    Foreground="{DynamicResource AppStatusBarTextBrush}"
+                                            <Button Classes="status" Click="ToolChartResults_Click" Content="📊 图表" Margin="8,0,0,0"
                                                     ToolTip.Tip="把当前结果集绘制为图表（柱状/折线/饼图），可保存到仪表盘" />
                                         </StackPanel>
                                     </Border>
