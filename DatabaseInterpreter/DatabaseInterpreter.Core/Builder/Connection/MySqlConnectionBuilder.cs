@@ -24,14 +24,10 @@ namespace DatabaseInterpreter.Core
 
             if (connectionInfo.IntegratedSecurity)
             {
-                // 保持原有行为：Windows 认证时指定 auth_windows；MySqlConnector.Builder 不直接暴露 IntegratedSecurity 属性
-                builder.UserID = "auth_windows";
-                // 通过索引器追加 IntegratedSecurity（若驱动支持则生效）
-                try { builder["Integrated Security"] = true; } catch { }
+                throw new System.NotSupportedException("当前 MySqlConnector 驱动不支持 Windows 集成认证，请使用用户名和密码认证。");
             }
             else
             {
-                try { builder["Integrated Security"] = false; } catch { }
                 if (!string.IsNullOrEmpty(connectionInfo.UserId))
                     builder.UserID = connectionInfo.UserId;
                 if (connectionInfo.Password != null)

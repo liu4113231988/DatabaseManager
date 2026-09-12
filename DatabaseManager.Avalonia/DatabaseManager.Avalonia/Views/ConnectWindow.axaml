@@ -71,10 +71,10 @@
 
             <StackPanel Spacing="6">
                 <TextBlock Text="认证方式" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
-                <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch">
-                    <ComboBoxItem>Password</ComboBoxItem>
-                    <ComboBoxItem>Integrated Security</ComboBoxItem>
-                </atom:ComboBox>
+                <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch" />
+                <TextBlock x:Name="TxtWindowsAuthenticationHint" IsVisible="False"
+                           Text="Windows 身份验证使用当前运行程序的 Windows 账号。"
+                           FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
 
             <Grid ColumnDefinitions="*,*">

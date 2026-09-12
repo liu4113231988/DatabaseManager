@@ -16,6 +16,8 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ConnectWindow : Window
 {
+    private const string PasswordAuthentication = "Password";
+    private const string WindowsAuthentication = "Integrated Security";
     private readonly ConnectionManagerViewModel _vm;
     private readonly IConnectionVisualService? _visualService;
     private readonly bool _isAdd;
@@ -27,6 +29,11 @@ public partial class ConnectWindow : Window
     public ConnectWindow(ConnectionManagerViewModel vm, ConnectionItem? connection = null)
     {
         InitializeComponent();
+
+        // 使用字符串选项，与 SelectedItem 的读取和配置恢复保持一致。
+        ComboAuthentication.ItemsSource = new[] { PasswordAuthentication, WindowsAuthentication };
+        ComboAuthentication.SelectedItem = PasswordAuthentication;
+        ComboAuthentication.SelectionChanged += (_, _) => UpdateAuthenticationFields();
 
         _vm = vm;
         _isAdd = connection is null;
@@ -68,7 +75,7 @@ public partial class ConnectWindow : Window
         TxtProfileName.Text = connection.Name;
         TxtServer.Text = connection.Server;
         TxtPort.Text = connection.Port;
-        ComboAuthentication.SelectedItem = connection.IntegratedSecurity ? "Integrated Security" : "Password";
+        ComboAuthentication.SelectedItem = connection.IntegratedSecurity ? WindowsAuthentication : PasswordAuthentication;
         TxtUserId.Text = connection.UserId;
         TxtPassword.Text = connection.Password;
         ChkRememberPassword.IsChecked = connection.RememberPassword;
@@ -93,13 +100,14 @@ public partial class ConnectWindow : Window
     private void UpdateAuthVisibility()
     {
         var dbType = GetDatabaseType();
-        var isSqlServer = dbType == DatabaseType.SqlServer;
+        var supportsIntegratedSecurity = DatabaseAuthentication.SupportsIntegratedSecurity(dbType);
 
-        // 非 SqlServer 使用密码认证
-        if (!isSqlServer)
+        if (!supportsIntegratedSecurity)
         {
-            ComboAuthentication.SelectedItem = "Password";
+            ComboAuthentication.SelectedItem = PasswordAuthentication;
         }
+        ComboAuthentication.IsEnabled = supportsIntegratedSecurity;
+        UpdateAuthenticationFields();
 
         // 仅 Oracle 显示 DBA
         ChkIsDba.IsVisible = dbType == DatabaseType.Oracle;
@@ -122,6 +130,24 @@ public partial class ConnectWindow : Window
         }
     }
 
+    private bool UsesWindowsAuthentication => DatabaseAuthentication.SupportsIntegratedSecurity(GetDatabaseType())
+        && ComboAuthentication.SelectedItem as string == WindowsAuthentication;
+
+    private void UpdateAuthenticationFields()
+    {
+        var integratedSecurity = UsesWindowsAuthentication;
+        TxtUserId.IsEnabled = !integratedSecurity || DatabaseAuthentication.AllowsIntegratedUserName(GetDatabaseType());
+        TxtPassword.IsEnabled = !integratedSecurity;
+        ChkRememberPassword.IsEnabled = !integratedSecurity;
+        TxtWindowsAuthenticationHint.IsVisible = integratedSecurity;
+        TxtWindowsAuthenticationHint.Text = GetDatabaseType() switch
+        {
+            DatabaseType.Postgres => "使用系统凭据进行 GSS/SSPI 认证；用户名可留空或填写映射后的数据库用户名。",
+            DatabaseType.Oracle => "使用外部身份验证；Windows 认证需要 Oracle 服务端和客户端配置支持。",
+            _ => "Windows 身份验证使用当前运行程序的 Windows 账号。",
+        };
+    }
+
     private DatabaseType GetDatabaseType()
     {
         var text = ComboDatabaseType.SelectedItem as string ?? string.Empty;
@@ -136,13 +162,14 @@ public partial class ConnectWindow : Window
         connection.Name = TxtProfileName.Text?.Trim() ?? string.Empty;
         connection.Server = TxtServer.Text?.Trim() ?? string.Empty;
         connection.Port = TxtPort.Text?.Trim();
-        connection.IntegratedSecurity = (ComboAuthentication.SelectedItem as string) == "Integrated Security";
-        connection.UserId = TxtUserId.Text?.Trim();
-        connection.Password = TxtPassword.Text;
+        connection.IntegratedSecurity = UsesWindowsAuthentication;
+        connection.UserId = connection.IntegratedSecurity && !DatabaseAuthentication.AllowsIntegratedUserName(GetDatabaseType())
+            ? null : TxtUserId.Text?.Trim();
+        connection.Password = connection.IntegratedSecurity ? null : TxtPassword.Text;
         connection.IsDba = ChkIsDba.IsChecked == true;
         connection.UseSsl = ChkUseSsl.IsChecked == true;
         connection.Database = ComboDatabase.Text?.Trim() ?? string.Empty;
-        connection.RememberPassword = ChkRememberPassword.IsChecked == true;
+        connection.RememberPassword = !connection.IntegratedSecurity && ChkRememberPassword.IsChecked == true;
         connection.KingbaseCompatibilityMode = GetDatabaseType() == DatabaseType.KingbaseES
             ? KingbaseCompatibilityModes.Normalize(ComboKingbaseMode.SelectedItem as string)
             : null;

@@ -18,7 +18,8 @@ namespace DatabaseManager.Controls
 
         public DatabaseType DatabaseType { get; set; }
 
-        public bool RememberPassword => this.chkRememberPassword.Checked;
+        public bool RememberPassword => this.cboAuthentication.Text == AuthenticationType.Password.ToString()
+            && this.chkRememberPassword.Checked;
 
         public TestDbConnectHandler OnTestConnect;         
 
@@ -46,13 +47,17 @@ namespace DatabaseManager.Controls
                 this.txtPort.Text = PostgresInterpreter.DEFAULT_PORT.ToString();
             }
 
-            var authTypes = Enum.GetNames(typeof(AuthenticationType));
+            var supportsIntegratedSecurity = DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType);
+            var authTypes = supportsIntegratedSecurity
+                ? Enum.GetNames(typeof(AuthenticationType))
+                : new[] { AuthenticationType.Password.ToString() };
+            this.cboAuthentication.Items.Clear();
             this.cboAuthentication.Items.AddRange(authTypes);
+            this.cboAuthentication.Enabled = supportsIntegratedSecurity;
 
             if (this.DatabaseType != DatabaseType.SqlServer)
             {
                 this.cboAuthentication.Text = AuthenticationType.Password.ToString();
-                //this.cboAuthentication.Enabled = false;
             }
             else
             {
@@ -70,14 +75,16 @@ namespace DatabaseManager.Controls
         {
             this.cboServer.Text = info.Server;
             this.txtPort.Text = info.Port;
-            this.cboAuthentication.Text = info.IntegratedSecurity ? AuthenticationType.IntegratedSecurity.ToString() : AuthenticationType.Password.ToString();
+            bool integratedSecurity = info.IntegratedSecurity
+                && DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType);
+            this.cboAuthentication.Text = integratedSecurity ? AuthenticationType.IntegratedSecurity.ToString() : AuthenticationType.Password.ToString();
             this.txtUserId.Text = info.UserId;
             this.txtPassword.Text = info.Password;
             this.chkAsDba.Checked = info.IsDba;
             this.chkUseSsl.Checked = info.UseSsl;
             this.serverVersion = info.ServerVersion;
 
-            if (info.IntegratedSecurity)
+            if (integratedSecurity)
             {
                 this.cboAuthentication.Text = AuthenticationType.IntegratedSecurity.ToString();
             }
@@ -163,13 +170,16 @@ namespace DatabaseManager.Controls
 
         public ConnectionInfo GetConnectionInfo()
         {
+            bool integratedSecurity = DatabaseAuthentication.SupportsIntegratedSecurity(this.DatabaseType)
+                && this.cboAuthentication.Text == AuthenticationType.IntegratedSecurity.ToString();
             ConnectionInfo connectionInfo = new ConnectionInfo()
             {
                 Server = this.cboServer.Text.Trim(),
                 Port = this.txtPort.Text.Trim(),
-                IntegratedSecurity = this.cboAuthentication.Text != AuthenticationType.Password.ToString(),
-                UserId = this.txtUserId.Text.Trim(),
-                Password = this.txtPassword.Text.Trim(),
+                IntegratedSecurity = integratedSecurity,
+                UserId = integratedSecurity && !DatabaseAuthentication.AllowsIntegratedUserName(this.DatabaseType)
+                    ? null : this.txtUserId.Text.Trim(),
+                Password = integratedSecurity ? null : this.txtPassword.Text,
                 IsDba = this.chkAsDba.Checked,
                 UseSsl = this.chkUseSsl.Checked                
             };

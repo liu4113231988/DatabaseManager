@@ -22,10 +22,10 @@ namespace DatabaseInterpreter.Core
             if (!string.IsNullOrWhiteSpace(connectionInfo.Database))
                 builder.Database = connectionInfo.Database.Trim();
 
-            // Postgres 的 IntegratedSecurity 在 Npgsql 中通常映射为 IntegratedSecurity，但此处按原逻辑区分
+            // Npgsql 8+ 自动协商 GSS/SSPI；集成认证不传旧配置中残留的密码，保留可选用户名映射。
             if (!string.IsNullOrEmpty(connectionInfo.UserId))
                 builder.Username = connectionInfo.UserId;
-            if (connectionInfo.Password != null)
+            if (!connectionInfo.IntegratedSecurity && connectionInfo.Password != null)
                 builder.Password = connectionInfo.Password;
 
             // SSL 选项：若 UseSsl 为 true 则要求 SSL，Npgsql 默认会协商
