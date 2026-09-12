@@ -32,6 +32,10 @@ public class DefaultExecutionPlanService : IExecutionPlanService
         }
 
         var statement = sql.Trim().TrimEnd(';').Trim();
+        var safetyError = SqlSafety.ValidateProfilerStatement(statement);
+        if (safetyError is not null) return ErrorResult(safetyError);
+        if (analyze && dbType is not (DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES))
+            return ErrorResult("当前数据库在此窗口只支持估算计划，不支持 ANALYZE。");
 
         try
         {
@@ -48,7 +52,7 @@ public class DefaultExecutionPlanService : IExecutionPlanService
 
                 case DatabaseType.Postgres:
                 case DatabaseType.KingbaseES:
-                    return await ReadPlanAsync(conn, $"EXPLAIN {(analyze ? "ANALYZE " : string.Empty)}{statement}", sw, 60, cancellationToken);
+                    return await ReadPlanAsync(conn, $"EXPLAIN (FORMAT JSON{(analyze ? ", ANALYZE TRUE" : string.Empty)}) {statement}", sw, 60, cancellationToken);
 
                 case DatabaseType.Sqlite:
                     // SQLite 的 EXPLAIN ANALYZE 输出面向引擎行，这里统一用 QUERY PLAN。
@@ -57,9 +61,8 @@ public class DefaultExecutionPlanService : IExecutionPlanService
                 case DatabaseType.SqlServer:
                 {
                     await ExecuteAsync(conn, "SET SHOWPLAN_ALL ON", cancellationToken);
-                    var result = await ReadPlanAsync(conn, statement, sw, 60, cancellationToken);
-                    await ExecuteAsync(conn, "SET SHOWPLAN_ALL OFF", cancellationToken);
-                    return result;
+                    try { return await ReadPlanAsync(conn, statement, sw, 60, cancellationToken); }
+                    finally { await ExecuteAsync(conn, "SET SHOWPLAN_ALL OFF", CancellationToken.None); }
                 }
 
                 case DatabaseType.Oracle:
@@ -111,18 +114,7 @@ public class DefaultExecutionPlanService : IExecutionPlanService
 
     private static DbInterpreter CreateInterpreter(ConnectionItem connection)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var option = new DbInterpreterOption
         {

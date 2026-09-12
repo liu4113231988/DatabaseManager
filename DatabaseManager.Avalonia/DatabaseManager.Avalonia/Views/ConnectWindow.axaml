@@ -93,6 +93,18 @@
                 <atom:CheckBox x:Name="ChkIsDba" Content="DBA" />
                 <atom:CheckBox x:Name="ChkUseSsl" Content="使用 SSL" />
             </StackPanel>
+            <Expander Header="SSH 隧道" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="6">
+                    <CheckBox x:Name="ChkSsh" Content="启用 SSH 隧道" />
+                    <TextBox x:Name="TxtSshHost" PlaceholderText="SSH 主机" />
+                    <TextBox x:Name="TxtSshPort" Text="22" PlaceholderText="SSH 端口" />
+                    <TextBox x:Name="TxtSshUser" PlaceholderText="SSH 用户名" />
+                    <TextBox x:Name="TxtSshKey" PlaceholderText="私钥文件路径（留空使用密码认证）" />
+                    <TextBox x:Name="TxtSshSecret" PasswordChar="*" PlaceholderText="SSH 密码或私钥口令（随“记住密码”保存）" />
+                    <TextBox x:Name="TxtSshFingerprint" PlaceholderText="经可信渠道核对的 SHA256: 主机指纹" />
+                    <TextBlock Text="数据库服务器填写 SSH 主机可访问的地址，并显式填写数据库端口。断线后下次操作重新建立隧道，失败 SQL 不自动重放。" TextWrapping="Wrap" />
+                </StackPanel>
+            </Expander>
 
             <Grid ColumnDefinitions="*,200">
                 <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,7,0">

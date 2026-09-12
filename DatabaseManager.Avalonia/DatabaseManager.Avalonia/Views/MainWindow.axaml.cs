@@ -1644,6 +1644,41 @@ public partial class MainWindow : Window
         _currentQueryTab?.RevertEdits();
     }
 
+    private async void QueryRecord_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_currentQueryTab is not { IsResultEditable: true } tab || FindDataGridInVisualTree(this)?.SelectedItem is not QueryResultRow row) return;
+        var connections = (App.Current as App)?.Services?.GetService(typeof(IDbConnectionService)) as IDbConnectionService;
+        var connection = connections?.GetConnections().FirstOrDefault(c => c.Name.Equals(tab.ConnectionName, StringComparison.OrdinalIgnoreCase));
+        await new RecordEditorWindow(tab, row, connection).ShowDialog(this);
+    }
+    private void QueryCompareResults_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: QueryTabViewModel tab } && tab.ResultSnapshots.Count > 0)
+            new ResultCompareWindow(tab.ResultSnapshots.ToArray()).Show(this);
+    }
+
+    private async void QueryReplace_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_currentQueryTab is not { IsResultEditable: true } tab) return;
+        var dialog = new Window { Title = "查找替换（当前筛选的全部行）", Width = 480, Height = 320, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        var column = new ComboBox { ItemsSource = tab.Columns, SelectedIndex = 0 };
+        var find = new TextBox { PlaceholderText = "查找文本（区分大小写）" };
+        var replacement = new TextBox { PlaceholderText = "替换为" };
+        var status = new TextBlock { TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
+        var preview = new Button { Content = "预览匹配行数" };
+        var apply = new Button { Content = "应用替换到网格", IsEnabled = false };
+        string? confirmed = null;
+        string Signature() => $"{column.SelectedIndex}\0{find.Text}\0{replacement.Text}";
+        preview.Click += (_, _) => { status.Text = $"匹配 {tab.ReplaceValues(column.SelectedIndex, find.Text ?? "", replacement.Text ?? "", false)} 行，应用后仍需点击保存。"; confirmed = Signature(); apply.IsEnabled = true; };
+        apply.Click += (_, _) =>
+        {
+            if (confirmed != Signature()) { status.Text = "内容已变更，请重新预览。"; return; }
+            tab.ReplaceValues(column.SelectedIndex, find.Text ?? "", replacement.Text ?? "", true); dialog.Close();
+        };
+        dialog.Content = new StackPanel { Margin = new Thickness(16), Spacing = 10, Children = { column, find, replacement, preview, status, apply } };
+        await dialog.ShowDialog(this);
+    }
+
     #region 结果网格筛选/排序
 
     /// <summary>从筛选条控件解析出所在查询标签的 ViewModel 与相关控件。</summary>

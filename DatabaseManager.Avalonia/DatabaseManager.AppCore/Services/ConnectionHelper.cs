@@ -14,10 +14,13 @@ public static class ConnectionHelper
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;
 
     /// <summary>将 AppCore 的 <see cref="ConnectionItem"/> 转换为核心库的 <see cref="ConnectionInfo"/>。</summary>
-    public static ConnectionInfo ToConnectionInfo(ConnectionItem connection) => new()
+    public static ConnectionInfo ToConnectionInfo(ConnectionItem connection)
     {
-        Server = connection.Server,
-        Port = connection.Port,
+        var endpoint = SshTunnelManager.Resolve(connection);
+        return new()
+    {
+        Server = endpoint.Host,
+        Port = endpoint.Port,
         ServerVersion = connection.ServerVersion,
         Database = connection.Database,
         IntegratedSecurity = connection.IntegratedSecurity,
@@ -26,4 +29,5 @@ public static class ConnectionHelper
         IsDba = connection.IsDba,
         UseSsl = connection.UseSsl,
     };
+    }
 }

@@ -477,19 +477,7 @@ public class DefaultSyncScriptService : ISyncScriptService
         return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
     }
 
-    private static ConnectionInfo ToConnectionInfo(ConnectionItem connection)
-        => new()
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+    private static ConnectionInfo ToConnectionInfo(ConnectionItem connection) => ConnectionHelper.ToConnectionInfo(connection);
 
     private static DatabaseType ParseDatabaseType(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;

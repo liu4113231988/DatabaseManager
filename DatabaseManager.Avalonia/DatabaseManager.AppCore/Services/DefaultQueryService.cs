@@ -17,7 +17,7 @@ public class DefaultQueryService : IQueryService
     private readonly IDbConnectionService _connectionService;
 
     /// <summary>每个连接名对应的活动事务状态（连接名 → 事务上下文）。</summary>
-    private readonly ConcurrentDictionary<string, TransactionContext> _transactions = new();
+    private readonly ConcurrentDictionary<string, TransactionContext> _transactions = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>对象浏览器已建立连接的集合（逻辑已连接状态）。</summary>
     private readonly HashSet<string> _connected = new(StringComparer.OrdinalIgnoreCase);
@@ -26,6 +26,16 @@ public class DefaultQueryService : IQueryService
     public DefaultQueryService(IDbConnectionService connectionService)
     {
         _connectionService = connectionService;
+    }
+
+    /// <summary>后台脚本使用独立自动提交连接，不复用交互查询的事务或连接状态。</summary>
+    public Task<QueryResult> ExecuteStandaloneAsync(ConnectionItem connection, string sql,
+        CancellationToken cancellationToken = default, int commandTimeoutSeconds = 600)
+    {
+        if (string.IsNullOrWhiteSpace(sql))
+            return Task.FromResult(new QueryResult { ErrorMessage = "SQL 语句不能为空。" });
+        return ExecuteAutoCommitAsync(connection.Name, CreateInterpreter(connection), sql,
+            cancellationToken, commandTimeoutSeconds);
     }
 
     public async Task<QueryResult> ExecuteAsync(
@@ -83,47 +93,8 @@ public class DefaultQueryService : IQueryService
         var sw = Stopwatch.StartNew();
         try
         {
-            var dbConnection = ctx.Connection;
-            var dbTransaction = ctx.Transaction;
-
-            // 先尝试按查询执行（SELECT），获取结果集；失败则视为 DML/DDL，走事务内非查询执行。
-            var dataTable = await interpreter.GetDataTableAsync(
-                dbConnection, sql, cancellationToken, ignoreSchema: true, commandTimeoutSeconds: commandTimeoutSeconds);
-
-            sw.Stop();
-
-            if (dataTable is not null && dataTable.Columns.Count > 0)
-            {
-                return QueryResult.FromDataTable(dataTable, sw.ElapsedMilliseconds);
-            }
-
-            // 无结果集：视为非查询语句（DML），在同一事务连接上执行。
-            var result = await interpreter.ExecuteNonQueryAsync(
-                new CommandInfo
-                {
-                    CommandText = sql,
-                    Transaction = dbTransaction,
-                    CancellationToken = cancellationToken,
-                    CommandTimeoutSeconds = commandTimeoutSeconds,
-                });
-
-            if (result is not null && result.HasError)
-            {
-                return new QueryResult
-                {
-                    ErrorMessage = result.Message,
-                    IsNonQuery = true,
-                    RowCount = result.NumberOfRowsAffected,
-                    ElapsedMilliseconds = sw.ElapsedMilliseconds,
-                };
-            }
-
-            return new QueryResult
-            {
-                IsNonQuery = true,
-                RowCount = result?.NumberOfRowsAffected ?? 0,
-                ElapsedMilliseconds = sw.ElapsedMilliseconds,
-            };
+            return await ExecuteCommandAsync(ctx.Connection, ctx.Transaction, sql,
+                cancellationToken, commandTimeoutSeconds, sw);
         }
         catch (OperationCanceledException)
         {
@@ -151,24 +122,9 @@ public class DefaultQueryService : IQueryService
         {
             using var dbConnection = interpreter.CreateConnection();
 
-            // 先尝试按查询执行，获取结果集。
-            var dataTable = await interpreter.GetDataTableAsync(
-                dbConnection, sql, cancellationToken, ignoreSchema: true, commandTimeoutSeconds: commandTimeoutSeconds);
-
-            sw.Stop();
-
-            if (dataTable is null || dataTable.Columns.Count == 0)
-            {
-                // 无结果集：视为非查询语句。
-                return new QueryResult
-                {
-                    IsNonQuery = true,
-                    RowCount = dataTable?.Rows?.Count ?? 0,
-                    ElapsedMilliseconds = sw.ElapsedMilliseconds,
-                };
-            }
-
-            return QueryResult.FromDataTable(dataTable, sw.ElapsedMilliseconds);
+            await dbConnection.OpenAsync(cancellationToken);
+            return await ExecuteCommandAsync(dbConnection, null, sql,
+                cancellationToken, commandTimeoutSeconds, sw);
         }
         catch (OperationCanceledException)
         {
@@ -182,10 +138,74 @@ public class DefaultQueryService : IQueryService
         }
     }
 
+    // ExecuteReader also executes DML/DDL. Never retry a command just because it has no columns.
+    private static async Task<QueryResult> ExecuteCommandAsync(
+        DbConnection connection, DbTransaction? transaction, string sql,
+        CancellationToken cancellationToken, int timeoutSeconds, Stopwatch stopwatch)
+    {
+        if (connection is Oracle.ManagedDataAccess.Client.OracleConnection)
+            DatabaseInterpreter.Geometry.GeometryUtility.Hook();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Transaction = transaction;
+        command.CommandTimeout = timeoutSeconds > 0 ? timeoutSeconds : DbInterpreter.Setting.CommandTimeout;
+        using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var sets = new List<QueryResult>();
+        long retainedCharacters = 0;
+        int retainedRows = 0;
+        bool truncated = false;
+        const int maxRows = 100000;
+        const long maxCharacters = 16 * 1024 * 1024;
+        do
+        {
+            bool capture = reader.FieldCount > 0 && sets.Count < 64;
+            var columns = capture ? Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList() : new List<string>();
+            var rows = new List<IReadOnlyList<string>>();
+            bool setTruncated = reader.FieldCount > 0 && !capture;
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (!capture) continue;
+                if (retainedRows >= maxRows || retainedCharacters >= maxCharacters)
+                {
+                    setTruncated = true;
+                    continue;
+                }
+                var values = new string[reader.FieldCount];
+                for (int i = 0; i < values.Length; i++)
+                    values[i] = reader.IsDBNull(i) ? string.Empty : reader.GetValue(i) is byte[] bytes ? "0x" + Convert.ToHexString(bytes) : reader.GetValue(i).ToString() ?? string.Empty;
+                long size = values.Sum(v => (long)v.Length + 24);
+                if (size > maxCharacters - retainedCharacters)
+                {
+                    setTruncated = true;
+                    continue;
+                }
+                retainedCharacters += size;
+                retainedRows++;
+                rows.Add(values);
+            }
+            truncated |= setTruncated;
+            if (capture) sets.Add(new QueryResult { Columns = columns, Rows = rows, RowCount = rows.Count, IsTruncated = setTruncated });
+        } while (await reader.NextResultAsync(cancellationToken));
+
+        stopwatch.Stop();
+        return new QueryResult
+        {
+            Columns = sets.FirstOrDefault()?.Columns ?? Array.Empty<string>(),
+            Rows = sets.FirstOrDefault()?.Rows ?? Array.Empty<IReadOnlyList<string>>(),
+            ResultSets = sets,
+            IsTruncated = truncated,
+            WarningMessage = truncated ? "结果已截断：单次最多保留 64 个结果集、100000 行和约 32 MiB 文本；后续语句仍已执行。" : null,
+            IsNonQuery = sets.Count == 0,
+            RowCount = sets.Count == 0 ? Math.Max(0, reader.RecordsAffected) : sets[0].RowCount,
+            ElapsedMilliseconds = stopwatch.ElapsedMilliseconds,
+        };
+    }
+
     public async Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default)
     {
         // 已有活动事务，直接返回 false。
-        if (_transactions.ContainsKey(connectionName))
+        if (!IsConnected(connectionName) || _transactions.ContainsKey(connectionName))
             return false;
 
         var connection = FindConnection(connectionName);
@@ -200,11 +220,18 @@ public class DefaultQueryService : IQueryService
             await dbConnection.OpenAsync(cancellationToken);
             var dbTransaction = await dbConnection.BeginTransactionAsync(cancellationToken);
 
-            _transactions[connectionName] = new TransactionContext
+            var context = new TransactionContext
             {
                 Connection = dbConnection,
                 Transaction = dbTransaction,
             };
+
+            if (!_transactions.TryAdd(connectionName, context))
+            {
+                await dbTransaction.DisposeAsync();
+                await dbConnection.DisposeAsync();
+                return false;
+            }
 
             return true;
         }
@@ -288,6 +315,7 @@ public class DefaultQueryService : IQueryService
             try { ctx.Transaction?.Rollback(); } catch { /* 忽略 */ }
             try { ctx.Connection?.Dispose(); } catch { /* 忽略 */ }
         }
+        SshTunnelManager.Close(connectionName);
     }
 
     public bool IsConnected(string connectionName)
@@ -306,18 +334,7 @@ public class DefaultQueryService : IQueryService
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var option = new DbInterpreterOption
         {

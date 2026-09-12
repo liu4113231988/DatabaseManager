@@ -306,18 +306,8 @@ public class DefaultFullDataSearchService : IFullDataSearchService
 
     private static DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseOverride)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
+        connectionInfo.Database = string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride;
 
         var option = new DbInterpreterOption
         {

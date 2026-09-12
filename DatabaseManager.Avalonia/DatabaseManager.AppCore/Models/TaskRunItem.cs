@@ -70,32 +70,40 @@ public partial class TaskRun : ObservableObject
         }
     }
 
-    public TaskRun(string title, string category)
+    public TaskRun(string title, string category) : this(title, category, new Progress<string>()) { }
+    private readonly List<string> _recordedLogs = new();
+    public IReadOnlyList<string> GetLogSnapshot() { lock (_recordedLogs) return _recordedLogs.ToArray(); }
+    private void RecordLog(string message)
     {
-        Title = title;
-        Category = category;
+        lock (_recordedLogs)
+        {
+            _recordedLogs.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
+            if (_recordedLogs.Count > MaxLogLines) _recordedLogs.RemoveAt(0);
+        }
     }
 
     /// <summary>回报进度文本并追加日志（可从后台线程调用，自动封送到 UI 线程）。</summary>
     public void Report(string message)
     {
+        RecordLog(message);
         _progressReporter.Report(message ?? string.Empty);
     }
 
     /// <summary>仅追加日志（可从后台线程调用）。</summary>
     public void Log(string message)
     {
-        _progressReporter.Report(message ?? string.Empty);
+        Report(message);
     }
 
     /// <summary>在 UI 线程上追加日志（供服务内部使用）。</summary>
-    internal void AppendLog(string message)
+    internal void AppendLog(string message, bool record = true)
     {
         if (string.IsNullOrWhiteSpace(message))
         {
             return;
         }
 
+        if (record) RecordLog(message);
         Logs.Add($"[{DateTime.Now:HH:mm:ss}] {message}");
         while (Logs.Count > MaxLogLines)
         {
@@ -106,7 +114,7 @@ public partial class TaskRun : ObservableObject
     internal void NotifyProgress(string message)
     {
         ProgressText = message;
-        AppendLog(message);
+        AppendLog(message, false);
     }
 
     private const int MaxLogLines = 500;

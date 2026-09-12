@@ -697,18 +697,8 @@ public class DefaultDbSchemaService : IDbSchemaService
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
+        connectionInfo.Database = useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null;
 
         var option = new DbInterpreterOption
         {

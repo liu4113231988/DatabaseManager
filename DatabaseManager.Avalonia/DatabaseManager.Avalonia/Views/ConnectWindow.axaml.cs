@@ -81,6 +81,13 @@ public partial class ConnectWindow : Window
         ChkRememberPassword.IsChecked = connection.RememberPassword;
         ChkIsDba.IsChecked = connection.IsDba;
         ChkUseSsl.IsChecked = connection.UseSsl;
+        ChkSsh.IsChecked = connection.Ssh?.Enabled ?? false;
+        TxtSshHost.Text = connection.Ssh?.Host;
+        TxtSshPort.Text = (connection.Ssh?.Port ?? 22).ToString();
+        TxtSshUser.Text = connection.Ssh?.UserName;
+        TxtSshKey.Text = connection.Ssh?.PrivateKeyPath;
+        TxtSshSecret.Text = connection.Ssh?.Secret;
+        TxtSshFingerprint.Text = connection.Ssh?.HostFingerprint;
         ComboDatabase.Text = connection.Database;
         TxtGroup.Text = connection.Group ?? string.Empty;
         ComboColorTag.SelectedItem = string.IsNullOrEmpty(connection.ColorTag)
@@ -168,6 +175,13 @@ public partial class ConnectWindow : Window
         connection.Password = connection.IntegratedSecurity ? null : TxtPassword.Text;
         connection.IsDba = ChkIsDba.IsChecked == true;
         connection.UseSsl = ChkUseSsl.IsChecked == true;
+        connection.Ssh = new SshTunnelOptions
+        {
+            Enabled = ChkSsh.IsChecked == true, Host = TxtSshHost.Text?.Trim() ?? "",
+            Port = int.TryParse(TxtSshPort.Text, out var sshPort) ? sshPort : 0,
+            UserName = TxtSshUser.Text?.Trim() ?? "", PrivateKeyPath = TxtSshKey.Text?.Trim() ?? "",
+            Secret = TxtSshSecret.Text ?? "", HostFingerprint = TxtSshFingerprint.Text?.Trim() ?? "",
+        };
         connection.Database = ComboDatabase.Text?.Trim() ?? string.Empty;
         connection.RememberPassword = !connection.IntegratedSecurity && ChkRememberPassword.IsChecked == true;
         connection.KingbaseCompatibilityMode = GetDatabaseType() == DatabaseType.KingbaseES

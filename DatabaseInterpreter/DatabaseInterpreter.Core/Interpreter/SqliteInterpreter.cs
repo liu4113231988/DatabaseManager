@@ -189,9 +189,10 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region Column
-        public override Task<List<TableColumn>> GetTableColumnsAsync(SchemaInfoFilter filter = null)
+        public override async Task<List<TableColumn>> GetTableColumnsAsync(SchemaInfoFilter filter = null)
         {
-            return this.GetTableColumnsAsync(this.CreateConnection(), filter);
+            using var connection = this.CreateConnection();
+            return await this.GetTableColumnsAsync(connection, filter);
         }
 
         public override async Task<List<TableColumn>> GetTableColumnsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)
@@ -298,9 +299,10 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region Primary Key
-        public override Task<List<TablePrimaryKeyItem>> GetTablePrimaryKeyItemsAsync(SchemaInfoFilter filter = null)
+        public override async Task<List<TablePrimaryKeyItem>> GetTablePrimaryKeyItemsAsync(SchemaInfoFilter filter = null)
         {
-            return this.GetTablePrimaryKeyItemsAsync(this.CreateConnection(), filter);
+            using var connection = this.CreateConnection();
+            return await this.GetTablePrimaryKeyItemsAsync(connection, filter);
         }
 
         public override async Task<List<TablePrimaryKeyItem>> GetTablePrimaryKeyItemsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)

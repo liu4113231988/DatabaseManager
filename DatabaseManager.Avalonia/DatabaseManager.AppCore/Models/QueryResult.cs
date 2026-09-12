@@ -10,6 +10,9 @@ namespace DatabaseManager.AppCore.Models;
 /// </summary>
 public class QueryResult
 {
+    public IReadOnlyList<QueryResult> ResultSets { get; init; } = Array.Empty<QueryResult>();
+    public bool IsTruncated { get; init; }
+    public string? WarningMessage { get; init; }
     /// <summary>列名列表。</summary>
     public IReadOnlyList<string> Columns { get; init; } = System.Array.Empty<string>();
 

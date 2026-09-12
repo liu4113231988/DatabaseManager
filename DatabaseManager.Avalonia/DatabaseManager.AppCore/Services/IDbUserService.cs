@@ -299,18 +299,7 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
 
     private static DbInterpreter CreateInterpreter(ConnectionItem connection)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         return DbInterpreterHelper.GetDbInterpreter(
             ParseDatabaseType(connection.DatabaseType), connectionInfo, new DbInterpreterOption());

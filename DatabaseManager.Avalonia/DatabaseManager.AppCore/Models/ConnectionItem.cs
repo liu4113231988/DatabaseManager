@@ -6,6 +6,7 @@ namespace DatabaseManager.AppCore.Models;
 /// </summary>
 public class ConnectionItem
 {
+    public SshTunnelOptions? Ssh { get; set; }
     /// <summary>连接（Connection）唯一标识。新增时为空。</summary>
     public string? Id { get; set; }
 

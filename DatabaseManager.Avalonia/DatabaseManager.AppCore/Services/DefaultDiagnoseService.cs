@@ -138,18 +138,7 @@ public class DefaultDiagnoseService : IDiagnoseService
     private static DatabaseType ParseDatabaseType(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;
 
-    private static ConnectionInfo ToConnectionInfo(ConnectionItem connection) => new()
-    {
-        Server = connection.Server,
-        Port = connection.Port,
-        ServerVersion = connection.ServerVersion,
-        Database = connection.Database,
-        IntegratedSecurity = connection.IntegratedSecurity,
-        UserId = connection.UserId,
-        Password = connection.Password,
-        IsDba = connection.IsDba,
-        UseSsl = connection.UseSsl,
-    };
+    private static ConnectionInfo ToConnectionInfo(ConnectionItem connection) => ConnectionHelper.ToConnectionInfo(connection);
 
     /// <summary>
     /// 诊断反馈观察者：将 <see cref="FeedbackInfo"/> 消息转发到回调。

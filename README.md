@@ -1,5 +1,7 @@
 # DatabaseManager
 
+最近的功能检查、修复与验证边界见 [2026-09-10 功能检查记录](DatabaseManager.Avalonia/docs/function-audit-20260910.md)。
+
 一个基于 **.NET 8** 的多数据库管理与迁移工具，提供对象浏览、SQL 开发、数据编辑、表设计、结构/数据转换、差异对比与同步、导入导出、诊断优化、备份恢复等一站式数据库运维能力。
 
 当前产品客户端为 **DatabaseManager.Avalonia**：基于 Avalonia UI + AtomUI，支持 Windows / Linux / macOS。它通过 `DatabaseManager.AppCore` 承载 UI 无关的业务服务和 ViewModel，并复用 `DatabaseInterpreter`、`DatabaseConverter` 与 `DatabaseManager.Core` 等核心引擎。
@@ -117,7 +119,7 @@
 | --- | :-: | :-: | :-: | :-: | :-: |
 | 多数据库支持（≥5 种关系库） | ✅ | ✅ | ✅ | ✅ | ⚠️ |
 | 连接 Profile / 测试 / SSL | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SSH 隧道连接 | ❌ | ✅ | ✅ | ✅ | ✅ |
+| SSH 隧道连接 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 连接分组 / 颜色标签 | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 对象浏览 + 元数据搜索 | ✅ | ✅ | ✅ | ✅ | ⚠️ |
 | SQL 编辑（高亮/补全/格式化） | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -146,16 +148,18 @@
 
 ---
 
-## 待实现功能（Roadmap）
+## 功能路线图（Roadmap）
+
+2026-09-12 已实现多结果集与快照、增强数据编辑、执行计划树、SSH 隧道和多步骤任务。范围见 [Roadmap.md](./Roadmap.md)，逐项验证及限制见 [P0 交付记录](./DatabaseManager.Avalonia/docs/p0-delivery-20260912.md)。
 
 > 依据与主流平台的差距分析整理。**2026-09 批次已实现**：全库数据搜索、数据网格内交互式筛选/排序、连接分组与颜色标签、图表/仪表盘、用户/权限管理 UI、会话与锁监控、任务定时调度、查询性能剖析、结果区浮动/停靠（实施记录、已知限制与后续优先级见 [todo.md](./todo.md)）。
 
-### P1 · 高频刚需
+### P0 · 本批次交付与暂缓
 
 | # | 功能 | 说明 | 参考 |
 | --- | --- | --- | --- |
-| 1 | **SSH 隧道连接** | 连接配置增加 SSH 主机/端口/认证（密码/密钥）与隧道选项，并接入各数据库连接构建器（所有主流工具的标配能力） | DBeaver / Navicat / TablePlus |
-| 2 | **ER 图（数据库关系图）** | 库/Schema/表级右键生成 ER 图：表节点 + 外键关系连线，自动布局、缩放、导出图片；WinForms 版曾有 `frmDatabaseDiagram` | DBeaver / DataGrip / Navicat |
+| 1 | **SSH 隧道连接（已实现）** | 密码/密钥认证、主机指纹校验与连接复用；真实 SSH 环境验收待补 | DBeaver / Navicat / TablePlus |
+| 2 | **ER 图（数据库关系图，暂缓）** | 库/Schema/表级右键生成 ER 图：表节点 + 外键关系连线，自动布局、缩放、导出图片；WinForms 版曾有 `frmDatabaseDiagram` | DBeaver / DataGrip / Navicat |
 
 ### P2 · 进阶能力
 

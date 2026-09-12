@@ -9,13 +9,28 @@ public static class ScheduleTaskTypes
     public const string SqlScript = "SqlScript";
     public const string Backup = "Backup";
     public const string Export = "Export";
+    public const string Import = "Import";
+    public const string Migration = "Migration";
+    public const string SchemaSync = "SchemaSync";
+    public const string DataSync = "DataSync";
 
-    public static readonly string[] All = { SqlScript, Backup, Export };
+    public static readonly string[] All = { SqlScript, Backup, Export, Import, Migration, SchemaSync, DataSync };
 }
 
 /// <summary>定时任务计划定义（持久化于 Profiles\schedules.json）。</summary>
 public class ScheduleDefinition
 {
+    public string? TargetConnectionName { get; set; }
+    public string? TargetDatabaseName { get; set; }
+    public string MigrationMode { get; set; } = ConvertMode.SchemaAndData;
+    public List<ScheduleDefinition> Steps { get; set; } = new();
+    public bool ContinueOnFailure { get; set; }
+    public string? NotificationRecipient { get; set; }
+    public string? SmtpHost { get; set; }
+    public int SmtpPort { get; set; } = 587;
+    public string? SmtpFrom { get; set; }
+    public string? SmtpUser { get; set; }
+    public string? SmtpPasswordEnvironmentVariable { get; set; }
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     public string Name { get; set; } = string.Empty;
@@ -25,7 +40,7 @@ public class ScheduleDefinition
 
     public string ConnectionName { get; set; } = string.Empty;
 
-    /// <summary>数据库覆盖（空 = 连接默认库；当前对备份/导出生效）。</summary>
+    /// <summary>数据库覆盖（空 = 连接默认库）。</summary>
     public string? DatabaseName { get; set; }
 
     // --- SqlScript ---
@@ -109,6 +124,7 @@ public class DefaultScheduleService : IScheduleService
     private readonly IQueryService _queryService;
     private readonly IBackupService _backupService;
     private readonly IExportImportService _exportImportService;
+    private readonly ScheduledOperations _operations;
 
     public event Action? SchedulesChanged;
 
@@ -117,15 +133,18 @@ public class DefaultScheduleService : IScheduleService
         IDbConnectionService connectionService,
         IQueryService queryService,
         IBackupService backupService,
-        IExportImportService exportImportService)
+        IExportImportService exportImportService,
+        IConvertService? convertService = null, ICompareService? compareService = null, ISyncScriptService? syncService = null,
+        string? storageDirectory = null)
     {
         _taskCenter = taskCenter;
         _connectionService = connectionService;
         _queryService = queryService;
         _backupService = backupService;
         _exportImportService = exportImportService;
+        _operations = new ScheduledOperations(connectionService, exportImportService, convertService, compareService, syncService);
 
-        var dir = Path.Combine(AppContext.BaseDirectory, "Profiles");
+        var dir = storageDirectory ?? Path.Combine(AppContext.BaseDirectory, "Profiles");
         Directory.CreateDirectory(dir);
         _filePath = Path.Combine(dir, "schedules.json");
         _items = Load();
@@ -162,6 +181,7 @@ public class DefaultScheduleService : IScheduleService
 
     public void Save(ScheduleDefinition definition)
     {
+        Validate(definition);
         var existing = _items.FirstOrDefault(d => d.Id == definition.Id);
         if (existing is not null)
         {
@@ -228,18 +248,45 @@ public class DefaultScheduleService : IScheduleService
 
     private void SubmitScheduled(ScheduleDefinition definition, DateTime now)
     {
+        // Freeze the definition so editing a running plan cannot change its remaining steps.
+        definition = JsonConvert.DeserializeObject<ScheduleDefinition>(JsonConvert.SerializeObject(definition))!;
         _taskCenter.Run($"[定时] {definition.Name}", $"定时/{definition.TaskType}", async (run, ct) =>
         {
             run.Report($"计划到期，开始执行（类型：{definition.TaskType}）。");
 
             try
             {
-                string summary = definition.TaskType switch
+                Validate(definition);
+                var steps = definition.Steps.Count > 0 ? definition.Steps : new List<ScheduleDefinition> { definition };
+                var failures = new List<string>();
+                var summaries = new List<string>();
+                for (int i = 0; i < steps.Count; i++)
                 {
-                    ScheduleTaskTypes.Backup => await RunBackupAsync(definition, run, ct),
-                    ScheduleTaskTypes.Export => await RunExportAsync(definition, run, ct),
-                    _ => await RunSqlScriptAsync(definition, run, ct),
-                };
+                    ct.ThrowIfCancellationRequested();
+                    var step = steps[i];
+                    run.Report($"步骤 {i + 1}/{steps.Count}：{step.Name}（{step.TaskType}）");
+                    try
+                    {
+                        string stepSummary = step.TaskType switch
+                        {
+                            ScheduleTaskTypes.Backup => await RunBackupAsync(step, run, ct),
+                            ScheduleTaskTypes.Export => await RunExportAsync(step, run, ct),
+                            ScheduleTaskTypes.SqlScript => await RunSqlScriptAsync(step, run, ct),
+                            _ => await _operations.RunAsync(step, run, ct),
+                        };
+                        summaries.Add(stepSummary);
+                        run.Report($"步骤 {i + 1} 完成：{stepSummary}");
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        failures.Add($"步骤 {i + 1}：{ex.Message}");
+                        run.Report(failures[^1]);
+                        if (!definition.ContinueOnFailure) throw;
+                    }
+                }
+                if (failures.Count > 0) throw new InvalidOperationException(string.Join("；", failures));
+                string summary = string.Join("；", summaries);
 
                 definition.LastResult = $"成功：{summary}";
                 run.ResultSummary = summary;
@@ -257,11 +304,22 @@ public class DefaultScheduleService : IScheduleService
             finally
             {
                 definition.LastRunAt = DateTime.Now;
-                Save(definition);
-
-                lock (_runningIds)
+                try
                 {
-                    _runningIds.Remove(definition.Id);
+                    var existing = _items.FirstOrDefault(d => d.Id == definition.Id);
+                    if (existing is not null)
+                    {
+                        existing.LastRunAt = definition.LastRunAt;
+                        existing.LastResult = definition.LastResult;
+                        Persist();
+                    }
+                    using var notifyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                    try { await ScheduledOperations.NotifyAsync(definition, notifyTimeout.Token); }
+                    catch (Exception ex) { run.Report($"邮件通知失败：{ex.Message}"); }
+                }
+                finally
+                {
+                    lock (_runningIds) _runningIds.Remove(definition.Id);
                 }
             }
         });
@@ -287,6 +345,7 @@ public class DefaultScheduleService : IScheduleService
         {
             var clone = new ConnectionItem
             {
+                Ssh = connection.Ssh,
                 Id = connection.Id,
                 AccountId = connection.AccountId,
                 DatabaseType = connection.DatabaseType,
@@ -316,7 +375,8 @@ public class DefaultScheduleService : IScheduleService
         }
 
         run.Report("执行 SQL 脚本...");
-        var result = await _queryService.ExecuteAsync(definition.ConnectionName, definition.SqlText, ct, 600);
+        var connection = ResolveConnection(definition);
+        var result = await _queryService.ExecuteStandaloneAsync(connection, definition.SqlText, ct, 600);
 
         if (!result.IsSuccess)
         {
@@ -395,14 +455,31 @@ public class DefaultScheduleService : IScheduleService
     {
         lock (FileLock)
         {
-            try
-            {
-                File.WriteAllText(_filePath, JsonConvert.SerializeObject(_items, Formatting.Indented));
-            }
-            catch
-            {
-                // 持久化失败不抛出。
-            }
+            var temp = _filePath + ".tmp";
+            File.WriteAllText(temp, JsonConvert.SerializeObject(_items, Formatting.Indented));
+            File.Move(temp, _filePath, true);
+        }
+    }
+
+    public static void Validate(ScheduleDefinition definition)
+    {
+        if (!string.IsNullOrWhiteSpace(definition.NotificationRecipient))
+        {
+            if (string.IsNullOrWhiteSpace(definition.SmtpHost) || string.IsNullOrWhiteSpace(definition.SmtpFrom) || definition.SmtpPort is < 1 or > 65535)
+                throw new InvalidOperationException("邮件通知需要 SMTP 主机、有效端口和发件邮箱。");
+            try { _ = new System.Net.Mail.MailAddress(definition.SmtpFrom); _ = new System.Net.Mail.MailAddress(definition.NotificationRecipient); }
+            catch (FormatException) { throw new InvalidOperationException("发件或收件邮箱格式无效。"); }
+        }
+        if (definition.Steps.Count > 50) throw new InvalidOperationException("每个计划最多 50 个步骤。");
+        foreach (var step in definition.Steps.Count > 0 ? definition.Steps : new List<ScheduleDefinition> { definition })
+        {
+            if (step != definition && step.Steps.Count > 0) throw new InvalidOperationException("不支持嵌套批处理。");
+            if (!ScheduleTaskTypes.All.Contains(step.TaskType)) throw new InvalidOperationException("未知任务类型。");
+            if (string.IsNullOrWhiteSpace(step.ConnectionName)) throw new InvalidOperationException("步骤缺少连接。");
+            if (step.TaskType == ScheduleTaskTypes.SqlScript && string.IsNullOrWhiteSpace(step.SqlText)) throw new InvalidOperationException("SQL 脚本不能为空。");
+            if (step.TaskType is ScheduleTaskTypes.Import or ScheduleTaskTypes.Export && (string.IsNullOrWhiteSpace(step.ExportTable) || string.IsNullOrWhiteSpace(step.ExportFilePath))) throw new InvalidOperationException("导入导出需要表和文件路径。");
+            if (step.TaskType is ScheduleTaskTypes.Migration or ScheduleTaskTypes.SchemaSync or ScheduleTaskTypes.DataSync && string.IsNullOrWhiteSpace(step.TargetConnectionName)) throw new InvalidOperationException("迁移或同步需要目标连接。");
+            if (step.TaskType == ScheduleTaskTypes.DataSync && string.IsNullOrWhiteSpace(step.ExportTable)) throw new InvalidOperationException("数据同步需要指定表。");
         }
     }
 }

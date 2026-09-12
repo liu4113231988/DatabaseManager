@@ -20,6 +20,7 @@ namespace DatabaseManager.Core
     public class DataImporter
     {
         private IObserver<FeedbackInfo> observer;
+        public string LastErrorMessage { get; private set; }
 
         /// <summary>导入选项（跳过行 / 类型校验 / 跳过错误行）。</summary>
         public DataImportOption Option { get; set; } = new DataImportOption();
@@ -31,6 +32,7 @@ namespace DatabaseManager.Core
 
         public async Task<(bool Success, DataValidateResult ValidateResult)> Import(DbInterpreter dbInterpreter, Table table, SourceFileInfo info, List<DataImportColumnMapping> columnMappings, CancellationToken cancellationToken)
         {
+            LastErrorMessage = null;
             dbInterpreter.Option.ScriptOutputMode = GenerateScriptOutputMode.WriteToString;
             dbInterpreter.Option.ThrowExceptionWhenErrorOccurs = true;
 
@@ -80,7 +82,7 @@ namespace DatabaseManager.Core
 
                     string[] headerNames = result.HeaderColumns;
 
-                    SchemaInfoFilter filter = new SchemaInfoFilter() { TableNames = [tableName] };
+                    SchemaInfoFilter filter = new SchemaInfoFilter() { Schema = table.Schema, TableNames = [tableName] };
 
                     var columns = await dbInterpreter.GetTableColumnsAsync(connection, filter);
 
@@ -156,7 +158,7 @@ namespace DatabaseManager.Core
                         }
                     }
 
-                    await connection.OpenAsync();
+                    if (connection.State != ConnectionState.Open) await connection.OpenAsync(cancellationToken);
 
                     var trans = await connection.BeginTransactionAsync();
 
@@ -197,6 +199,7 @@ namespace DatabaseManager.Core
             }
             catch (Exception ex)
             {
+                LastErrorMessage = ex.Message;
                 this.HandleError(ex);
 
                 return (false, null);

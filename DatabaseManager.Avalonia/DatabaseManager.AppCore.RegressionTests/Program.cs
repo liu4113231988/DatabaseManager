@@ -10,6 +10,10 @@ static class Program
 {
     private static int Main()
     {
+        QueryExecutionChecks.RunAsync().GetAwaiter().GetResult();
+        P0FeatureChecks.RunAsync().GetAwaiter().GetResult();
+        PostgresP0Checks.RunAsync().GetAwaiter().GetResult();
+        if (Environment.GetEnvironmentVariable("DBM_TEST_TEMP_DATABASES") == "1") PostgresJobChecks.RunAsync().GetAwaiter().GetResult();
         AssertEqual("`sales`.`orders`", SqlDialectHelper.QuoteQualifiedIdentifier(DatabaseType.MySql, "sales.orders"));
         AssertEqual("[sales].[orders]", SqlDialectHelper.QuoteQualifiedIdentifier(DatabaseType.SqlServer, "sales.orders"));
         AssertEqual("\"sales\".\"orders\"", SqlDialectHelper.QuoteQualifiedIdentifier(DatabaseType.Postgres, "sales.orders"));

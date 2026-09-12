@@ -20,7 +20,7 @@ public class DefaultCompareService : ICompareService
         Action<string>? onFeedback = null,
         CancellationToken cancellationToken = default)
     {
-        var emptyContext = new SchemaCompareContext { Source = source, Target = target };
+        var emptyContext = new SchemaCompareContext { Source = source, Target = target, ErrorMessage = "结构对比失败，请检查连接、权限和日志。" };
 
         onFeedback?.Invoke("正在校验源/目标连接...");
 
@@ -487,18 +487,7 @@ public class DefaultCompareService : ICompareService
 
     private static DbInterpreter CreateDataInterpreter(ConnectionItem connection, DatabaseType dbType)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var option = new DbInterpreterOption
         {
@@ -540,18 +529,7 @@ public class DefaultCompareService : ICompareService
 
     private static DbInterpreter CreateInterpreter(ConnectionItem connection, DatabaseType dbType, DatabaseObjectType objectType)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var option = new DbInterpreterOption
         {

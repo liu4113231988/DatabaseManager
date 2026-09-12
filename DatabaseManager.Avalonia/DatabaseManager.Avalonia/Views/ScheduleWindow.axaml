@@ -41,8 +41,9 @@
         <!-- 编辑表单 -->
         <Border Grid.Row="2" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
                 CornerRadius="6" Padding="10,8" Margin="0,8,0,0">
+            <ScrollViewer MaxHeight="440" HorizontalScrollBarVisibility="Auto">
             <StackPanel Spacing="6">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="名称:" VerticalAlignment="Center" FontSize="11" />
                     <TextBox Grid.Column="1" x:Name="TxtName" Margin="4,0,10,0" VerticalContentAlignment="Center" FontSize="11" />
                     <TextBlock Grid.Column="2" Text="类型:" VerticalAlignment="Center" FontSize="11" />
@@ -50,6 +51,10 @@
                         <ComboBoxItem>SQL 脚本</ComboBoxItem>
                         <ComboBoxItem>备份</ComboBoxItem>
                         <ComboBoxItem>导出</ComboBoxItem>
+                        <ComboBoxItem>导入</ComboBoxItem>
+                        <ComboBoxItem>迁移</ComboBoxItem>
+                        <ComboBoxItem>结构同步</ComboBoxItem>
+                        <ComboBoxItem>数据同步</ComboBoxItem>
                     </ComboBox>
                     <TextBlock Grid.Column="4" Text="连接:" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
                     <ComboBox Grid.Column="5" x:Name="ComboConnection" Width="180" FontSize="11">
@@ -81,7 +86,7 @@
 
                 <!-- 导出 -->
                 <StackPanel x:Name="PanelExport" IsVisible="False" Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="导出表:" VerticalAlignment="Center" FontSize="11" />
+                    <TextBlock Text="表（同步可逗号分隔）:" VerticalAlignment="Center" FontSize="11" />
                     <TextBox x:Name="TxtExportTable" Width="130" VerticalContentAlignment="Center" FontSize="11" />
                     <TextBlock Text="Schema(可选):" VerticalAlignment="Center" FontSize="11" />
                     <TextBox x:Name="TxtExportSchema" Width="90" VerticalContentAlignment="Center" FontSize="11" />
@@ -93,11 +98,35 @@
                         <ComboBoxItem>Json</ComboBoxItem>
                         <ComboBoxItem>Xml</ComboBoxItem>
                     </ComboBox>
-                    <TextBlock Text="导出文件路径:" VerticalAlignment="Center" FontSize="11" />
+                    <TextBlock Text="导入/导出文件:" VerticalAlignment="Center" FontSize="11" />
                     <TextBox x:Name="TxtExportFilePath" Width="200" VerticalContentAlignment="Center" FontSize="11" />
                 </StackPanel>
 
                 <!-- 计划 -->
+                <StackPanel x:Name="PanelTarget" IsVisible="False" Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="目标连接:" />
+                    <ComboBox x:Name="ComboTarget" Width="220">
+                        <ComboBox.ItemTemplate><DataTemplate x:DataType="mods:ConnectionItem"><TextBlock Text="{Binding Description}" /></DataTemplate></ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBox x:Name="TxtTargetDatabase" Width="140" PlaceholderText="目标数据库（可选）" />
+                    <ComboBox x:Name="ComboMigrationMode" Width="140"><ComboBoxItem>SchemaAndData</ComboBoxItem><ComboBoxItem>Schema</ComboBoxItem><ComboBoxItem>Data</ComboBoxItem></ComboBox>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <CheckBox x:Name="ChkContinueFailure" Content="步骤失败后继续（最终仍标记失败）" />
+                    <Button Content="将当前操作加入步骤" Click="BtnAddStep_Click" />
+                    <Button Content="移除最后步骤" Click="BtnRemoveStep_Click" />
+                </StackPanel>
+                <TextBlock x:Name="TxtSteps" TextWrapping="Wrap" />
+                <Expander Header="邮件通知（可选，需要 TLS SMTP）">
+                    <StackPanel Spacing="4">
+                        <TextBox x:Name="TxtMailTo" PlaceholderText="收件邮箱（留空关闭通知）" />
+                        <TextBox x:Name="TxtSmtpHost" PlaceholderText="SMTP 主机" />
+                        <TextBox x:Name="TxtSmtpPort" Text="587" PlaceholderText="SMTP 端口" />
+                        <TextBox x:Name="TxtMailFrom" PlaceholderText="发件邮箱" />
+                        <TextBox x:Name="TxtSmtpUser" PlaceholderText="SMTP 用户名" />
+                        <TextBox x:Name="TxtSmtpSecretVariable" PlaceholderText="存放 SMTP 密码的环境变量名" />
+                    </StackPanel>
+                </Expander>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="计划:" VerticalAlignment="Center" FontSize="11" />
                     <ComboBox x:Name="ComboScheduleKind" Width="110" FontSize="11" SelectionChanged="ComboScheduleKind_SelectionChanged">
@@ -122,6 +151,7 @@
                     <Button Content="取消" Click="BtnFormCancel_Click" />
                 </StackPanel>
             </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <TextBlock Grid.Row="3" Text="到期检查由主窗口每 30 秒触发一次；任务经任务中心执行（可见/可取消/有历史）。应用关闭后定时任务不再触发。"

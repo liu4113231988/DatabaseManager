@@ -1,5 +1,10 @@
 # 依赖版本锁定（Package Versions）
 
+## 2026-09-12 P0 增量
+
+- AppCore 增加 SSH.NET **2026.0.0**，用于密码/私钥认证、主机指纹验证和本地转发；NuGet 还原已通过。
+- 下方为历史阶段记录；当前 Avalonia/AtomUI/Dock 的实际版本以项目文件为准。
+
 > 本文档记录 Avalonia 迁移项目各阶段锁定的 NuGet 依赖版本组合，确保可复现构建。
 > 对应 `avalonia-migration-detailed-plan.md` 阶段 0 的"版本锁定"风险应对。
 

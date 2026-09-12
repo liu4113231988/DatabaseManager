@@ -39,6 +39,13 @@ public partial class ExecutionPlanViewModel : ViewModelBase
 
     /// <summary>计划结果行。</summary>
     public ObservableCollection<DataRowItem> Rows { get; } = new();
+    public ObservableCollection<ExecutionPlanNode> PlanNodes { get; } = new();
+    [ObservableProperty]
+    private ExecutionPlanNode? _selectedNode;
+    public Func<Task<bool>>? ConfirmAnalyze { get; set; }
+    private CancellationTokenSource? _cancellation;
+    [RelayCommand]
+    public void Cancel() => _cancellation?.Cancel();
 
     public ExecutionPlanViewModel(IExecutionPlanService planService)
     {
@@ -54,13 +61,17 @@ public partial class ExecutionPlanViewModel : ViewModelBase
             return;
         }
 
+        if (Analyze && (ConfirmAnalyze is null || !await ConfirmAnalyze())) return;
         IsBusy = true;
+        _cancellation = new CancellationTokenSource();
         try
         {
-            var result = await _planService.ExplainAsync(Connection, SqlText, Analyze);
+            var result = await _planService.ExplainAsync(Connection, SqlText, Analyze, _cancellation.Token);
 
             Columns.Clear();
             Rows.Clear();
+            PlanNodes.Clear();
+            SelectedNode = null;
 
             if (!result.IsSuccess)
             {
@@ -80,12 +91,16 @@ public partial class ExecutionPlanViewModel : ViewModelBase
             }
 
             HasResult = Rows.Count > 0;
+            foreach (var node in ExecutionPlanParser.Parse(result)) PlanNodes.Add(node);
+            SelectedNode = PlanNodes.FirstOrDefault();
             StatusMessage = HasResult
                 ? $"已获取执行计划（{Rows.Count} 行，耗时 {result.ElapsedMilliseconds} ms）。"
                 : "执行计划为空。";
         }
         finally
         {
+            _cancellation.Dispose();
+            _cancellation = null;
             IsBusy = false;
         }
     }

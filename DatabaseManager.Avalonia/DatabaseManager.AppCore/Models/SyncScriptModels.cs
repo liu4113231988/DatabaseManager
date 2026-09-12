@@ -52,6 +52,7 @@ public partial class ScriptItem : ObservableObject
 /// </summary>
 public sealed class SchemaCompareContext
 {
+    public string? ErrorMessage { get; set; }
     public ConnectionItem Source { get; init; } = null!;
 
     public ConnectionItem Target { get; init; } = null!;

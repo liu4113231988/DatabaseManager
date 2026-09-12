@@ -16,6 +16,10 @@ public class ScheduleRow
     {
         ScheduleTaskTypes.Backup => "备份",
         ScheduleTaskTypes.Export => "导出",
+        ScheduleTaskTypes.Import => "导入",
+        ScheduleTaskTypes.Migration => "迁移",
+        ScheduleTaskTypes.SchemaSync => "结构同步",
+        ScheduleTaskTypes.DataSync => "数据同步",
         _ => "SQL 脚本",
     };
 
@@ -58,6 +62,8 @@ public partial class ScheduleWindow : Window
     private readonly IScheduleService _scheduleService;
     private readonly IDbConnectionService _connectionService;
     private ScheduleDefinition? _editing;
+    private readonly List<ScheduleDefinition> _steps = new();
+    private bool _addingStep;
 
     public ScheduleWindow(IScheduleService scheduleService, IDbConnectionService connectionService)
     {
@@ -67,6 +73,7 @@ public partial class ScheduleWindow : Window
         _connectionService = connectionService;
 
         ComboConnection.ItemsSource = _connectionService.GetConnections();
+        ComboTarget.ItemsSource = _connectionService.GetConnections();
         _scheduleService.SchedulesChanged += RefreshGrid;
 
         RefreshGrid();
@@ -80,6 +87,11 @@ public partial class ScheduleWindow : Window
 
     private void RefreshGrid()
     {
+        if (!global::Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+        {
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(RefreshGrid);
+            return;
+        }
         var rows = _scheduleService.GetAll()
             .OrderByDescending(d => d.Enabled)
             .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
@@ -96,6 +108,19 @@ public partial class ScheduleWindow : Window
     private void ShowForm(ScheduleDefinition? definition)
     {
         _editing = definition;
+        _steps.Clear();
+        if (definition is not null) _steps.AddRange(definition.Steps);
+        RefreshSteps();
+        ChkContinueFailure.IsChecked = definition?.ContinueOnFailure ?? false;
+        TxtMailTo.Text = definition?.NotificationRecipient;
+        TxtSmtpHost.Text = definition?.SmtpHost;
+        TxtSmtpPort.Text = (definition?.SmtpPort ?? 587).ToString();
+        TxtMailFrom.Text = definition?.SmtpFrom;
+        TxtSmtpUser.Text = definition?.SmtpUser;
+        TxtSmtpSecretVariable.Text = definition?.SmtpPasswordEnvironmentVariable;
+        ComboTarget.SelectedItem = ComboTarget.ItemsSource?.Cast<ConnectionItem>().FirstOrDefault(c => c.Name == definition?.TargetConnectionName);
+        TxtTargetDatabase.Text = definition?.TargetDatabaseName;
+        ComboMigrationMode.SelectedIndex = definition?.MigrationMode switch { ConvertMode.Schema => 1, ConvertMode.Data => 2, _ => 0 };
 
         FormPanel.IsVisible = true;
         TxtName.Text = definition?.Name ?? string.Empty;
@@ -113,6 +138,10 @@ public partial class ScheduleWindow : Window
         {
             ScheduleTaskTypes.Backup => 1,
             ScheduleTaskTypes.Export => 2,
+            ScheduleTaskTypes.Import => 3,
+            ScheduleTaskTypes.Migration => 4,
+            ScheduleTaskTypes.SchemaSync => 5,
+            ScheduleTaskTypes.DataSync => 6,
             _ => 0,
         };
 
@@ -147,7 +176,8 @@ public partial class ScheduleWindow : Window
     {
         PanelSql.IsVisible = ComboTaskType.SelectedIndex == 0;
         PanelBackup.IsVisible = ComboTaskType.SelectedIndex == 1;
-        PanelExport.IsVisible = ComboTaskType.SelectedIndex == 2;
+        PanelExport.IsVisible = ComboTaskType.SelectedIndex is 2 or 3 or 6;
+        if (PanelTarget is not null) PanelTarget.IsVisible = ComboTaskType.SelectedIndex >= 4;
     }
 
     private void UpdateScheduleKindPanels()
@@ -189,7 +219,7 @@ public partial class ScheduleWindow : Window
             return;
         }
 
-        var definition = _editing ?? new ScheduleDefinition();
+        var definition = _editing is null || _addingStep ? new ScheduleDefinition() : Newtonsoft.Json.JsonConvert.DeserializeObject<ScheduleDefinition>(Newtonsoft.Json.JsonConvert.SerializeObject(_editing))!;
 
         definition.Name = name;
         definition.ConnectionName = connection.Name;
@@ -198,6 +228,10 @@ public partial class ScheduleWindow : Window
         {
             1 => ScheduleTaskTypes.Backup,
             2 => ScheduleTaskTypes.Export,
+            3 => ScheduleTaskTypes.Import,
+            4 => ScheduleTaskTypes.Migration,
+            5 => ScheduleTaskTypes.SchemaSync,
+            6 => ScheduleTaskTypes.DataSync,
             _ => ScheduleTaskTypes.SqlScript,
         };
         definition.SqlText = TxtSql.Text;
@@ -230,8 +264,24 @@ public partial class ScheduleWindow : Window
             return;
         }
         definition.Enabled = ChkEnabled.IsChecked == true;
-
-        _scheduleService.Save(definition);
+        definition.TargetConnectionName = (ComboTarget.SelectedItem as ConnectionItem)?.Name;
+        definition.TargetDatabaseName = TxtTargetDatabase.Text?.Trim();
+        definition.MigrationMode = ComboMigrationMode.SelectedIndex switch { 1 => ConvertMode.Schema, 2 => ConvertMode.Data, _ => ConvertMode.SchemaAndData };
+        definition.ContinueOnFailure = ChkContinueFailure.IsChecked == true;
+        definition.NotificationRecipient = TxtMailTo.Text?.Trim();
+        definition.SmtpHost = TxtSmtpHost.Text?.Trim();
+        definition.SmtpPort = int.TryParse(TxtSmtpPort.Text, out var smtpPort) ? smtpPort : 587;
+        definition.SmtpFrom = TxtMailFrom.Text?.Trim();
+        definition.SmtpUser = TxtSmtpUser.Text?.Trim();
+        definition.SmtpPasswordEnvironmentVariable = TxtSmtpSecretVariable.Text?.Trim();
+        definition.Steps = _addingStep ? new() : _steps.ToList();
+        try
+        {
+            DefaultScheduleService.Validate(definition);
+            if (_addingStep) { _steps.Add(definition); RefreshSteps(); return; }
+            _scheduleService.Save(definition);
+        }
+        catch (Exception ex) { TxtSummary.Text = ex.Message; return; }
         FormPanel.IsVisible = false;
         _editing = null;
     }
@@ -240,6 +290,18 @@ public partial class ScheduleWindow : Window
     {
         FormPanel.IsVisible = false;
         _editing = null;
+    }
+
+    private void RefreshSteps() => TxtSteps.Text = _steps.Count == 0 ? "无步骤时执行当前操作；添加步骤后按下列顺序执行。" : string.Join(" → ", _steps.Select((s, i) => $"{i + 1}. {s.Name} ({s.TaskType}, {s.ConnectionName})"));
+    private void BtnAddStep_Click(object? sender, RoutedEventArgs e)
+    {
+        _addingStep = true;
+        try { BtnSave_Click(sender, e); } finally { _addingStep = false; }
+    }
+    private void BtnRemoveStep_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_steps.Count > 0) _steps.RemoveAt(_steps.Count - 1);
+        RefreshSteps();
     }
 
     private void BtnRunNow_Click(object? sender, RoutedEventArgs e)

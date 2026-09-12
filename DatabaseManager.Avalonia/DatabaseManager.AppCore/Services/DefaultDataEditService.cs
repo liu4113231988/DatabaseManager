@@ -339,7 +339,7 @@ public class DefaultDataEditService : IDataEditService
             await dbConnection.OpenAsync(cancellationToken);
         }
 
-        var transaction = await dbConnection.BeginTransactionAsync(cancellationToken);
+        using var transaction = await dbConnection.BeginTransactionAsync(cancellationToken);
 
         try
         {
@@ -427,7 +427,7 @@ public class DefaultDataEditService : IDataEditService
         var valueParts = includedColumns.Select(c =>
         {
             var value = row.GetValue(c.Name);
-            return ParseValueLiteral(scriptGenerator, c, value);
+            return ParseValueLiteral(scriptGenerator, c, value, interpreter.DatabaseType);
         });
 
         string values = string.Join(", ", valueParts);
@@ -455,7 +455,7 @@ public class DefaultDataEditService : IDataEditService
         {
             var value = row.GetValue(kv.Column.Name);
             var tc = FindColumn(columns, kv.Column.Name) ?? ToTableColumn(kv.Column);
-            return $"{interpreter.GetQuotedString(kv.Column.Name)} = {ParseValueLiteral(scriptGenerator, tc, value)}";
+            return $"{interpreter.GetQuotedString(kv.Column.Name)} = {ParseValueLiteral(scriptGenerator, tc, value, interpreter.DatabaseType)}";
         });
 
         string whereClause = BuildWhereClause(interpreter, scriptGenerator, columns, row);
@@ -507,7 +507,7 @@ public class DefaultDataEditService : IDataEditService
             var tc = FindColumn(columns, colName);
             if (tc is null) continue;
 
-            var literal = ParseValueLiteral(scriptGenerator, tc, value);
+            var literal = ParseValueLiteral(scriptGenerator, tc, value, interpreter.DatabaseType);
             conditions.Add($"{interpreter.GetQuotedString(colName)} = {literal}");
         }
 
@@ -526,17 +526,32 @@ public class DefaultDataEditService : IDataEditService
             if (original is null || original == DBNull.Value)
                 continue;
 
-            var literal = ParseValueLiteral(scriptGenerator, col, original);
+            var literal = ParseValueLiteral(scriptGenerator, col, original, interpreter.DatabaseType);
             conditions.Add($"{interpreter.GetQuotedString(colName)} = {literal}");
         }
 
         return string.Join(" AND ", conditions);
     }
 
-    private static string ParseValueLiteral(DbScriptGenerator scriptGenerator, TableColumn column, object? value)
+    private static string ParseValueLiteral(DbScriptGenerator scriptGenerator, TableColumn column, object? value, DatabaseType databaseType)
     {
         if (value is null || value == DBNull.Value)
             return "NULL";
+
+        if (DatabaseInterpreter.Utility.DataTypeHelper.IsBinaryType(column.DataType) && value is string binaryText)
+            value = Convert.FromHexString(binaryText.StartsWith("0x", StringComparison.OrdinalIgnoreCase) ? binaryText[2..] : binaryText);
+        if (value is byte[] binary)
+        {
+            string hex = Convert.ToHexString(binary);
+            return databaseType switch
+            {
+                DatabaseType.Postgres or DatabaseType.KingbaseES => $"decode('{hex}', 'hex')",
+                DatabaseType.SqlServer => "0x" + hex,
+                DatabaseType.MySql or DatabaseType.Sqlite => $"X'{hex}'",
+                DatabaseType.Oracle when binary.Length <= 2000 => $"HEXTORAW('{hex}')",
+                _ => throw new InvalidOperationException("当前方言的二进制字面量不受支持或超过限制（Oracle 最多 2000 字节）。"),
+            };
+        }
 
         try
         {
@@ -620,18 +635,8 @@ public class DefaultDataEditService : IDataEditService
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
+        connectionInfo.Database = string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride;
 
         var option = new DbInterpreterOption
         {

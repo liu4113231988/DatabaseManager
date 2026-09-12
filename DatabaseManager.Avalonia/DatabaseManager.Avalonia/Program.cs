@@ -24,7 +24,7 @@ sealed class Program
         }
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-        return 0;
+        return Environment.ExitCode;
     }
 
     public static AppBuilder BuildAvaloniaApp()

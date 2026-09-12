@@ -104,6 +104,105 @@ public partial class QueryTabViewModel : ViewModelBase
 
     /// <summary>查询结果列名。</summary>
     public ObservableCollection<string> Columns { get; } = new();
+    public DataTableInfo? EditableTable => _editableTableInfo;
+    public string SourceColumnName(string displayName) => _columnAliasByDisplay.TryGetValue(displayName, out var source) ? source : displayName;
+    public void ApplyFormValues(QueryResultRow row, IReadOnlyList<string?> values)
+    {
+        if (!IsResultEditable || IsSavingChanges || IsExecuting || !_allRows.Contains(row)) return;
+        for (int i = 0; i < Columns.Count && i < values.Count; i++)
+            if (IsColumnEditable(i)) row.SetValue(i, values[i]);
+        RecalculatePendingChanges();
+        RefreshPage();
+    }
+    public int ReplaceValues(int columnIndex, string find, string replacement, bool apply)
+    {
+        if (!IsResultEditable || IsSavingChanges || IsExecuting || !IsColumnEditable(columnIndex) || string.IsNullOrEmpty(find)) return 0;
+        int count = 0;
+        foreach (var row in _viewRows.ToArray())
+        {
+            string? value = row[columnIndex];
+            if (value?.Contains(find, StringComparison.Ordinal) != true) continue;
+            count++;
+            if (apply) row.SetValue(columnIndex, value.Replace(find, replacement, StringComparison.Ordinal));
+        }
+        if (apply) { RecalculatePendingChanges(); RefreshPage(); StatusMessage = $"已替换 {count} 行；点击保存才会写入数据库。"; }
+        return count;
+    }
+
+    public ObservableCollection<ResultSnapshot> ResultSnapshots { get; } = new();
+    [ObservableProperty]
+    private ResultSnapshot? _selectedResultSnapshot;
+    private bool _loadingResults;
+
+    partial void OnSelectedResultSnapshotChanged(ResultSnapshot? value)
+    {
+        if (_loadingResults || value is null) return;
+        if (HasPendingChanges || IsSavingChanges || IsExecuting)
+        {
+            StatusMessage = "请先保存或还原编辑后再切换结果。";
+            _loadingResults = true;
+            SelectedResultSnapshot = _displayedSnapshot;
+            _loadingResults = false;
+            return;
+        }
+        _displayedSnapshot = value;
+        ResetEditingState();
+        ApplyResult(value.Result);
+        EditReadOnlyReason = "结果快照只读。";
+    }
+
+    private ResultSnapshot? _displayedSnapshot;
+
+    [RelayCommand]
+    private void PinResult()
+    {
+        if (!HasResult || HasPendingChanges || IsSavingChanges || IsExecuting) return;
+        if (ResultSnapshots.Count(s => s.IsPinned) >= 3)
+        {
+            StatusMessage = "最多固定 3 个结果快照，请先移除一个。";
+            return;
+        }
+        var result = new QueryResult
+        {
+            Columns = Columns.ToArray(),
+            Rows = _allRows.Select(r => (IReadOnlyList<string>)Enumerable.Range(0, Columns.Count).Select(i => r[i] ?? string.Empty).ToArray()).ToArray(),
+            RowCount = _allRows.Count,
+        };
+        ResultSnapshots.Add(new ResultSnapshot($"固定 {DateTime.Now:HH:mm:ss}", result, true));
+        StatusMessage = "已固定独立快照，可切换结果或浮动窗口进行对照。";
+    }
+
+    [RelayCommand]
+    private void RemovePinnedResults()
+    {
+        if (HasPendingChanges || IsSavingChanges || IsExecuting) return;
+        foreach (var item in ResultSnapshots.Where(s => s.IsPinned).ToArray()) ResultSnapshots.Remove(item);
+        SelectedResultSnapshot = ResultSnapshots.FirstOrDefault();
+    }
+
+    private void LoadResultSets(QueryResult result)
+    {
+        _loadingResults = true;
+        foreach (var item in ResultSnapshots.Where(s => !s.IsPinned).ToArray()) ResultSnapshots.Remove(item);
+        var sets = result.ResultSets.Count > 0 ? result.ResultSets : result.IsSuccess && !result.IsNonQuery ? new[] { result } : Array.Empty<QueryResult>();
+        int index = 0;
+        foreach (var set in sets) ResultSnapshots.Add(new ResultSnapshot($"结果 {++index}（{set.RowCount} 行）", set, false));
+        SelectedResultSnapshot = ResultSnapshots.FirstOrDefault(s => !s.IsPinned);
+        _displayedSnapshot = SelectedResultSnapshot;
+        _loadingResults = false;
+        ApplyResult(result);
+        if (result.WarningMessage is not null) StatusMessage += " " + result.WarningMessage;
+        if (!HasResult && ResultSnapshots.FirstOrDefault(s => s.IsPinned) is { } pinned)
+        {
+            string executionStatus = StatusMessage;
+            _loadingResults = true;
+            SelectedResultSnapshot = pinned;
+            _displayedSnapshot = pinned;
+            _loadingResults = false;
+            ApplyResult(pinned.Result);
+            StatusMessage = executionStatus + " 当前显示此前固定的快照。";
+        }
+    }
 
     /// <summary>当前页的行数据（绑定到结果表格；全量数据在 _allRows 中分页切片）。</summary>
     public ObservableCollection<QueryResultRow> Rows { get; } = new();
@@ -295,10 +394,10 @@ public partial class QueryTabViewModel : ViewModelBase
             var timeout = Math.Clamp(CommandTimeoutSeconds, 1, 3600);
             var result = await _queryService.ExecuteAsync(ConnectionName, effectiveSql, _executionCts.Token, timeout);
             historyResult = result;
-            ApplyResult(result);
+            LoadResultSets(result);
 
             // 执行成功且返回结果集时，尝试启用内联编辑。
-            if (HasResult)
+            if (HasResult && result.IsSuccess && !result.IsNonQuery && SelectedResultSnapshot?.IsPinned != true && result.ResultSets.Count <= 1 && !isSelection && !result.IsTruncated)
             {
                 await TryEnableEditingAsync();
             }
@@ -742,7 +841,7 @@ public partial class QueryTabViewModel : ViewModelBase
             _allRows.Add(new QueryResultRow(result.Columns, row));
         }
 
-        StatusMessage = $"查询完成，返回 {result.RowCount} 行，耗时 {result.ElapsedMilliseconds} ms。";
+        StatusMessage = $"查询完成，返回 {result.RowCount} 行，耗时 {result.ElapsedMilliseconds} ms。" + (result.IsTruncated ? " 结果已达到容量限制，仅显示部分数据。" : "");
         HasResult = true;
         ShowNoResult = false;
 
@@ -1479,6 +1578,11 @@ public partial class QueryTabViewModel : ViewModelBase
     /// <summary>清除结果集。</summary>
     public void ClearResults()
     {
+        _loadingResults = true;
+        ResultSnapshots.Clear();
+        SelectedResultSnapshot = null;
+        _displayedSnapshot = null;
+        _loadingResults = false;
         Columns.Clear();
         _allRows.Clear();
         ResetView();

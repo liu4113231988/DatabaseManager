@@ -49,7 +49,7 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
+            desktop.MainWindow = Program.SmokeArgs.Contains("--p0") ? new global::Avalonia.Controls.Window() : new MainWindow
             {
                 DataContext = _services.GetRequiredService<MainWindowViewModel>(),
                 Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
@@ -62,10 +62,12 @@ public partial class App : Application
                 {
                     try
                     {
-                        await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
+                        if (Program.SmokeArgs.Contains("--p0")) await DatabaseManager.Avalonia.Smoke.P0SmokeHarness.RunAsync();
+                        else await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
                     }
                     catch (Exception ex)
                     {
+                        if (Program.SmokeArgs.Contains("--p0")) Environment.ExitCode = 1;
                         try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
                     }
                     finally

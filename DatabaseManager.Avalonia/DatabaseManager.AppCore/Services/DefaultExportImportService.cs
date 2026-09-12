@@ -230,7 +230,7 @@ public class DefaultExportImportService : IExportImportService
                     ? $"导入失败：数据校验未通过（{invalidCount} 行存在错误）。"
                     : validateResult?.IsValid == false
                         ? $"导入失败：数据校验未通过（共 {validateResult.Rows?.Count ?? 0} 行待检查）。"
-                        : "导入失败。";
+                        : "导入失败：" + (importer.LastErrorMessage ?? "未知错误，请检查日志。");
                 onFeedback?.Invoke(result.Message);
             }
 
@@ -331,18 +331,7 @@ public class DefaultExportImportService : IExportImportService
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var option = new DbInterpreterOption
         {

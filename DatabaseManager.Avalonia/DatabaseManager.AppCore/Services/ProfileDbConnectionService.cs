@@ -61,18 +61,7 @@ public class ProfileDbConnectionService : IDbConnectionService
 
     public async Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem connection, CancellationToken cancellationToken = default)
     {
-        var connectionInfo = new ConnectionInfo
-        {
-            Server = connection.Server,
-            Port = connection.Port,
-            ServerVersion = connection.ServerVersion,
-            Database = connection.Database,
-            IntegratedSecurity = connection.IntegratedSecurity,
-            UserId = connection.UserId,
-            Password = connection.Password,
-            IsDba = connection.IsDba,
-            UseSsl = connection.UseSsl,
-        };
+        var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var dbType = ParseDatabaseType(connection.DatabaseType);
         if (dbType == DatabaseType.KingbaseES)
@@ -114,6 +103,7 @@ public class ProfileDbConnectionService : IDbConnectionService
         if (!string.IsNullOrEmpty(id))
         {
             connection.Id = id;
+            SshProfileStore.Save(id, connection.Ssh, rememberPassword);
         }
 
         return string.IsNullOrEmpty(id) ? null : id;
@@ -125,7 +115,9 @@ public class ProfileDbConnectionService : IDbConnectionService
         if (idList.Count == 0)
             return false;
 
-        return await ConnectionProfileManager.Delete(idList);
+        var deleted = await ConnectionProfileManager.Delete(idList);
+        if (deleted) foreach (var id in idList) SshProfileStore.Save(id, null, false);
+        return deleted;
     }
 
     public async Task<bool> IsNameExistedAsync(bool isAdd, string? accountId, string name, string? id, CancellationToken cancellationToken = default)
@@ -137,6 +129,7 @@ public class ProfileDbConnectionService : IDbConnectionService
     {
         var item = new ConnectionItem
         {
+            Ssh = SshProfileStore.Find(profile.Id),
             Id = profile.Id,
             AccountId = profile.AccountId,
             DatabaseType = string.IsNullOrEmpty(profile.DatabaseType) ? databaseType : profile.DatabaseType,

@@ -63,7 +63,9 @@
 
             <!-- 历史记录 -->
             <TabItem Header="历史记录" IsVisible="{Binding HasHistory}">
+                <Grid RowDefinitions="*,180">
                 <DataGrid Margin="0,8,0,0" ItemsSource="{Binding History}"
+                          SelectedItem="{Binding SelectedHistory}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                           CanUserResizeColumns="True" FontSize="11"
@@ -76,6 +78,8 @@
                         <DataGridTextColumn Header="结果" Binding="{Binding ResultSummary}" Width="260" />
                     </DataGrid.Columns>
                 </DataGrid>
+                <TextBox Grid.Row="1" Text="{Binding SelectedHistory.LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" />
+                </Grid>
             </TabItem>
         </TabControl>
 

@@ -50,7 +50,9 @@ public class DefaultTaskCenterService : ITaskCenterService
         _runs.Insert(0, run);
         while (_runs.Count > MaxRuns)
         {
-            _runs.RemoveAt(_runs.Count - 1);
+            int completedIndex = _runs.FindLastIndex(r => r.State != TaskRunState.Running);
+            if (completedIndex < 0) break;
+            _runs.RemoveAt(completedIndex);
         }
 
         run.AppendLog("任务已登记。");
@@ -131,6 +133,7 @@ public class DefaultTaskCenterService : ITaskCenterService
                     StartedAt = run.StartedAt,
                     FinishedAt = run.FinishedAt,
                     ResultSummary = run.ResultSummary,
+                    Logs = run.GetLogSnapshot().ToList(),
                 });
 
                 if (entries.Count > MaxHistoryEntries)

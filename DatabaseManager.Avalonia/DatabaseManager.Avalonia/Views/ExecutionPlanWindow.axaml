@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.ExecutionPlanWindow"
         x:DataType="vm:ExecutionPlanViewModel"
         Title="执行计划"
@@ -14,7 +15,7 @@
         <!-- 顶部：SQL 与选项 -->
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
             <TextBlock Text="分析以下 SQL（通常为 SELECT）：" FontSize="11" Opacity="0.75" />
-            <TextBox Text="{Binding SqlText}" MinHeight="90" MaxHeight="180" AcceptsReturn="True"
+            <TextBox x:Name="SqlInput" Text="{Binding SqlText}" MinHeight="90" MaxHeight="180" AcceptsReturn="True"
                      TextWrapping="NoWrap" FontFamily="Consolas,Menlo,monospace" FontSize="12"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
@@ -24,6 +25,8 @@
                 <atom:Button Content="获取执行计划" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
+                <Button Content="取消" Command="{Binding CancelCommand}" IsEnabled="{Binding IsBusy}" />
+                <Button Content="定位节点对象 SQL" Click="LocateSql_Click" />
             </StackPanel>
         </StackPanel>
 
@@ -31,8 +34,18 @@
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
                    VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
-        <Grid>
-        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
+        <Grid RowDefinitions="*,*">
+        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasResult}">
+            <TreeView ItemsSource="{Binding PlanNodes}" SelectedItem="{Binding SelectedNode}">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate DataType="models:ExecutionPlanNode" ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding Label}" ToolTip.Tip="{Binding Details}" />
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+            <TextBox Grid.Column="1" Text="{Binding SelectedNode.Details}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" />
+        </Grid>
+        <Border Grid.Row="1" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
                 IsVisible="{Binding HasResult}">
             <DataGrid x:Name="PlanGrid" ItemsSource="{Binding Rows}"
                       AutoGenerateColumns="False" IsReadOnly="True"

@@ -523,6 +523,8 @@
                                                   ToolTip.Tip="保存成功后自动重新执行查询并定位到保存过的记录" />
                                         <Button Classes="compact" Click="QueryAddRow_Click" Content="＋ 新增"
                                                 ToolTip.Tip="在当前页末尾新增一行，填写后点击保存" />
+                                        <Button Classes="compact" Click="QueryRecord_Click" Content="单记录" />
+                                        <Button Classes="compact" Click="QueryReplace_Click" Content="查找替换" />
                                         <Button Classes="compact" Click="QueryRemoveRow_Click" Content="－ 删除"
                                                 ToolTip.Tip="删除选中的行（保存时生效）" />
                                         <Button Classes="compact Primary" Command="{Binding SaveEditsCommand}" Content="💾 保存"
@@ -535,6 +537,16 @@
                                             Background="{DynamicResource AppSubtleBrush}"
                                             BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,1"
                                             Padding="6,3" Margin="0">
+                                        <StackPanel Spacing="4">
+                                        <WrapPanel Orientation="Horizontal">
+                                            <TabControl ItemsSource="{Binding ResultSnapshots}" SelectedItem="{Binding SelectedResultSnapshot}" MinWidth="150" MaxWidth="300">
+                                                <TabControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}" /></DataTemplate></TabControl.ItemTemplate>
+                                                <TabControl.ContentTemplate><DataTemplate><Border /></DataTemplate></TabControl.ContentTemplate>
+                                            </TabControl>
+                                            <Button Classes="compact" Content="固定快照" Command="{Binding PinResultCommand}" />
+                                            <Button Classes="compact" Content="清除固定" Command="{Binding RemovePinnedResultsCommand}" />
+                                            <Button Classes="compact" Content="对照" Click="QueryCompareResults_Click" />
+                                        </WrapPanel>
                                         <StackPanel Orientation="Horizontal" Spacing="4" x:Name="QueryFilterBar">
                                             <TextBlock Text="筛选/排序" VerticalAlignment="Center" FontSize="11"
                                                        FontWeight="SemiBold" Opacity="0.75" Margin="0,0,6,0" />
@@ -576,6 +588,7 @@
                                             <Button Classes="compact" Click="ToolFloatResult_Click" Content="⇱ 浮动"
                                                     Margin="8,0,0,0"
                                                     ToolTip.Tip="把结果区浮动为独立窗口（与主窗口实时同步）" />
+                                        </StackPanel>
                                         </StackPanel>
                                     </Border>
                                     <DataGrid Grid.Row="2" ItemsSource="{Binding Rows}"

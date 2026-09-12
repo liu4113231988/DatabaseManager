@@ -518,7 +518,7 @@ namespace DatabaseInterpreter.Core
             string message = null;
             bool transactionRollbacked = false;
 
-            DbCommand command = dbConnection.CreateCommand();
+            using DbCommand command = dbConnection.CreateCommand();
             command.CommandType = commandInfo.CommandType;
             command.CommandText = commandInfo.CommandText;
             command.CommandTimeout = commandInfo.CommandTimeoutSeconds ?? Setting.CommandTimeout;

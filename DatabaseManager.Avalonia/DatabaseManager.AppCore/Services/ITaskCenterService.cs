@@ -43,6 +43,8 @@ public interface ITaskCenterService
 /// <summary>任务历史条目（跨会话持久化）。</summary>
 public class TaskHistoryEntry
 {
+    public List<string> Logs { get; set; } = new();
+    public string LogText => string.Join(Environment.NewLine, Logs);
     public string Title { get; set; } = string.Empty;
 
     public string Category { get; set; } = string.Empty;

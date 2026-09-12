@@ -7,6 +7,10 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public interface IQueryService
 {
+    /// <summary>使用独立自动提交连接执行后台 SQL，不依赖对象树连接状态或交互事务。</summary>
+    Task<QueryResult> ExecuteStandaloneAsync(ConnectionItem connection, string sql,
+        CancellationToken cancellationToken = default, int commandTimeoutSeconds = 600);
+
     /// <summary>执行一条 SQL 语句，返回查询结果（含列、行数据、受影响行数与耗时）。</summary>
     /// <param name="commandTimeoutSeconds">命令超时秒数；传入非正数时使用引擎默认值。</param>
     Task<QueryResult> ExecuteAsync(

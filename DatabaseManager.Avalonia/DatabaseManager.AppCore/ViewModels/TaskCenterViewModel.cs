@@ -23,6 +23,8 @@ public partial class TaskCenterViewModel : ViewModelBase
 
     [ObservableProperty]
     private TaskRun? _selectedRun;
+    [ObservableProperty]
+    private TaskHistoryEntry? _selectedHistory;
 
     [ObservableProperty]
     private bool _hasHistory;

@@ -19,6 +19,9 @@ public partial class ExecutionPlanWindow : Window
     {
         DataContext = vm;
         _vm = vm;
+        vm.ConfirmAnalyze = async () => await MsBox.Avalonia.MessageBoxManager.GetMessageBoxStandard(
+            "实际执行 SQL", "ANALYZE 会执行当前 SQL，并可能修改数据。是否继续？",
+            MsBox.Avalonia.Enums.ButtonEnum.YesNo).ShowWindowDialogAsync(this) == MsBox.Avalonia.Enums.ButtonResult.Yes;
     }
 
     protected override void OnOpened(EventArgs e)
@@ -55,5 +58,20 @@ public partial class ExecutionPlanWindow : Window
     private void BtnClose_Click(object? sender, RoutedEventArgs e)
     {
         Close();
+    }
+    protected override void OnClosed(EventArgs e)
+    {
+        _vm?.Cancel();
+        base.OnClosed(e);
+    }
+    private void LocateSql_Click(object? sender, RoutedEventArgs e)
+    {
+        var name = _vm?.SelectedNode?.ObjectName;
+        var sql = SqlInput.Text ?? "";
+        if (string.IsNullOrWhiteSpace(name)) { if (_vm is not null) _vm.StatusMessage = "当前节点未提供对象名，无法可靠定位 SQL。"; return; }
+        int index = sql.IndexOf(name, StringComparison.OrdinalIgnoreCase);
+        if (index < 0) { _vm!.StatusMessage = "SQL 中未找到节点对象名称。"; return; }
+        SqlInput.Focus(); SqlInput.SelectionStart = index; SqlInput.SelectionEnd = index + name.Length;
+        _vm!.StatusMessage = "已定位对象名称首次出现的位置（计划未提供精确源码范围）。";
     }
 }

@@ -59,6 +59,5 @@ public class DataColumnInfo
     public bool IsReadOnly =>
         IsComputed
         || (IsIdentity)
-        || DataTypeHelper.IsBinaryType(DataType)
         || DataTypeHelper.IsGeometryType(DataType);
 }
