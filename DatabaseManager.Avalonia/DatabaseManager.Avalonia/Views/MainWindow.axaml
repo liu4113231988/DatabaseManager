@@ -99,6 +99,16 @@
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
             </MenuItem>
             <MenuItem Header="工具">
+                <MenuItem Header="数据工作台">
+                    <MenuItem Header="查询 / 视图构建..." Tag="0" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="测试数据生成..." Tag="1" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="数据质量剖析..." Tag="2" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="数据字典与 PDF 文档..." Tag="3" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="AI SQL 助手..." Tag="4" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="连接配置导入 / 导出..." Tag="5" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="ODBC / Access / DBF 导入..." Tag="6" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="查询结果与导出脱敏..." Tag="7" Click="MenuP2Workbench_Click" />
+                </MenuItem>
                 <MenuItem Header="任务中心..." Click="MenuTaskCenter_Click" />
                 <MenuItem Header="任务定时调度..." Click="MenuSchedule_Click" />
                 <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
@@ -127,7 +137,6 @@
                 <Separator />
                 <MenuItem Header="仪表盘..." Click="MenuDashboard_Click" />
                 <Separator />
-                <MenuItem Header="图像查看器..." Click="MenuImageViewer_Click" />
                 <MenuItem Header="JSON 查看器..." Click="MenuJsonViewer_Click" />
             </MenuItem>
             <MenuItem Header="帮助">

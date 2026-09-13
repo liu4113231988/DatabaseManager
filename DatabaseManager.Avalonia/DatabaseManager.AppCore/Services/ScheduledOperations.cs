@@ -20,6 +20,13 @@ public sealed class ScheduledOperations(IDbConnectionService connections, IExpor
     public async Task<string> RunAsync(ScheduleDefinition step, TaskRun run, CancellationToken ct)
     {
         var source = Resolve(step.ConnectionName, step.DatabaseName);
+        if (step.TaskType == ScheduleTaskTypes.Documentation)
+        {
+            run.Report("读取文档元数据…");
+            var document = await DataDictionaryService.ReadAsync(source, step.Dictionary, ct);
+            await DataDictionaryService.SaveAsync(document, step.ExportFilePath!, ct);
+            return "数据字典已生成：" + step.ExportFilePath;
+        }
         if (step.TaskType == ScheduleTaskTypes.Import)
         {
             var imported = await files.ImportDataAsync(source, step.ExportTable!, step.ExportSchema, step.ExportFilePath!, onFeedback: run.Report, cancellationToken: ct);

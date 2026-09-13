@@ -13,13 +13,15 @@ public static class ScheduleTaskTypes
     public const string Migration = "Migration";
     public const string SchemaSync = "SchemaSync";
     public const string DataSync = "DataSync";
+    public const string Documentation = "Documentation";
 
-    public static readonly string[] All = { SqlScript, Backup, Export, Import, Migration, SchemaSync, DataSync };
+    public static readonly string[] All = { SqlScript, Backup, Export, Import, Migration, SchemaSync, DataSync, Documentation };
 }
 
 /// <summary>定时任务计划定义（持久化于 Profiles\schedules.json）。</summary>
 public class ScheduleDefinition
 {
+    public DictionaryOptions Dictionary { get; set; } = new();
     public string? TargetConnectionName { get; set; }
     public string? TargetDatabaseName { get; set; }
     public string MigrationMode { get; set; } = ConvertMode.SchemaAndData;
@@ -480,6 +482,7 @@ public class DefaultScheduleService : IScheduleService
             if (step.TaskType is ScheduleTaskTypes.Import or ScheduleTaskTypes.Export && (string.IsNullOrWhiteSpace(step.ExportTable) || string.IsNullOrWhiteSpace(step.ExportFilePath))) throw new InvalidOperationException("导入导出需要表和文件路径。");
             if (step.TaskType is ScheduleTaskTypes.Migration or ScheduleTaskTypes.SchemaSync or ScheduleTaskTypes.DataSync && string.IsNullOrWhiteSpace(step.TargetConnectionName)) throw new InvalidOperationException("迁移或同步需要目标连接。");
             if (step.TaskType == ScheduleTaskTypes.DataSync && string.IsNullOrWhiteSpace(step.ExportTable)) throw new InvalidOperationException("数据同步需要指定表。");
+            if (step.TaskType == ScheduleTaskTypes.Documentation && (string.IsNullOrWhiteSpace(step.ExportFilePath) || !new[] { ".pdf", ".html" }.Contains(Path.GetExtension(step.ExportFilePath).ToLowerInvariant()))) throw new InvalidOperationException("文档任务需要 PDF 或 HTML 输出路径。");
         }
     }
 }

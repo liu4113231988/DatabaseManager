@@ -142,6 +142,7 @@ public partial class ScheduleWindow : Window
             ScheduleTaskTypes.Migration => 4,
             ScheduleTaskTypes.SchemaSync => 5,
             ScheduleTaskTypes.DataSync => 6,
+            ScheduleTaskTypes.Documentation => 7,
             _ => 0,
         };
 
@@ -176,8 +177,8 @@ public partial class ScheduleWindow : Window
     {
         PanelSql.IsVisible = ComboTaskType.SelectedIndex == 0;
         PanelBackup.IsVisible = ComboTaskType.SelectedIndex == 1;
-        PanelExport.IsVisible = ComboTaskType.SelectedIndex is 2 or 3 or 6;
-        if (PanelTarget is not null) PanelTarget.IsVisible = ComboTaskType.SelectedIndex >= 4;
+        PanelExport.IsVisible = ComboTaskType.SelectedIndex is 2 or 3 or 6 or 7;
+        if (PanelTarget is not null) PanelTarget.IsVisible = ComboTaskType.SelectedIndex is >= 4 and <= 6;
     }
 
     private void UpdateScheduleKindPanels()
@@ -232,6 +233,7 @@ public partial class ScheduleWindow : Window
             4 => ScheduleTaskTypes.Migration,
             5 => ScheduleTaskTypes.SchemaSync,
             6 => ScheduleTaskTypes.DataSync,
+            7 => ScheduleTaskTypes.Documentation,
             _ => ScheduleTaskTypes.SqlScript,
         };
         definition.SqlText = TxtSql.Text;

@@ -55,6 +55,7 @@
                         <ComboBoxItem>迁移</ComboBoxItem>
                         <ComboBoxItem>结构同步</ComboBoxItem>
                         <ComboBoxItem>数据同步</ComboBoxItem>
+                        <ComboBoxItem>数据字典（路径用 .pdf / .html）</ComboBoxItem>
                     </ComboBox>
                     <TextBlock Grid.Column="4" Text="连接:" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
                     <ComboBox Grid.Column="5" x:Name="ComboConnection" Width="180" FontSize="11">

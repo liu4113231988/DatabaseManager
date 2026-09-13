@@ -12,6 +12,7 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class ChartWindow : Window
 {
+    private Func<string, Task<QueryResult>>? _reloadSource;
     /// <summary>数据列名。</summary>
     private List<string> _columns = new();
 
@@ -51,11 +52,12 @@ public partial class ChartWindow : Window
     }
 
     /// <summary>从仪表盘图表定义创建（重新执行 SQL 获取数据）。</summary>
-    public ChartWindow(DashboardChart chart, QueryResult result, IDashboardService? dashboardService, IQueryService? queryService = null)
+    public ChartWindow(DashboardChart chart, QueryResult result, IDashboardService? dashboardService, IQueryService? queryService = null, Func<string, Task<QueryResult>>? reloadSource = null)
         : this()
     {
         _dashboardService = dashboardService;
         _queryService = queryService;
+        _reloadSource = reloadSource;
         _existingChart = chart;
 
         if (result.IsSuccess && !result.IsNonQuery)
@@ -252,7 +254,8 @@ public partial class ChartWindow : Window
             }
         }
 
-        _dashboardService.Save(chart);
+        try { _dashboardService.Save(chart); }
+        catch (Exception ex) { TxtHint.Text = ex.Message; return; }
         _existingChart = chart;
         TxtHint.Text = $"已保存到仪表盘：{chart.Name}。可在「工具 → 仪表盘...」查看。";
     }
@@ -274,7 +277,14 @@ public partial class ChartWindow : Window
             return;
         }
 
-        var result = await _queryService.ExecuteAsync(_existingChart.ConnectionName, sql, CancellationToken.None, 120);
+        if (SqlSafety.ValidateProfilerStatement(sql) is not null) { TxtHint.Text = "图表只支持单条 SELECT 查询。"; return; }
+        QueryResult result;
+        try
+        {
+            result = _reloadSource is null ? await _queryService.ExecuteAsync(_existingChart.ConnectionName, sql, CancellationToken.None, 120) : await _reloadSource(sql);
+            if (result.IsSuccess && !result.IsNonQuery) result = DashboardTransform.Apply(result, _existingChart.CalculatedFields);
+        }
+        catch (Exception ex) { TxtHint.Text = ex.Message; return; }
         if (!result.IsSuccess || result.IsNonQuery)
         {
             TxtHint.Text = result.ErrorMessage ?? "SQL 未返回结果集。";

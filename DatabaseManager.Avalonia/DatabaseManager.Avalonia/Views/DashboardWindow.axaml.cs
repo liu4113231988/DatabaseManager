@@ -8,6 +8,9 @@ namespace DatabaseManager.Avalonia.Views;
 /// <summary>仪表盘卡片（图表定义 + 渲染模型 + 刷新状态）。</summary>
 public class DashboardCard : System.ComponentModel.INotifyPropertyChanged
 {
+    public QueryResult? RawResult { get; set; }
+    public IReadOnlyList<string> FilterValues { get; private set; } = Array.Empty<string>();
+    public void SetFilterValues(IReadOnlyList<string> values) { FilterValues = values; OnPropertyChanged(nameof(FilterValues)); }
     public DashboardChart Chart { get; }
 
     public string Name => Chart.Name;
@@ -66,18 +69,25 @@ public partial class DashboardWindow : Window
 {
     private readonly IDashboardService _dashboardService;
     private readonly IQueryService _queryService;
+    private readonly IDbConnectionService? _connections;
+    private readonly CancellationTokenSource _lifetime = new();
+    private bool _refreshing;
+    private bool _updatingPages;
+    private List<DashboardCard> _cards = new();
 
     public DashboardWindow()
     {
         InitializeComponent();
     }
 
-    public DashboardWindow(IDashboardService dashboardService, IQueryService queryService)
+    public DashboardWindow(IDashboardService dashboardService, IQueryService queryService, IDbConnectionService? connections = null)
         : this()
     {
         _dashboardService = dashboardService;
         _queryService = queryService;
-
+        _connections = connections;
+        Closed += (_, _) => _lifetime.Cancel();
+        UpdatePages();
         _ = RefreshAllAsync();
     }
 
@@ -85,22 +95,26 @@ public partial class DashboardWindow : Window
 
     private async Task RefreshAllAsync()
     {
-        var charts = _dashboardService.GetAll();
-        var cards = charts.Select(c => new DashboardCard(c)).ToList();
-        CardsHost.ItemsSource = cards;
-
-        foreach (var card in cards)
+        if (_refreshing || _dashboardService is null) return;
+        _refreshing = true; BtnRefresh.IsEnabled = false; PageSelector.IsEnabled = false;
+        try
         {
-            await RenderCardAsync(card);
+            var page = PageSelector.SelectedItem?.ToString() ?? "首页";
+            _cards = _dashboardService.GetAll().Where(c => c.Page == page).OrderBy(c => c.Position).Select(c => new DashboardCard(c)).ToList();
+            CardsHost.ItemsSource = _cards;
+            foreach (var card in _cards) { _lifetime.Token.ThrowIfCancellationRequested(); await RenderCardAsync(card); }
+            DashboardStatus.Text = $"{page}：{_cards.Count} 张图表；筛选作用于返回样本，同名列联动。";
         }
+        catch (OperationCanceledException) { DashboardStatus.Text = "已取消。"; }
+        catch (Exception ex) { DashboardStatus.Text = ex.Message; }
+        finally { _refreshing = false; BtnRefresh.IsEnabled = true; PageSelector.IsEnabled = true; }
     }
 
     private async Task RenderCardAsync(DashboardCard card)
     {
         try
         {
-            var result = await _queryService.ExecuteAsync(
-                card.Chart.ConnectionName, card.Chart.Sql, CancellationToken.None, 120);
+            var result = await ReadChartAsync(card.Chart);
 
             if (!result.IsSuccess)
             {
@@ -114,8 +128,11 @@ public partial class DashboardWindow : Window
                 return;
             }
 
-            var model = ChartModelBuilder.Build(card.Chart, result);
-            card.Update(model, string.Empty);
+            card.RawResult = result;
+            var calculated = DashboardTransform.Apply(result, card.Chart.CalculatedFields);
+            int x = calculated.Columns.ToList().IndexOf(card.Chart.XColumn);
+            card.SetFilterValues(x < 0 ? Array.Empty<string>() : calculated.Rows.Select(r => r[x]).Distinct().Take(200).ToArray());
+            ApplyCardFilter(card);
         }
         catch (Exception ex)
         {
@@ -137,7 +154,9 @@ public partial class DashboardWindow : Window
             return;
 
         var chart = card.Chart;
-        var result = await _queryService.ExecuteAsync(chart.ConnectionName, chart.Sql, CancellationToken.None, 120);
+        QueryResult result;
+        try { result = await ReadChartAsync(chart); }
+        catch (Exception ex) { card.Update(null, ex.Message); return; }
 
         if (!result.IsSuccess)
         {
@@ -145,7 +164,14 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        var window = new ChartWindow(chart, result, _dashboardService, _queryService);
+        try { result = DashboardTransform.Apply(result, chart.CalculatedFields, FilterColumn.Text, FilterValue.Text); }
+        catch (Exception ex) { card.Update(null, ex.Message); return; }
+        var window = new ChartWindow(chart, result, _dashboardService, _queryService, sql =>
+        {
+            var source = Newtonsoft.Json.JsonConvert.DeserializeObject<DashboardChart>(Newtonsoft.Json.JsonConvert.SerializeObject(chart))!;
+            source.Sql = sql;
+            return ReadChartAsync(source);
+        });
         window.Show(this);
     }
 
@@ -162,7 +188,8 @@ public partial class DashboardWindow : Window
             return;
         }
 
-        _dashboardService.Delete(card.Chart.Id);
+        try { _dashboardService.Delete(card.Chart.Id); }
+        catch (Exception ex) { DashboardStatus.Text = ex.Message; return; }
         await RefreshAllAsync();
     }
 

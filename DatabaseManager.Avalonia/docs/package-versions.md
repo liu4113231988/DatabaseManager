@@ -1,5 +1,10 @@
 # 依赖版本锁定（Package Versions）
 
+## 2026-09-13 P2 增量
+
+- AppCore 增加 System.Data.Odbc **8.0.1**，用于 ODBC/Access 数据源快照；本机 64 位 Access 与 dBASE 驱动实测通过。
+- PDF 使用应用内标准 CJK 文本 PDF 输出，不增加第三方 PDF 库。
+
 ## 2026-09-12 P0 增量
 
 - AppCore 增加 SSH.NET **2026.0.0**，用于密码/私钥认证、主机指纹验证和本地转发；NuGet 还原已通过。

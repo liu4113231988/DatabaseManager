@@ -787,7 +787,8 @@ public partial class MainWindow : Window
 
         var window = new DashboardWindow(
             _services.GetRequiredService<IDashboardService>(),
-            _services.GetRequiredService<IQueryService>());
+            _services.GetRequiredService<IQueryService>(),
+            _services.GetRequiredService<IDbConnectionService>());
         window.Show(this);
     }
 
@@ -1290,15 +1291,13 @@ public partial class MainWindow : Window
         await window.ShowDialog<object?>(this);
     }
 
-    /// <summary>打开图像查看器（工具菜单）。</summary>
-    private async void MenuImageViewer_Click(object? sender, RoutedEventArgs e)
+    private void MenuP2Workbench_Click(object? sender, RoutedEventArgs e)
     {
-        if (_services is null)
-            return;
-
-        var imgVm = _services.GetRequiredService<ImageViewerViewModel>();
-        var window = new ImageViewerWindow(imgVm);
-        await window.ShowDialog<object?>(this);
+        if (_services is null || DataContext is not MainWindowViewModel vm) return;
+        var tab = vm.SelectedQueryTab;
+        var snapshot = tab?.SelectedResultSnapshot?.Result;
+        int page = int.TryParse((sender as Control)?.Tag?.ToString(), out var selectedPage) ? selectedPage : 0;
+        new P2WorkbenchWindow(_services, (c, sql) => vm.OpenSqlInNewTab(c.Name, sql, c.Database), tab?.ConnectionName, tab?.DatabaseName, snapshot, page).Show(this);
     }
 
     /// <summary>打开 JSON 查看器（工具菜单）。</summary>

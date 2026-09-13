@@ -10,7 +10,7 @@ namespace DatabaseManager.AppCore.Services;
 /// 基于 <see cref="ConnectionProfileManager"/> / <see cref="AccountProfileManager"/> 的连接服务实现。
 /// 复用 <c>DatabaseManager.Profile</c> 与 <c>DatabaseInterpreter</c> 完成连接的增删改查与连接测试。
 /// </summary>
-public class ProfileDbConnectionService : IDbConnectionService
+public class ProfileDbConnectionService : IDbConnectionService, IConnectionImportRollback
 {
     private readonly IConnectionVisualService _visualService;
 
@@ -104,6 +104,7 @@ public class ProfileDbConnectionService : IDbConnectionService
         {
             connection.Id = id;
             SshProfileStore.Save(id, connection.Ssh, rememberPassword);
+            _visualService.Save(id, connection.Name, connection.Group, connection.ColorTag, connection.KingbaseCompatibilityMode);
         }
 
         return string.IsNullOrEmpty(id) ? null : id;
@@ -123,6 +124,16 @@ public class ProfileDbConnectionService : IDbConnectionService
     public async Task<bool> IsNameExistedAsync(bool isAdd, string? accountId, string name, string? id, CancellationToken cancellationToken = default)
     {
         return await ConnectionProfileManager.IsNameExisted(isAdd, accountId, name, id);
+    }
+
+    public async Task RollbackImportAsync(IReadOnlyList<string> ids)
+    {
+        var imported = GetConnections().Where(c => c.Id is not null && ids.Contains(c.Id)).ToArray();
+        if (!await DeleteAsync(ids)) throw new InvalidOperationException("无法清理导入连接。");
+        foreach (var id in ids) _visualService.Remove(id);
+        var referenced = GetConnections().Select(c => c.AccountId).ToHashSet();
+        var accounts = imported.Select(c => c.AccountId).Where(id => !string.IsNullOrEmpty(id) && !referenced.Contains(id)).Distinct().Cast<string>().ToArray();
+        if (accounts.Length > 0 && !await AccountProfileManager.Delete(accounts)) throw new InvalidOperationException("无法清理导入时创建的账号配置。");
     }
 
     private ConnectionItem ToItem(ConnectionProfileInfo profile, string databaseType)

@@ -10,6 +10,8 @@ static class Program
 {
     private static int Main()
     {
+        P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
+        PostgresP2Checks.RunAsync().GetAwaiter().GetResult();
         QueryExecutionChecks.RunAsync().GetAwaiter().GetResult();
         P0FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP0Checks.RunAsync().GetAwaiter().GetResult();

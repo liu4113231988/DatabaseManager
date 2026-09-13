@@ -49,7 +49,7 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = Program.SmokeArgs.Contains("--p0") ? new global::Avalonia.Controls.Window() : new MainWindow
+            desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
             {
                 DataContext = _services.GetRequiredService<MainWindowViewModel>(),
                 Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
@@ -63,16 +63,17 @@ public partial class App : Application
                     try
                     {
                         if (Program.SmokeArgs.Contains("--p0")) await DatabaseManager.Avalonia.Smoke.P0SmokeHarness.RunAsync();
+                        else if (Program.SmokeArgs.Contains("--p2")) await DatabaseManager.Avalonia.Smoke.P2SmokeHarness.RunAsync();
                         else await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
                     }
                     catch (Exception ex)
                     {
-                        if (Program.SmokeArgs.Contains("--p0")) Environment.ExitCode = 1;
+                        if (Program.SmokeArgs.Any(a => a is "--p0" or "--p2")) Environment.ExitCode = 1;
                         try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
                     }
                     finally
                     {
-                        try { desktop.Shutdown(); } catch { /* ignore */ }
+                        try { desktop.Shutdown(Environment.ExitCode); } catch { /* ignore */ }
                     }
                 });
             }

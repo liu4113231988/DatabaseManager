@@ -10,12 +10,24 @@
 
     <Grid Margin="16" RowDefinitions="Auto,*,Auto">
 
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8">
-            <TextBlock Text="仪表盘：已保存的图表（数据按定义重新执行 SQL 获取）"
-                       VerticalAlignment="Center" FontSize="12" Opacity="0.8" />
-            <Button Grid.Column="1" x:Name="BtnRefresh" Content="全部刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="关闭" Click="BtnClose_Click" />
-        </Grid>
+        <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
+            <WrapPanel>
+                <ComboBox x:Name="PageSelector" MinWidth="120" SelectionChanged="PageChanged" Margin="0,0,8,0" />
+                <Button x:Name="BtnRefresh" Content="刷新当前页" Click="BtnRefresh_Click" Margin="0,0,8,0" />
+                <Button Content="展示 / 退出展示" Click="Presentation_Click" Margin="0,0,8,0" />
+                <Button Content="导出当前页 HTML" Click="ExportPage_Click" Margin="0,0,8,0" />
+                <Button Content="关闭" Click="BtnClose_Click" />
+            </WrapPanel>
+            <WrapPanel x:Name="FilterBar">
+                <TextBlock Text="联动列：" VerticalAlignment="Center" />
+                <TextBox x:Name="FilterColumn" Width="140" Margin="0,0,8,0" />
+                <TextBlock Text="精确值：" VerticalAlignment="Center" />
+                <TextBox x:Name="FilterValue" Width="140" Margin="0,0,8,0" />
+                <Button Content="应用到同名列图表" Click="ApplyFilter_Click" Margin="0,0,8,0" />
+                <Button Content="清除筛选" Click="ClearFilter_Click" />
+            </WrapPanel>
+            <TextBlock x:Name="DashboardStatus" TextWrapping="Wrap" />
+        </StackPanel>
 
         <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
             <ItemsControl x:Name="CardsHost">
@@ -26,26 +38,28 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="self:DashboardCard">
-                        <Border Width="450" Height="280" Margin="0,0,10,10" CornerRadius="6"
+                        <Border Width="{Binding Chart.CardWidth}" Height="{Binding Chart.CardHeight}" Margin="0,0,10,10" CornerRadius="6"
                                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
                                 Background="{DynamicResource AppSurfaceBrush}">
                             <Grid Margin="10" RowDefinitions="Auto,*,Auto">
                                 <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="6">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"
                                                TextTrimming="CharacterEllipsis" MaxWidth="280" />
-                                    <TextBlock Text="{Binding MetaText}" FontSize="10" Opacity="0.55"
+                                    <TextBlock Text="{Binding MetaText}" FontSize="10" Opacity="0.55" MaxWidth="180" TextTrimming="CharacterEllipsis"
                                                VerticalAlignment="Center" />
                                 </StackPanel>
                                 <ctrl:ChartRenderControl Grid.Row="1" Chart="{Binding Model}" Margin="0,4" />
-                                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6">
+                                <WrapPanel Grid.Row="2">
                                     <Button Classes="compact" Content="打开" Click="CardOpen_Click" Tag="{Binding}"
                                             ToolTip.Tip="在图表窗口打开（可编辑配置）" />
                                     <Button Classes="compact" Content="刷新" Click="CardRefresh_Click" Tag="{Binding}" />
                                     <Button Classes="compact" Content="删除" Click="CardDelete_Click" Tag="{Binding}" />
+                                    <Button Classes="compact" Content="布局 / 计算" Click="CardLayout_Click" Tag="{Binding}" />
+                                    <ComboBox Width="110" ItemsSource="{Binding FilterValues}" Tag="{Binding}" SelectionChanged="CardFilterChanged" PlaceholderText="联动维度值" />
                                     <TextBlock Text="{Binding ErrorText}" FontSize="10" Foreground="#D97706"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                MaxWidth="200" />
-                                </StackPanel>
+                                </WrapPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>

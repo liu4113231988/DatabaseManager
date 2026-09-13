@@ -6,6 +6,11 @@ namespace DatabaseManager.AppCore.Services;
 /// <summary>仪表盘上保存的一张图表定义。</summary>
 public class DashboardChart
 {
+    public string Page { get; set; } = "首页";
+    public int Position { get; set; }
+    public int CardWidth { get; set; } = 450;
+    public int CardHeight { get; set; } = 280;
+    public List<CalculatedField> CalculatedFields { get; set; } = new();
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
 
     public string Name { get; set; } = string.Empty;
@@ -48,45 +53,45 @@ public interface IDashboardService
     void Delete(string id);
 }
 
-/// <summary>仪表盘服务默认实现（JSON 文件，锁 + 静默容错模式）。</summary>
+/// <summary>仪表盘定义使用原子文件替换；写入失败保留上一版内存状态。</summary>
 public class DefaultDashboardService : IDashboardService
 {
     private static readonly object FileLock = new();
     private readonly string _filePath;
     private List<DashboardChart> _items;
 
-    public DefaultDashboardService()
+    public DefaultDashboardService(string? storageDirectory = null)
     {
-        var dir = Path.Combine(AppContext.BaseDirectory, "Profiles");
+        var dir = storageDirectory ?? Path.Combine(AppContext.BaseDirectory, "Profiles");
         Directory.CreateDirectory(dir);
         _filePath = Path.Combine(dir, "dashboard-charts.json");
         _items = Load();
     }
 
-    public IReadOnlyList<DashboardChart> GetAll() => _items.ToList();
+    private static List<DashboardChart> Copy(List<DashboardChart> items) => JsonConvert.DeserializeObject<List<DashboardChart>>(JsonConvert.SerializeObject(items))!;
+    public IReadOnlyList<DashboardChart> GetAll() { lock (FileLock) return Copy(_items); }
 
     public void Save(DashboardChart chart)
     {
-        var existing = _items.FirstOrDefault(c => c.Id == chart.Id);
-        if (existing is not null)
+        if (string.IsNullOrWhiteSpace(chart.Page) || chart.CardWidth is < 300 or > 1200 || chart.CardHeight is < 220 or > 1000) throw new ArgumentException("仪表盘页名或卡片尺寸无效。");
+        if (SqlSafety.ValidateProfilerStatement(chart.Sql) is not null) throw new ArgumentException("仪表盘只允许保存单条 SELECT。");
+        lock (FileLock)
         {
-            int index = _items.IndexOf(existing);
-            _items[index] = chart;
+            var next = Copy(_items);
+            var existing = next.FirstOrDefault(c => c.Id == chart.Id);
+            if (existing is not null) next[next.IndexOf(existing)] = chart;
+            else next.Add(chart);
+            Persist(next);
+            _items = Copy(next);
         }
-        else
-        {
-            _items.Add(chart);
-        }
-
-        Persist();
     }
 
     public void Delete(string id)
     {
-        int removed = _items.RemoveAll(c => c.Id == id);
-        if (removed > 0)
+        lock (FileLock)
         {
-            Persist();
+            var next = Copy(_items);
+            if (next.RemoveAll(c => c.Id == id) > 0) { Persist(next); _items = next; }
         }
     }
 
@@ -108,18 +113,12 @@ public class DefaultDashboardService : IDashboardService
         return new List<DashboardChart>();
     }
 
-    private void Persist()
+    private void Persist(List<DashboardChart> items)
     {
         lock (FileLock)
         {
-            try
-            {
-                File.WriteAllText(_filePath, JsonConvert.SerializeObject(_items, Formatting.Indented));
-            }
-            catch
-            {
-                // 持久化失败不抛出。
-            }
+            File.WriteAllText(_filePath + ".tmp", JsonConvert.SerializeObject(items, Formatting.Indented));
+            File.Move(_filePath + ".tmp", _filePath, true);
         }
     }
 }
