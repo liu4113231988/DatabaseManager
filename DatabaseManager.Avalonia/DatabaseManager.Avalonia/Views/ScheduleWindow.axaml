@@ -118,16 +118,19 @@
                     <Button Content="移除最后步骤" Click="BtnRemoveStep_Click" />
                 </StackPanel>
                 <TextBlock x:Name="TxtSteps" TextWrapping="Wrap" />
-                <Expander Header="邮件通知（可选，需要 TLS SMTP）">
-                    <StackPanel Spacing="4">
-                        <TextBox x:Name="TxtMailTo" PlaceholderText="收件邮箱（留空关闭通知）" />
-                        <TextBox x:Name="TxtSmtpHost" PlaceholderText="SMTP 主机" />
-                        <TextBox x:Name="TxtSmtpPort" Text="587" PlaceholderText="SMTP 端口" />
-                        <TextBox x:Name="TxtMailFrom" PlaceholderText="发件邮箱" />
-                        <TextBox x:Name="TxtSmtpUser" PlaceholderText="SMTP 用户名" />
-                        <TextBox x:Name="TxtSmtpSecretVariable" PlaceholderText="存放 SMTP 密码的环境变量名" />
-                    </StackPanel>
-                </Expander>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="邮件通知" FontSize="11" />
+                    <Expander Header="展开邮件通知配置（可选，需要 TLS SMTP）" MinHeight="28">
+                        <StackPanel Spacing="4" Margin="0,6,0,0">
+                            <TextBox x:Name="TxtMailTo" PlaceholderText="收件邮箱（留空关闭通知）" />
+                            <TextBox x:Name="TxtSmtpHost" PlaceholderText="SMTP 主机" />
+                            <TextBox x:Name="TxtSmtpPort" Text="587" PlaceholderText="SMTP 端口" />
+                            <TextBox x:Name="TxtMailFrom" PlaceholderText="发件邮箱" />
+                            <TextBox x:Name="TxtSmtpUser" PlaceholderText="SMTP 用户名" />
+                            <TextBox x:Name="TxtSmtpSecretVariable" PlaceholderText="存放 SMTP 密码的环境变量名" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="计划:" VerticalAlignment="Center" FontSize="11" />
                     <ComboBox x:Name="ComboScheduleKind" Width="110" FontSize="11" SelectionChanged="ComboScheduleKind_SelectionChanged">
