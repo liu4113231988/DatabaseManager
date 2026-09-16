@@ -10,13 +10,32 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="查询历史" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="查看 SQL 执行历史，可重新执行或插入编辑器" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="查询历史" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：过滤 + 操作 -->
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock Text="过滤：" VerticalAlignment="Center" />
-                <TextBox Text="{Binding FilterText}" Width="280"
+                <atom:TextBox Text="{Binding FilterText}" Width="280"
                          PlaceholderText="按连接名或 SQL 内容过滤"
                          VerticalContentAlignment="Center" />
                 <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
@@ -56,12 +75,13 @@
 
             <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Height="6" Background="{DynamicResource AppDividerBrush}" />
 
-            <TextBox Grid.Row="2" Text="{Binding SelectedSqlText, Mode=OneWay}" IsReadOnly="True"
+            <atom:TextBox Grid.Row="2" Text="{Binding SelectedSqlText, Mode=OneWay}" IsReadOnly="True"
                      FontFamily="Consolas,Menlo,monospace" FontSize="12"
                      TextWrapping="NoWrap"
                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
         </Grid>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

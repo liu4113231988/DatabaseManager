@@ -11,7 +11,26 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="数据对比" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="对比两表数据差异并生成同步脚本" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="数据对比" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：源/目标连接、模式与操作 -->
         <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
@@ -72,9 +91,9 @@
                                  Margin="0,0,0,8">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="svc:TableItem">
-                                    <CheckBox IsChecked="{Binding IsSelected}">
+                                    <atom:CheckBox IsChecked="{Binding IsSelected}">
                                         <TextBlock Text="{Binding DisplayName}" />
-                                    </CheckBox>
+                                    </atom:CheckBox>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -89,7 +108,7 @@
                                     <DataTemplate x:DataType="models:DataCompareResultItem">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                <atom:CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                           MinWidth="0" Margin="0,0,2,0"
                                                           ToolTip.Tip="勾选后参与同步/回滚脚本生成" />
                                                 <TextBlock Text="{Binding TableName}" FontWeight="SemiBold" />
@@ -166,6 +185,7 @@
                 </DockPanel>
             </TabItem>
         </TabControl>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

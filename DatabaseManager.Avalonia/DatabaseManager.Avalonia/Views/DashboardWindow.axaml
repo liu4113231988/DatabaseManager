@@ -1,5 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" 
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+        xmlns:atom="https://atomui.net"
         xmlns:ctrl="using:DatabaseManager.Avalonia.Controls"
         xmlns:self="using:DatabaseManager.Avalonia.Views"
         x:Class="DatabaseManager.Avalonia.Views.DashboardWindow"
@@ -8,28 +10,49 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
-        <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,8">
-            <WrapPanel>
-                <ComboBox x:Name="PageSelector" MinWidth="120" SelectionChanged="PageChanged" Margin="0,0,8,0" />
-                <Button x:Name="BtnRefresh" Content="刷新当前页" Click="BtnRefresh_Click" Margin="0,0,8,0" />
-                <Button Content="展示 / 退出展示" Click="Presentation_Click" Margin="0,0,8,0" />
-                <Button Content="导出当前页 HTML" Click="ExportPage_Click" Margin="0,0,8,0" />
-                <Button Content="关闭" Click="BtnClose_Click" />
-            </WrapPanel>
-            <WrapPanel x:Name="FilterBar">
-                <TextBlock Text="联动列：" VerticalAlignment="Center" />
-                <TextBox x:Name="FilterColumn" Width="140" Margin="0,0,8,0" />
-                <TextBlock Text="精确值：" VerticalAlignment="Center" />
-                <TextBox x:Name="FilterValue" Width="140" Margin="0,0,8,0" />
-                <Button Content="应用到同名列图表" Click="ApplyFilter_Click" Margin="0,0,8,0" />
-                <Button Content="清除筛选" Click="ClearFilter_Click" />
-            </WrapPanel>
-            <TextBlock x:Name="DashboardStatus" TextWrapping="Wrap" />
-        </StackPanel>
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="仪表盘" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="以卡片网格展示已保存的图表；刷新按定义重新执行 SQL 渲染" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
 
-        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+        <!-- 工具栏 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+            <StackPanel Spacing="6">
+                <WrapPanel>
+                    <TextBlock Text="页面:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,6,0" />
+                    <atom:ComboBox x:Name="PageSelector" MinWidth="120" SelectionChanged="PageChanged" Margin="0,0,8,0" />
+                    <atom:Button x:Name="BtnRefresh" Content="刷新当前页" Click="BtnRefresh_Click" Margin="0,0,8,0" />
+                    <atom:Button Content="展示 / 退出展示" Click="Presentation_Click" Margin="0,0,8,0" />
+                    <atom:Button Content="导出当前页 HTML" Click="ExportPage_Click" Margin="0,0,8,0" />
+                    <atom:Button Classes="ghost" Content="关闭" Click="BtnClose_Click" HorizontalAlignment="Right" />
+                </WrapPanel>
+                <WrapPanel x:Name="FilterBar">
+                    <TextBlock Text="联动列：" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    <atom:TextBox x:Name="FilterColumn" Width="140" Margin="0,0,8,0" />
+                    <TextBlock Text="精确值：" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    <atom:TextBox x:Name="FilterValue" Width="140" Margin="0,0,8,0" />
+                    <atom:Button Classes="compact" Content="应用到同名列图表" Click="ApplyFilter_Click" Margin="0,0,8,0" />
+                    <atom:Button Classes="compact" Content="清除筛选" Click="ClearFilter_Click" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock x:Name="DashboardStatus" TextWrapping="Wrap"
+                       Foreground="{DynamicResource AppStatusBarTextBrush}" FontSize="11" />
+        </Border>
+
+        <!-- 内容区 -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" Padding="16">
             <ItemsControl x:Name="CardsHost">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -50,12 +73,12 @@
                                 </StackPanel>
                                 <ctrl:ChartRenderControl Grid.Row="1" Chart="{Binding Model}" Margin="0,4" />
                                 <WrapPanel Grid.Row="2">
-                                    <Button Classes="compact" Content="打开" Click="CardOpen_Click" Tag="{Binding}"
+                                    <atom:Button Classes="compact" Content="打开" Click="CardOpen_Click" Tag="{Binding}"
                                             ToolTip.Tip="在图表窗口打开（可编辑配置）" />
-                                    <Button Classes="compact" Content="刷新" Click="CardRefresh_Click" Tag="{Binding}" />
-                                    <Button Classes="compact" Content="删除" Click="CardDelete_Click" Tag="{Binding}" />
-                                    <Button Classes="compact" Content="布局 / 计算" Click="CardLayout_Click" Tag="{Binding}" />
-                                    <ComboBox Width="110" ItemsSource="{Binding FilterValues}" Tag="{Binding}" SelectionChanged="CardFilterChanged" PlaceholderText="联动维度值" />
+                                    <atom:Button Classes="compact" Content="刷新" Click="CardRefresh_Click" Tag="{Binding}" />
+                                    <atom:Button Classes="compact" Content="删除" Click="CardDelete_Click" Tag="{Binding}" />
+                                    <atom:Button Classes="compact" Content="布局 / 计算" Click="CardLayout_Click" Tag="{Binding}" />
+                                    <atom:ComboBox Width="110" ItemsSource="{Binding FilterValues}" Tag="{Binding}" SelectionChanged="CardFilterChanged" PlaceholderText="联动维度值" />
                                     <TextBlock Text="{Binding ErrorText}" FontSize="10" Foreground="#D97706"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                MaxWidth="200" />
@@ -67,7 +90,5 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="2" Text="图表在查询结果窗口生成并保存；打开卡片可调整配置或查看明细。"
-                   FontSize="10" Opacity="0.5" Margin="0,6,0,0" />
-    </Grid>
+    </DockPanel>
 </Window>

@@ -10,7 +10,26 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="数据导入" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="从 CSV / Excel / SQL 文件向表导入数据" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="数据导入" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：连接/目标表/文件 -->
         <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
@@ -31,7 +50,7 @@
             <!-- 文件路径 -->
             <Grid ColumnDefinitions="110,*,Auto">
                 <TextBlock Grid.Column="0" Text="导入文件" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding FilePath}" VerticalContentAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding FilePath}" VerticalContentAlignment="Center" />
                 <atom:Button Grid.Column="2" Content="浏览..." Margin="8,0,0,0" Click="BtnBrowseFile_Click" />
             </Grid>
 
@@ -45,13 +64,13 @@
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
                     <TextBlock Text="编码：" VerticalAlignment="Center" FontSize="12" />
-                    <ComboBox x:Name="ComboEncoding" ItemsSource="{Binding EncodingOptions}" MinWidth="150"
+                    <atom:ComboBox x:Name="ComboEncoding" ItemsSource="{Binding EncodingOptions}" MinWidth="150"
                               SelectedItem="{Binding SelectedEncoding}" FontSize="12" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4">
                     <TextBlock Text="跳过前 N 行：" VerticalAlignment="Center" FontSize="12"
                                ToolTip.Tip="导入失败后可从指定行继续（续导）" />
-                    <TextBox Text="{Binding SkipRows}" Width="60" VerticalContentAlignment="Center" FontSize="12" />
+                    <atom:TextBox Text="{Binding SkipRows}" Width="60" VerticalContentAlignment="Center" FontSize="12" />
                 </StackPanel>
             </WrapPanel>
 
@@ -148,6 +167,7 @@
                 </ListBox>
             </Border>
         </Grid>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

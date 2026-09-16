@@ -1,5 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" 
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+        xmlns:atom="https://atomui.net"
         xmlns:m="using:DatabaseManager.AppCore.Services"
         xmlns:mods="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.UserManagementWindow"
@@ -8,25 +10,44 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="16" RowDefinitions="Auto,*,Auto">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="用户与权限管理" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="管理数据库用户、角色与权限" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="用户与权限管理" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+
 
         <!-- 连接与操作 -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
+            <atom:ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="mods:ConnectionItem">
                         <TextBlock Text="{Binding Description}" />
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
-            </ComboBox>
-            <Button Grid.Column="2" x:Name="BtnRefresh" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="3" Content="新建用户" Click="BtnCreateUser_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="4" Content="授权..." Click="BtnGrant_Click" Margin="0,0,8,0"
+            </atom:ComboBox>
+            <atom:Button Grid.Column="2" x:Name="BtnRefresh" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="3" Content="新建用户" Click="BtnCreateUser_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="4" Content="授权..." Click="BtnGrant_Click" Margin="0,0,8,0"
                     ToolTip.Tip="对选中用户授予对象权限（生成 SQL 并确认后执行）" />
-            <Button Grid.Column="5" Content="删除用户" Click="BtnDropUser_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="6" Content="查看权限" Click="BtnShowGrants_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="7" Content="关闭" Click="BtnClose_Click" />
+            <atom:Button Grid.Column="5" Content="删除用户" Click="BtnDropUser_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="6" Content="查看权限" Click="BtnShowGrants_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="7" Content="关闭" Click="BtnClose_Click" />
         </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="*,2*">
@@ -44,7 +65,7 @@
             </DataGrid>
 
             <!-- 权限文本 -->
-            <TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+            <atom:TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
                      PlaceholderText="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
         </Grid>
 
@@ -56,36 +77,38 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="用户名:" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtFormUser" Width="130" VerticalContentAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormUser" Width="130" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPassword">
                         <TextBlock Text="密码:" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtFormPassword" Width="130" PasswordChar="*" VerticalContentAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormPassword" Width="130" PasswordChar="*" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelHost">
                         <TextBlock Text="主机:" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtFormHost" Text="%" Width="90" VerticalContentAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormHost" Text="%" Width="90" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPrivilege">
                         <TextBlock Text="权限:" VerticalAlignment="Center" FontSize="11" />
-                        <ComboBox x:Name="ComboPrivilege" Width="110" FontSize="11">
+                        <atom:ComboBox x:Name="ComboPrivilege" Width="110" FontSize="11">
                             <ComboBoxItem>SELECT</ComboBoxItem>
                             <ComboBoxItem>INSERT</ComboBoxItem>
                             <ComboBoxItem>UPDATE</ComboBoxItem>
                             <ComboBoxItem>DELETE</ComboBoxItem>
                             <ComboBoxItem>ALL PRIVILEGES</ComboBoxItem>
-                        </ComboBox>
+                        </atom:ComboBox>
                         <TextBlock Text="ON 对象:" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtFormObject" Width="120" VerticalContentAlignment="Center" FontSize="11"
+                        <atom:TextBox x:Name="TxtFormObject" Width="120" VerticalContentAlignment="Center" FontSize="11"
                                  ToolTip.Tip="MySQL：db.table 或 *.*；PostgreSQL/SQL Server：schema.table 或 schema.*；Oracle：schema.table" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="BtnFormConfirm" Content="执行" Click="BtnFormConfirm_Click" />
-                    <Button Content="取消" Click="BtnFormCancel_Click" />
+                    <atom:Button x:Name="BtnFormConfirm" Content="执行" Click="BtnFormConfirm_Click" />
+                    <atom:Button Content="取消" Click="BtnFormCancel_Click" />
                     <TextBlock Text="执行前会显示生成的 SQL 并要求确认。" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                 </StackPanel>
             </StackPanel>
         </Border>
-    </Grid>
+        </Grid>
+    </DockPanel>
+
 </Window>

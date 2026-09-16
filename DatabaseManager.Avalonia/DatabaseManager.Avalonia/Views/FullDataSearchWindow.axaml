@@ -1,5 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" 
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+        xmlns:atom="https://atomui.net"
         xmlns:models="using:DatabaseManager.AppCore.Services"
         xmlns:m="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.FullDataSearchWindow"
@@ -8,46 +10,65 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="全库数据搜索" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="跨表/视图搜索数据内容，结果可生成 SELECT" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="全库数据搜索" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto" Margin="16">
+
 
         <!-- 连接 / 数据库 / Schema -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,*,Auto,*" Margin="0,0,0,8">
             <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0"
+            <atom:ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0"
                       SelectionChanged="CmbConnection_SelectionChanged">
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="m:ConnectionItem">
                         <TextBlock Text="{Binding Description}" />
                     </DataTemplate>
                 </ComboBox.ItemTemplate>
-            </ComboBox>
+            </atom:ComboBox>
             <TextBlock Grid.Column="2" Text="数据库:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox Grid.Column="3" x:Name="CmbDatabase" IsEditable="True" MinWidth="120" Margin="0,0,10,0" />
+            <atom:ComboBox Grid.Column="3" x:Name="CmbDatabase" IsEditable="True" MinWidth="120" Margin="0,0,10,0" />
             <TextBlock Grid.Column="4" Text="Schema:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox Grid.Column="5" x:Name="TxtSchema" PlaceholderText="可选" MinWidth="90" />
+            <atom:TextBox Grid.Column="5" x:Name="TxtSchema" PlaceholderText="可选" MinWidth="90" />
         </Grid>
 
         <!-- 关键字与选项 -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
             <TextBlock Grid.Column="0" Text="关键字:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <TextBox Grid.Column="1" x:Name="TxtKeyword" PlaceholderText="要搜索的数据内容（LIKE 模糊匹配）"
+            <atom:TextBox Grid.Column="1" x:Name="TxtKeyword" PlaceholderText="要搜索的数据内容（LIKE 模糊匹配）"
                      VerticalContentAlignment="Center" KeyDown="TxtKeyword_KeyDown" />
-            <CheckBox Grid.Column="2" x:Name="ChkTextOnly" Content="仅文本列" IsChecked="True"
+            <atom:CheckBox Grid.Column="2" x:Name="ChkTextOnly" Content="仅文本列" IsChecked="True"
                       VerticalAlignment="Center" Margin="10,0,0,0" />
-            <CheckBox Grid.Column="3" x:Name="ChkIncludeViews" Content="含视图" IsChecked="False"
+            <atom:CheckBox Grid.Column="3" x:Name="ChkIncludeViews" Content="含视图" IsChecked="False"
                       VerticalAlignment="Center" Margin="10,0,0,0" />
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4" Margin="10,0,0,0" VerticalAlignment="Center">
                 <TextBlock Text="每表上限:" VerticalAlignment="Center" FontSize="11" />
-                <TextBox x:Name="TxtPerTable" Text="20" Width="46" FontSize="11" VerticalContentAlignment="Center" />
+                <atom:TextBox x:Name="TxtPerTable" Text="20" Width="46" FontSize="11" VerticalContentAlignment="Center" />
                 <TextBlock Text="表数上限:" VerticalAlignment="Center" FontSize="11" Margin="6,0,0,0" />
-                <TextBox x:Name="TxtMaxTables" Text="500" Width="56" FontSize="11" VerticalContentAlignment="Center" />
+                <atom:TextBox x:Name="TxtMaxTables" Text="500" Width="56" FontSize="11" VerticalContentAlignment="Center" />
             </StackPanel>
         </Grid>
 
         <!-- 操作与进度 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
-            <Button x:Name="BtnSearch" Content="搜索" Click="BtnSearch_Click" HorizontalAlignment="Left" />
-            <Button x:Name="BtnCancel" Content="取消" Click="BtnCancel_Click" IsEnabled="False" />
+            <atom:Button x:Name="BtnSearch" Content="搜索" Click="BtnSearch_Click" HorizontalAlignment="Left" />
+            <atom:Button x:Name="BtnCancel" Content="取消" Click="BtnCancel_Click" IsEnabled="False" />
             <ProgressBar x:Name="Progress" IsIndeterminate="True" Width="140" Height="8"
                          VerticalAlignment="Center" IsVisible="False" />
             <TextBlock x:Name="TxtProgress" VerticalAlignment="Center" FontSize="11" Opacity="0.7"
@@ -82,8 +103,10 @@
         <Grid Grid.Row="5" ColumnDefinitions="*,Auto,Auto" Margin="0,8,0,0">
             <TextBlock Grid.Column="0" Text="双击对象或行可生成带条件的 SELECT 并在新查询标签打开；文本列按方言 LIKE 匹配，单表错误不影响整体。"
                        FontSize="10" Opacity="0.5" TextWrapping="Wrap" VerticalAlignment="Center" />
-            <Button Grid.Column="1" x:Name="BtnOpenSelect" Content="打开 SELECT" Click="BtnOpenSelect_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="关闭" Click="BtnClose_Click" />
+            <atom:Button Grid.Column="1" x:Name="BtnOpenSelect" Content="打开 SELECT" Click="BtnOpenSelect_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="2" Content="关闭" Click="BtnClose_Click" />
         </Grid>
-    </Grid>
+        </Grid>
+    </DockPanel>
+
 </Window>

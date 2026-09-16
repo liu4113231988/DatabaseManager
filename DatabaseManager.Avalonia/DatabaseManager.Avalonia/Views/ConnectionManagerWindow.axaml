@@ -56,11 +56,11 @@
                              Click="BtnEdit_Click" />
                 <atom:Button Grid.Column="5" Content="删除" Margin="6,0,0,0"
                              Click="BtnDelete_Click">
-                    <atom:Button.Styles>
+                    <Button.Styles>
                         <Style Selector="atom|Button">
                             <Setter Property="Foreground" Value="#C44545" />
                         </Style>
-                    </atom:Button.Styles>
+                    </Button.Styles>
                 </atom:Button>
             </Grid>
         </Border>

@@ -10,53 +10,72 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
-        <!-- 顶部：SQL 与选项 -->
-        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
-            <TextBlock Text="分析以下 SQL（通常为 SELECT）：" FontSize="11" Opacity="0.75" />
-            <TextBox x:Name="SqlInput" Text="{Binding SqlText}" MinHeight="90" MaxHeight="180" AcceptsReturn="True"
-                     TextWrapping="NoWrap" FontFamily="Consolas,Menlo,monospace" FontSize="12"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto" />
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <CheckBox Content="ANALYZE（实际执行以获取真实计划；MySQL 8.0.18+ / PostgreSQL）"
-                          IsChecked="{Binding Analyze}" VerticalAlignment="Center" />
-                <atom:Button Content="获取执行计划" ButtonType="Primary" Command="{Binding ExecuteCommand}"
-                             IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="关闭" Click="BtnClose_Click" />
-                <Button Content="取消" Command="{Binding CancelCommand}" IsEnabled="{Binding IsBusy}" />
-                <Button Content="定位节点对象 SQL" Click="LocateSql_Click" />
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="执行计划" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="查看 EXPLAIN / SHOWPLAN 结果；支持 ANALYZE 实际执行以获取真实计划" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
-        </StackPanel>
-
-        <!-- 状态栏 -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
-
-        <Grid RowDefinitions="*,*">
-        <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasResult}">
-            <TreeView ItemsSource="{Binding PlanNodes}" SelectedItem="{Binding SelectedNode}">
-                <TreeView.ItemTemplate>
-                    <TreeDataTemplate DataType="models:ExecutionPlanNode" ItemsSource="{Binding Children}">
-                        <TextBlock Text="{Binding Label}" ToolTip.Tip="{Binding Details}" />
-                    </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
-            <TextBox Grid.Column="1" Text="{Binding SelectedNode.Details}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" />
-        </Grid>
-        <Border Grid.Row="1" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
-                IsVisible="{Binding HasResult}">
-            <DataGrid x:Name="PlanGrid" ItemsSource="{Binding Rows}"
-                      AutoGenerateColumns="False" IsReadOnly="True"
-                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                      CanUserResizeColumns="True" FontSize="11"
-                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto" />
         </Border>
 
-        <TextBlock Text="（无结果）" IsVisible="{Binding !HasResult}"
-                   Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
-        </Grid>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
+            <!-- 顶部：SQL 与选项 -->
+            <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+                <TextBlock Text="分析以下 SQL（通常为 SELECT）：" FontSize="11" Opacity="0.75" />
+                <atom:TextBox x:Name="SqlInput" Text="{Binding SqlText}" MinHeight="90" MaxHeight="180" AcceptsReturn="True"
+                         TextWrapping="NoWrap" FontFamily="Consolas,Menlo,monospace" FontSize="12"
+                         ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         Background="{DynamicResource AppSurfaceBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="12">
+                    <atom:CheckBox Content="ANALYZE（实际执行以获取真实计划；MySQL 8.0.18+ / PostgreSQL）"
+                              IsChecked="{Binding Analyze}" VerticalAlignment="Center" />
+                    <atom:Button Content="获取执行计划" ButtonType="Primary" Command="{Binding ExecuteCommand}"
+                                 IsEnabled="{Binding !IsBusy}" />
+                    <atom:Button Classes="ghost" Content="关闭" Click="BtnClose_Click" />
+                    <atom:Button Content="取消" Command="{Binding CancelCommand}" IsEnabled="{Binding IsBusy}" />
+                    <atom:Button Content="定位节点对象 SQL" Click="LocateSql_Click" />
+                </StackPanel>
+            </StackPanel>
+
+            <Grid RowDefinitions="*,*">
+            <Grid ColumnDefinitions="*,*" IsVisible="{Binding HasResult}">
+                <TreeView ItemsSource="{Binding PlanNodes}" SelectedItem="{Binding SelectedNode}"
+                          Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                    <TreeView.ItemTemplate>
+                        <TreeDataTemplate DataType="models:ExecutionPlanNode" ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding Label}" ToolTip.Tip="{Binding Details}" />
+                        </TreeDataTemplate>
+                    </TreeView.ItemTemplate>
+                </TreeView>
+                <atom:TextBox Grid.Column="1" Text="{Binding SelectedNode.Details}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                         Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" />
+            </Grid>
+            <Border Grid.Row="1" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
+                    IsVisible="{Binding HasResult}">
+                <DataGrid x:Name="PlanGrid" ItemsSource="{Binding Rows}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                          CanUserResizeColumns="True" FontSize="11"
+                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Border>
+
+            <TextBlock Text="（无结果）" IsVisible="{Binding !HasResult}"
+                       Opacity="0.4" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+        </DockPanel>
     </DockPanel>
 </Window>

@@ -1,5 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" 
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+        xmlns:atom="https://atomui.net"
         xmlns:m="using:DatabaseManager.AppCore.Services"
         xmlns:mods="using:DatabaseManager.AppCore.Models"
         xmlns:self="using:DatabaseManager.Avalonia.Views"
@@ -9,156 +11,190 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="16" RowDefinitions="Auto,*,Auto,Auto">
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Margin="0,0,0,8">
-            <Button Grid.Column="0" Content="新建计划" Click="BtnNew_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="1" Content="编辑" Click="BtnEdit_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="2" Content="立即运行" Click="BtnRunNow_Click" Margin="0,0,8,0"
-                    ToolTip.Tip="立即执行选中的计划（经任务中心可见可取消）" />
-            <Button Grid.Column="3" Content="删除" Click="BtnDelete_Click" Margin="0,0,8,0" />
-            <Button Grid.Column="4" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
-            <TextBlock Grid.Column="5" x:Name="TxtSummary" VerticalAlignment="Center" FontSize="11" Opacity="0.7" />
-            <Button Grid.Column="6" Content="关闭" Click="BtnClose_Click" />
-        </Grid>
-
-        <!-- 计划列表 -->
-        <DataGrid Grid.Row="1" x:Name="SchedulesGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
-                  GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11" IsReadOnly="True"
-                  x:DataType="self:ScheduleRow">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="150" />
-                <DataGridTextColumn Header="类型" Binding="{Binding TaskTypeText}" Width="80" />
-                <DataGridTextColumn Header="连接" Binding="{Binding ConnectionName}" Width="120" />
-                <DataGridTextColumn Header="计划" Binding="{Binding ScheduleText}" Width="120" />
-                <DataGridTextColumn Header="下次运行" Binding="{Binding NextRunText}" Width="140" />
-                <DataGridTextColumn Header="上次运行" Binding="{Binding LastRunText}" Width="140" />
-                <DataGridTextColumn Header="上次结果" Binding="{Binding LastResult}" Width="*" />
-                <DataGridCheckBoxColumn Header="启用" Binding="{Binding Enabled}" Width="60" />
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <!-- 编辑表单 -->
-        <Border Grid.Row="2" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
-                CornerRadius="6" Padding="10,8" Margin="0,8,0,0">
-            <ScrollViewer MaxHeight="440" HorizontalScrollBarVisibility="Auto">
-            <StackPanel Spacing="6">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
-                    <TextBlock Grid.Column="0" Text="名称:" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox Grid.Column="1" x:Name="TxtName" Margin="4,0,10,0" VerticalContentAlignment="Center" FontSize="11" />
-                    <TextBlock Grid.Column="2" Text="类型:" VerticalAlignment="Center" FontSize="11" />
-                    <ComboBox Grid.Column="3" x:Name="ComboTaskType" Width="90" FontSize="11" SelectionChanged="ComboTaskType_SelectionChanged">
-                        <ComboBoxItem>SQL 脚本</ComboBoxItem>
-                        <ComboBoxItem>备份</ComboBoxItem>
-                        <ComboBoxItem>导出</ComboBoxItem>
-                        <ComboBoxItem>导入</ComboBoxItem>
-                        <ComboBoxItem>迁移</ComboBoxItem>
-                        <ComboBoxItem>结构同步</ComboBoxItem>
-                        <ComboBoxItem>数据同步</ComboBoxItem>
-                        <ComboBoxItem>数据字典（路径用 .pdf / .html）</ComboBoxItem>
-                    </ComboBox>
-                    <TextBlock Grid.Column="4" Text="连接:" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
-                    <ComboBox Grid.Column="5" x:Name="ComboConnection" Width="180" FontSize="11">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="mods:ConnectionItem">
-                            <TextBlock Text="{Binding Description}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Grid.Column="6" Text="数据库(可选):" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
-                    <TextBox Grid.Column="7" x:Name="TxtDatabase" Width="110" VerticalContentAlignment="Center" FontSize="11" />
-                </Grid>
-
-                <!-- SQL 脚本 -->
-                <StackPanel x:Name="PanelSql" IsVisible="False" Spacing="4">
-                    <TextBlock Text="SQL 脚本:" FontSize="11" />
-                    <TextBox x:Name="TxtSql" MinHeight="64" AcceptsReturn="True" TextWrapping="Wrap" FontSize="11"
-                             FontFamily="Consolas, Microsoft YaHei UI, monospace" />
-                </StackPanel>
-
-                <!-- 备份 -->
-                <StackPanel x:Name="PanelBackup" IsVisible="False" Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="备份保存文件夹:" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox x:Name="TxtSaveFolder" Width="240" VerticalContentAlignment="Center" FontSize="11" />
-                    <CheckBox x:Name="ChkZip" Content="压缩" IsChecked="True" VerticalAlignment="Center" FontSize="11" />
-                    <TextBlock Text="客户端工具(可选):" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox x:Name="TxtClientTool" Width="180" VerticalContentAlignment="Center" FontSize="11" />
-                </StackPanel>
-
-                <!-- 导出 -->
-                <StackPanel x:Name="PanelExport" IsVisible="False" Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="表（同步可逗号分隔）:" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox x:Name="TxtExportTable" Width="130" VerticalContentAlignment="Center" FontSize="11" />
-                    <TextBlock Text="Schema(可选):" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox x:Name="TxtExportSchema" Width="90" VerticalContentAlignment="Center" FontSize="11" />
-                    <TextBlock Text="格式:" VerticalAlignment="Center" FontSize="11" />
-                    <ComboBox x:Name="ComboExportFormat" Width="80" FontSize="11">
-                        <ComboBoxItem>Csv</ComboBoxItem>
-                        <ComboBoxItem>Excel</ComboBoxItem>
-                        <ComboBoxItem>Sql</ComboBoxItem>
-                        <ComboBoxItem>Json</ComboBoxItem>
-                        <ComboBoxItem>Xml</ComboBoxItem>
-                    </ComboBox>
-                    <TextBlock Text="导入/导出文件:" VerticalAlignment="Center" FontSize="11" />
-                    <TextBox x:Name="TxtExportFilePath" Width="200" VerticalContentAlignment="Center" FontSize="11" />
-                </StackPanel>
-
-                <!-- 计划 -->
-                <StackPanel x:Name="PanelTarget" IsVisible="False" Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="目标连接:" />
-                    <ComboBox x:Name="ComboTarget" Width="220">
-                        <ComboBox.ItemTemplate><DataTemplate x:DataType="mods:ConnectionItem"><TextBlock Text="{Binding Description}" /></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBox x:Name="TxtTargetDatabase" Width="140" PlaceholderText="目标数据库（可选）" />
-                    <ComboBox x:Name="ComboMigrationMode" Width="140"><ComboBoxItem>SchemaAndData</ComboBoxItem><ComboBoxItem>Schema</ComboBoxItem><ComboBoxItem>Data</ComboBoxItem></ComboBox>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <CheckBox x:Name="ChkContinueFailure" Content="步骤失败后继续（最终仍标记失败）" />
-                    <Button Content="将当前操作加入步骤" Click="BtnAddStep_Click" />
-                    <Button Content="移除最后步骤" Click="BtnRemoveStep_Click" />
-                </StackPanel>
-                <TextBlock x:Name="TxtSteps" TextWrapping="Wrap" />
-                <StackPanel Spacing="4">
-                    <TextBlock Text="邮件通知" FontSize="11" />
-                    <Expander Header="展开邮件通知配置（可选，需要 TLS SMTP）" MinHeight="28">
-                        <StackPanel Spacing="4" Margin="0,6,0,0">
-                            <TextBox x:Name="TxtMailTo" PlaceholderText="收件邮箱（留空关闭通知）" />
-                            <TextBox x:Name="TxtSmtpHost" PlaceholderText="SMTP 主机" />
-                            <TextBox x:Name="TxtSmtpPort" Text="587" PlaceholderText="SMTP 端口" />
-                            <TextBox x:Name="TxtMailFrom" PlaceholderText="发件邮箱" />
-                            <TextBox x:Name="TxtSmtpUser" PlaceholderText="SMTP 用户名" />
-                            <TextBox x:Name="TxtSmtpSecretVariable" PlaceholderText="存放 SMTP 密码的环境变量名" />
-                        </StackPanel>
-                    </Expander>
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="计划:" VerticalAlignment="Center" FontSize="11" />
-                    <ComboBox x:Name="ComboScheduleKind" Width="110" FontSize="11" SelectionChanged="ComboScheduleKind_SelectionChanged">
-                        <ComboBoxItem>每天定时</ComboBoxItem>
-                        <ComboBoxItem>每 N 分钟</ComboBoxItem>
-                        <ComboBoxItem>Cron 表达式</ComboBoxItem>
-                    </ComboBox>
-                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelDailyTime">
-                        <TextBlock Text="时间(HH:mm):" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtDailyTime" Text="02:00" Width="60" VerticalContentAlignment="Center" FontSize="11" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelInterval" IsVisible="False">
-                        <TextBlock Text="间隔(分钟):" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtIntervalMinutes" Text="60" Width="60" VerticalContentAlignment="Center" FontSize="11" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelCron" IsVisible="False">
-                        <TextBlock Text="Cron(分 时 日 月 周):" VerticalAlignment="Center" FontSize="11" />
-                        <TextBox x:Name="TxtCronExpression" Text="0 2 * * *" Width="130" VerticalContentAlignment="Center" FontSize="11" />
-                    </StackPanel>
-                    <CheckBox x:Name="ChkEnabled" Content="启用" IsChecked="True" VerticalAlignment="Center" FontSize="11" />
-                    <Button Content="保存" Click="BtnSave_Click" />
-                    <Button Content="取消" Click="BtnFormCancel_Click" />
-                </StackPanel>
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="任务定时调度" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="管理计划任务（SQL / 备份 / 导出 / 迁移等），支持 Cron 表达式与邮件通知" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
-            </ScrollViewer>
         </Border>
 
-        <TextBlock Grid.Row="3" Text="到期检查由主窗口每 30 秒触发一次；任务经任务中心执行（可见/可取消/有历史）。应用关闭后定时任务不再触发。"
-                   FontSize="10" Opacity="0.5" Margin="0,6,0,0" />
-    </Grid>
+        <!-- 工具栏 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <atom:Button Content="新建计划" Click="BtnNew_Click" />
+                <atom:Button Content="编辑" Click="BtnEdit_Click" />
+                <atom:Button Content="立即运行" Click="BtnRunNow_Click"
+                        ToolTip.Tip="立即执行选中的计划（经任务中心可见可取消）" />
+                <atom:Button Classes="danger" Content="删除" Click="BtnDelete_Click">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Foreground" Value="#C44545" />
+                            <Setter Property="BorderBrush" Value="#C44545" />
+                        </Style>
+                    </Button.Styles>
+                </atom:Button>
+                <atom:Button Content="刷新" Click="BtnRefresh_Click" />
+                <TextBlock x:Name="TxtSummary" VerticalAlignment="Center" FontSize="11" Opacity="0.7" Margin="12,0,0,0" />
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" Margin="0,0,0,0">
+                    <atom:Button Classes="ghost" Content="关闭" Click="BtnClose_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="到期检查由主窗口每 30 秒触发一次；任务经任务中心执行（可见/可取消/有历史）。应用关闭后定时任务不再触发。"
+                       FontSize="11" Foreground="{DynamicResource AppStatusBarTextBrush}" />
+        </Border>
+
+        <!-- 计划列表 + 编辑表单 -->
+        <Grid Margin="16" RowDefinitions="*,Auto">
+
+            <!-- 计划列表 -->
+            <DataGrid Grid.Row="0" x:Name="SchedulesGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
+                      GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11" IsReadOnly="True"
+                      x:DataType="self:ScheduleRow"
+                      Background="{DynamicResource AppSurfaceBrush}"
+                      BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="150" />
+                    <DataGridTextColumn Header="类型" Binding="{Binding TaskTypeText}" Width="80" />
+                    <DataGridTextColumn Header="连接" Binding="{Binding ConnectionName}" Width="120" />
+                    <DataGridTextColumn Header="计划" Binding="{Binding ScheduleText}" Width="120" />
+                    <DataGridTextColumn Header="下次运行" Binding="{Binding NextRunText}" Width="140" />
+                    <DataGridTextColumn Header="上次运行" Binding="{Binding LastRunText}" Width="140" />
+                    <DataGridTextColumn Header="上次结果" Binding="{Binding LastResult}" Width="*" />
+                    <DataGridCheckBoxColumn Header="启用" Binding="{Binding Enabled}" Width="60" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <!-- 编辑表单 -->
+            <Border Grid.Row="1" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
+                    CornerRadius="6" Padding="10,8" Margin="0,10,0,0">
+                <ScrollViewer MaxHeight="440" HorizontalScrollBarVisibility="Auto">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="名称:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox Grid.Column="1" x:Name="TxtName" Margin="4,0,10,0" VerticalContentAlignment="Center" FontSize="11" />
+                        <TextBlock Grid.Column="2" Text="类型:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:ComboBox Grid.Column="3" x:Name="ComboTaskType" Width="90" FontSize="11" SelectionChanged="ComboTaskType_SelectionChanged">
+                            <ComboBoxItem>SQL 脚本</ComboBoxItem>
+                            <ComboBoxItem>备份</ComboBoxItem>
+                            <ComboBoxItem>导出</ComboBoxItem>
+                            <ComboBoxItem>导入</ComboBoxItem>
+                            <ComboBoxItem>迁移</ComboBoxItem>
+                            <ComboBoxItem>结构同步</ComboBoxItem>
+                            <ComboBoxItem>数据同步</ComboBoxItem>
+                            <ComboBoxItem>数据字典（路径用 .pdf / .html）</ComboBoxItem>
+                        </atom:ComboBox>
+                        <TextBlock Grid.Column="4" Text="连接:" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
+                        <atom:ComboBox Grid.Column="5" x:Name="ComboConnection" Width="180" FontSize="11">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="mods:ConnectionItem">
+                                <TextBlock Text="{Binding Description}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                        </atom:ComboBox>
+                        <TextBlock Grid.Column="6" Text="数据库(可选):" VerticalAlignment="Center" FontSize="11" Margin="8,0,4,0" />
+                        <atom:TextBox Grid.Column="7" x:Name="TxtDatabase" Width="110" VerticalContentAlignment="Center" FontSize="11" />
+                    </Grid>
+
+                    <!-- SQL 脚本 -->
+                    <StackPanel x:Name="PanelSql" IsVisible="False" Spacing="4">
+                        <TextBlock Text="SQL 脚本:" FontSize="11" />
+                        <atom:TextBox x:Name="TxtSql" MinHeight="64" AcceptsReturn="True" TextWrapping="Wrap" FontSize="11"
+                                 FontFamily="Consolas, Microsoft YaHei UI, monospace" />
+                    </StackPanel>
+
+                    <!-- 备份 -->
+                    <StackPanel x:Name="PanelBackup" IsVisible="False" Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="备份保存文件夹:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtSaveFolder" Width="240" VerticalContentAlignment="Center" FontSize="11" />
+                        <atom:CheckBox x:Name="ChkZip" Content="压缩" IsChecked="True" VerticalAlignment="Center" FontSize="11" />
+                        <TextBlock Text="客户端工具(可选):" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtClientTool" Width="180" VerticalContentAlignment="Center" FontSize="11" />
+                    </StackPanel>
+
+                    <!-- 导出 -->
+                    <StackPanel x:Name="PanelExport" IsVisible="False" Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="表（同步可逗号分隔）:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtExportTable" Width="130" VerticalContentAlignment="Center" FontSize="11" />
+                        <TextBlock Text="Schema(可选):" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtExportSchema" Width="90" VerticalContentAlignment="Center" FontSize="11" />
+                        <TextBlock Text="格式:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:ComboBox x:Name="ComboExportFormat" Width="80" FontSize="11">
+                            <ComboBoxItem>Csv</ComboBoxItem>
+                            <ComboBoxItem>Excel</ComboBoxItem>
+                            <ComboBoxItem>Sql</ComboBoxItem>
+                            <ComboBoxItem>Json</ComboBoxItem>
+                            <ComboBoxItem>Xml</ComboBoxItem>
+                        </atom:ComboBox>
+                        <TextBlock Text="导入/导出文件:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtExportFilePath" Width="200" VerticalContentAlignment="Center" FontSize="11" />
+                    </StackPanel>
+
+                    <!-- 计划 -->
+                    <StackPanel x:Name="PanelTarget" IsVisible="False" Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="目标连接:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:ComboBox x:Name="ComboTarget" Width="220">
+                            <ComboBox.ItemTemplate><DataTemplate x:DataType="mods:ConnectionItem"><TextBlock Text="{Binding Description}" /></DataTemplate></ComboBox.ItemTemplate>
+                        </atom:ComboBox>
+                        <atom:TextBox x:Name="TxtTargetDatabase" Width="140" PlaceholderText="目标数据库（可选）" />
+                        <atom:ComboBox x:Name="ComboMigrationMode" Width="140"><ComboBoxItem>SchemaAndData</ComboBoxItem><ComboBoxItem>Schema</ComboBoxItem><ComboBoxItem>Data</ComboBoxItem></atom:ComboBox>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <atom:CheckBox x:Name="ChkContinueFailure" Content="步骤失败后继续（最终仍标记失败）" />
+                        <atom:Button Content="将当前操作加入步骤" Click="BtnAddStep_Click" />
+                        <atom:Button Content="移除最后步骤" Click="BtnRemoveStep_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="TxtSteps" TextWrapping="Wrap" Opacity="0.6" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="邮件通知" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
+                        <Expander Header="展开邮件通知配置（可选，需要 TLS SMTP）" MinHeight="28">
+                            <StackPanel Spacing="4" Margin="0,6,0,0">
+                                <atom:TextBox x:Name="TxtMailTo" PlaceholderText="收件邮箱（留空关闭通知）" />
+                                <atom:TextBox x:Name="TxtSmtpHost" PlaceholderText="SMTP 主机" />
+                                <atom:TextBox x:Name="TxtSmtpPort" Text="587" PlaceholderText="SMTP 端口" />
+                                <atom:TextBox x:Name="TxtMailFrom" PlaceholderText="发件邮箱" />
+                                <atom:TextBox x:Name="TxtSmtpUser" PlaceholderText="SMTP 用户名" />
+                                <atom:TextBox x:Name="TxtSmtpSecretVariable" PlaceholderText="存放 SMTP 密码的环境变量名" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="计划:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:ComboBox x:Name="ComboScheduleKind" Width="110" FontSize="11" SelectionChanged="ComboScheduleKind_SelectionChanged">
+                            <ComboBoxItem>每天定时</ComboBoxItem>
+                            <ComboBoxItem>每 N 分钟</ComboBoxItem>
+                            <ComboBoxItem>Cron 表达式</ComboBoxItem>
+                        </atom:ComboBox>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelDailyTime">
+                            <TextBlock Text="时间(HH:mm):" VerticalAlignment="Center" FontSize="11" />
+                            <atom:TextBox x:Name="TxtDailyTime" Text="02:00" Width="60" VerticalContentAlignment="Center" FontSize="11" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelInterval" IsVisible="False">
+                            <TextBlock Text="间隔(分钟):" VerticalAlignment="Center" FontSize="11" />
+                            <atom:TextBox x:Name="TxtIntervalMinutes" Text="60" Width="60" VerticalContentAlignment="Center" FontSize="11" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelCron" IsVisible="False">
+                            <TextBlock Text="Cron(分 时 日 月 周):" VerticalAlignment="Center" FontSize="11" />
+                            <atom:TextBox x:Name="TxtCronExpression" Text="0 2 * * *" Width="130" VerticalContentAlignment="Center" FontSize="11" />
+                        </StackPanel>
+                        <atom:CheckBox x:Name="ChkEnabled" Content="启用" IsChecked="True" VerticalAlignment="Center" FontSize="11" />
+                        <atom:Button Classes="primary" Content="保存" Click="BtnSave_Click" />
+                        <atom:Button Classes="ghost" Content="取消" Click="BtnFormCancel_Click" />
+                    </StackPanel>
+                </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+        </Grid>
+
+    </DockPanel>
 </Window>

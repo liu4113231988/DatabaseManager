@@ -10,12 +10,28 @@
         Width="980" Height="680"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
+    <Window.Resources><conv:DiffColorConverter x:Key="DiffColorConverter" /></Window.Resources>
 
-    <Window.Resources>
-        <conv:DiffColorConverter x:Key="DiffColorConverter" />
-    </Window.Resources>
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="结构对比" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="对比两数据库对象差异，生成同步/回滚脚本" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Border>
 
-    <DockPanel Margin="12">
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：源/目标选择与对象类型 -->
         <StackPanel DockPanel.Dock="Top" Spacing="12" Margin="0,0,0,12">
@@ -53,8 +69,6 @@
         </StackPanel>
 
         <!-- 状态栏 -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：差异树 + 详情/日志 左右分栏 -->
         <Grid>
@@ -79,7 +93,7 @@
                         <TreeDataTemplate x:DataType="models:SchemaCompareItem"
                                           ItemsSource="{Binding Children}">
                             <StackPanel Orientation="Horizontal" Spacing="4">
-                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                <atom:CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                           MinWidth="0" Margin="0,0,2,0"
                                           ToolTip.Tip="勾选后参与变更/回滚脚本生成" />
                                 <TextBlock Text="{Binding Text}" FontWeight="SemiBold" />
@@ -99,7 +113,7 @@
                 <TextBlock DockPanel.Dock="Top" Text="详情" FontWeight="Bold" Margin="2,0,0,4" />
                 <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1"
                         MinHeight="90" MaxHeight="180" Margin="0,0,0,8">
-                    <TextBox Text="{Binding DetailText}" IsReadOnly="True" TextWrapping="Wrap"
+                    <atom:TextBox Text="{Binding DetailText}" IsReadOnly="True" TextWrapping="Wrap"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                              Background="Transparent" BorderThickness="0" />
                 </Border>
@@ -120,6 +134,7 @@
                 </Border>
             </DockPanel>
         </Grid>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

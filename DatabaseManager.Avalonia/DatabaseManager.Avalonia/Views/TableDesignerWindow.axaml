@@ -10,20 +10,39 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="10">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="表设计器" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="可视化编辑表结构、列、主键与约束" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="表设计器" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：表信息 + 工具栏 -->
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
             <!-- 表信息行 -->
             <Grid ColumnDefinitions="Auto,120,Auto,*,Auto,160,Auto,*,Auto,220">
                 <TextBlock Text="表名：" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding TableName}" VerticalContentAlignment="Center" />
+                <atom:TextBox Grid.Column="1" Text="{Binding TableName}" VerticalContentAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="Schema：" Margin="12,0,0,0" VerticalAlignment="Center" />
-                <TextBox Grid.Column="3" Text="{Binding Schema}" VerticalContentAlignment="Center" />
+                <atom:TextBox Grid.Column="3" Text="{Binding Schema}" VerticalContentAlignment="Center" />
                 <TextBlock Grid.Column="4" Text="注释：" Margin="12,0,0,0" VerticalAlignment="Center" />
-                <TextBox Grid.Column="5" Text="{Binding Comment}" VerticalContentAlignment="Center" />
+                <atom:TextBox Grid.Column="5" Text="{Binding Comment}" VerticalContentAlignment="Center" />
                 <TextBlock Grid.Column="6" Text="数据库：" Margin="12,0,0,0" VerticalAlignment="Center" />
-                <TextBox Grid.Column="7" Text="{Binding DatabaseName}" VerticalContentAlignment="Center"
+                <atom:TextBox Grid.Column="7" Text="{Binding DatabaseName}" VerticalContentAlignment="Center"
                          IsReadOnly="True" />
                 <TextBlock Grid.Column="8" Text="状态：" Margin="12,0,0,0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="9" Text="{Binding StatusMessage}" VerticalAlignment="Center"
@@ -85,7 +104,7 @@
                 <Grid RowDefinitions="Auto,*,Auto">
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="0,0,0,8">
                         <TextBlock Text="主键名称：" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="1" Text="{Binding PrimaryKey.Name}"
+                        <atom:TextBox Grid.Column="1" Text="{Binding PrimaryKey.Name}"
                                  VerticalContentAlignment="Center" Margin="6,0,0,0" />
                     </Grid>
 
@@ -182,7 +201,7 @@
             <!-- 脚本预览 Tab -->
             <TabItem Header="脚本预览">
                 <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
-                    <TextBox Text="{Binding PreviewScript}"
+                    <atom:TextBox Text="{Binding PreviewScript}"
                              AcceptsReturn="True"
                              TextWrapping="NoWrap"
                              FontFamily="Consolas, monospace"
@@ -192,6 +211,7 @@
                 </Border>
             </TabItem>
         </TabControl>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

@@ -1,5 +1,7 @@
-<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui" 
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        
+        xmlns:atom="https://atomui.net"
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.FloatingResultWindow"
         x:DataType="vm:QueryTabViewModel"
@@ -15,7 +17,7 @@
             <TextBlock Text="{Binding StatusMessage}" Opacity="0.75" FontSize="11"
                        TextTrimming="CharacterEllipsis" MaxWidth="520" />
             <TextBlock Text="{Binding FilterSummary}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
-            <Button Classes="compact" Content="⇲ 停靠回主窗口" Click="DockBack_Click" HorizontalAlignment="Right"
+            <atom:Button Classes="compact" Content="⇲ 停靠回主窗口" Click="DockBack_Click" HorizontalAlignment="Right"
                     ToolTip.Tip="关闭浮动窗口并把结果区恢复到主窗口" />
         </StackPanel>
 
@@ -28,11 +30,11 @@
         <!-- 分页 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
                     IsVisible="{Binding HasResult}">
-            <Button Classes="status" Command="{Binding FirstPageCommand}" Content="首页" />
-            <Button Classes="status" Command="{Binding PrevPageCommand}" Content="上一页" />
+            <atom:Button Classes="status" Command="{Binding FirstPageCommand}" Content="首页" />
+            <atom:Button Classes="status" Command="{Binding PrevPageCommand}" Content="上一页" />
             <TextBlock Text="{Binding PageInfo}" VerticalAlignment="Center" FontSize="11" Opacity="0.8" />
-            <Button Classes="status" Command="{Binding NextPageCommand}" Content="下一页" />
-            <Button Classes="status" Command="{Binding LastPageCommand}" Content="末页" />
+            <atom:Button Classes="status" Command="{Binding NextPageCommand}" Content="下一页" />
+            <atom:Button Classes="status" Command="{Binding LastPageCommand}" Content="末页" />
         </StackPanel>
     </Grid>
 </Window>

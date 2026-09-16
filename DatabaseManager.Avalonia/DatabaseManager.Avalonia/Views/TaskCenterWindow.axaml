@@ -10,20 +10,43 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
-        <!-- 顶部操作 -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8"
-                    HorizontalAlignment="Right" Margin="0,0,0,8">
-            <atom:Button Content="刷新" Command="{Binding RefreshCommand}" />
-            <atom:Button Content="取消选中任务" Command="{Binding CancelSelectedCommand}" />
-            <atom:Button Content="关闭" Click="BtnClose_Click" />
-        </StackPanel>
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="任务中心" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="查看和取消本会话后台任务，跨会话历史记录可追溯执行结果与日志" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
 
-        <TabControl>
+        <!-- 工具栏 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="16,8">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <atom:Button Content="刷新" Command="{Binding RefreshCommand}" />
+                <atom:Button Content="取消选中任务" Command="{Binding CancelSelectedCommand}" />
+                <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right">
+                    <atom:Button Classes="ghost" Content="关闭" Click="BtnClose_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="任务中心：本会话任务与跨会话历史记录；可取消运行中的查询、调度等操作。"
+                           FontSize="11" Foreground="{DynamicResource AppStatusBarTextBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- 内容区 -->
+        <TabControl Margin="16">
             <!-- 本会话任务 -->
             <TabItem Header="本会话任务">
-                <Grid Margin="0,8,0,0">
+                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="6" />
@@ -35,7 +58,8 @@
                               AutoGenerateColumns="False" IsReadOnly="True"
                               GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                               CanUserResizeColumns="True" FontSize="11"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="状态" Binding="{Binding StateText}" Width="70" />
                             <DataGridTextColumn Header="类别" Binding="{Binding Category}" Width="80" />
@@ -49,9 +73,11 @@
                     <GridSplitter Grid.Row="1" HorizontalAlignment="Stretch" Height="6" Background="{DynamicResource AppDividerBrush}" />
 
                     <DockPanel Grid.Row="2">
-                        <TextBlock DockPanel.Dock="Top" Text="任务日志" FontWeight="Bold" Margin="2,0,0,4" />
-                        <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
-                            <TextBox Text="{Binding SelectedRunLogs, Mode=OneWay}" IsReadOnly="True"
+                        <TextBlock DockPanel.Dock="Top" Text="任务日志" FontWeight="SemiBold" FontSize="12"
+                                   Foreground="{DynamicResource AppTextBrush}" Margin="0,0,0,4" />
+                        <Border BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                Background="{DynamicResource AppSurfaceBrush}">
+                            <atom:TextBox Text="{Binding SelectedRunLogs, Mode=OneWay}" IsReadOnly="True"
                                      FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                      TextWrapping="NoWrap"
                                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -64,12 +90,13 @@
             <!-- 历史记录 -->
             <TabItem Header="历史记录" IsVisible="{Binding HasHistory}">
                 <Grid RowDefinitions="*,180">
-                <DataGrid Margin="0,8,0,0" ItemsSource="{Binding History}"
+                <DataGrid Margin="0,0,0,8" ItemsSource="{Binding History}"
                           SelectedItem="{Binding SelectedHistory}"
                           AutoGenerateColumns="False" IsReadOnly="True"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                           CanUserResizeColumns="True" FontSize="11"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1">
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="状态" Binding="{Binding State}" Width="90" />
                         <DataGridTextColumn Header="类别" Binding="{Binding Category}" Width="90" />
@@ -78,7 +105,8 @@
                         <DataGridTextColumn Header="结果" Binding="{Binding ResultSummary}" Width="260" />
                     </DataGrid.Columns>
                 </DataGrid>
-                <TextBox Grid.Row="1" Text="{Binding SelectedHistory.LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" />
+                <atom:TextBox Grid.Row="1" Text="{Binding SelectedHistory.LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                         Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" />
                 </Grid>
             </TabItem>
         </TabControl>

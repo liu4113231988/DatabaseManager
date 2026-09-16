@@ -9,7 +9,26 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="JSON 查看器" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="格式化 JSON 并以树结构浏览" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="JSON 查看器" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部工具栏 -->
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,10">
@@ -32,7 +51,7 @@
                 <TextBlock DockPanel.Dock="Top" Text="JSON 文本" FontWeight="Bold" Margin="2,0,0,4" />
                 <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                        <TextBox Text="{Binding JsonText, Mode=TwoWay}"
+                        <atom:TextBox Text="{Binding JsonText, Mode=TwoWay}"
                                  AcceptsReturn="True" TextWrapping="Wrap"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  MinHeight="400" />
@@ -58,5 +77,7 @@
                 </Border>
             </DockPanel>
         </Grid>
+        </DockPanel>
     </DockPanel>
+
 </Window>

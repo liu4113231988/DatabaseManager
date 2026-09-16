@@ -11,7 +11,26 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="脚本库" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="管理常用 SQL 片段，可插入查询编辑器" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="脚本库" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 底部操作 -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8"
@@ -35,7 +54,7 @@
                     <!-- 左：搜索 + 脚本列表 -->
                     <DockPanel Grid.Column="0">
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-                            <TextBox Text="{Binding SearchText}" PlaceholderText="搜索名称或内容"
+                            <atom:TextBox Text="{Binding SearchText}" PlaceholderText="搜索名称或内容"
                                      Width="200" VerticalContentAlignment="Center" />
                             <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
                         </StackPanel>
@@ -63,11 +82,11 @@
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
                             <TextBlock Text="名称：" VerticalAlignment="Center" />
-                            <TextBox Text="{Binding EditingName}" Width="220" VerticalContentAlignment="Center" />
+                            <atom:TextBox Text="{Binding EditingName}" Width="220" VerticalContentAlignment="Center" />
                             <TextBlock Text="分类：" VerticalAlignment="Center" />
-                            <TextBox Text="{Binding EditingCategory}" Width="140" VerticalContentAlignment="Center" />
+                            <atom:TextBox Text="{Binding EditingCategory}" Width="140" VerticalContentAlignment="Center" />
                         </StackPanel>
-                        <TextBox Text="{Binding EditingSqlText}"
+                        <atom:TextBox Text="{Binding EditingSqlText}"
                                  IsEnabled="{Binding IsBuiltInSelected, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  AcceptsReturn="True" TextWrapping="NoWrap"
@@ -102,7 +121,7 @@
                     <DockPanel Grid.Column="2" Margin="0,0,0,6">
                         <TextBlock DockPanel.Dock="Top" Text="{Binding SelectedScript.Name}" FontWeight="SemiBold"
                                    Margin="2,0,0,6" />
-                        <TextBox Text="{Binding EditingSqlText, Mode=OneWay}" IsReadOnly="True"
+                        <atom:TextBox Text="{Binding EditingSqlText, Mode=OneWay}" IsReadOnly="True"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  AcceptsReturn="True" TextWrapping="NoWrap"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -111,6 +130,7 @@
                 </Grid>
             </TabItem>
         </TabControl>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>
