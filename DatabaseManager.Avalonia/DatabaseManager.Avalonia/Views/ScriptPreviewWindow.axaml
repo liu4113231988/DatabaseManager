@@ -10,7 +10,26 @@
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
-    <DockPanel Margin="12">
+    <!-- VS/SSMS 风格布局：标题区 + 内容区 + 蓝条状态条 -->
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <!-- 顶部标题区 -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="脚本预览与执行" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="预览迁移/同步脚本并执行到目标库" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+        <!-- 底部状态条 -->
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource AppStatusBarTextBrush}"
+                       FontSize="11" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 内容区 -->
+        <DockPanel Margin="16">
+
 
         <!-- 顶部：来源与目标说明 + 操作按钮 -->
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
@@ -29,8 +48,6 @@
         </StackPanel>
 
         <!-- 状态栏 -->
-        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
-                   VerticalAlignment="Center" Margin="2,6,0,0" Opacity="0.75" TextWrapping="Wrap" />
 
         <!-- 中部：脚本列表 + SQL 预览 + 日志 -->
         <Grid>
@@ -54,7 +71,7 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="models:ScriptItem">
                             <StackPanel Spacing="2">
-                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Title}" />
+                                <atom:CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Title}" />
                                 <TextBlock Text="{Binding Description}" FontSize="11" Opacity="0.7"
                                            Margin="22,0,0,0" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
@@ -67,7 +84,7 @@
 
             <!-- 右：SQL 预览 -->
             <Border Grid.Column="2" Grid.Row="0" BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
-                <TextBox Text="{Binding SelectedScriptText, Mode=OneWay}" IsReadOnly="True"
+                <atom:TextBox Text="{Binding SelectedScriptText, Mode=OneWay}" IsReadOnly="True"
                          FontFamily="Consolas,Menlo,monospace" FontSize="12"
                          TextWrapping="NoWrap"
                          ScrollViewer.HorizontalScrollBarVisibility="Auto"
@@ -88,6 +105,7 @@
                 </ListBox>
             </Border>
         </Grid>
-
+        </DockPanel>
     </DockPanel>
+
 </Window>

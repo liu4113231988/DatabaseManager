@@ -92,21 +92,24 @@
                 <atom:CheckBox x:Name="ChkRememberPassword" Content="记住密码" IsChecked="True" />
                 <atom:CheckBox x:Name="ChkIsDba" Content="DBA" />
                 <atom:CheckBox x:Name="ChkUseSsl" Content="使用 SSL" />
-            </StackPanel>
-            <StackPanel Spacing="6">
+            </StackPanel>            <StackPanel Spacing="6">
                 <TextBlock Text="SSH 隧道" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
-                <Expander Header="展开 SSH 隧道配置" HorizontalAlignment="Stretch" MinHeight="32">
-                    <StackPanel Spacing="6" Margin="0,8,0,0">
-                        <CheckBox x:Name="ChkSsh" Content="启用 SSH 隧道" />
-                        <TextBox x:Name="TxtSshHost" PlaceholderText="SSH 主机" />
-                        <TextBox x:Name="TxtSshPort" Text="22" PlaceholderText="SSH 端口" />
-                        <TextBox x:Name="TxtSshUser" PlaceholderText="SSH 用户名" />
-                        <TextBox x:Name="TxtSshKey" PlaceholderText="私钥文件路径（留空使用密码认证）" />
-                        <TextBox x:Name="TxtSshSecret" PasswordChar="*" PlaceholderText="SSH 密码或私钥口令（随“记住密码”保存）" />
-                        <TextBox x:Name="TxtSshFingerprint" PlaceholderText="经可信渠道核对的 SHA256: 主机指纹" />
-                        <TextBlock Text="数据库服务器填写 SSH 主机可访问的地址，并显式填写数据库端口。断线后下次操作重新建立隧道，失败 SQL 不自动重放。" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Expander>
+                <Border Background="{DynamicResource AppSurfaceBrush}"
+                        BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                        CornerRadius="4">
+                    <Expander Header="展开 SSH 隧道配置" HorizontalAlignment="Stretch" MinHeight="32">
+                        <StackPanel Spacing="6" Margin="12,8,12,12">
+                            <atom:CheckBox x:Name="ChkSsh"  Content="启用 SSH 隧道" />
+                            <atom:TextBox x:Name="TxtSshHost" PlaceholderText="SSH 主机" />
+                            <atom:TextBox x:Name="TxtSshPort" Text="22" PlaceholderText="SSH 端口" />
+                            <atom:TextBox x:Name="TxtSshUser" PlaceholderText="SSH 用户名" />
+                            <atom:TextBox x:Name="TxtSshKey" PlaceholderText="私钥文件路径（留空使用密码认证）" />
+                            <atom:TextBox x:Name="TxtSshSecret" PasswordChar="*" PlaceholderText="SSH 密码或私钥口令" />
+                            <atom:TextBox x:Name="TxtSshFingerprint" PlaceholderText="经可信渠道核对的 SHA256: 主机指纹" />
+                            <TextBlock Text="数据库服务器填写 SSH 主机可访问的地址，并显式填写数据库端口。断线后下次操作重新建立隧道，失败 SQL 不自动重放。" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                        </StackPanel>
+                    </Expander>
+                </Border>
             </StackPanel>
 
             <Grid ColumnDefinitions="*,200">
@@ -116,7 +119,7 @@
                 </StackPanel>
                 <StackPanel Spacing="6" Grid.Column="1" Margin="7,0,0,0">
                     <TextBlock Text="颜色标签" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
-                    <ComboBox x:Name="ComboColorTag" HorizontalAlignment="Stretch">
+                    <atom:ComboBox x:Name="ComboColorTag" HorizontalAlignment="Stretch">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Spacing="6">
@@ -125,7 +128,7 @@
                                 </StackPanel>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    </atom:ComboBox>
                 </StackPanel>
             </Grid>
 
