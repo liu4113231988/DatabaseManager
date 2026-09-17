@@ -53,6 +53,7 @@
                     <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
                         <atom:TextBox Text="{Binding JsonText, Mode=TwoWay}"
                                  AcceptsReturn="True" TextWrapping="Wrap"
+                                 Classes="multiline"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  MinHeight="400" />
                     </ScrollViewer>

@@ -57,7 +57,7 @@ public partial class DashboardWindow
         if (sender is not Control { Tag: DashboardCard card }) return;
         var copy = JsonConvert.DeserializeObject<DashboardChart>(JsonConvert.SerializeObject(card.Chart))!;
         var page = new TextBox { Text = copy.Page }; var order = new TextBox { Text = copy.Position.ToString() }; var width = new TextBox { Text = copy.CardWidth.ToString() }; var height = new TextBox { Text = copy.CardHeight.ToString() };
-        var calculations = new TextBox { AcceptsReturn = true, Height = 130, Text = string.Join("\n", copy.CalculatedFields.Select(c => c.Name + "=" + c.Expression)) };
+        var calculations = new TextBox { AcceptsReturn = true, Height = 130, Classes = { "multiline" }, Text = string.Join("\n", copy.CalculatedFields.Select(c => c.Name + "=" + c.Expression)) };
         var y = new TextBox { Text = string.Join(",", copy.YColumns) }; var error = new TextBlock { TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };
         var save = new Button { Content = "保存布局与计算" };
         var panel = new StackPanel { Spacing = 8, Margin = new Thickness(18) };

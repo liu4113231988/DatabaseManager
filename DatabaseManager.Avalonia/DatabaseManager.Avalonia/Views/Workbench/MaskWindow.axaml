@@ -1,0 +1,74 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.MaskWindow"
+        Title="数据工作台 - 数据脱敏"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap"
+                           Text="对当前查询结果的独立副本或选中表样本进行脱敏。预览及此处导出均使用脱敏副本，不更新源数据库。短于保留长度的值会全部遮盖。" />
+
+                <WrapPanel Classes="row">
+                    <Button Name="ReadSampleButton" Content="读取表样本（最多 100000 行）" />
+                    <Button Name="ShowColumnsButton" Content="显示可用列" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="列名" VerticalAlignment="Center" />
+                    <TextBox Name="ColumnBox" Width="170" />
+                    <ComboBox Name="KindBox" MinWidth="105">
+                        <sys:String>手机号</sys:String>
+                        <sys:String>证件</sys:String>
+                        <sys:String>银行卡</sys:String>
+                        <sys:String>全部</sys:String>
+                        <sys:String>自定义</sys:String>
+                    </ComboBox>
+                    <TextBlock Text="自定义正则" VerticalAlignment="Center" />
+                    <TextBox Name="PatternBox" Width="220" />
+                    <TextBlock Text="替换" VerticalAlignment="Center" />
+                    <TextBox Name="ReplacementBox" Width="120" Text="***" />
+                    <Button Name="AddRuleButton" Content="添加 / 更新规则" />
+                </WrapPanel>
+
+                <TextBox Name="RulesText" IsReadOnly="True" AcceptsReturn="True" Height="100" Classes="multiline" TextWrapping="Wrap" />
+
+                <WrapPanel Classes="row">
+                    <Button Name="PreviewButton" Content="脱敏预览" />
+                    <Button Name="ExportCsvButton" Content="导出脱敏 CSV" />
+                    <Button Name="SaveRulesButton" Content="保存规则" />
+                    <Button Name="LoadRulesButton" Content="加载规则" />
+                    <Button Name="ClearRulesButton" Content="清空规则" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

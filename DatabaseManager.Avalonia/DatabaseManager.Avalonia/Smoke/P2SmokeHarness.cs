@@ -5,6 +5,7 @@ using Avalonia.VisualTree;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.Avalonia.Views;
+using DatabaseManager.Avalonia.Views.Workbench;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DatabaseManager.Avalonia.Smoke;
@@ -23,24 +24,32 @@ public static class P2SmokeHarness
             if (!created.IsSuccess) throw new Exception(created.ErrorMessage);
             var source = await query.ExecuteStandaloneAsync(item, "SELECT * FROM sample");
             var services = new ServiceCollection().AddSingleton<IDbConnectionService>(connections).AddSingleton<IExportImportService>(new DefaultExportImportService(connections)).AddSingleton<IDataEditService>(new DefaultDataEditService(connections)).BuildServiceProvider();
-            string sent = ""; var window = new P2WorkbenchWindow(services, (_, sql) => sent = sql, item.Name, item.Database, source); window.Show(); await Task.Delay(250);
-            var tabs = window.GetVisualDescendants().OfType<TabControl>().Single(t => t.Name == "WorkbenchTabs");
-            await Click("加载对象"); await Click("加入表"); await Click("添加输出"); await Click("预览 SQL"); await Click("送入新查询标签");
-            if (!sent.StartsWith("SELECT")) throw new Exception("Builder UI did not produce SQL."); await Capture(window, "query");
-            tabs.SelectedIndex = 1; await Task.Delay(100); await Click("读取字段规则"); await Click("生成并预览");
-            if (!Output().Contains("已生成")) throw new Exception("Generator UI: " + Status()); await Capture(window, "generator");
-            tabs.SelectedIndex = 2; await Task.Delay(100); await Click("剖析选中表"); if (!Output().Contains("已读取全表")) throw new Exception("Quality UI: " + Status()); await Capture(window, "quality");
-            tabs.SelectedIndex = 3; await Task.Delay(100); await Click("生成预览"); if (!Output().Contains("sample")) throw new Exception("Dictionary UI: " + Status()); await Capture(window, "dictionary");
-            for (int i = 4; i <= 6; i++) { tabs.SelectedIndex = i; await Task.Delay(100); await Capture(window, new[] { "ai", "transfer", "external" }[i - 4]); }
-            tabs.SelectedIndex = 7; await Task.Delay(100);
-            var maskPanel = ((ScrollViewer)((TabItem)tabs.SelectedItem!).Content!).Content as Control;
+            string sent = "";
+            var queryWindow = new QueryBuilderWindow(services, (_, sql) => sent = sql, item.Name, item.Database); queryWindow.Show(); await Task.Delay(250);
+            await Click(queryWindow, "加载对象"); await Click(queryWindow, "加入表"); await Click(queryWindow, "添加输出"); await Click(queryWindow, "预览 SQL"); await Click(queryWindow, "送入新查询标签");
+            if (!sent.StartsWith("SELECT")) throw new Exception("Builder UI did not produce SQL."); await Capture(queryWindow, "query"); queryWindow.Close();
+            var generator = new TestDataWindow(services, item.Name, item.Database); generator.Show(); await Task.Delay(150);
+            await Click(generator, "加载对象"); await Click(generator, "读取字段规则"); await Click(generator, "生成并预览");
+            if (!Output(generator).Contains("已生成")) throw new Exception("Generator UI: " + Status(generator)); await Capture(generator, "generator"); generator.Close();
+            var quality = new QualityWindow(services, item.Name, item.Database); quality.Show(); await Task.Delay(150);
+            await Click(quality, "加载对象"); await Click(quality, "剖析选中表");
+            if (!Output(quality).Contains("已读取全表")) throw new Exception("Quality UI: " + Status(quality)); await Capture(quality, "quality"); quality.Close();
+            var dictionary = new DictionaryWindow(services, item.Name, item.Database); dictionary.Show(); await Task.Delay(150);
+            await Click(dictionary, "加载对象"); await Click(dictionary, "生成预览");
+            if (!Output(dictionary).Contains("sample")) throw new Exception("Dictionary UI: " + Status(dictionary)); await Capture(dictionary, "dictionary"); dictionary.Close();
+            var informative = new Window[] { new AiSqlWindow(services, item.Name, item.Database), new ConnectionTransferWindow(services, item.Name, item.Database), new ExternalImportWindow(services, item.Name, item.Database) };
+            var informativeNames = new[] { "ai", "transfer", "external" };
+            for (int i = 0; i < informative.Length; i++) { informative[i].Show(); await Task.Delay(150); await Capture(informative[i], informativeNames[i]); informative[i].Close(); }
+            var mask = new MaskWindow(services, item.Name, item.Database, source); mask.Show(); await Task.Delay(150);
+            await Click(mask, "加载对象");
+            var maskPanel = ((ScrollViewer)((Grid)mask.Content!).Children[1]).Content as Control;
             var column = maskPanel!.GetVisualDescendants().OfType<TextBox>().First(t => t.Width == 170); column.Text = "phone";
-            await Click("添加 / 更新规则"); await Click("脱敏预览");
-            var grid = window.GetVisualDescendants().OfType<DataGrid>().FirstOrDefault(g => g.Name == "PreviewGrid");
+            await Click(mask, "添加 / 更新规则"); await Click(mask, "脱敏预览");
+            var grid = mask.GetVisualDescendants().OfType<DataGrid>().FirstOrDefault(g => g.Name == "PreviewGrid");
             // The result grid may not be realized until its tab is selected.
-            var resultTabs = window.GetVisualDescendants().OfType<TabControl>().First(t => t != tabs); resultTabs.SelectedIndex = 1; await Task.Delay(100);
-            grid = window.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "PreviewGrid");
-            if (grid.ItemsSource.Cast<P2WorkbenchWindow.PreviewRow>().First().Values[1] != "138****5678") throw new Exception("Mask UI values not masked."); await Capture(window, "mask"); window.Close();
+            var resultTabs = mask.GetVisualDescendants().OfType<TabControl>().Single(); resultTabs.SelectedIndex = 1; await Task.Delay(100);
+            grid = mask.GetVisualDescendants().OfType<DataGrid>().Single(g => g.Name == "PreviewGrid");
+            if (grid.ItemsSource.Cast<PreviewRow>().First().Values[1] != "138****5678") throw new Exception("Mask UI values not masked."); await Capture(mask, "mask"); mask.Close();
             var dashboards = new FixtureDashboard(); dashboards.Save(new DashboardChart { Name = "金额分析", ConnectionName = item.Name, Database = item.Database, Sql = "SELECT phone, amount FROM sample", XColumn = "phone", YColumns = new() { "gross" }, CalculatedFields = new() { new() { Name = "gross", Expression = "[amount]*1.2" } } });
             dashboards.Save(new DashboardChart { Name = "联动分析", ConnectionName = item.Name, Sql = "SELECT phone, amount FROM sample", XColumn = "phone", YColumns = new() { "amount" } });
             dashboards.Save(new DashboardChart { Name = "第二页图表", Page = "第二页", ConnectionName = item.Name, Sql = "SELECT phone, amount FROM sample", XColumn = "phone", YColumns = new() { "amount" } });
@@ -54,15 +63,15 @@ public static class P2SmokeHarness
             if (dashboard.GetVisualDescendants().OfType<Controls.ChartRenderControl>().Single().Chart?.Title != "第二页图表") throw new Exception("Dashboard page selection failed.");
             await Capture(dashboard, "dashboard-page2"); dashboard.Close();
             File.WriteAllText(Path.Combine(output, "passed.txt"), "P2 UI flows passed: builder, generator, quality, dictionary, masking and all pages rendered.");
-            string Output() => window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "OperationOutput").Text ?? "";
-            string Status() => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "OperationStatus").Text ?? "";
-            async Task Click(string name)
+            string Output(Window window) => window.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "OperationOutput").Text ?? "";
+            string Status(Window window) => window.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Name == "OperationStatus").Text ?? "";
+            async Task Click(Window window, string name)
             {
                 var button = window.GetVisualDescendants().OfType<Button>().First(b => b.Content?.ToString() == name);
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 for (int tries = 0; !button.IsEnabled && tries < 300; tries++) await Task.Delay(50);
                 if (!button.IsEnabled) throw new TimeoutException(name); await Task.Delay(100);
-                if (Status() == "正在处理…") throw new Exception("UI action did not finish: " + name);
+                if (Status(window) == "正在处理…") throw new Exception("UI action did not finish: " + name);
             }
         }
         finally { query.CloseConnection(item.Name); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }

@@ -105,7 +105,7 @@
                         <DataGridTextColumn Header="结果" Binding="{Binding ResultSummary}" Width="260" />
                     </DataGrid.Columns>
                 </DataGrid>
-                <atom:TextBox Grid.Row="1" Text="{Binding SelectedHistory.LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                <atom:TextBox Grid.Row="1" Text="{Binding SelectedHistory.LogText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" Classes="multiline"
                          Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1" />
                 </Grid>
             </TabItem>

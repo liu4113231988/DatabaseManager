@@ -178,6 +178,32 @@
 			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
 			<Setter Property="BorderThickness" Value="1" />
 		</Style>
+		<!-- 多行输入框：文本/光标从左上角开始，不做垂直居中 -->
+		<Style Selector="TextBox.multiline">
+			<Setter Property="VerticalContentAlignment" Value="Top" />
+		</Style>
+		<!-- 数据工作台各独立页面：标记为 row 的 WrapPanel 内控件统一间距 -->
+		<Style Selector="WrapPanel.row > TextBlock">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > TextBox">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > ComboBox">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > Button">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > CheckBox">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > ListBox">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
+		<Style Selector="WrapPanel.row > StackPanel">
+			<Setter Property="Margin" Value="0,0,8,6" />
+		</Style>
 		<Style Selector="ComboBox">
 			<Setter Property="MinHeight" Value="26" />
 			<Setter Property="FontSize" Value="12" />

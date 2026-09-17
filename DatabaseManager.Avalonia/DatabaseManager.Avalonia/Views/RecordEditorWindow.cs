@@ -17,7 +17,7 @@ public sealed class RecordEditorWindow : Window
         {
             int index = i;
             panel.Children.Add(new TextBlock { Text = tab.Columns[i] });
-            var box = new TextBox { Text = row[i], AcceptsReturn = true, MinHeight = 45, MaxHeight = 160, IsReadOnly = !tab.IsColumnEditable(i) };
+            var box = new TextBox { Text = row[i], AcceptsReturn = true, MinHeight = 45, MaxHeight = 160, IsReadOnly = !tab.IsColumnEditable(i), Classes = { "multiline" } };
             boxes.Add(box); panel.Children.Add(box);
             var column = tab.EditableTable?.Columns.FirstOrDefault(c => c.Name.Equals(tab.SourceColumnName(tab.Columns[index]), StringComparison.OrdinalIgnoreCase));
             if (column is not null && DatabaseInterpreter.Utility.DataTypeHelper.IsBinaryType(column.DataType))

@@ -1,0 +1,80 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.DictionaryWindow"
+        Title="数据工作台 - 数据字典"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap"
+                           Text="生成对象目录、列属性和外键关系说明。可选对象用逗号分隔（schema.table）；空表示全部表与视图。模板是纯文本占位符，导出 HTML 时会转义。" />
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="标题" VerticalAlignment="Center" />
+                    <TextBox Name="TitleBox" Width="260" />
+                    <TextBlock Text="简介" VerticalAlignment="Center" />
+                    <TextBox Name="IntroBox" Width="440" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="对象" VerticalAlignment="Center" />
+                    <TextBox Name="ObjectsBox" Width="440" />
+                    <Button Name="AddObjectButton" Content="加入选中对象" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="对象模板" VerticalAlignment="Center" />
+                    <TextBox Name="ObjectTemplateBox" Width="650" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="列模板" VerticalAlignment="Center" />
+                    <TextBox Name="ColumnTemplateBox" Width="650" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <Button Name="GenerateButton" Content="生成预览" />
+                    <ComboBox Name="FormatBox" MinWidth="105">
+                        <sys:String>PDF</sys:String>
+                        <sys:String>HTML</sys:String>
+                    </ComboBox>
+                    <Button Name="ExportButton" Content="导出文档" />
+                    <Button Name="SaveTemplateButton" Content="保存模板" />
+                    <Button Name="LoadTemplateButton" Content="加载模板" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <Button Name="ScheduleButton" Content="创建每日文档计划" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

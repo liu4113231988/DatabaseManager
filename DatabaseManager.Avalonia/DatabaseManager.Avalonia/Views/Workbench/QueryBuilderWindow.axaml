@@ -1,0 +1,122 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.QueryBuilderWindow"
+        Title="数据工作台 - 查询构建"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap" Text="选择或拖入表，配置关联与字段；生成结果只进入预览，不自动执行。" />
+
+                <WrapPanel Classes="row">
+                    <ListBox Name="AvailableTables" Height="110" MinWidth="210" />
+                    <StackPanel Name="DropArea" Spacing="9">
+                        <TextBlock TextWrapping="Wrap" Text="已加入的表（可将左侧表拖入此区域）" />
+                        <ListBox Name="SelectedTables" Height="100" MinWidth="280" />
+                        <Button Name="AddTableButton" Content="加入表" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="字段" VerticalAlignment="Center" />
+                    <ComboBox Name="FieldBox" MinWidth="220" />
+                    <ComboBox Name="AggregateBox" MinWidth="105" />
+                    <TextBlock Text="输出别名" VerticalAlignment="Center" />
+                    <TextBox Name="AliasBox" Width="120" />
+                    <Button Name="AddOutputButton" Content="添加输出" />
+                    <Button Name="AddOrderButton" Content="添加排序" />
+                    <CheckBox Name="DescendingBox" Content="降序" VerticalAlignment="Center" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="关联" VerticalAlignment="Center" />
+                    <ComboBox Name="LeftBox" MinWidth="200" />
+                    <ComboBox Name="JoinTypeBox" MinWidth="105">
+                        <sys:String>INNER</sys:String>
+                        <sys:String>LEFT</sys:String>
+                    </ComboBox>
+                    <ComboBox Name="RightBox" MinWidth="200" />
+                    <Button Name="AddJoinButton" Content="添加关联" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="字段条件" VerticalAlignment="Center" />
+                    <ComboBox Name="OperatorBox" MinWidth="105">
+                        <sys:String>=</sys:String>
+                        <sys:String>&lt;&gt;</sys:String>
+                        <sys:String>&gt;</sys:String>
+                        <sys:String>&gt;=</sys:String>
+                        <sys:String>&lt;</sys:String>
+                        <sys:String>&lt;=</sys:String>
+                        <sys:String>LIKE</sys:String>
+                        <sys:String>NOT LIKE</sys:String>
+                        <sys:String>IS NULL</sys:String>
+                        <sys:String>IS NOT NULL</sys:String>
+                    </ComboBox>
+                    <TextBox Name="ValueBox" Width="170" />
+                    <TextBlock Text="组号" VerticalAlignment="Center" />
+                    <TextBox Name="GroupIdBox" Width="60" Text="1" />
+                    <TextBlock Text="组内" VerticalAlignment="Center" />
+                    <ComboBox Name="GroupLogicBox" MinWidth="105">
+                        <sys:String>AND</sys:String>
+                        <sys:String>OR</sys:String>
+                    </ComboBox>
+                    <TextBlock Text="组间" VerticalAlignment="Center" />
+                    <ComboBox Name="RootLogicBox" MinWidth="105">
+                        <sys:String>AND</sys:String>
+                        <sys:String>OR</sys:String>
+                    </ComboBox>
+                    <Button Name="AddConditionButton" Content="添加条件" />
+                </WrapPanel>
+
+                <TextBox Name="SummaryBox" IsReadOnly="True" AcceptsReturn="True" Height="100" Classes="multiline" TextWrapping="Wrap" />
+
+                <WrapPanel Classes="row">
+                    <Button Name="UndoOutputButton" Content="撤销上个输出" />
+                    <Button Name="UndoJoinButton" Content="撤销上个关联" />
+                    <Button Name="ClearConditionsButton" Content="清空条件" />
+                    <Button Name="ClearOrderButton" Content="清空排序" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="可选：创建视图" VerticalAlignment="Center" />
+                    <TextBox Name="ViewSchemaBox" Width="100" />
+                    <TextBox Name="ViewNameBox" Width="150" />
+                    <Button Name="PreviewSqlButton" Content="预览 SQL" />
+                    <Button Name="SendSqlButton" Content="送入新查询标签" />
+                    <Button Name="ClearDesignButton" Content="清空设计" />
+                    <Button Name="SaveDesignButton" Content="保存设计" />
+                    <Button Name="LoadDesignButton" Content="加载设计" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

@@ -18,6 +18,7 @@ using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
 using DatabaseManager.Avalonia.Controls;
+using DatabaseManager.Avalonia.Views.Workbench;
 using Microsoft.Extensions.DependencyInjection;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
@@ -1297,7 +1298,18 @@ public partial class MainWindow : Window
         var tab = vm.SelectedQueryTab;
         var snapshot = tab?.SelectedResultSnapshot?.Result;
         int page = int.TryParse((sender as Control)?.Tag?.ToString(), out var selectedPage) ? selectedPage : 0;
-        new P2WorkbenchWindow(_services, (c, sql) => vm.OpenSqlInNewTab(c.Name, sql, c.Database), tab?.ConnectionName, tab?.DatabaseName, snapshot, page).Show(this);
+        Window window = page switch
+        {
+            1 => new TestDataWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            2 => new QualityWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            3 => new DictionaryWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            4 => new AiSqlWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            5 => new ConnectionTransferWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            6 => new ExternalImportWindow(_services, tab?.ConnectionName, tab?.DatabaseName),
+            7 => new MaskWindow(_services, tab?.ConnectionName, tab?.DatabaseName, snapshot),
+            _ => new QueryBuilderWindow(_services, (c, sql) => vm.OpenSqlInNewTab(c.Name, sql, c.Database), tab?.ConnectionName, tab?.DatabaseName)
+        };
+        window.Show(this);
     }
 
     /// <summary>打开 JSON 查看器（工具菜单）。</summary>

@@ -108,7 +108,7 @@
                     <!-- SQL 脚本 -->
                     <StackPanel x:Name="PanelSql" IsVisible="False" Spacing="4">
                         <TextBlock Text="SQL 脚本:" FontSize="11" />
-                        <atom:TextBox x:Name="TxtSql" MinHeight="64" AcceptsReturn="True" TextWrapping="Wrap" FontSize="11"
+                        <atom:TextBox x:Name="TxtSql" MinHeight="64" AcceptsReturn="True" TextWrapping="Wrap" FontSize="11" Classes="multiline"
                                  FontFamily="Consolas, Microsoft YaHei UI, monospace" />
                     </StackPanel>
 

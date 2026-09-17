@@ -1,0 +1,79 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.AiSqlWindow"
+        Title="数据工作台 - AI SQL"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap"
+                           Text="支持 OpenAI 兼容聊天接口与本地 Ollama。API 密钥从环境变量读取；设置文件不保存密钥。不会发送行数据或连接密码，AI 返回内容只供预览。" />
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="接口" VerticalAlignment="Center" />
+                    <TextBox Name="EndpointBox" Width="370" Text="http://localhost:11434/v1" />
+                    <TextBlock Text="模型" VerticalAlignment="Center" />
+                    <TextBox Name="ModelBox" Width="180" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="密钥环境变量" VerticalAlignment="Center" />
+                    <TextBox Name="KeyEnvBox" Width="210" Text="DBM_AI_API_KEY" />
+                    <ComboBox Name="ModeBox" MinWidth="105">
+                        <sys:String>生成 SQL</sys:String>
+                        <sys:String>解释 SQL</sys:String>
+                        <sys:String>纠错</sys:String>
+                        <sys:String>优化建议</sys:String>
+                    </ComboBox>
+                    <Button Name="SaveSettingsButton" Content="保存设置" />
+                    <Button Name="LoadSettingsButton" Content="加载设置" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <Button Name="AddMetadataButton" Content="加入选中表元数据" />
+                    <Button Name="ClearMetadataButton" Content="清空元数据" />
+                </WrapPanel>
+
+                <TextBox Name="SchemaTextBox" IsReadOnly="True" AcceptsReturn="True" Height="80" Classes="multiline" TextWrapping="Wrap" />
+                <TextBox Name="RequestBox" AcceptsReturn="True" Height="80" Classes="multiline" TextWrapping="Wrap"
+                         PlaceholderText="说明需求，包含数据库方言及预期行为" />
+                <TextBox Name="SqlBox" AcceptsReturn="True" Height="75" Classes="multiline" TextWrapping="Wrap"
+                         PlaceholderText="要解释、纠错或优化的 SQL（可留空）" />
+                <CheckBox Name="ConsentBox" Content="允许将下方 SQL、请求和已选元数据发送到上方接口" />
+
+                <WrapPanel Classes="row">
+                    <Button Name="AskButton" Content="发送并预览回答" />
+                    <Button Name="CopyButton" Content="复制回答" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

@@ -65,7 +65,7 @@
             </DataGrid>
 
             <!-- 权限文本 -->
-            <atom:TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+            <atom:TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Classes="multiline"
                      PlaceholderText="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
         </Grid>
 

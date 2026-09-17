@@ -1,0 +1,82 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        xmlns:wb="using:DatabaseManager.Avalonia.Views.Workbench"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.ConnectionTransferWindow"
+        Title="数据工作台 - 连接迁移"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap"
+                           Text="勾选需要导出或导入的连接（可全选）。导入先预览再保存；原连接不会被覆盖。携带密码时使用独立口令保护文件，请在接收端输入相同口令。" />
+
+                <WrapPanel Classes="row">
+                    <CheckBox Name="SelectAllBox" Content="全选" VerticalAlignment="Center" />
+                    <TextBlock Name="SelectionSummary" VerticalAlignment="Center" />
+                </WrapPanel>
+
+                <DataGrid Name="ConnectionsGrid" Height="200" AutoGenerateColumns="False" x:DataType="wb:ConnectionRow"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column" CanUserReorderColumns="False">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="选择" Width="72">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="wb:ConnectionRow">
+                                    <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="200" IsReadOnly="True" />
+                        <DataGridTextColumn Header="数据库类型" Binding="{Binding DatabaseType}" Width="120" IsReadOnly="True" />
+                        <DataGridTextColumn Header="数据库" Binding="{Binding Database}" Width="160" IsReadOnly="True" />
+                        <DataGridTextColumn Header="摘要" Binding="{Binding Description}" Width="*" IsReadOnly="True" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <WrapPanel Classes="row">
+                    <CheckBox Name="IncludePasswordBox" Content="导出时携带数据库 / SSH 密码（必须加密）" VerticalAlignment="Center" />
+                    <TextBlock Text="保护口令" VerticalAlignment="Center" />
+                    <TextBox Name="PasswordBox" Width="240" PasswordChar="●" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <Button Name="LoadConnectionsButton" Content="加载本机连接" />
+                    <Button Name="ExportButton" Content="导出所选连接" />
+                    <Button Name="OpenImportButton" Content="打开文件并预览导入" />
+                    <ComboBox Name="PolicyBox" MinWidth="120">
+                        <sys:String>重名自动改名</sys:String>
+                        <sys:String>跳过重名</sys:String>
+                    </ComboBox>
+                    <Button Name="SaveImportButton" Content="保存所选导入连接" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

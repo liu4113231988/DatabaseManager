@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:sys="using:System"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.ExternalImportWindow"
+        Title="数据工作台 - 扩展导入"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <ScrollViewer Grid.Row="1" Name="PageScroll" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="9" Margin="6,12">
+                <TextBlock TextWrapping="Wrap"
+                           Text="ODBC 需要安装与本程序位数一致的驱动。Access 使用指定的 ODBC 驱动；DBF 支持 dBASE III 的字符、数值、日期和逻辑列。先生成稳定 CSV 快照，再使用原导入向导做列映射、错误行检查和按行数续导。NULL/空值沿用 CSV 导入语义。" />
+
+                <WrapPanel Classes="row">
+                    <ComboBox Name="TypeBox" MinWidth="105">
+                        <sys:String>ODBC</sys:String>
+                        <sys:String>Access</sys:String>
+                        <sys:String>DBF</sys:String>
+                    </ComboBox>
+                    <TextBlock Text="ODBC 连接串 / 文件路径" VerticalAlignment="Center" />
+                    <TextBox Name="SourceBox" Width="570" />
+                    <Button Name="ChooseSourceButton" Content="选择源文件" />
+                </WrapPanel>
+
+                <WrapPanel Classes="row">
+                    <TextBlock Text="Access 驱动" VerticalAlignment="Center" />
+                    <TextBox Name="DriverBox" Width="380" Text="Microsoft Access Driver (*.mdb, *.accdb)" />
+                    <TextBlock Text="DBF 编码" VerticalAlignment="Center" />
+                    <TextBox Name="EncodingBox" Width="140" Text="GB18030" />
+                </WrapPanel>
+
+                <TextBlock Text="ODBC / Access 源查询（单条 SELECT；建议按唯一键排序）" />
+                <TextBox Name="SelectSqlBox" AcceptsReturn="True" Height="80" Classes="multiline" TextWrapping="Wrap"
+                         Text="SELECT * FROM table_name ORDER BY id" />
+
+                <WrapPanel Classes="row">
+                    <Button Name="SnapshotButton" Content="生成导入快照" />
+                    <Button Name="OpenSnapshotButton" Content="打开已有快照" />
+                    <Button Name="MapImportButton" Content="进入列映射与导入" />
+                </WrapPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

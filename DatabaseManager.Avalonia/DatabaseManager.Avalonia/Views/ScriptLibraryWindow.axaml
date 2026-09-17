@@ -90,6 +90,7 @@
                                  IsEnabled="{Binding IsBuiltInSelected, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  AcceptsReturn="True" TextWrapping="NoWrap"
+                                 Classes="multiline"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </DockPanel>
@@ -124,6 +125,7 @@
                         <atom:TextBox Text="{Binding EditingSqlText, Mode=OneWay}" IsReadOnly="True"
                                  FontFamily="Consolas,Menlo,monospace" FontSize="12"
                                  AcceptsReturn="True" TextWrapping="NoWrap"
+                                 Classes="multiline"
                                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </DockPanel>

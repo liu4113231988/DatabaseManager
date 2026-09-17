@@ -1,0 +1,59 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DatabaseManager.Avalonia.Views.Workbench.TestDataWindow"
+        Title="数据工作台 - 测试数据"
+        Width="1150" Height="850" MinWidth="900" MinHeight="650"
+        WindowStartupLocation="CenterOwner">
+    <Grid Name="BodyGrid" RowDefinitions="Auto,430,5,*,Auto" Margin="14">
+        <WrapPanel Grid.Row="0" Classes="row">
+            <TextBlock Text="连接" VerticalAlignment="Center" />
+            <ComboBox Name="ConnectionBox" Width="280" />
+            <TextBlock Text="数据库" VerticalAlignment="Center" />
+            <TextBox Name="DatabaseBox" Width="170" PlaceholderText="数据库" />
+            <Button Name="LoadButton" Content="加载对象" />
+            <ComboBox Name="TableBox" MinWidth="230" />
+        </WrapPanel>
+
+        <!-- 页面自身采用三段式：说明/顶部操作固定，列规则区占满剩余高度并单独滚动，按钮固定在底部。
+             整页不再套外层滚动，因此只会出现一个滚动条。 -->
+        <Grid Grid.Row="1" Name="PageHost" RowDefinitions="Auto,Auto,*,Auto">
+            <TextBlock Grid.Row="0" Margin="6,12,6,6" TextWrapping="Wrap"
+                       Text="先选择表并读取字段，再逐列设置规则。枚举用 | 分隔；正则支持字符集、\d/\w、{n}/{min,max}。外键引用现有父表候选（每组最多 200 条），请按父表→子表顺序生成。" />
+
+            <WrapPanel Grid.Row="1" Margin="6,0,6,0" Classes="row">
+                <Button Name="ReadColumnsButton" Content="读取字段规则" />
+                <TextBlock Text="行数" VerticalAlignment="Center" />
+                <TextBox Name="RowCountBox" Width="85" Text="100" />
+                <TextBlock Text="固定种子" VerticalAlignment="Center" />
+                <TextBox Name="SeedBox" Width="85" Text="42" />
+            </WrapPanel>
+
+            <ScrollViewer Grid.Row="2" Name="RulesScroll" Margin="0,6,0,0"
+                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Name="RulesHost" Spacing="4" Margin="6,0,6,6" />
+            </ScrollViewer>
+
+            <WrapPanel Grid.Row="3" Margin="6,0,6,0" Classes="row">
+                <Button Name="GenerateButton" Content="生成并预览" />
+                <Button Name="WriteButton" Content="确认写入预览批次" />
+            </WrapPanel>
+        </Grid>
+
+        <GridSplitter Grid.Row="2" ResizeDirection="Rows" HorizontalAlignment="Stretch" />
+
+        <TabControl Grid.Row="3">
+            <TabItem Header="预览 / 日志">
+                <TextBox Name="OperationOutput" AcceptsReturn="True" IsReadOnly="True" MinHeight="130" Classes="multiline"
+                         FontFamily="Consolas,Microsoft YaHei" TextWrapping="Wrap" />
+            </TabItem>
+            <TabItem Header="数据预览">
+                <DataGrid Name="PreviewGrid" IsReadOnly="True" AutoGenerateColumns="False" MinHeight="140" />
+            </TabItem>
+        </TabControl>
+
+        <WrapPanel Grid.Row="4" Classes="row">
+            <Button Name="CancelButton" Content="取消当前操作" />
+            <TextBlock Name="OperationStatus" TextWrapping="Wrap" VerticalAlignment="Center" />
+        </WrapPanel>
+    </Grid>
+</Window>

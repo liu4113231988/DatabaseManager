@@ -51,7 +51,7 @@
 
         <!-- SQL -->
         <atom:TextBox Grid.Row="1" x:Name="TxtSql" PlaceholderText="粘贴要剖析的 SELECT 语句（以分号结尾会被忽略）"
-                 MinHeight="90" AcceptsReturn="True" TextWrapping="Wrap" FontSize="12"
+                 MinHeight="90" AcceptsReturn="True" TextWrapping="Wrap" FontSize="12" Classes="multiline"
                  FontFamily="Consolas, Microsoft YaHei UI, monospace" Margin="0,0,0,8" />
 
         <!-- 摘要 -->
@@ -72,7 +72,7 @@
                     <DataGridTextColumn Header="错误" Binding="{Binding Error}" Width="*" />
                 </DataGrid.Columns>
             </DataGrid>
-            <atom:TextBox Grid.Column="1" x:Name="TxtAnalyze" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+            <atom:TextBox Grid.Column="1" x:Name="TxtAnalyze" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" Classes="multiline"
                      FontSize="11" FontFamily="Consolas, Microsoft YaHei UI, monospace"
                      PlaceholderText="服务端执行计划/阶段输出（勾选后且数据库支持时显示）" />
         </Grid>

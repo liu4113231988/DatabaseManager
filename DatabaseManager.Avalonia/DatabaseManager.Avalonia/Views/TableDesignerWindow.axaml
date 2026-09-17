@@ -203,6 +203,7 @@
                 <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
                     <atom:TextBox Text="{Binding PreviewScript}"
                              AcceptsReturn="True"
+                             Classes="multiline"
                              TextWrapping="NoWrap"
                              FontFamily="Consolas, monospace"
                              IsReadOnly="True"
