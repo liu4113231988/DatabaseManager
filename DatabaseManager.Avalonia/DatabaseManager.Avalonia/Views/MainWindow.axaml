@@ -23,7 +23,7 @@
         <DockPanel Background="{DynamicResource AppWindowBgBrush}">
 
         <!-- 菜单栏（窗口已有系统标题栏，此处不再添加自定义标题栏，避免重复与重叠） -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="6,2">
+        <Border x:Name="MainMenuPanel" DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="6,2">
         <Menu Background="Transparent" Foreground="{DynamicResource AppTextBrush}" Height="26">
             <Menu.Styles>
                 <!-- 菜单根项：紧凑高度、留白适中；激活态使用浅蓝底+主色文字 -->
@@ -97,6 +97,8 @@
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />
+                <Separator />
+                <MenuItem Header="专注模式 (F11)" Click="MenuFocusMode_Click" />
             </MenuItem>
             <!-- 数据工作台：P2 数据工具集（原"工具"菜单下的子菜单提升为顶级菜单） -->
             <MenuItem Header="工作台">
@@ -155,7 +157,7 @@
 
         <!-- 图标仅限制最大尺寸，让 Path 按等比缩放后的实际宽高参与居中；执行三角形另向右补偿 1px 视觉重心。 -->
         <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 SSMS 工具栏布局：文件 / 连接 / SQL / 事务 / 工具） -->
-        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="8,4">
+        <Border x:Name="MainToolbarPanel" DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="8,4">
             <StackPanel Orientation="Horizontal" Spacing="6">
 
                 <!-- 文件组 -->
@@ -280,7 +282,7 @@
         </Border>
 
         <!-- 状态栏：SSMS 风格底部蓝条，承载连接摘要 / 任务数 / 外观缩放 -->
-        <Border DockPanel.Dock="Bottom" Height="26" Background="{DynamicResource AppStatusBarBrush}" BorderBrush="{DynamicResource AppStatusBarBrush}" BorderThickness="0,1,0,0">
+        <Border x:Name="MainStatusBarPanel" DockPanel.Dock="Bottom" Height="26" Background="{DynamicResource AppStatusBarBrush}" BorderBrush="{DynamicResource AppStatusBarBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <TextBlock Text="{Binding ConnectionSummary}" Foreground="{DynamicResource AppStatusBarTextBrush}" VerticalAlignment="Center" Margin="12,0,12,0" FontSize="11" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0">
@@ -309,7 +311,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左右分割条：拖动调整对象浏览器宽度，hover 时显示主色细线提示 -->
-            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center"
+            <GridSplitter x:Name="MainSplitter" Grid.Column="1" Width="6" HorizontalAlignment="Center"
                           VerticalAlignment="Stretch" Background="Transparent">
                 <GridSplitter.Styles>
                     <Style Selector="GridSplitter /template/ Border#PART_Root">
@@ -319,7 +321,7 @@
             </GridSplitter>
 
             <!-- 左：对象浏览器（连接列表 + 对象树） -->
-            <Border Grid.Column="0"
+            <Border x:Name="ObjectsExplorerPanel" Grid.Column="0"
                     BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,1,0" Margin="0,0,0,4" Background="{DynamicResource AppSurfaceBrush}">
                 <DockPanel Margin="8">
                     <Border DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}" CornerRadius="6" Padding="10,7" Margin="0,0,0,6">
@@ -329,7 +331,7 @@
                     <!-- 对象搜索框：Enter 或点击按钮深度搜索元数据，结果可定位到树 -->
                     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                         <atom:TextBox Grid.Column="0" x:Name="TreeFilterBox"
-                                 PlaceholderText="搜索表/视图/列...（Enter）"
+                                 PlaceholderText="搜索表/视图/列...（Enter）；支持 dbm:// 直达"
                                  FontSize="11" MinHeight="0" VerticalContentAlignment="Center"
                                  KeyDown="TreeFilterBox_KeyDown" />
                         <Button Grid.Column="1" Classes="compact" Content="搜索" Margin="6,0,0,0"

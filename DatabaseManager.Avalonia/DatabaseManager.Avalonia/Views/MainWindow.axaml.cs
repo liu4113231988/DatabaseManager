@@ -315,6 +315,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 应用内 URI 直达：dbm://<连接>/<数据库>/[schema/]<类型>/<对象名>。
+        if (keyword.StartsWith(DatabaseManager.AppCore.Common.DbObjectUri.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            await LocateDbmUriAsync(keyword);
+            return;
+        }
+
         // 元数据搜索按连接名按需连接，因此下拉框收录全部已保存连接（活动连接排前），
         // 避免尚未连接任何连接时下拉框为空、无法搜索。
         var searchableNames = GetSearchableConnectionNames(vm);
@@ -347,6 +354,35 @@ public partial class MainWindow : Window
     private void RunningTasks_Click(object? sender, RoutedEventArgs e)
     {
         OpenTaskCenter();
+    }
+
+    /// <summary>解析应用内 dbm:// URI 并定位到对象树节点（复用搜索结果的定位逻辑；失败时给出明确提示）。</summary>
+    private async Task LocateDbmUriAsync(string uri)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        if (!DatabaseManager.AppCore.Common.DbObjectUri.TryParse(uri, out var target, out var error) || target is null)
+        {
+            SetQueryStatus($"URI 解析失败：{error}");
+            return;
+        }
+
+        var item = new SearchResultItem
+        {
+            Kind = target.Kind,
+            ConnectionName = target.ConnectionName,
+            DatabaseName = target.DatabaseName,
+            Schema = target.Schema,
+            Name = target.ObjectName,
+        };
+
+        var node = await LocateNodeInTreeAsync(item);
+        if (node is null)
+        {
+            // LocateNodeInTreeAsync 已按缺失层级写入具体提示，这里补充 URI 上下文。
+            SetQueryStatus($"未能直达「{uri}」：对象树中未找到对应节点（连接需已展开加载）。");
+        }
     }
 
     private void OpenTaskCenter()
@@ -391,6 +427,76 @@ public partial class MainWindow : Window
         {
             _restoreMaximizedAfterFirstRender = true;
         }
+
+        // 恢复专注模式状态（不再次持久化）。
+        if (DataContext is MainWindowViewModel focusVm)
+        {
+            focusVm.FocusMode = ws.FocusMode;
+            ApplyFocusMode(ws.FocusMode);
+        }
+    }
+
+    /// <summary>视图菜单：切换专注模式。</summary>
+    private void MenuFocusMode_Click(object? sender, RoutedEventArgs e) => ToggleFocusMode();
+
+    /// <summary>切换专注模式：折叠菜单/工具栏/状态栏与对象浏览器，仅保留查询编辑区（F11）。</summary>
+    private void ToggleFocusMode()
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        vm.FocusMode = !vm.FocusMode;
+        ApplyFocusMode(vm.FocusMode);
+        PersistFocusMode(vm.FocusMode);
+    }
+
+    /// <summary>进入专注模式前记录的对象浏览器列宽，用于退出时恢复。</summary>
+    private double _preFocusPanelWidth = 400;
+
+    /// <summary>应用专注模式的显隐与列宽。</summary>
+    private void ApplyFocusMode(bool focus)
+    {
+        var leftColumn = MainContentGrid.ColumnDefinitions[0];
+
+        if (focus)
+        {
+            if (leftColumn.Width.IsAbsolute && leftColumn.Width.Value > 0)
+            {
+                _preFocusPanelWidth = leftColumn.Width.Value;
+            }
+
+            MainMenuPanel.IsVisible = false;
+            MainToolbarPanel.IsVisible = false;
+            MainStatusBarPanel.IsVisible = false;
+            MainSplitter.IsVisible = false;
+            ObjectsExplorerPanel.IsVisible = false;
+            leftColumn.MinWidth = 0;
+            leftColumn.Width = new GridLength(0);
+        }
+        else
+        {
+            MainMenuPanel.IsVisible = true;
+            MainToolbarPanel.IsVisible = true;
+            MainStatusBarPanel.IsVisible = true;
+            MainSplitter.IsVisible = true;
+            ObjectsExplorerPanel.IsVisible = true;
+            leftColumn.MinWidth = 260;
+            leftColumn.Width = new GridLength(_preFocusPanelWidth);
+        }
+    }
+
+    /// <summary>把专注模式状态写入 app-settings.json。</summary>
+    private void PersistFocusMode(bool focus)
+    {
+        if (_services?.GetService<IAppSettingsService>() is not { } settings)
+        {
+            return;
+        }
+
+        settings.Settings.Workspace.FocusMode = focus;
+        settings.Save();
     }
 
     /// <summary>把窗口位置钳制到所在屏幕的工作区内。</summary>
@@ -436,8 +542,13 @@ public partial class MainWindow : Window
         }
 
         ws.WindowState = WindowState == global::Avalonia.Controls.WindowState.Maximized ? "Maximized" : "Normal";
-        var leftColumn = MainContentGrid.ColumnDefinitions[0].Width;
-        ws.LeftPanelWidth = leftColumn.IsAbsolute ? leftColumn.Value : 400;
+
+        // 专注模式下列宽被置 0，不覆盖已保存的宽度。
+        if (!ws.FocusMode)
+        {
+            var leftColumn = MainContentGrid.ColumnDefinitions[0].Width;
+            ws.LeftPanelWidth = leftColumn.IsAbsolute ? leftColumn.Value : 400;
+        }
 
         settings.Save();
     }
@@ -1337,7 +1448,7 @@ public partial class MainWindow : Window
 ================================
 特性:
 - 跨平台数据库管理工具（Windows/macOS/Linux）
-- 支持 SQL Server / MySQL / Oracle / Postgres / SQLite
+- 支持 SQL Server / MySQL / Oracle / Postgres / SQLite / KingbaseES / DuckDB / 达梦(DM8)
 - 连接管理 / 对象浏览 / 查询执行 / 数据编辑
 - 表设计 / 结构对比 / 数据对比 / 数据库转换
 - 导入导出(CSV/Excel) / 备份 / 诊断 / 优化 / 统计
@@ -1826,13 +1937,6 @@ public partial class MainWindow : Window
         if (node.IsLoading)
         {
             node.LoadCts?.Cancel();
-            return;
-        }
-
-        // 「加载更多」占位节点：双击续接下一批子节点。
-        if (node.IsLoadMore)
-        {
-            await vm.ObjectsExplorer.LoadMoreAsync(node);
             return;
         }
 
@@ -2437,6 +2541,12 @@ public partial class MainWindow : Window
                 // Ctrl+N：新建查询
                 e.Handled = true;
                 vm.NewQuery();
+                break;
+
+            case Key.F11:
+                // F11：切换专注模式
+                e.Handled = true;
+                ToggleFocusMode();
                 break;
 
             case Key.W when ctrl:

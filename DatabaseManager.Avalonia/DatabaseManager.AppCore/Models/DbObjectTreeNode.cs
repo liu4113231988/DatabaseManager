@@ -67,15 +67,6 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
-    /// <summary>是否为「加载更多」占位节点（大目录懒分页）。</summary>
-    public bool IsLoadMore { get; set; }
-
-    /// <summary>懒分页：尚未展示的子节点枚举器（避免复制第二份全量 List）。</summary>
-    public IEnumerator<DbObjectTreeNode>? PendingChildEnumerator { get; set; }
-
-    /// <summary>懒分页：尚未展示的剩余数量，仅用于提示文本。</summary>
-    public int RemainingChildCount { get; set; }
-
     /// <summary>该节点当前加载操作的取消令牌源（加载期间可取消；完成后置空）。</summary>
     public CancellationTokenSource? LoadCts { get; set; }
 
@@ -164,7 +155,7 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
-    /// <summary>徽标文本（如 "Tables (20)" 的计数部分），仅 Folder 且已加载时有值；不计「加载更多」占位节点。</summary>
+    /// <summary>徽标文本（如 "Tables (20)" 的计数部分），仅 Folder 且已加载时有值；不计占位节点。</summary>
     public string BadgeText
     {
         get
@@ -174,7 +165,7 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
                 return string.Empty;
             }
 
-            if (Children[0].IsPlaceholder && !Children[0].IsLoadMore)
+            if (Children[0].IsPlaceholder)
             {
                 return string.Empty;
             }
@@ -182,7 +173,7 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
             int count = 0;
             foreach (var child in Children)
             {
-                if (!child.IsLoadMore && !child.IsPlaceholder)
+                if (!child.IsPlaceholder)
                 {
                     count++;
                 }

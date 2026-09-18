@@ -1,6 +1,8 @@
 # P3 评估与实施方案（2026-09-17）
 
-本轮结论：**完整数据库建模、存储过程调试器、团队协作与同步、企业认证与 HTTP 隧道、达梦（DM8）支持、完整可拖拽停靠布局六项明确不做**（已在 `Roadmap.md` P3 标记为 `[-]`）。
+> **实施状态（2026-09-18 更新）**：DuckDB、收藏查询、专注模式、应用内 URI 直达、模板外部化 T1 均已实现；达梦（DM8）因官方包上架 NuGet 已一并接入；DuckDB/达梦均未经真实实例回归验收（跨库转换已拦截）。详见文末「五、2026-09-18 实施记录」。
+
+本轮结论：**完整数据库建模、存储过程调试器、团队协作与同步、企业认证与 HTTP 隧道、完整可拖拽停靠布局明确不做**（已在 `Roadmap.md` P3 标记为 `[-]`；达梦原列为本轮不做，后因官方驱动上架 NuGet 而接入，见「四」节补记）。
 本文只评估仍需推进的两条线：
 
 1. 新增数据库类型：**DuckDB**（达梦暂不实施，相关兼容方案已整体移除）；
@@ -48,7 +50,7 @@
    - `DatabaseInterpreter.Model/Account/DatabaseAuthentication.cs`（集成认证白名单）
    - `MainWindow.axaml.cs:1340` 帮助文案同步（当前文案还漏了 KingbaseES，一并修）
 
-### 1.3 DuckDB 方案（本轮纳入）
+### 1.3 DuckDB 方案（本轮纳入，✅ 2026-09-18 已按本方案实施）
 
 | 维度 | 结论 |
 | --- | --- |
@@ -64,7 +66,7 @@
 
 ### 1.4 排期建议
 
-1. 本轮只做 **DuckDB**：驱动现成、方言简单，无需外部实例即可完整自测；
+1. 本轮只做 **DuckDB**：驱动现成、方言简单，无需外部实例即可完整自测；（2026-09-18 更新：因达梦官方包 `DM.DmProvider` 上架 NuGet，达梦也已按 Oracle 兼容方言接入，见"四"节补记）
 2. 直接复用 KingbaseES 的清单与验收模板（`docs/kingbasees-support-plan.md` + `docs/testing/kingbasees-*.tdd.md`，复制改名即可）；
 3. `DatabaseType` 追加时直接取 `DuckDB = 7`（已移除达梦，不再预留 `Dameng`）；
 4. MariaDB / ClickHouse 仍按"有需求再评估"，MongoDB / Redis / Snowflake 维持"独立产品线评估"。
@@ -86,7 +88,7 @@ Roadmap 原文目标为**收藏查询、URI 直达对象、专注模式、完整
 | 深层链接 | **无** activation / URL scheme / 命令行解析机制。 |
 | 对象树标识 | `DbObjectTreeNode` 已有 `Name` / `Schema` / `DatabaseName` / `DbObject`，可作为定位键。 |
 
-### 2.1 收藏查询 —— 建议做，低风险
+### 2.1 收藏查询 —— ✅ 2026-09-18 已实施
 
 不新建存储文件，直接扩展既有模型（Newtonsoft 缺省即默认值，向后兼容）：
 
@@ -96,14 +98,14 @@ Roadmap 原文目标为**收藏查询、URI 直达对象、专注模式、完整
 
 成本：约 0.5 天。
 
-### 2.2 URI 直达对象 —— 只做应用内（OS 协议注册不做）
+### 2.2 URI 直达对象 —— ✅ 2026-09-18 已实施（仅应用内）
 
 - 语法：`dbm://<连接名>/<数据库>/<schema>/<对象类型>/<对象名>`（含空格或特殊字符时需转义）。
 - 交付范围：**仅应用内解析**。在对象浏览器已有搜索框上支持该语法，回车后按 `DbObjectTreeNode.Name/Schema/DatabaseName` 逐级展开并选中节点；可选 `?rows=1000` 直接打开数据预览；复用现有懒加载（`ObjectsTree_Item_Expanded`）。成本约 1-2 天。
 - 明确不做：操作系统级的 `dbm:` scheme 注册、单实例管道转发、冷启动命令行参数解析，以及跨进程唤起。此类能力需要单实例设计与安装/卸载期写注册表，平台差异与权限风险较大，本轮不纳入。
 - 解析失败（连接不存在、对象不存在、连接未打开）时给出明确提示，不静默降级为普通文本搜索。
 
-### 2.3 专注模式 —— 建议做，低风险
+### 2.3 专注模式 —— ✅ 2026-09-18 已实施
 
 - `MainContentGrid` 是三列 `Grid`（对象浏览器 400px / 分割条 / 内容区），菜单与工具栏为 `DockPanel.Dock=Top`。
 - 方案：`MainWindowViewModel` 增加 `FocusMode`：对象浏览器列宽置 0 并隐藏分割条、折叠菜单/工具栏与状态栏；快捷键进入/退出；状态写入 `app-settings.json`（`DefaultAppSettingsService` 已有 JSON 持久化）。
@@ -142,7 +144,7 @@ Roadmap 原文目标为**收藏查询、URI 直达对象、专注模式、完整
 
 ### 3.2 实施方案（三期）
 
-**T1：契约与目录（约 1 天）**
+**T1：契约与目录（约 1 天，✅ 2026-09-18 已实施；SqlSnippets 已桥接为首批内置模板）**
 
 - 统一占位符语法：采用现有 `{name}` 白名单正则（`DataDictionaryService.Expand` 已实现未知变量报 `ArgumentException`、长度上限 2000）；`$TOKEN$` 旧语法保留为兼容别名，一期后移除。
 - 模板清单文件 `TemplateManifest`：`Id / Name / Kind / Version / Engine / Variables[] / AppliesToDialects[] / Language`。
@@ -184,6 +186,38 @@ Roadmap 原文目标为**收藏查询、URI 直达对象、专注模式、完整
 | 存储过程调试器 | 需数据库侧调试协议（如 PostgreSQL pldbgapi / Oracle DBMS_DEBUG），依赖实例权限与部署环境 |
 | 团队协作与同步 | 需服务端、账号体系与审计存储，超出单机桌面产品范围 |
 | 企业认证与 HTTP 隧道 | 依赖客户目录服务（LDAP/Kerberos/MFA/SSO）与部署形态，无法在无环境情况下验证 |
-| 达梦（DM8）支持 | 本轮明确移除：驱动 `DmProvider.dll` 不在 NuGet（还需处理 x86/x64 与随包分发），且缺少真实实例做验收，只能以"受限"交付，投入产出比不足。若后续重启，需先确认 DM8 实例与驱动获取渠道 |
+| 达梦（DM8）支持 | 原结论"驱动不在 NuGet"已失效：官方账号 **dameng** 已发布 `DM.DmProvider`（8.3.1.47463，支持 net8.0）。**2026-09-18 已按金仓模板接入**：`DmInterpreter` 继承 Oracle 兼容方言（Schema 即用户、默认端口 5236、关闭批量导入），方言配置 `DM.xml/DM.txt` 随包发布；跨库转换列入未验证集合拦截，待真实 DM8 实例完成回归验收后再放开诊断、转换等能力 |
 | 完整可拖拽停靠布局 | 本轮明确不做：主窗口布局与 code-behind 需整体迁移到 Dock 模型，回归面覆盖 P0/P2 全部功能；结果区浮动/停靠已能满足当前诉求 |
 | URI 直达的 OS 协议注册 | 只保留应用内 `dbm://` 解析；单实例、注册表写入与冷启动参数解析平台差异大，暂不纳入 |
+
+---
+
+## 五、2026-09-18 实施记录
+
+本节汇总 2026-09-18 批次的实施内容与验收边界（整解决方案编译 0 错误）。
+
+### 5.1 功能实施（对应本文 §一/§二/§三）
+
+| 项 | 实现要点 | 验收边界 |
+| --- | --- | --- |
+| DuckDB | `DuckDB = 7`；`DuckDbInterpreter : PostgresInterpreter`（元数据走 `information_schema` + `duckdb_*`，对象类型收窄 Table/View/Sequence/Function，无批量复制）；四注册点（InterpreterHelper/ScriptGeneratorHelper/DbConnector/csproj）；`DataTypeSpecification/FunctionSpecification/Keyword/CreateTableOption` 四个方言配置；ConnectWindow 文件/内存（`:memory:`）/只读（`ACCESS_MODE=READ_ONLY`）面板 | 未经真实实例回归验收 |
+| 达梦 DM8 | 官方包 `DM.DmProvider 8.3.1.47463`（NuGet 发布者 dameng）；`DM = 8`；`DmInterpreter : OracleInterpreter`（Schema 即用户，默认端口 5236，关闭批量导入）；方言配置四个；`DmConnection` 直构造（官方文档连接串 `Server=ip:port; UserId; PWD`） | 未经真实实例回归验收；跨库转换列入 `UnverifiedConversionTypes` 拦截，诊断入口明确禁用 |
+| 收藏查询 | `ScriptLibraryItem` 增加 `IsFavorite/LastUsedAt/ConnectionName`；`QueryHistoryEntry.IsFavorite` + `IQueryHistoryService.Update`；历史 500 条裁剪跳过收藏项；脚本库/历史窗口支持「仅收藏」筛选、收藏置顶与收藏切换 | JSON 字段向后兼容（缺省即默认值） |
+| 专注模式 | `MainWindowViewModel.FocusMode`；F11 / 视图菜单切换；折叠菜单/工具栏/状态栏/对象浏览器与分割条，退出恢复原列宽；持久化到 `app-settings.json`（`Workspace.FocusMode`） | — |
+| URI 直达 | `DbObjectUri` 解析 `dbm://<连接>/<库>/[schema/]<类型>/<对象名>[?rows=N]`（URL 转义、类型白名单、失败明确提示）；对象浏览器搜索框回车触发，复用 `LocateNodeInTreeAsync` 逐级展开定位 | `?rows` 参数为保留字段（未接数据预览） |
+| 模板外部化 T1 | `TemplateManifest`（`{name}` 契约 + `$TOKEN$` 兼容别名 + 版本校验 + 必填变量校验）；`ITemplateEngine`/`ITemplateStore`；用户目录 `Profiles/Templates/<kind>/<id>.tpl`（tmp+Move 原子写），内置同名覆盖、内置不可删；SqlSnippets 已桥接为首批内置模板 | T2（管理窗口/导入导出）、T3（其余内置模板迁移）待推进 |
+
+### 5.2 追加性能优化（连接后对象树加载慢，对齐 SSMS 体验）
+
+| 层 | 改动 |
+| --- | --- |
+| 对象树 VM | 类型文件夹子对象**一次全量加载**（移除 500 条分页与「加载更多」占位及 `DbObjectTreeNode` 分页字段）；展开后**并行预取同层其余类型文件夹**（并发 4，`ConcurrentDictionary` 缓存按连接失效）；命中缓存零等待填充 |
+| Schema 服务 | 连接时多库 Schema 枚举并发 4 → 8 |
+| 解释器层 | `GetDbVersion()` 按解释器实例缓存（PG 序列、MySQL 计算列等路径省去重复连接往返）；PostgreSQL/KingbaseES 表/视图 Simple 模式（对象树路径）改 `pg_class` 直查（`relkind r/p/f`、`v`），替代 `information_schema` 包装视图；Detail 模式不变 |
+| 审查未改 | SQL Server 已全 `sys.*`（`IDENT_SEED` 承载脚本生成语义保留）；MySQL/Oracle/DM/SQLite 目录查询已是平台推荐形式；PG 列查询的 `pg_depend/element_types` join 承载类型解析语义不可裁剪 |
+
+### 5.3 待验收清单
+
+1. DuckDB / 达梦：真实实例回归（连接、对象树、查询、数据编辑、脚本生成主链路）；
+2. PostgreSQL / KingbaseES：`pg_class` 改写后核对对象树表/视图清单与旧版一致（含分区表、外部表、扩展对象排除开启时）；
+3. 专注模式 / 收藏 / URI 直达：UI 手工回归（状态持久化、历史裁剪、URI 各段缺失提示）。

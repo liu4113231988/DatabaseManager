@@ -42,10 +42,40 @@ public class DefaultQueryHistoryService : IQueryHistoryService
             _entries.Insert(0, entry);
             if (_entries.Count > MaxEntries)
             {
-                _entries.RemoveRange(MaxEntries, _entries.Count - MaxEntries);
+                TrimExcessEntries();
             }
 
             Save();
+        }
+    }
+
+    public void Update(QueryHistoryEntry entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        lock (FileLock)
+        {
+            Save();
+        }
+    }
+
+    /// <summary>裁剪超出上限的记录：从最旧端开始只移除非收藏项，收藏项不参与裁剪。</summary>
+    private void TrimExcessEntries()
+    {
+        for (int i = _entries.Count - 1; i >= MaxEntries && i >= 0; i--)
+        {
+            if (_entries.Count <= MaxEntries)
+            {
+                break;
+            }
+
+            if (!_entries[i].IsFavorite)
+            {
+                _entries.RemoveAt(i);
+            }
         }
     }
 

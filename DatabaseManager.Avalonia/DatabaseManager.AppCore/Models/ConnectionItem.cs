@@ -64,6 +64,9 @@ public class ConnectionItem
     /// </summary>
     public string? KingbaseCompatibilityMode { get; set; }
 
+    /// <summary>DuckDB 是否以只读模式连接（ACCESS_MODE=READ_ONLY）。仅 DuckDB 类型使用。</summary>
+    public bool DuckDbReadOnly { get; set; }
+
     /// <summary>展示用描述信息。</summary>
     public string Description =>
         string.IsNullOrEmpty(Name)

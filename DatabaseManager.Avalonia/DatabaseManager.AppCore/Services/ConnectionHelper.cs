@@ -28,6 +28,7 @@ public static class ConnectionHelper
         Password = connection.Password,
         IsDba = connection.IsDba,
         UseSsl = connection.UseSsl,
+        UseReadOnly = connection.DuckDbReadOnly,
     };
     }
 }

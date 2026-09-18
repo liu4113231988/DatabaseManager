@@ -21,6 +21,9 @@ public class QueryHistoryEntry
 
     public string? ErrorMessage { get; set; }
 
+    /// <summary>是否收藏（收藏项不参与 500 条上限裁剪）。</summary>
+    public bool IsFavorite { get; set; }
+
     /// <summary>列表展示用的 SQL 摘要（单行、截断）。</summary>
     public string SqlPreview
     {
@@ -40,6 +43,9 @@ public interface IQueryHistoryService
 {
     /// <summary>记录一次执行。</summary>
     void Add(QueryHistoryEntry entry);
+
+    /// <summary>更新一条历史记录（用于收藏标记等元数据变更），按引用或时间匹配。</summary>
+    void Update(QueryHistoryEntry entry);
 
     /// <summary>按时间倒序获取最近的历史记录。</summary>
     IReadOnlyList<QueryHistoryEntry> GetRecent(int maxCount = 200);

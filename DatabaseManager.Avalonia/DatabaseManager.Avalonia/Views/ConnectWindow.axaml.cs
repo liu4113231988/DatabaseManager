@@ -94,6 +94,9 @@ public partial class ConnectWindow : Window
             ? "无"
             : (ComboColorTag.Items.Cast<object?>().FirstOrDefault(i => string.Equals(i as string, connection.ColorTag, StringComparison.OrdinalIgnoreCase)) ?? "无");
         ComboKingbaseMode.SelectedItem = KingbaseCompatibilityModes.Normalize(connection.KingbaseCompatibilityMode);
+        ChkDuckDbMemory.IsChecked = GetDatabaseTypeOf(connection) == DatabaseType.DuckDB
+            && string.Equals(connection.Database, ":memory:", StringComparison.OrdinalIgnoreCase);
+        ChkDuckDbReadOnly.IsChecked = connection.DuckDbReadOnly;
 
         UpdateAuthVisibility();
     }
@@ -123,6 +126,13 @@ public partial class ConnectWindow : Window
         ChkUseSsl.IsVisible = dbType is DatabaseType.MySql or DatabaseType.KingbaseES;
         PanelKingbaseMode.IsVisible = dbType == DatabaseType.KingbaseES;
 
+        // DuckDB 为嵌入式数据库：无服务器/认证，仅需文件路径或内存模式。
+        bool isDuckDb = dbType == DatabaseType.DuckDB;
+        PanelDuckDbMode.IsVisible = isDuckDb;
+        PanelServerPort.IsVisible = !isDuckDb;
+        PanelAuthentication.IsVisible = !isDuckDb;
+        PanelUserPassword.IsVisible = !isDuckDb;
+
         // 默认端口
         if (string.IsNullOrEmpty(TxtPort.Text))
         {
@@ -132,6 +142,7 @@ public partial class ConnectWindow : Window
                 DatabaseType.Oracle => OracleInterpreter.DEFAULT_PORT.ToString(),
                 DatabaseType.Postgres => PostgresInterpreter.DEFAULT_PORT.ToString(),
                 DatabaseType.KingbaseES => KingbaseInterpreter.DEFAULT_PORT.ToString(),
+                DatabaseType.DM => DmInterpreter.DEFAULT_PORT.ToString(),
                 _ => string.Empty,
             };
         }
@@ -161,6 +172,9 @@ public partial class ConnectWindow : Window
         return Enum.TryParse<DatabaseType>(text, true, out var type) ? type : DatabaseType.Unknown;
     }
 
+    private static DatabaseType GetDatabaseTypeOf(ConnectionItem connection)
+        => Enum.TryParse<DatabaseType>(connection.DatabaseType, true, out var type) ? type : DatabaseType.Unknown;
+
     private ConnectionItem BuildConnection()
     {
         var connection = _working;
@@ -188,6 +202,13 @@ public partial class ConnectWindow : Window
             ? KingbaseCompatibilityModes.Normalize(ComboKingbaseMode.SelectedItem as string)
             : null;
 
+        var duckDbType = GetDatabaseType();
+        connection.DuckDbReadOnly = duckDbType == DatabaseType.DuckDB && ChkDuckDbReadOnly.IsChecked == true;
+        if (duckDbType == DatabaseType.DuckDB && ChkDuckDbMemory.IsChecked == true)
+        {
+            connection.Database = ":memory:";
+        }
+
         return connection;
     }
 
@@ -211,7 +232,7 @@ public partial class ConnectWindow : Window
         if (!await EnsureSupportedKingbaseModeAsync(connection))
             return;
 
-        if (string.IsNullOrEmpty(connection.Server))
+        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
         {
             await ShowErrorAsync("请填写服务器地址（Server）。");
             return;
@@ -240,7 +261,7 @@ public partial class ConnectWindow : Window
         if (!await EnsureSupportedKingbaseModeAsync(connection))
             return;
 
-        if (string.IsNullOrEmpty(connection.Server))
+        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
         {
             await ShowErrorAsync("请填写服务器地址（Server）。");
             return;
@@ -286,7 +307,7 @@ public partial class ConnectWindow : Window
             return;
 
         // 基本校验
-        if (string.IsNullOrEmpty(connection.Server))
+        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
         {
             await ShowErrorAsync("请填写服务器地址（Server）。");
             return;
@@ -300,7 +321,9 @@ public partial class ConnectWindow : Window
 
         if (string.IsNullOrEmpty(connection.Database))
         {
-            await ShowErrorAsync("请选择或填写数据库。");
+            await ShowErrorAsync(GetDatabaseType() == DatabaseType.DuckDB
+                ? "请填写 DuckDB 数据库文件路径，或勾选内存模式（:memory:）。"
+                : "请选择或填写数据库。");
             return;
         }
 

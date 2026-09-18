@@ -1,0 +1,72 @@
+<items>
+  <item name="ABS" args="EXP"></item>
+  <item name="ACOS" args="EXP"></item>
+  <item name="ASIN" args="EXP"></item>
+  <item name="ATAN" args="EXP"></item>
+  <item name="ATAN2" args="EXP1,EXP2"></item>
+  <item name="AVG" args="EXP" isAggregate="true"></item>
+  <item name="CAST" args="EXP AS TYPE" delimiter="AS"></item>
+  <item name="CEIL" args="EXP"></item>
+  <item name="CEILING" args="EXP"></item>
+  <item name="CHAR_LENGTH" args="EXP"></item>
+  <item name="CHARACTER_LENGTH" args="EXP"></item>
+  <item name="COALESCE" args="EXP,DEFAULT" isCheck="true"></item>
+  <item name="CONCAT" args="EXP1,EXP2,..." isString="true"></item>
+  <item name="COS" args="EXP"></item>
+  <item name="COUNT" args="EXP" isAggregate="true"></item>
+  <item name="CURRENT_DATE" args="" noParenthesess="true"></item>
+  <item name="CURRENT_TIMESTAMP" args="" noParenthesess="true"></item>
+  <item name="DATE_PART" args="'UNIT',DATE"></item>
+  <item name="DATE_TRUNC" args="'UNIT',DATE"></item>
+  <item name="DEGREES" args="EXP"></item>
+  <item name="ENDS_WITH" args="EXP,SEARCH"></item>
+  <item name="EXP" args="EXP"></item>
+  <item name="FLOOR" args="EXP"></item>
+  <item name="GREATEST" args="EXP1,EXP2,..."></item>
+  <item name="LEAST" args="EXP1,EXP2,..."></item>
+  <item name="LEFT" args="EXP,LENGTH"></item>
+  <item name="LENGTH" args="EXP"></item>
+  <item name="LN" args="EXP"></item>
+  <item name="LOG" args="EXP"></item>
+  <item name="LOG10" args="EXP"></item>
+  <item name="LOWER" args="EXP" isString="true"></item>
+  <item name="LPAD" args="EXP,LENGTH,PAD" isString="true"></item>
+  <item name="LTRIM" args="EXP"></item>
+  <item name="MAX" args="EXP" isAggregate="true"></item>
+  <item name="MD5" args="EXP"></item>
+  <item name="MEDIAN" args="EXP" isAggregate="true"></item>
+  <item name="MIN" args="EXP" isAggregate="true"></item>
+  <item name="MOD" args="EXP1,EXP2"></item>
+  <item name="NOW" args="" noParenthesess="true"></item>
+  <item name="PI" args=""></item>
+  <item name="POWER" args="EXP,Y"></item>
+  <item name="RADIANS" args="EXP"></item>
+  <item name="RANDOM" args=""></item>
+  <item name="REGEXP_MATCHES" args="EXP,PATTERN"></item>
+  <item name="REGEXP_REPLACE" args="EXP,PATTERN,REPLACEMENT"></item>
+  <item name="REPEAT" args="EXP,TIMES" isString="true"></item>
+  <item name="REPLACE" args="EXP,OLD,NEW" isString="true"></item>
+  <item name="RIGHT" args="EXP,LENGTH"></item>
+  <item name="ROUND" args="EXP[,DECIMAL]"></item>
+  <item name="ROW_NUMBER" args=""></item>
+  <item name="RPAD" args="EXP,LENGTH,PAD" isString="true"></item>
+  <item name="RTRIM" args="EXP" isString="true"></item>
+  <item name="SIGN" args="EXP"></item>
+  <item name="SIN" args="EXP"></item>
+  <item name="SQRT" args="EXP"></item>
+  <item name="STARTS_WITH" args="EXP,SEARCH"></item>
+  <item name="STDDEV" args="EXP" isAggregate="true"></item>
+  <item name="STRFTIME" args="FORMAT,DATE"></item>
+  <item name="STRPOS" args="EXP,SEARCH"></item>
+  <item name="STR_SPLIT" args="EXP,SEPARATOR" isString="true"></item>
+  <item name="STRING_AGG" args="EXP,SEPARATOR" isAggregate="true"></item>
+  <item name="SUBSTR" args="EXP,START[,LENGTH]" isString="true"></item>
+  <item name="SUBSTRING" args="EXP,START[,LENGTH]" isString="true"></item>
+  <item name="SUM" args="EXP" isAggregate="true"></item>
+  <item name="TAN" args="EXP"></item>
+  <item name="TO_TIMESTAMP" args="EXP"></item>
+  <item name="TRIM" args="EXP" isString="true"></item>
+  <item name="TYPEOF" args="EXP"></item>
+  <item name="UPPER" args="EXP" isString="true"></item>
+  <item name="UUID" args=""></item>
+</items>

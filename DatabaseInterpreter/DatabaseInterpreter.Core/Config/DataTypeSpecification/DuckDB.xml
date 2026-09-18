@@ -1,0 +1,58 @@
+<items>
+	<item name="bigint" args="" allowIdentity="true"></item>
+	<item name="bigint[]" args="" indexForbidden="true"></item>
+	<item name="bit" args=""></item>
+	<item name="bit varying" args=""></item>
+	<item name="blob" args="" indexForbidden="true"></item>
+	<item name="blob[]" args="" indexForbidden="true"></item>
+	<item name="boolean" args=""></item>
+	<item name="boolean[]" args="" indexForbidden="true"></item>
+	<item name="bytea" args="" indexForbidden="true"></item>
+	<item name="date" args=""></item>
+	<item name="date[]" args="" indexForbidden="true"></item>
+	<item name="decimal" args="precision,scale" range="1~38,0~38" optional="true" default="18,3"></item>
+	<item name="decimal[]" args="precision,scale" range="1~38,0~38" optional="true" indexForbidden="true"></item>
+	<item name="double" args=""></item>
+	<item name="double[]" args="" indexForbidden="true"></item>
+	<item name="float" args=""></item>
+	<item name="float[]" args="" indexForbidden="true"></item>
+	<item name="float4" args=""></item>
+	<item name="float8" args=""></item>
+	<item name="hugeint" args=""></item>
+	<item name="int" args="" allowIdentity="true"></item>
+	<item name="int[]" args="" indexForbidden="true"></item>
+	<item name="int16" args=""></item>
+	<item name="int32" args=""></item>
+	<item name="int64" args=""></item>
+	<item name="integer" args="" allowIdentity="true"></item>
+	<item name="integer[]" args="" indexForbidden="true"></item>
+	<item name="interval" args=""></item>
+	<item name="interval[]" args="" indexForbidden="true"></item>
+	<item name="json" args="" indexForbidden="true"></item>
+	<item name="json[]" args="" indexForbidden="true"></item>
+	<item name="jsonb" args="" indexForbidden="true"></item>
+	<item name="numeric" args="precision,scale" range="1~38,0~38" optional="true" default="18,3"></item>
+	<item name="real" args=""></item>
+	<item name="real[]" args="" indexForbidden="true"></item>
+	<item name="smallint" args="" allowIdentity="true"></item>
+	<item name="smallint[]" args="" indexForbidden="true"></item>
+	<item name="text" args=""></item>
+	<item name="time" args=""></item>
+	<item name="time[]" args="" indexForbidden="true"></item>
+	<item name="timestamp" args=""></item>
+	<item name="timestamp[]" args="" indexForbidden="true"></item>
+	<item name="timestamp with time zone" args=""></item>
+	<item name="timestamp with time zone[]" args="" indexForbidden="true"></item>
+	<item name="timestamptz" args=""></item>
+	<item name="timetz" args=""></item>
+	<item name="tinyint" args="" allowIdentity="true"></item>
+	<item name="tinyint[]" args="" indexForbidden="true"></item>
+	<item name="ubigint" args=""></item>
+	<item name="uinteger" args=""></item>
+	<item name="usmallint" args=""></item>
+	<item name="utinyint" args=""></item>
+	<item name="uuid" args="" indexForbidden="true"></item>
+	<item name="uuid[]" args="" indexForbidden="true"></item>
+	<item name="varchar" args="length" optional="true"></item>
+	<item name="varchar[]" args="length" optional="true" indexForbidden="true"></item>
+</items>

@@ -57,13 +57,17 @@
                             <atom:TextBox Text="{Binding SearchText}" PlaceholderText="搜索名称或内容"
                                      Width="200" VerticalContentAlignment="Center" />
                             <atom:Button Content="搜索" Command="{Binding RefreshCommand}" />
+                            <atom:CheckBox Content="仅收藏" IsChecked="{Binding ShowFavoritesOnly}" VerticalAlignment="Center" />
                         </StackPanel>
                         <ListBox ItemsSource="{Binding Scripts}" SelectedItem="{Binding SelectedScript}"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="svc:ScriptLibraryItem">
                                     <StackPanel Spacing="2">
-                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="★" IsVisible="{Binding IsFavorite}" Foreground="#E8A33D" />
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        </StackPanel>
                                         <TextBlock Text="{Binding Category}" FontSize="11" Opacity="0.65" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -79,6 +83,8 @@
                             <atom:Button Content="＋ 新建" Click="BtnNew_Click" />
                             <atom:Button Content="保存" ButtonType="Primary" Command="{Binding SaveCommand}" />
                             <atom:Button Content="删除" Command="{Binding DeleteCommand}" />
+                            <atom:Button Content="收藏" Command="{Binding ToggleFavoriteCommand}"
+                                         ToolTip.Tip="收藏/取消收藏当前脚本（收藏项置顶展示）" />
                         </StackPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
                             <TextBlock Text="名称：" VerticalAlignment="Center" />

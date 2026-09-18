@@ -276,9 +276,29 @@ namespace DatabaseInterpreter.Core
 
             if (isSimpleMode)
             {
-                sb.Append($@"SELECT table_schema AS ""Schema"", table_name AS ""Name"" FROM information_schema.tables t");
+                // 对象树热路径（Simple 模式）：pg_class 直查，替代 information_schema.tables
+                // （后者是多视图 union 的包装视图，大库几千张表时明显更慢；catalog 条件在
+                // pg_class 下天然成立——查询本身即连接当前库）。relkind: r=普通表 p=分区表 f=外部表。
+                sb.Append($@"SELECT n.nspname AS ""Schema"", c.relname AS ""Name""
+                         FROM pg_catalog.pg_class c
+                         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                         WHERE c.relkind IN ('r','p','f')");
+
+                sb.Append(this.GetExcludeSystemSchemasCondition("n.nspname"));
+                sb.Append(this.GetFilterSchemaCondition(filter, "n.nspname"));
+                sb.Append(this.GetFilterNamesCondition(filter, filter?.TableNames, "c.relname"));
+
+                if (Setting.ExcludePostgresExtensionObjects)
+                {
+                    sb.Append(this.GetSqlForExcludeExtensionObjects(DatabaseObjectType.Table, "c.relname"));
+                }
+
+                sb.Append(" ORDER BY c.relname");
+
+                return sb.Content;
             }
-            else
+
+            // Detail 模式（结构对比/转换等场景）：保持原 information_schema 路径不变。
             {
                 sb.Append($@"SELECT n1.nspname AS ""Schema"", c.relname AS ""Name"", d.description AS ""Comment"",
                         1 AS ""IdentitySeed"", 1 AS ""IdentityIncrement""
@@ -561,12 +581,31 @@ namespace DatabaseInterpreter.Core
             bool isSimpleMode = this.IsObjectFectchSimpleMode();
             var sb = this.CreateSqlBuilder();
 
-            string definition = "";
-
-            if (!isSimpleMode)
+            if (isSimpleMode)
             {
-                definition = $@",CONCAT('CREATE OR REPLACE VIEW ""',v.table_schema,'"".""',v.table_name,'"" AS{Environment.NewLine}',v.view_definition) AS ""Definition""";
+                // 对象树热路径（Simple 模式）：pg_class 直查（relkind v=普通视图），
+                // 替代 information_schema.views 包装视图；m（物化视图）不列入以保持原行为一致。
+                sb.Append($@"SELECT n.nspname AS ""Schema"", c.relname AS ""Name""
+                         FROM pg_catalog.pg_class c
+                         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                         WHERE c.relkind = 'v'");
+
+                sb.Append(this.GetExcludeSystemSchemasCondition("n.nspname"));
+                sb.Append(this.GetFilterSchemaCondition(filter, "n.nspname"));
+                sb.Append(this.GetFilterNamesCondition(filter, filter?.ViewNames, "c.relname"));
+
+                if (Setting.ExcludePostgresExtensionObjects)
+                {
+                    sb.Append(this.GetSqlForExcludeExtensionObjects(DatabaseObjectType.View, "c.relname"));
+                }
+
+                sb.Append(" ORDER BY c.relname");
+
+                return sb.Content;
             }
+
+            // Detail 模式：保持原 information_schema.views 路径（含视图定义拼接）。
+            string definition = $@",CONCAT('CREATE OR REPLACE VIEW ""',v.table_schema,'"".""',v.table_name,'"" AS{Environment.NewLine}',v.view_definition) AS ""Definition""";
 
             sb.Append($@"SELECT v.table_schema AS ""Schema"",v.table_name AS ""Name""{definition}
                          FROM information_schema.views v

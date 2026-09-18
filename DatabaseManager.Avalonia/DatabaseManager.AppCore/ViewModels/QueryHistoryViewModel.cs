@@ -22,6 +22,10 @@ public partial class QueryHistoryViewModel : ViewModelBase
     [ObservableProperty]
     private string _filterText = string.Empty;
 
+    /// <summary>是否只显示收藏的历史记录。</summary>
+    [ObservableProperty]
+    private bool _showFavoritesOnly;
+
     /// <summary>由窗口注入：把 SQL 插入到当前编辑器。</summary>
     public Action<string>? InsertToEditorRequested { get; set; }
 
@@ -34,7 +38,10 @@ public partial class QueryHistoryViewModel : ViewModelBase
     }
 
     partial void OnSelectedEntryChanged(QueryHistoryEntry? value)
-        => OnPropertyChanged(nameof(SelectedSqlText));
+    {
+        OnPropertyChanged(nameof(SelectedSqlText));
+        ToggleFavoriteCommand.NotifyCanExecuteChanged();
+    }
 
     [RelayCommand]
     private void Refresh()
@@ -46,6 +53,11 @@ public partial class QueryHistoryViewModel : ViewModelBase
 
         foreach (var entry in items)
         {
+            if (ShowFavoritesOnly && !entry.IsFavorite)
+            {
+                continue;
+            }
+
             if (filter.Length > 0
                 && !(entry.ConnectionName?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
                 && !(entry.SqlText?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false))
@@ -56,6 +68,25 @@ public partial class QueryHistoryViewModel : ViewModelBase
             Entries.Add(entry);
         }
     }
+
+    partial void OnShowFavoritesOnlyChanged(bool value) => Refresh();
+
+    /// <summary>收藏/取消收藏选中的历史记录（收藏项不参与 500 条裁剪）。</summary>
+    [RelayCommand(CanExecute = nameof(CanToggleFavorite))]
+    private void ToggleFavorite()
+    {
+        if (SelectedEntry is null)
+        {
+            return;
+        }
+
+        SelectedEntry.IsFavorite = !SelectedEntry.IsFavorite;
+        _historyService.Update(SelectedEntry);
+        ToggleFavoriteCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(SelectedEntry));
+    }
+
+    private bool CanToggleFavorite() => SelectedEntry is not null;
 
     [RelayCommand]
     private void Clear()

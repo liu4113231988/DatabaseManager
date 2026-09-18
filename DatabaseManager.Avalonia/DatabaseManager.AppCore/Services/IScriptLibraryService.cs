@@ -14,6 +14,15 @@ public class ScriptLibraryItem
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+    /// <summary>是否收藏（收藏项置顶展示，可按收藏筛选）。</summary>
+    public bool IsFavorite { get; set; }
+
+    /// <summary>最近一次插入编辑器的时间（用于最近使用排序）。</summary>
+    public DateTime? LastUsedAt { get; set; }
+
+    /// <summary>最近一次使用的连接名（来源连接，可选）。</summary>
+    public string? ConnectionName { get; set; }
 }
 
 /// <summary>

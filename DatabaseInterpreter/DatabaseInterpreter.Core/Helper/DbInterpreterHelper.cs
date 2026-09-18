@@ -40,6 +40,14 @@ namespace DatabaseInterpreter.Core
             {
                 dbInterpreter = new KingbaseInterpreter(connectionInfo, option);
             }
+            else if (dbType == DatabaseType.DuckDB)
+            {
+                dbInterpreter = new DuckDbInterpreter(connectionInfo, option);
+            }
+            else if (dbType == DatabaseType.DM)
+            {
+                dbInterpreter = new DmInterpreter(connectionInfo, option);
+            }
 
             return dbInterpreter;
         }

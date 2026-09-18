@@ -1121,7 +1121,16 @@ namespace DatabaseInterpreter.Core
                 return this.ServerVersion;
             }
 
-            return this.GetDbVersion(this.CreateConnection());
+            // 缓存到 ConnectionInfo.ServerVersion：同一解释器实例内的后续版本判断
+            // （如 PG 序列 SQL、MySQL 计算列兼容判断）不再重复开连接取版本。
+            string version = this.GetDbVersion(this.CreateConnection());
+
+            if (this.ConnectionInfo != null && !string.IsNullOrEmpty(version))
+            {
+                this.ConnectionInfo.ServerVersion = version;
+            }
+
+            return version;
         }
 
         protected bool ValidateConnection(DbConnection connection)

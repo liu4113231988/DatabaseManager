@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DatabaseInterpreter.Model;
@@ -173,6 +175,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             connectionNode.IsConnectionActive = true;
             connectionNode.IsLoaded = true;
             _activeConnections.Add(connection.Name);
+            ClearPrefetchCache(connection.Name);
             StatusMessage = nodes.Count == 0 ? $"已连接 {connection.Name}，暂无数据库。" : $"已连接 {connection.Name}，加载 {nodes.Count} 个数据库。";
         }
         catch (OperationCanceledException)
@@ -206,6 +209,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         connectionNode.IsConnectionActive = false;
         connectionNode.IsLoaded = false;
         _activeConnections.Remove(name);
+        ClearPrefetchCache(name);
     }
 
     /// <summary>把连接节点挂到根集合或所属分组节点下（启用分组且有分组名时归组）。</summary>
@@ -290,11 +294,15 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         }
     }
 
-    /// <summary>大目录懒分页的单页大小。</summary>
-    public const int FolderPageSize = 500;
+    /// <summary>兄弟类型文件夹的预取缓存：key = 连接|库|schema|类型。值可为空列表（表示已取回且为空）。</summary>
+    private readonly ConcurrentDictionary<string, IReadOnlyList<DbObjectTreeNode>> _prefetchCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>按需展开：加载某类型文件夹下的具体对象（表/视图/存储过程等）。
-    /// 超过 <see cref="FolderPageSize"/> 个时分页展示，末尾放「加载更多」节点。加载中再次双击可取消。</summary>
+    /// <summary>预取查询的并发上限（避免展开文件夹时对服务器形成连接风暴）。</summary>
+    private static readonly SemaphoreSlim PrefetchGate = new(4);
+
+    /// <summary>按需展开：一次性全量加载某类型文件夹下的具体对象（表/视图/存储过程等，不再分页）。
+    /// 加载完成后并行预取同 Schema 下其余类型文件夹（放入缓存，展开时零等待）。加载中再次双击可取消。</summary>
     public async Task LoadFolderChildrenAsync(DbObjectTreeNode folderNode, string connectionName)
     {
         if (folderNode is null || folderNode.IsLoaded)
@@ -308,6 +316,15 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         string databaseName = databaseNode?.Name ?? folderNode.DatabaseName ?? string.Empty;
         string? schema = schemaNode?.Name ?? folderNode.Schema;
 
+        // 命中预取缓存：立即填充，不发起查询。
+        var cacheKey = BuildPrefetchKey(connectionName, databaseName, schema, folderNode.DatabaseObjectType);
+        if (_prefetchCache.TryRemove(cacheKey, out var cached))
+        {
+            FillFolder(folderNode, cached);
+            PrefetchSiblingFoldersAsync(folderNode, connectionName, databaseName, schema);
+            return;
+        }
+
         folderNode.IsLoading = true;
         folderNode.LoadCts = new CancellationTokenSource();
 
@@ -320,9 +337,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
                 schema,
                 folderNode.LoadCts.Token);
 
-            // 刷新节点（清空占位符，加入真实对象；大目录分页）。
-            folderNode.ClearChildren();
-            AppendFolderChildren(folderNode, nodes);
+            FillFolder(folderNode, nodes);
         }
         catch (OperationCanceledException)
         {
@@ -337,6 +352,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             });
             folderNode.IsLoaded = false;
             StatusMessage = $"加载 {folderNode.Name} 已取消。";
+            return;
         }
         finally
         {
@@ -344,11 +360,16 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             folderNode.LoadCts?.Dispose();
             folderNode.LoadCts = null;
         }
+
+        // 主文件夹就绪后，后台并行预取同层其余类型文件夹（对齐 SSMS 展开即可见全部类型的体验）。
+        PrefetchSiblingFoldersAsync(folderNode, connectionName, databaseName, schema);
     }
 
-    /// <summary>填充文件夹子节点（超量时懒分页，追加「加载更多」占位节点）。</summary>
-    private static void AppendFolderChildren(DbObjectTreeNode folderNode, IReadOnlyList<DbObjectTreeNode> nodes)
+    /// <summary>填充文件夹子节点：一次性全量加入（含空状态占位），不再懒分页。</summary>
+    private void FillFolder(DbObjectTreeNode folderNode, IReadOnlyList<DbObjectTreeNode> nodes)
     {
+        folderNode.ClearChildren();
+
         if (nodes.Count == 0)
         {
             // 空状态：无对象时显示占位提示（而非空白），便于用户感知可“新建”
@@ -360,68 +381,81 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
                 IsPlaceholder = true,
                 IsLoaded = true,
             });
-            folderNode.IsLoaded = true;
-            return;
         }
-
-        foreach (var node in nodes.Take(FolderPageSize))
+        else
         {
-            folderNode.AddChild(node);
-        }
-
-        if (nodes.Count > FolderPageSize)
-        {
-            folderNode.AddChild(new DbObjectTreeNode
+            foreach (var node in nodes)
             {
-                Name = "_LoadMore_",
-                Text = $"加载更多（剩余 {nodes.Count - FolderPageSize}）",
-                NodeType = folderNode.NodeType,
-                IsPlaceholder = true,
-                IsLoadMore = true,
-                IsLoaded = true,
-                PendingChildEnumerator = nodes.Skip(FolderPageSize).GetEnumerator(),
-                RemainingChildCount = nodes.Count - FolderPageSize,
-            });
+                folderNode.AddChild(node);
+            }
         }
 
         folderNode.IsLoaded = true;
     }
 
-    /// <summary>「加载更多」：从惰性枚举器续接下一批子节点（无剩余则移除占位节点）。</summary>
-    public Task LoadMoreAsync(DbObjectTreeNode loadMoreNode)
+    /// <summary>后台并行预取同层（同库同 Schema）其余未加载的类型文件夹，结果放入缓存供展开时命中。</summary>
+    private void PrefetchSiblingFoldersAsync(DbObjectTreeNode folderNode, string connectionName, string databaseName, string? schema)
     {
-        if (loadMoreNode is null || !loadMoreNode.IsLoadMore)
-            return Task.CompletedTask;
+        var parent = folderNode.Parent;
+        if (parent is null)
+            return;
 
-        var parent = loadMoreNode.Parent;
-        var enumerator = loadMoreNode.PendingChildEnumerator;
-        if (parent is null || enumerator is null)
-            return Task.CompletedTask;
-
-        int insertIndex = parent.Children.IndexOf(loadMoreNode);
-        var inserted = 0;
-        while (inserted < FolderPageSize && enumerator.MoveNext())
+        foreach (var sibling in parent.Children)
         {
-            var child = enumerator.Current;
-            parent.Children.Insert(insertIndex + inserted, child);
-            child.Parent = parent;
-            inserted++;
-        }
+            if (sibling == folderNode
+                || sibling.NodeType != DbObjectTreeNodeType.Folder
+                || sibling.IsLoaded
+                || sibling.DatabaseObjectType == DatabaseObjectType.None)
+            {
+                continue;
+            }
 
-        loadMoreNode.RemainingChildCount = Math.Max(0, loadMoreNode.RemainingChildCount - inserted);
-        if (loadMoreNode.RemainingChildCount > 0)
-        {
-            loadMoreNode.Text = $"加载更多（剩余 {loadMoreNode.RemainingChildCount}）";
-        }
-        else
-        {
-            parent.Children.Remove(loadMoreNode);
-            enumerator.Dispose();
-            loadMoreNode.PendingChildEnumerator = null;
-        }
+            var siblingType = sibling.DatabaseObjectType;
+            var key = BuildPrefetchKey(connectionName, databaseName, schema, siblingType);
+            if (_prefetchCache.ContainsKey(key))
+            {
+                continue;
+            }
 
-        parent.RefreshBadge();
-        return Task.CompletedTask;
+            _ = Task.Run(async () =>
+            {
+                await PrefetchGate.WaitAsync();
+                try
+                {
+                    if (_prefetchCache.ContainsKey(key))
+                    {
+                        return;
+                    }
+
+                    var nodes = await _schemaService.GetDbObjectNodesAsync(connectionName, databaseName, siblingType, schema);
+                    _prefetchCache[key] = nodes;
+                }
+                catch
+                {
+                    // 预取失败静默：用户展开该文件夹时走正常加载路径并能看到错误。
+                }
+                finally
+                {
+                    PrefetchGate.Release();
+                }
+            });
+        }
+    }
+
+    private static string BuildPrefetchKey(string connectionName, string databaseName, string? schema, DatabaseObjectType type)
+        => $"{connectionName}|{databaseName}|{schema ?? string.Empty}|{type}";
+
+    /// <summary>清理指定连接的预取缓存（断开/重连后避免陈旧数据）。</summary>
+    private void ClearPrefetchCache(string connectionName)
+    {
+        var prefix = connectionName + "|";
+        foreach (var key in _prefetchCache.Keys)
+        {
+            if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                _prefetchCache.TryRemove(key, out _);
+            }
+        }
     }
 
     /// <summary>按需展开：加载表/视图的子类型文件夹下的具体子对象（列/索引/键/约束/触发器）。</summary>

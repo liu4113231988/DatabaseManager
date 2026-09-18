@@ -52,6 +52,11 @@ namespace DatabaseManager.Core
                 return new SqliteDiagnosis(connectionInfo);
             }
 
+            if (databaseType == DatabaseType.KingbaseES || databaseType == DatabaseType.DuckDB || databaseType == DatabaseType.DM)
+            {
+                throw new NotSupportedException($"{databaseType} 暂不支持诊断信息查看。");
+            }
+
             throw new NotImplementedException($"Not implemente diagnosis for {databaseType}.");
         }
 

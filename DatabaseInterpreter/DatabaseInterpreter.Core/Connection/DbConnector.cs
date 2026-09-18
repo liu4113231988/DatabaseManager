@@ -60,6 +60,15 @@ namespace DatabaseInterpreter.Core
             {
                 factory = SqliteFactory.Instance;
             }
+            else if (lowerProviderName.Contains("duckdb"))
+            {
+                factory = DuckDB.NET.Data.DuckDBClientFactory.Instance;
+            }
+            else if (lowerProviderName.Contains("dmprovider"))
+            {
+                // 达梦驱动未暴露稳定的 DbProviderFactory，直接构造 DmConnection。
+                return new Dm.DmConnection(this._connectionString);
+            }
            
             DbConnection connection = factory.CreateConnection();
 

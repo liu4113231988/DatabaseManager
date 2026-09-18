@@ -41,6 +41,9 @@ public class WorkspaceState
     /// <summary>左侧对象浏览器面板宽度（DIP）。</summary>
     public double LeftPanelWidth { get; set; } = 400;
 
+    /// <summary>专注模式：折叠菜单/工具栏/状态栏与对象浏览器。</summary>
+    public bool FocusMode { get; set; }
+
     /// <summary>退出时打开的查询标签页（含未保存草稿）。</summary>
     public List<QueryTabState> Tabs { get; set; } = new();
 }

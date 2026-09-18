@@ -14,17 +14,28 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultConvertService : IConvertService
 {
     /// <summary>
-    /// KingbaseES 跨库转换尚未按兼容模式逐一验证。首期只验证了 PG 兼容路径的编
-    /// 译与 SQL 生成，未验证的转换不得静默套用 PostgreSQL 翻译规则，因此在能力标记
+    /// 未验证的跨库转换类型：KingbaseES 跨库转换尚未按兼容模式逐一验证；DuckDB / 达梦（DM8）
+    /// 未用真实实例验证。未验证的转换不得静默套用 Oracle/PostgreSQL 翻译规则，因此在能力标记
     /// 中明确禁用，并返回面向用户的提示。
     /// </summary>
     public static readonly IReadOnlySet<DatabaseType> UnverifiedConversionTypes =
-        new HashSet<DatabaseType> { DatabaseType.KingbaseES };
+        new HashSet<DatabaseType> { DatabaseType.KingbaseES, DatabaseType.DuckDB, DatabaseType.DM };
 
     public static string? GetConversionBlockReason(DatabaseType dbType)
-        => UnverifiedConversionTypes.Contains(dbType)
-            ? "KingbaseES 跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。"
-            : null;
+    {
+        if (!UnverifiedConversionTypes.Contains(dbType))
+        {
+            return null;
+        }
+
+        return dbType switch
+        {
+            DatabaseType.KingbaseES => "KingbaseES 跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。",
+            DatabaseType.DuckDB => "DuckDB 跨库转换尚未验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。",
+            DatabaseType.DM => "达梦（DM8）跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 Oracle 规则。",
+            _ => $"{dbType} 跨库转换尚未验证，当前版本禁用。",
+        };
+    }
 
     public IReadOnlyList<string> GetSupportedConverters()
     {

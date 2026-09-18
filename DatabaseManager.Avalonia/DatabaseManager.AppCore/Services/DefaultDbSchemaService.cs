@@ -35,9 +35,9 @@ public class DefaultDbSchemaService : IDbSchemaService
         var result = new List<DbObjectTreeNode>();
 
         // 并行枚举各库的 schema 列表，避免多库实例（如 SQL Server 几十个库）连接时串行 N+1 查询过慢。
-        // 并发度限制为 4：几十个库时避免连接风暴；说明：SQL Server / Postgres 分支在 TryGetSchemasAsync
-        // 内部会用目标库自己的解释器查询；Oracle 分支复用默认解释器（覆盖 Database 会破坏服务名连接串）。
-        using var schemaSemaphore = new SemaphoreSlim(4);
+        // 并发度限制为 8：多库实例时进一步压缩总耗时，同时避免连接风暴；说明：SQL Server / Postgres / DuckDB
+        // 分支在 TryGetSchemasAsync 内部会用目标库自己的解释器查询；Oracle/DM 分支复用默认解释器（覆盖 Database 会破坏连接串）。
+        using var schemaSemaphore = new SemaphoreSlim(8);
         var schemaLists = await Task.WhenAll(
             databases.Select(db => Task.Run(async () =>
             {
@@ -538,15 +538,15 @@ public class DefaultDbSchemaService : IDbSchemaService
     {
         try
         {
-            // 仅对支持多 Schema 的数据库（SQL Server/Postgres/KingbaseES/Oracle）枚举；其余返回空。
-            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES")
+            // 仅对支持多 Schema 的数据库（SQL Server/Postgres/KingbaseES/DuckDB/Oracle/DM）枚举；其余返回空。
+            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES" or "DuckDB")
             {
                 // SQL Server、Postgres 与 KingbaseES 的 Schema 是每个数据库独立的，需用目标库自己的解释器查询（避免跨库复用默认库的 schema）。
                 // Oracle 的 Schema 即当前用户，且覆盖 Database 会破坏 Oracle 连接串（服务名），故用默认解释器。
                 var dbInterpreter = CreateInterpreter(connection, databaseName);
                 return await dbInterpreter.GetDatabaseSchemasAsync();
             }
-            if (connection.DatabaseType is "Oracle")
+            if (connection.DatabaseType is "Oracle" or "DM")
             {
                 return await interpreter.GetDatabaseSchemasAsync();
             }

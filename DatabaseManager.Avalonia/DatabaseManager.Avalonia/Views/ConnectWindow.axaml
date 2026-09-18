@@ -53,12 +53,21 @@
                 <TextBlock Text="当前仅验证 PG 兼容模式；Auto 将按 PG 路径尝试连接。" FontSize="11" Foreground="#6B7C93" TextWrapping="Wrap" />
             </StackPanel>
 
+            <StackPanel x:Name="PanelDuckDbMode" Spacing="6" IsVisible="False">
+                <TextBlock Text="DuckDB 连接方式" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <atom:CheckBox x:Name="ChkDuckDbMemory" Content="内存模式（:memory:）" />
+                    <atom:CheckBox x:Name="ChkDuckDbReadOnly" Content="只读模式" />
+                </StackPanel>
+                <TextBlock Text="DuckDB 为嵌入式数据库，无需服务器/端口/账号：「数据库」处填写数据库文件路径（如 D:\data\demo.db）；勾选内存模式则忽略文件路径。" FontSize="11" Foreground="#6B7C93" TextWrapping="Wrap" />
+            </StackPanel>
+
             <StackPanel Spacing="6">
                 <TextBlock Text="连接名称" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                 <atom:TextBox x:Name="TxtProfileName" PlaceholderText="连接名称（Profile Name）" />
             </StackPanel>
 
-            <Grid ColumnDefinitions="*,*">
+            <Grid x:Name="PanelServerPort" ColumnDefinitions="*,*">
                 <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,7,0">
                     <TextBlock Text="服务器" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                     <atom:TextBox x:Name="TxtServer" PlaceholderText="服务器地址" />
@@ -69,7 +78,7 @@
                 </StackPanel>
             </Grid>
 
-            <StackPanel Spacing="6">
+            <StackPanel x:Name="PanelAuthentication" Spacing="6">
                 <TextBlock Text="认证方式" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                 <atom:ComboBox x:Name="ComboAuthentication" HorizontalAlignment="Stretch" />
                 <TextBlock x:Name="TxtWindowsAuthenticationHint" IsVisible="False"
@@ -77,7 +86,7 @@
                            FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
 
-            <Grid ColumnDefinitions="*,*">
+            <Grid x:Name="PanelUserPassword" ColumnDefinitions="*,*">
                 <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,7,0">
                     <TextBlock Text="用户名" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                     <atom:TextBox x:Name="TxtUserId" PlaceholderText="用户名" />

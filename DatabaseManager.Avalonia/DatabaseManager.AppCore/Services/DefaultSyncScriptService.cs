@@ -450,13 +450,14 @@ public class DefaultSyncScriptService : ISyncScriptService
         return reversed;
     }
 
-    /// <summary>与旧版 UI 一致的目标库 Schema 推导（Oracle 取用户 Schema，MySQL 取库名，SqlServer/Postgres 取默认 Schema）。</summary>
+    /// <summary>与旧版 UI 一致的目标库 Schema 推导（Oracle/DM 取用户 Schema，MySQL 取库名，SqlServer/Postgres 取默认 Schema）。</summary>
     private static string? GetTargetDbSchema(DbInterpreter targetInterpreter)
         => targetInterpreter.DatabaseType switch
         {
             DatabaseType.Oracle => ((OracleInterpreter)targetInterpreter).GetDbSchema(),
+            DatabaseType.DM => ((OracleInterpreter)targetInterpreter).GetDbSchema(),
             DatabaseType.MySql => targetInterpreter.ConnectionInfo.Database,
-            DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES => targetInterpreter.DefaultSchema,
+            DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.DuckDB => targetInterpreter.DefaultSchema,
             _ => null,
         };
 

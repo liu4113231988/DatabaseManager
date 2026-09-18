@@ -25,6 +25,10 @@ public partial class ScriptLibraryViewModel : ViewModelBase
     [ObservableProperty]
     private string _searchText = string.Empty;
 
+    /// <summary>是否只显示收藏的脚本。</summary>
+    [ObservableProperty]
+    private bool _showFavoritesOnly;
+
     /// <summary>编辑区：名称 / 分类 / SQL。</summary>
     [ObservableProperty]
     private string _editingName = string.Empty;
@@ -69,16 +73,22 @@ public partial class ScriptLibraryViewModel : ViewModelBase
         EditingSqlText = value.SqlText;
         DeleteCommand.NotifyCanExecuteChanged();
         SaveCommand.NotifyCanExecuteChanged();
+        ToggleFavoriteCommand.NotifyCanExecuteChanged();
     }
 
-    /// <summary>刷新脚本列表（我的脚本页）。</summary>
+    /// <summary>刷新脚本列表（我的脚本页）：收藏置顶，其余按更新时间倒序。</summary>
     [RelayCommand]
     private void Refresh()
     {
         Scripts.Clear();
 
         var filter = SearchText?.Trim() ?? string.Empty;
-        foreach (var script in _libraryService.GetAll())
+        var scripts = _libraryService.GetAll()
+            .Where(s => !ShowFavoritesOnly || s.IsFavorite)
+            .OrderByDescending(s => s.IsFavorite)
+            .ThenByDescending(s => s.UpdatedAt);
+
+        foreach (var script in scripts)
         {
             if (filter.Length > 0
                 && !script.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
@@ -90,6 +100,25 @@ public partial class ScriptLibraryViewModel : ViewModelBase
             Scripts.Add(script);
         }
     }
+
+    partial void OnShowFavoritesOnlyChanged(bool value) => Refresh();
+
+    /// <summary>收藏/取消收藏当前选中的脚本。</summary>
+    [RelayCommand(CanExecute = nameof(CanToggleFavorite))]
+    private void ToggleFavorite()
+    {
+        if (SelectedScript is null || IsBuiltInSelected)
+        {
+            return;
+        }
+
+        SelectedScript.IsFavorite = !SelectedScript.IsFavorite;
+        _libraryService.Save(SelectedScript);
+        Refresh();
+        SelectedScript = Scripts.FirstOrDefault(s => s.Id == SelectedScript?.Id);
+    }
+
+    private bool CanToggleFavorite() => !IsBuiltInSelected && SelectedScript is not null;
 
     /// <summary>以给定 SQL 新建脚本（供「保存当前 SQL 到脚本库」使用）。</summary>
     public void BeginNewWithSql(string sql)
@@ -143,6 +172,13 @@ public partial class ScriptLibraryViewModel : ViewModelBase
     {
         if (EditingSqlText.Length > 0 && InsertToEditorRequested is not null)
         {
+            // 记录最近使用时间与来源脚本，便于"最近使用"排序。
+            if (SelectedScript is not null)
+            {
+                SelectedScript.LastUsedAt = DateTime.Now;
+                _libraryService.Save(SelectedScript);
+            }
+
             InsertToEditorRequested(EditingSqlText);
         }
     }

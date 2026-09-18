@@ -69,6 +69,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _schemaSelectorVisible;
 
+    /// <summary>专注模式：折叠菜单/工具栏/状态栏与对象浏览器，仅保留查询编辑区（UI 层按此应用显隐，状态持久化到 app-settings.json）。</summary>
+    [ObservableProperty]
+    private bool _focusMode;
+
     /// <summary>主内容区当前模式（0=查询，1=数据编辑），切换子选项卡使用。</summary>
     [ObservableProperty]
     private int _contentMode;

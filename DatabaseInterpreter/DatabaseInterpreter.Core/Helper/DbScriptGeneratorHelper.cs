@@ -17,10 +17,12 @@ namespace DatabaseInterpreter.Core
                     dbScriptGenerator = new MySqlScriptGenerator(dbInterpreter);
                     break;
                 case DatabaseType.Oracle:
+                case DatabaseType.DM:
                     dbScriptGenerator = new OracleScriptGenerator(dbInterpreter);
                     break;
                 case DatabaseType.Postgres:
                 case DatabaseType.KingbaseES:
+                case DatabaseType.DuckDB:
                     dbScriptGenerator = new PostgresScriptGenerator(dbInterpreter);
                     break;
                 case DatabaseType.Sqlite:

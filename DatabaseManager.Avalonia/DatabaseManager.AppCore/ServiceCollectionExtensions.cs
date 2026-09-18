@@ -44,6 +44,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IQueryProfilerService, DefaultQueryProfilerService>();
         services.AddSingleton<IDashboardService, DefaultDashboardService>();
         services.AddSingleton<IScheduleService, DefaultScheduleService>();
+        services.AddSingleton<Templating.ITemplateStore, Templating.DefaultTemplateStore>();
+        services.AddSingleton<Templating.ITemplateEngine, Templating.TemplateEngine>();
 
         // ViewModels
         services.AddTransient<MainWindowViewModel>();
