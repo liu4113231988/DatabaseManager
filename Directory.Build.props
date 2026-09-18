@@ -1,0 +1,47 @@
+<Project>
+
+  <!--
+    全解决方案的共享 MSBuild 配置。
+    当前责任：
+      1. Release（与 Publish）阶段不生成 PDB 调试符号文件，避免发布包携带 *.pdb；
+      2. Build 后清理目标中预置一份顶层 PDB 兜底删除逻辑，覆盖 SDK 默认行为残留。
+    说明：Directory.Build.props 会自动被仓库下所有 .csproj 导入（无需修改各项目）。
+  -->
+
+  <PropertyGroup>
+    <!-- 关闭 build 阶段 PDB 生成：避免 bin/Output 下出现 .pdb -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">false</DebugSymbols>
+    <!-- 关闭 publish 阶段 PDB 生成：避免 publish 目录出现 .pdb -->
+    <PublishDebugType Condition="'$(Configuration)' == 'Release'">none</PublishDebugType>
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(Configuration)' == 'Release'">true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <!--
+    兜底清理：少数 SDK 或包在配置生效前仍可能产出 *.pdb。
+    本目标在 Build 之后扫描 $(OutDir) 与 $(PublishDir) 顶层 *.pdb 并删除。
+    仅作用于 Release；Debug 阶段保留 PDB 以便本地调试。
+  -->
+  <Target Name="RemoveReleasePdbFiles" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_OutDirPdbFiles Include="$(OutDir)*.pdb" />
+      <_OutDirRuntimesPdbFiles Include="$(OutDir)runtimes\**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_OutDirPdbFiles)" />
+    <Delete Files="@(_OutDirRuntimesPdbFiles)" />
+  </Target>
+
+  <!--
+    兜底清理：dotnet publish 输出目录可能含 PDB。Delete 任务在目录不存在时
+    自动忽略，不会令 publish 失败。
+  -->
+  <Target Name="RemovePublishedPdbFiles" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <_PublishPdbFiles Include="$(PublishDir)*.pdb" />
+      <_PublishRuntimesPdbFiles Include="$(PublishDir)runtimes\**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_PublishPdbFiles)" />
+    <Delete Files="@(_PublishRuntimesPdbFiles)" />
+  </Target>
+
+</Project>

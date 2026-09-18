@@ -373,7 +373,7 @@ public partial class MainWindowViewModel : ViewModelBase
         SchemaSelectorVisible = false;
 
         // 同步连接名到当前选中的查询标签
-        SyncConnectionToCurrentTab(connectionNode.Connection.Name);
+        SyncConnectionToCurrentTab(connectionNode.Connection.Name, connectionNode.Connection.Database);
 
         await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
 
@@ -500,12 +500,13 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>将连接名同步到当前选中的查询标签页。</summary>
-    private void SyncConnectionToCurrentTab(string connectionName)
+    /// <summary>将连接上下文同步到当前选中的查询标签页。</summary>
+    private void SyncConnectionToCurrentTab(string connectionName, string? databaseName)
     {
         if (SelectedQueryTab is not null)
         {
             SelectedQueryTab.ConnectionName = connectionName;
+            SelectedQueryTab.DatabaseName = databaseName ?? string.Empty;
         }
         // 同时更新 QueryEditor 以保持向后兼容
         QueryEditor.ConnectionName = connectionName;
