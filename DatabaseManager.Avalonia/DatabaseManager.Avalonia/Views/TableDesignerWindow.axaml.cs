@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.VisualTree;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
 
@@ -57,25 +58,9 @@ public partial class TableDesignerWindow : Window
     private DataGrid? FindColumnGrid()
     {
         if (_vm is null) return null;
-        // 在窗口内查找列 DataGrid。
-        foreach (var control in VisualChildren)
-        {
-            if (control is TabControl tabs)
-            {
-                foreach (var item in tabs.Items)
-                {
-                    if (item is TabItem ti && ti.Content is Grid grid)
-                    {
-                        foreach (var child in grid.Children)
-                        {
-                            if (child is DataGrid dg && dg.ItemsSource == _vm.Columns)
-                                return dg;
-                        }
-                    }
-                }
-            }
-        }
-        return null;
+        // 递归查找列 DataGrid（DataGrid 可能被包裹在 Border 等容器中）。
+        return FindDescendantDataGrids(this)
+            .FirstOrDefault(dg => ReferenceEquals(dg.ItemsSource, _vm.Columns));
     }
 
     #endregion
@@ -212,23 +197,28 @@ public partial class TableDesignerWindow : Window
 
     private DataGrid? FindGridFor(System.Collections.IEnumerable? itemsSource)
     {
-        if (_vm is null) return null;
-        if (itemsSource is null)
+        if (_vm is null || itemsSource is null)
             return null;
 
-        foreach (var item in DesignTabs.Items)
+        return FindDescendantDataGrids(this)
+            .FirstOrDefault(dg => ReferenceEquals(dg.ItemsSource, itemsSource));
+    }
+
+    /// <summary>递归枚举视觉树中的全部 DataGrid（不依赖容器层级）。</summary>
+    private static System.Collections.Generic.IEnumerable<DataGrid> FindDescendantDataGrids(Visual visual)
+    {
+        foreach (var child in visual.GetVisualChildren())
         {
-            if (item is TabItem ti && ti.Content is Grid grid)
+            if (child is DataGrid grid)
             {
-                foreach (var child in grid.Children)
-                {
-                    if (child is DataGrid dg && ReferenceEquals(dg.ItemsSource, itemsSource))
-                        return dg;
-                }
+                yield return grid;
+            }
+
+            foreach (var descendant in FindDescendantDataGrids(child))
+            {
+                yield return descendant;
             }
         }
-
-        return null;
     }
 
     /// <summary>简单多选列对话框（选择要加入主键的列）。</summary>
