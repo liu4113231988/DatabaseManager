@@ -13,11 +13,13 @@ public interface IQueryService
 
     /// <summary>执行一条 SQL 语句，返回查询结果（含列、行数据、受影响行数与耗时）。</summary>
     /// <param name="commandTimeoutSeconds">命令超时秒数；传入非正数时使用引擎默认值。</param>
+    /// <param name="databaseName">当前数据库上下文；非空时覆盖连接配置中的默认库（Oracle/SQLite 除外）。</param>
     Task<QueryResult> ExecuteAsync(
         string connectionName,
         string sql,
         CancellationToken cancellationToken = default,
-        int commandTimeoutSeconds = 60);
+        int commandTimeoutSeconds = 60,
+        string? databaseName = null);
 
     /// <summary>开启一个事务（持久化连接）。若已存在活动事务则返回 false。</summary>
     Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default);

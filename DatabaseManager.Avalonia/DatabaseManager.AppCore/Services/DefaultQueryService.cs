@@ -42,7 +42,8 @@ public class DefaultQueryService : IQueryService
         string connectionName,
         string sql,
         CancellationToken cancellationToken = default,
-        int commandTimeoutSeconds = 60)
+        int commandTimeoutSeconds = 60,
+        string? databaseName = null)
     {
         var connection = FindConnection(connectionName);
         if (connection is null)
@@ -69,7 +70,7 @@ public class DefaultQueryService : IQueryService
             };
         }
 
-        var interpreter = CreateInterpreter(connection);
+        var interpreter = CreateInterpreter(connection, databaseName);
 
         // 若当前处于手动事务中，则在该事务连接上执行（使语句纳入同一事务）。
         if (_transactions.TryGetValue(connectionName, out var ctx) && ctx is not null)
@@ -330,11 +331,19 @@ public class DefaultQueryService : IQueryService
         lock (_connectedLock) _connected.Add(connectionName);
     }
 
-    private DbInterpreter CreateInterpreter(ConnectionItem connection)
+    private DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseName = null)
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
         var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
+
+        // 查询标签带有的数据库上下文（对象树选中的库）优先于连接配置的默认库；
+        // Oracle 覆盖 Database 会破坏服务名连接串，SQLite 的 Database 是文件路径，二者不覆盖。
+        if (!string.IsNullOrWhiteSpace(databaseName)
+            && dbType is not (DatabaseType.Oracle or DatabaseType.Sqlite))
+        {
+            connectionInfo.Database = databaseName;
+        }
 
         var option = new DbInterpreterOption
         {
