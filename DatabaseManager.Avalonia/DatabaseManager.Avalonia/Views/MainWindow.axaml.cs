@@ -1581,6 +1581,136 @@ public partial class MainWindow : Window
         }
     }
 
+    #region SQL 编辑器右键菜单 / 快捷键命令
+
+    /// <summary>
+    /// SQL 编辑器右键菜单或快捷键抛出的命令。编辑器控件本身没有连接与服务上下文，
+    /// 因此交由主窗口按已有流程处理（与工具栏按钮走同一条链路）。
+    /// </summary>
+    private async void SqlEditor_CommandRequested(object? sender, SqlEditor.SqlEditorCommandEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+        {
+            return;
+        }
+
+        var editor = sender as SqlEditor;
+
+        switch (e.Kind)
+        {
+            case SqlEditor.SqlEditorCommandKind.Execute:
+                await ExecuteCurrentSqlAsync(vm, e.Sql, editor);
+                break;
+
+            case SqlEditor.SqlEditorCommandKind.ExecuteInNewTab:
+                await ExecuteSqlInNewTabAsync(vm, e.Sql);
+                break;
+
+            case SqlEditor.SqlEditorCommandKind.Explain:
+                await ShowExecutionPlanCoreAsync(vm, e.Sql);
+                break;
+
+            case SqlEditor.SqlEditorCommandKind.SaveToLibrary:
+                SaveSqlToLibrary(e.Sql);
+                break;
+        }
+    }
+
+    /// <summary>执行当前查询标签的 SQL；有选中文本时仅执行选区。</summary>
+    private async Task ExecuteCurrentSqlAsync(MainWindowViewModel vm, string? selection, SqlEditor? editor)
+    {
+        if (vm.SelectedQueryTab is null)
+        {
+            return;
+        }
+
+        // 同步当前数据库上下文（内联编辑定位目标表需要）。
+        if (!string.IsNullOrEmpty(vm.CurrentDatabase))
+        {
+            vm.SelectedQueryTab.DatabaseName = vm.CurrentDatabase;
+        }
+
+        var selected = string.IsNullOrWhiteSpace(selection) ? null : selection!.Trim();
+        if (!string.IsNullOrEmpty(selected))
+        {
+            await vm.SelectedQueryTab.ExecuteWithSqlAsync(selected);
+        }
+        else
+        {
+            await vm.SelectedQueryTab.ExecuteAsync();
+        }
+
+        if (vm.SelectedQueryTab.LastErrorLine is > 0)
+        {
+            editor?.GoToLine(vm.SelectedQueryTab.LastErrorLine.Value);
+        }
+    }
+
+    /// <summary>在新标签页执行 SQL（对齐 DBeaver 的 Ctrl+\）。</summary>
+    private async Task ExecuteSqlInNewTabAsync(MainWindowViewModel vm, string? selection)
+    {
+        var sql = string.IsNullOrWhiteSpace(selection) ? vm.SelectedQueryTab?.SqlText : selection;
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return;
+        }
+
+        var tab = vm.OpenSqlInNewTab(vm.SelectedConnection?.Name ?? string.Empty, sql!, vm.CurrentDatabase);
+        await tab.ExecuteAsync();
+    }
+
+    /// <summary>把 SQL（选中文本优先）保存为脚本库条目。</summary>
+    private void SaveSqlToLibrary(string? selection)
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        var sql = string.IsNullOrWhiteSpace(selection)
+            ? (DataContext as MainWindowViewModel)?.SelectedQueryTab?.SqlText
+            : selection;
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return;
+        }
+
+        var libraryVm = _services.GetRequiredService<ScriptLibraryViewModel>();
+        libraryVm.InsertToEditorRequested = InsertSqlToCurrentEditor;
+        libraryVm.BeginNewWithSql(sql!);
+        new ScriptLibraryWindow(libraryVm).ShowDialog(this);
+    }
+
+    /// <summary>显示指定 SQL 的执行计划（无连接/无 SQL 时给出提示）。</summary>
+    private async Task ShowExecutionPlanCoreAsync(MainWindowViewModel vm, string? selection)
+    {
+        if (_services is null)
+        {
+            return;
+        }
+
+        if (vm.SelectedConnection is null)
+        {
+            await MessageBoxManager.GetMessageBoxStandard(
+                    "执行计划", "请先连接一个数据库。", ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning)
+                .ShowWindowDialogAsync(this);
+            return;
+        }
+
+        var sql = string.IsNullOrWhiteSpace(selection) ? vm.SelectedQueryTab?.SqlText : selection;
+        if (string.IsNullOrWhiteSpace(sql))
+        {
+            return;
+        }
+
+        var planVm = _services.GetRequiredService<ExecutionPlanViewModel>();
+        planVm.Connection = vm.SelectedConnection;
+        planVm.SqlText = sql!;
+        new ExecutionPlanWindow(planVm).ShowDialog(this);
+    }
+
+    #endregion
+
     /// <summary>取消当前正在执行的 SQL。</summary>
     private void ToolCancelExecution_Click(object? sender, RoutedEventArgs e)
     {
@@ -1663,56 +1793,24 @@ public partial class MainWindow : Window
 
         var tabControl = this.FindControl<TabControl>("QueryTabsControl");
         var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
-        var sql = editor?.GetSelectedText();
-        if (string.IsNullOrWhiteSpace(sql) && DataContext is MainWindowViewModel { SelectedQueryTab: not null } vm)
-        {
-            sql = vm.SelectedQueryTab.SqlText;
-        }
 
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            return;
-        }
-
-        var libraryVm = _services.GetRequiredService<ScriptLibraryViewModel>();
-        libraryVm.InsertToEditorRequested = InsertSqlToCurrentEditor;
-        libraryVm.BeginNewWithSql(sql!);
-        new ScriptLibraryWindow(libraryVm).ShowDialog(this);
+        // 选中文本优先；无选区时回退到当前标签全文。
+        SaveSqlToLibrary(editor?.GetSelectedText());
     }
 
     /// <summary>获取当前 SQL 的执行计划（有选区时仅分析选区）。</summary>
-    private void ToolExplain_Click(object? sender, RoutedEventArgs e)
+    private async void ToolExplain_Click(object? sender, RoutedEventArgs e)
     {
-        if (_services is null || DataContext is not MainWindowViewModel vm)
+        if (DataContext is not MainWindowViewModel vm)
         {
-            return;
-        }
-
-        if (vm.SelectedConnection is null)
-        {
-            _ = MessageBoxManager.GetMessageBoxStandard(
-                "执行计划", "请先连接一个数据库。", ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning)
-                .ShowWindowDialogAsync(this);
             return;
         }
 
         var tabControl = this.FindControl<TabControl>("QueryTabsControl");
         var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
-        var sql = editor?.GetSelectedText()?.Trim();
-        if (string.IsNullOrWhiteSpace(sql) && vm.SelectedQueryTab is not null)
-        {
-            sql = vm.SelectedQueryTab.SqlText;
-        }
 
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            return;
-        }
-
-        var planVm = _services.GetRequiredService<ExecutionPlanViewModel>();
-        planVm.Connection = vm.SelectedConnection;
-        planVm.SqlText = sql!;
-        new ExecutionPlanWindow(planVm).ShowDialog(this);
+        // 选中文本优先；无选区时回退到当前标签全文。
+        await ShowExecutionPlanCoreAsync(vm, editor?.GetSelectedText());
     }
 
     /// <summary>导出当前查询结果集为 CSV / JSON 文件。</summary>

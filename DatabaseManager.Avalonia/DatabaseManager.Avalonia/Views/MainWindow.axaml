@@ -489,7 +489,8 @@
                                 <ctrl:SqlEditor Grid.Row="1"
                                                 SqlText="{Binding SqlText, Mode=TwoWay}"
                                                 ConnectionName="{Binding ConnectionName}"
-                                                ObjectTreeRoots="{ReflectionBinding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                ObjectTreeRoots="{ReflectionBinding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandRequested="SqlEditor_CommandRequested" />
 
                                 <!-- 上下分割条：拖动调整编辑器/结果区高度比例，1px 主色线 + hover 加粗 -->
                                 <GridSplitter Grid.Row="2"

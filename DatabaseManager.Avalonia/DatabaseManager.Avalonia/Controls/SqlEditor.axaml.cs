@@ -6,14 +6,17 @@ using System.Xml;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Highlighting;
 using AvaloniaEdit.Highlighting.Xshd;
+using AvaloniaEdit.Search;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -60,6 +63,7 @@ public partial class SqlEditor : UserControl
     }
 
     private TextEditor? _editor;
+    private SearchPanel? _searchPanel;
     private bool _syncing;
     private bool _initialized;
     private CompletionWindow? _completionWindow;
@@ -189,6 +193,10 @@ public partial class SqlEditor : UserControl
         _editor.TextArea.TextEntered += OnTextEntered;
         _editor.TextArea.TextEntering += OnTextEntering;
         _editor.TextArea.KeyDown += OnKeyDown;
+        _editor.ContextRequested += OnEditorContextRequested;
+
+        // 安装 AvaloniaEdit 自带的查找/替换面板（Ctrl+F 打开、Esc 关闭）。
+        _searchPanel = SearchPanel.Install(_editor);
 
         // 初始化时若对象树已绑定，立刻构建一次对象名缓存，避免首次显示无高亮。
         RefreshDbObjectCache();
@@ -217,15 +225,86 @@ public partial class SqlEditor : UserControl
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
+        // 查找/替换面板打开时是 TextArea 的可视子元素，其搜索框的按键同样会冒泡到这里；
+        // 面板自己的 Enter / Esc / F3 由 AvaloniaEdit 处理，其余按键不应触发编辑器命令。
+        if (IsFromSearchPanel(e))
+        {
+            return;
+        }
+
         if (e.Key == Key.Space && e.KeyModifiers.HasFlag(KeyModifiers.Control))
         {
             ShowCompletion(autoTriggered: false);
             e.Handled = true;
+            return;
         }
-        else if (e.Key == Key.Escape && _completionWindow is not null)
+
+        if (e.Key == Key.Escape && _completionWindow is not null)
         {
             _completionWindow.Close();
+            return;
         }
+
+        if (TryHandleEditShortcut(e))
+        {
+            e.Handled = true;
+        }
+    }
+
+    /// <summary>
+    /// 编辑器快捷键（对齐 SSMS / DBeaver / DataGrip 的常用键位）。
+    /// 返回 true 表示已消费该按键；Ctrl+F 等由 SearchPanel 自身处理，此处不再接管。
+    /// </summary>
+    private bool TryHandleEditShortcut(KeyEventArgs e)
+    {
+        bool ctrl = e.KeyModifiers.HasFlag(KeyModifiers.Control);
+        bool shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        bool alt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
+
+        switch (e.Key)
+        {
+            case Key.Enter when ctrl && !shift:  // Ctrl+Enter：执行选中 SQL（DBeaver）
+                RaiseCommand(SqlEditorCommandKind.Execute);
+                return true;
+            case Key.Enter when ctrl && shift:   // Ctrl+Shift+Enter：在新标签执行选中 SQL
+                RaiseCommand(SqlEditorCommandKind.ExecuteInNewTab);
+                return true;
+            case Key.L when ctrl && !shift:      // Ctrl+L：显示执行计划（SSMS）
+                RaiseCommand(SqlEditorCommandKind.Explain);
+                return true;
+            case Key.L when ctrl && shift:       // Ctrl+Shift+L：转小写（SSMS）
+                ChangeSelectionCase(upper: false);
+                return true;
+            case Key.S when ctrl && shift:       // Ctrl+Shift+S：保存到脚本库
+                RaiseCommand(SqlEditorCommandKind.SaveToLibrary);
+                return true;
+            case Key.F when ctrl && shift:       // Ctrl+Shift+F：美化 SQL（选区优先）
+                Format();
+                return true;
+            case Key.R when ctrl && !shift:      // Ctrl+R：打开查找/替换面板（展开替换行）
+                OpenSearchPanel(replaceMode: true);
+                return true;
+            case Key.C when ctrl && shift:       // Ctrl+Shift+C：注释 / 取消注释行
+                ToggleLineComment();
+                return true;
+            case Key.U when ctrl && shift:       // Ctrl+Shift+U：转大写（SSMS）
+                ChangeSelectionCase(upper: true);
+                return true;
+            case Key.D when ctrl && !shift:      // Ctrl+D：复制当前行 / 选区（DataGrip）
+                DuplicateLineOrSelection();
+                return true;
+            case Key.K when ctrl && shift:       // Ctrl+Shift+K：删除行（VS Code）
+                DeleteLines();
+                return true;
+            case Key.Up when alt:                // Alt+↑：行上移
+                MoveSelectedLines(up: true);
+                return true;
+            case Key.Down when alt:              // Alt+↓：行下移
+                MoveSelectedLines(up: false);
+                return true;
+        }
+
+        return false;
     }
 
     private void ShowCompletion(bool autoTriggered)
@@ -802,4 +881,524 @@ public partial class SqlEditor : UserControl
         _editor.Document.Replace(offset, length, formatted);
         _editor.Select(offset, formatted.Length);
     }
+
+    #region 选中文本：右键菜单与编辑辅助
+
+    /// <summary>编辑器抛给宿主的命令（需要连接/服务上下文，控件自身无法完成）。</summary>
+    public enum SqlEditorCommandKind
+    {
+        Execute,
+        ExecuteInNewTab,
+        Explain,
+        SaveToLibrary,
+    }
+
+    /// <summary>右键菜单「复制选中 SQL 为…」支持的格式。</summary>
+    public enum SqlCopyAsKind
+    {
+        SingleLine,
+        JsonString,
+        CSharpString,
+    }
+
+    public sealed class SqlEditorCommandEventArgs : EventArgs
+    {
+        public SqlEditorCommandEventArgs(SqlEditorCommandKind kind, string sql)
+        {
+            Kind = kind;
+            Sql = sql;
+        }
+
+        public SqlEditorCommandKind Kind { get; }
+
+        /// <summary>选中文本；无选区时为空字符串，由宿主决定是否回退到全文。</summary>
+        public string Sql { get; }
+    }
+
+    /// <summary>需要主窗口介入的命令（执行 / 执行计划 / 保存脚本库）。</summary>
+    public event EventHandler<SqlEditorCommandEventArgs>? CommandRequested;
+
+    private void RaiseCommand(SqlEditorCommandKind kind)
+        => CommandRequested?.Invoke(this, new SqlEditorCommandEventArgs(kind, GetSelectedText()));
+
+    /// <summary>打开查找/替换面板（<paramref name="replaceMode"/> 为 true 时展开替换行）。</summary>
+    private void OpenSearchPanel(bool replaceMode)
+    {
+        if (_searchPanel is null)
+        {
+            return;
+        }
+
+        _searchPanel.IsReplaceMode = replaceMode;
+        _searchPanel.Open();
+    }
+
+    /// <summary>
+    /// 判断事件是否源自查找/替换面板。面板打开时由 AvaloniaEdit 挂到 TextArea 下，
+    /// 是编辑器的可视后代，因此其搜索框的按键与右键都会冒泡到编辑器，需要显式排除。
+    /// </summary>
+    private bool IsFromSearchPanel(RoutedEventArgs e)
+    {
+        if (_searchPanel is null || e.Source is not Visual source)
+        {
+            return false;
+        }
+
+        for (Visual? current = source; current is not null; current = current.GetVisualParent())
+        {
+            if (ReferenceEquals(current, _searchPanel))
+            {
+                return true;
+            }
+
+            if (ReferenceEquals(current, _editor))
+            {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    private void OnEditorContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_editor is null || IsFromSearchPanel(e))
+        {
+            return;
+        }
+
+        // 与对象树/结果网格一致：显式 Open，避免首次右键不弹出。
+        var menu = BuildContextMenu();
+        menu.Open(_editor);
+        e.Handled = true;
+    }
+
+    /// <summary>构建编辑器右键菜单（对齐 SSMS / DBeaver 的常用项）。</summary>
+    private ContextMenu BuildContextMenu()
+    {
+        var menu = new ContextMenu();
+        if (_editor is null)
+        {
+            return menu;
+        }
+
+        bool hasSelection = !_editor.TextArea.Selection.IsEmpty;
+
+        void AddItem(string header, Action action, KeyGesture? gesture = null, bool enabled = true)
+        {
+            var item = new MenuItem { Header = header, IsEnabled = enabled, InputGesture = gesture };
+            item.Click += (_, _) => action();
+            menu.Items.Add(item);
+        }
+
+        AddItem("执行选中 SQL", () => RaiseCommand(SqlEditorCommandKind.Execute), Gesture(Key.Enter, control: true), hasSelection);
+        AddItem("在新标签执行选中 SQL", () => RaiseCommand(SqlEditorCommandKind.ExecuteInNewTab), Gesture(Key.Enter, control: true, shift: true), hasSelection);
+        AddItem("显示执行计划", () => RaiseCommand(SqlEditorCommandKind.Explain), Gesture(Key.L, control: true));
+        AddItem("保存选中到脚本库", () => RaiseCommand(SqlEditorCommandKind.SaveToLibrary), Gesture(Key.S, control: true, shift: true), hasSelection);
+
+        menu.Items.Add(new Separator());
+
+        AddItem("美化 SQL（选区优先）", Format, Gesture(Key.F, control: true, shift: true));
+        AddItem("查找 / 替换…", () => OpenSearchPanel(replaceMode: true), Gesture(Key.F, control: true));
+
+        menu.Items.Add(new Separator());
+
+        AddItem("撤销", () => _editor.Undo(), Gesture(Key.Z, control: true), _editor.CanUndo);
+        AddItem("恢复", () => _editor.Redo(), Gesture(Key.Z, control: true, shift: true), _editor.CanRedo);
+
+        menu.Items.Add(new Separator());
+
+        AddItem("剪切", () => _editor.Cut(), Gesture(Key.X, control: true), hasSelection);
+        AddItem("复制", () => _editor.Copy(), Gesture(Key.C, control: true), hasSelection);
+        AddItem("粘贴", () => _editor.Paste(), Gesture(Key.V, control: true));
+        AddItem("全选", () => _editor.SelectAll(), Gesture(Key.A, control: true));
+
+        menu.Items.Add(new Separator());
+
+        AddItem("注释 / 取消注释行", ToggleLineComment, Gesture(Key.C, control: true, shift: true));
+        AddItem("选中内容转大写", () => ChangeSelectionCase(upper: true), Gesture(Key.U, control: true, shift: true), hasSelection);
+        AddItem("选中内容转小写", () => ChangeSelectionCase(upper: false), Gesture(Key.L, control: true, shift: true), hasSelection);
+        AddItem("增加缩进", () => IndentSelection(indent: true));
+        AddItem("减少缩进", () => IndentSelection(indent: false));
+
+        menu.Items.Add(new Separator());
+
+        AddItem("复制当前行 / 选区", DuplicateLineOrSelection, Gesture(Key.D, control: true));
+        AddItem("删除当前行", DeleteLines, Gesture(Key.K, control: true, shift: true));
+        AddItem("行上移", () => MoveSelectedLines(up: true), Gesture(Key.Up, alt: true));
+        AddItem("行下移", () => MoveSelectedLines(up: false), Gesture(Key.Down, alt: true));
+
+        menu.Items.Add(new Separator());
+
+        var copyAsMenu = new MenuItem { Header = "复制选中 SQL 为…", IsEnabled = hasSelection };
+        foreach (var (label, kind) in new[]
+                 {
+                     ("压缩为一行", SqlCopyAsKind.SingleLine),
+                     ("JSON 字符串", SqlCopyAsKind.JsonString),
+                     ("C# 字符串字面量", SqlCopyAsKind.CSharpString),
+                 })
+        {
+            var captured = kind;
+            var item = new MenuItem { Header = label };
+            item.Click += async (_, _) => await CopySqlAsAsync(captured);
+            copyAsMenu.Items.Add(item);
+        }
+
+        menu.Items.Add(copyAsMenu);
+
+        return menu;
+    }
+
+    private static KeyGesture? Gesture(Key key, bool control = false, bool shift = false, bool alt = false)
+    {
+        var modifiers = KeyModifiers.None;
+        if (control) modifiers |= KeyModifiers.Control;
+        if (shift) modifiers |= KeyModifiers.Shift;
+        if (alt) modifiers |= KeyModifiers.Alt;
+        return modifiers == KeyModifiers.None ? null : new KeyGesture(key, modifiers);
+    }
+
+    /// <summary>把选中的 SQL 以指定形式复制到剪贴板。</summary>
+    private async Task CopySqlAsAsync(SqlCopyAsKind kind)
+    {
+        var text = GetSelectedText();
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        var result = kind switch
+        {
+            // 压缩空白为单个空格，便于粘贴到聊天/文档里排版
+            SqlCopyAsKind.SingleLine => Regex.Replace(text, "\\s+", " ").Trim(),
+            SqlCopyAsKind.JsonString => System.Text.Json.JsonSerializer.Serialize(text),
+            // 逐行原样保留的 C# 逐字字符串
+            SqlCopyAsKind.CSharpString => "@\"" + text.Replace("\"", "\"\"") + "\"",
+            _ => text,
+        };
+
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(result);
+        }
+    }
+
+    /// <summary>注释或取消注释选区覆盖的行（无选区则为光标所在行）。</summary>
+    private void ToggleLineComment()
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var (first, last) = GetSelectedLineRange();
+        bool allCommented = true;
+        for (int i = first; i <= last; i++)
+        {
+            var line = _editor.Document.GetLineByNumber(i);
+            var text = _editor.Document.GetText(line);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                continue;
+            }
+
+            if (!text.TrimStart().StartsWith("--", StringComparison.Ordinal))
+            {
+                allCommented = false;
+                break;
+            }
+        }
+
+        ModifyLines(first, last, text =>
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            if (!allCommented)
+            {
+                return InsertAfterIndent(text, "-- ");
+            }
+
+            // 取消注释：去掉标识符后的一个可选空格，保留原有缩进
+            var trimmed = text.TrimStart();
+            var indent = text[..(text.Length - trimmed.Length)];
+            var rest = trimmed.Length >= 2 ? trimmed[2..] : trimmed;
+            if (rest.StartsWith(' '))
+            {
+                rest = rest[1..];
+            }
+
+            return indent + rest;
+        });
+    }
+
+    /// <summary>选区或光标处标识符的大小写转换。</summary>
+    private void ChangeSelectionCase(bool upper)
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var document = _editor.Document;
+        var selection = _editor.TextArea.Selection;
+        if (!selection.IsEmpty)
+        {
+            var segment = selection.SurroundingSegment;
+            if (segment is null)
+            {
+                return;
+            }
+
+            var original = document.GetText(segment);
+            var converted = upper ? original.ToUpperInvariant() : original.ToLowerInvariant();
+            if (converted == original)
+            {
+                return;
+            }
+
+            document.Replace(segment.Offset, segment.Length, converted);
+            _editor.Select(segment.Offset, converted.Length);
+            return;
+        }
+
+        // 无选区：作用于光标处的 SQL 标识符（与补全的词边界规则一致）
+        int caret = _editor.CaretOffset;
+        int start = caret;
+        int end = caret;
+        while (start > 0 && IsIdentifierCharacter(document.GetCharAt(start - 1)))
+        {
+            start--;
+        }
+
+        while (end < document.TextLength && IsIdentifierCharacter(document.GetCharAt(end)))
+        {
+            end++;
+        }
+
+        if (end <= start)
+        {
+            return;
+        }
+
+        var word = document.GetText(start, end - start);
+        var convertedWord = upper ? word.ToUpperInvariant() : word.ToLowerInvariant();
+        document.Replace(start, end - start, convertedWord);
+        _editor.CaretOffset = start + convertedWord.Length;
+    }
+
+    /// <summary>选区各行增加/减少两个空格缩进。</summary>
+    private void IndentSelection(bool indent)
+    {
+        var (first, last) = GetSelectedLineRange();
+        ModifyLines(first, last, text =>
+        {
+            if (indent)
+            {
+                return "  " + text;
+            }
+
+            if (text.StartsWith("  ", StringComparison.Ordinal))
+            {
+                return text[2..];
+            }
+
+            return text.StartsWith(' ') || text.StartsWith('\t') ? text[1..] : text;
+        });
+    }
+
+    /// <summary>原地复制选区；无选区时整行复制插入到下一行（DataGrip Ctrl+D）。</summary>
+    private void DuplicateLineOrSelection()
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var document = _editor.Document;
+        if (!_editor.TextArea.Selection.IsEmpty)
+        {
+            var segment = _editor.TextArea.Selection.SurroundingSegment;
+            if (segment is not null)
+            {
+                document.Insert(segment.EndOffset, document.GetText(segment));
+            }
+
+            return;
+        }
+
+        var line = document.GetLineByOffset(_editor.CaretOffset);
+        var newline = GetNewLine();
+        var content = document.GetText(line);
+        document.Insert(line.EndOffset, newline + content);
+        _editor.CaretOffset = line.EndOffset + newline.Length + content.Length;
+    }
+
+    /// <summary>删除选区覆盖的行（无选区则删除光标所在行）。</summary>
+    private void DeleteLines()
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var document = _editor.Document;
+        var (first, last) = GetSelectedLineRange();
+        for (int i = last; i >= first; i--)
+        {
+            if (i > document.LineCount)
+            {
+                continue;
+            }
+
+            var line = document.GetLineByNumber(i);
+            if (line.NextLine is null)
+            {
+                // 末行没有行尾换行符：连带删掉上一行的换行，避免留下空行
+                int from = line.PreviousLine?.EndOffset ?? line.Offset;
+                document.Remove(from, line.EndOffset - from);
+            }
+            else
+            {
+                document.Remove(line.Offset, line.TotalLength);
+            }
+        }
+
+        _editor.TextArea.ClearSelection();
+    }
+
+    /// <summary>选区所列整块行上移/下移一行（Alt+↑ / Alt+↓）。</summary>
+    private void MoveSelectedLines(bool up)
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var document = _editor.Document;
+        var (first, last) = GetSelectedLineRange();
+        if (up ? first <= 1 : last >= document.LineCount)
+        {
+            return;
+        }
+
+        var lines = Enumerable.Range(1, document.LineCount)
+            .Select(number => document.GetText(document.GetLineByNumber(number)))
+            .ToList();
+
+        var block = lines.GetRange(first - 1, last - first + 1);
+        lines.RemoveRange(first - 1, block.Count);
+        lines.InsertRange(up ? first - 2 : first, block);
+
+        var newFirst = up ? first - 1 : first + 1;
+        var newLast = up ? last - 1 : last + 1;
+
+        document.Text = string.Join(GetNewLine(), lines);
+
+        var startLine = document.GetLineByNumber(newFirst);
+        var endLine = document.GetLineByNumber(newLast);
+        _editor.Select(startLine.Offset, endLine.EndOffset - startLine.Offset);
+    }
+
+    /// <summary>当前选区覆盖的行号区间（起止行）；无选区时为光标所在行。</summary>
+    private (int First, int Last) GetSelectedLineRange()
+    {
+        if (_editor?.Document is null)
+        {
+            return (1, 1);
+        }
+
+        var document = _editor.Document;
+        int caretLine = document.GetLineByOffset(Math.Min(_editor.CaretOffset, document.TextLength)).LineNumber;
+        if (_editor.TextArea.Selection.IsEmpty)
+        {
+            return (caretLine, caretLine);
+        }
+
+        var segment = _editor.TextArea.Selection.SurroundingSegment;
+        if (segment is null)
+        {
+            return (caretLine, caretLine);
+        }
+
+        int first = document.GetLineByOffset(segment.Offset).LineNumber;
+        int last = document.GetLineByOffset(segment.EndOffset).LineNumber;
+
+        // 选区正好在换行处结束时，不把下一行算进来（避免整行操作时多选一行）
+        if (last > first && document.GetLineByNumber(last).Offset == segment.EndOffset)
+        {
+            last--;
+        }
+
+        return (first, last);
+    }
+
+    /// <summary>从后往前逐行改写（保持 offset 有效），并合并为一次撤销步骤。</summary>
+    private void ModifyLines(int first, int last, Func<string, string> transform)
+    {
+        if (_editor?.Document is null)
+        {
+            return;
+        }
+
+        var document = _editor.Document;
+        document.BeginUpdate();
+        try
+        {
+            for (int i = last; i >= first; i--)
+            {
+                var line = document.GetLineByNumber(i);
+                var original = document.GetText(line);
+                var updated = transform(original);
+                if (!string.Equals(updated, original, StringComparison.Ordinal))
+                {
+                    document.Replace(line.Offset, line.Length, updated);
+                }
+            }
+        }
+        finally
+        {
+            document.EndUpdate();
+        }
+    }
+
+    private static string InsertAfterIndent(string line, string insert)
+    {
+        int index = 0;
+        while (index < line.Length && (line[index] == ' ' || line[index] == '\t'))
+        {
+            index++;
+        }
+
+        return string.Concat(line.AsSpan(0, index), insert, line.AsSpan(index));
+    }
+
+    private string GetNewLine()
+    {
+        if (_editor?.Document is null)
+        {
+            return "\n";
+        }
+
+        var document = _editor.Document;
+        for (int i = 0; i < document.TextLength; i++)
+        {
+            char c = document.GetCharAt(i);
+            if (c == '\r')
+            {
+                return "\r\n";
+            }
+
+            if (c == '\n')
+            {
+                return "\n";
+            }
+        }
+
+        return "\n";
+    }
+
+    #endregion
 }

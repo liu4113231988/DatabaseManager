@@ -66,6 +66,7 @@
 - 事务：自动提交切换、开始事务 / Commit / Rollback。
 - 工作台：查询历史（500 条，支持收藏且收藏不参与裁剪）、脚本库收藏 + 内置代码片段、最近脚本、参数化执行（占位符替换）、SQL 格式化、执行计划（EXPLAIN / SHOWPLAN）、Schema 快速切换。
 - 结果区：分页浏览、消息输出、结果导出、内联编辑（见下）；右键"复制为"单元格/选中行/全部结果（CSV / 制表符 / JSON / Markdown / INSERT）。
+- 编辑辅助（选中文本右键菜单 / 快捷键）：执行选中与新标签执行选中（`Ctrl+Enter` / `Ctrl+Shift+Enter`）、执行计划（`Ctrl+L`）、保存选中到脚本库（`Ctrl+Shift+S`）、美化选区（`Ctrl+Shift+F`）、查找替换（`Ctrl+F` / `Ctrl+R`）、注释切换（`Ctrl+Shift+C`）、大小写转换（`Ctrl+Shift+U` / `Ctrl+Shift+L`）、缩进调整、行复制/删除/上下移动（`Ctrl+D` / `Ctrl+Shift+K` / `Alt+↑↓`）、复制选中 SQL 为一行 / JSON / C# 字符串。
 
 ### 4. 数据查看与编辑
 - 查询结果内联编辑：单表简单 SELECT 自动判定可编辑性（JOIN/GROUP BY/DISTINCT/UNION/子查询等自动只读并说明原因），网格内新增/删除/修改，保存走事务 + 乐观锁冲突检测，改动跨页保留；自增/计算/二进制列只读。
