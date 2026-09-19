@@ -1406,17 +1406,52 @@ public class ObjectTreeContextMenuBuilder
         return item;
     }
 
+    /// <summary>
+    /// 按菜单标题关键词分配图标（具体动作优先于一般语义；PNG 显式图标在调用方覆盖此处结果）。
+    /// 保持统一符号系风格，避免与现有 PNG 图标混排突兀。
+    /// </summary>
     private static string GetMenuGlyph(string header)
     {
-        if (header.Contains("删除") || header.Contains("DROP")) return "🗑";
-        if (header.Contains("刷新") || header.Contains("重新连接")) return "↻";
+        // 脚本模板类（INSERT/UPDATE/DELETE/ALTER 模板是"生成脚本"而非删除/编辑动作，须先于删除/编辑规则判断）。
+        if (header.Contains("模板")) return "▤";
+
+        // 危险/破坏动作。
+        if (header.Contains("删除") || header.Contains("DROP") || header.Contains("TRUNCATE")) return "🗑";
+
+        // 连接生命周期。
+        if (header.Contains("刷新") || header.Contains("重新连接") || header.Contains("重连")) return "↻";
+        if (header.Contains("断开")) return "⛔";
+        if (header.Contains("连接")) return "▶";
+
+        // 上下文与剪贴板。
+        if (header.Contains("设为当前")) return "◎";
         if (header.Contains("复制")) return "⧉";
+
+        // 数据进出。
         if (header.Contains("导入")) return "⇩";
         if (header.Contains("导出")) return "⇧";
-        if (header.Contains("新建") || header.Contains("CREATE")) return "＋";
-        if (header.Contains("编辑") || header.Contains("设计") || header.Contains("重命名")) return "✎";
-        if (header.Contains("SQL") || header.Contains("数据") || header.Contains("查看")) return "▤";
-        if (header.Contains("比较") || header.Contains("转换")) return "⇄";
+
+        // 新建与编辑。
+        if (header.Contains("新建") || header.Contains("添加") || header.Contains("CREATE")) return "＋";
+        if (header.Contains("编辑") || header.Contains("设计") || header.Contains("重命名")
+            || header.Contains("修改") || header.Contains("ALTER")) return "✎";
+
+        // 过滤与比较迁移。
+        if (header.Contains("过滤")) return "⧩";
+        if (header.Contains("比较") || header.Contains("对比") || header.Contains("转换") || header.Contains("迁移"))
+        {
+            return "⇄";
+        }
+
+        // 统计与 SQL 生成/查看。
+        if (header.Contains("COUNT") || header.Contains("行数")) return "Σ";
+        if (header.Contains("SQL") || header.Contains("SELECT") || header.Contains("INSERT") || header.Contains("UPDATE")
+            || header.Contains("数据") || header.Contains("查看") || header.Contains("定义")
+            || header.Contains("Generate") || header.Contains("Editor"))
+        {
+            return "▤";
+        }
+
         return "•";
     }
 

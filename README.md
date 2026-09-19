@@ -51,6 +51,7 @@
 ### 2. 对象浏览
 - 多级懒加载对象树：连接 → 数据库 → Schema → 表/视图/存储过程/函数/序列 → 列/索引/键/约束/触发器；类型文件夹按方言能力（`SupportDbObjectType`）动态裁剪，系统对象自动过滤。
 - 对象一次全量加载（无分页截断）；展开类型文件夹后并行预取同层其余类型，再次展开零等待；多库实例连接时并行枚举 Schema。
+- 树内就地过滤：搜索框输入即时隐藏不匹配节点并自动展开匹配父级，清空恢复；Enter 仍为深度搜索。
 - 应用内 URI 直达：搜索框输入 `dbm://<连接>/<库>/<schema>/<类型>/<对象名>` 直接展开并定位节点。
 - 树内搜索：元数据模糊匹配并定位到树节点；加载指示与取消。
 - 右键菜单：查看详情、Generate SQL（SELECT / TOP N / INSERT / UPDATE / DELETE / CREATE / ALTER / DROP，基于真实元数据与方言生成）、新建对象、删除/重命名、过滤数据（生成 WHERE 模板）、比较与迁移入口、复制名称/完整路径/连接串。
@@ -64,7 +65,7 @@
 - 安全：危险 DDL/DML 二次确认（可按标签开关）、关闭含未保存修改标签时的确认提示。
 - 事务：自动提交切换、开始事务 / Commit / Rollback。
 - 工作台：查询历史（500 条，支持收藏且收藏不参与裁剪）、脚本库收藏 + 内置代码片段、最近脚本、参数化执行（占位符替换）、SQL 格式化、执行计划（EXPLAIN / SHOWPLAN）、Schema 快速切换。
-- 结果区：分页浏览、消息输出、结果导出、内联编辑（见下）。
+- 结果区：分页浏览、消息输出、结果导出、内联编辑（见下）；右键"复制为"单元格/选中行/全部结果（CSV / 制表符 / JSON / Markdown / INSERT）。
 
 ### 4. 数据查看与编辑
 - 查询结果内联编辑：单表简单 SELECT 自动判定可编辑性（JOIN/GROUP BY/DISTINCT/UNION/子查询等自动只读并说明原因），网格内新增/删除/修改，保存走事务 + 乐观锁冲突检测，改动跨页保留；自增/计算/二进制列只读。
@@ -154,7 +155,7 @@
 | Mock 数据生成 / 数据脱敏 | ✅ | ⚠️ PRO | ✅ | ❌ | ❌ |
 | AI 助手（自然语言 → SQL） | ✅ | ⚠️ PRO | ✅ v17 | ✅ | ⚠️ |
 
-结论：**核心数据库管理链路（连接、浏览、SQL 开发、编辑、设计、迁移、对比、备份、导入导出、任务）已基本对齐主流工具**；后续重点包括 ER 图、完整建模与团队协作，已实现能力的具体边界以交付记录为准。
+结论：**核心数据库管理链路（连接、浏览、SQL 开发、编辑、设计、迁移、对比、备份、导入导出、任务）已基本对齐主流工具**；已决策不做与后续方向的取舍以 [Roadmap.md](./Roadmap.md) 为准，已实现能力的具体边界以交付记录为准。
 
 ---
 
@@ -162,7 +163,7 @@
 
 2026-09-12 已实现多结果集与快照、增强数据编辑、执行计划树、SSH 隧道和多步骤任务。范围见 [Roadmap.md](./Roadmap.md)，逐项验证及限制见 [P0 交付记录](./DatabaseManager.Avalonia/docs/p0-delivery-20260912.md)。
 
-> 依据与主流平台的差距分析整理。**2026-09 批次已实现**：全库数据搜索、数据网格内交互式筛选/排序、连接分组与颜色标签、图表/仪表盘、用户/权限管理 UI、会话与锁监控、任务定时调度、查询性能剖析、结果区浮动/停靠（实施记录、已知限制与后续优先级见 [todo.md](./todo.md)）。
+> 依据与主流平台的差距分析整理。**2026-09 批次已实现**：全库数据搜索、数据网格内交互式筛选/排序、连接分组与颜色标签、图表/仪表盘、用户/权限管理 UI、会话与锁监控、任务定时调度、查询性能剖析、结果区浮动/停靠（实施记录与验收边界见各交付记录及 [P3 评估与实施方案](./DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)）。
 
 ### P0 · 本批次交付与暂缓
 
@@ -185,13 +186,13 @@
 
 | # | 功能 | 说明 | 参考 |
 | --- | --- | --- | --- |
-| 8 | **存储过程调试器** | 断点、单步、变量查看（优先 PostgreSQL PL/pgSQL，逐步扩展） | DBeaver PRO / DataGrip |
-| 9 | **NoSQL 支持** | MongoDB / Redis 的连接与文档浏览、查询 | DBeaver / Navicat / DbGate |
+| 8 | **存储过程调试器（已决策不做）** | 需数据库侧调试协议（pldbgapi / DBMS_DEBUG）与实例权限，无环境可验证 | DBeaver PRO / DataGrip |
+| 9 | **NoSQL 支持** | MongoDB / Redis 的连接与文档浏览、查询（作为独立产品线评估） | DBeaver / Navicat / DbGate |
 | 10 | **数据 Notebook** | 交互式 SQL + Markdown + 结果混排的笔记本（类 Jupyter / Azure Data Studio） | Azure Data Studio |
-| 11 | **团队协作与云同步** | 连接配置加密同步、脚本库共享、团队 SQL 审计 | Beekeeper / Navicat Cloud |
+| 11 | **团队协作与云同步（已决策不做）** | 需服务端、账号体系与审计存储，超出单机桌面产品范围 | Beekeeper / Navicat Cloud |
 | 12 | **更多数据库类型（DuckDB / 达梦已实现）** | DuckDB 与达梦 DM8 已接入（未经真实实例验收，转换拦截）；ClickHouse 等其余类型按需求评估；KingbaseES 的其余兼容模式和真实实例验收另行推进 | DBeaver |
-| 13 | **完整 Dock 拖拽布局** | 基于 Dock.Avalonia 的面板级停靠/浮动/布局持久化（当前已实现结果区浮动/停靠） | DBeaver / DataGrip |
-| 14 | **对象树右键菜单图标补全** | 当前仅部分菜单项有图标，需统一图标集与主题适配（`todo.md` P2） | — |
+| 13 | **完整 Dock 拖拽布局（已决策不做）** | 评估结论为回归面过大、投入产出比不足；保留现有结果区浮动/停靠 | DBeaver / DataGrip |
+| 14 | **对象树右键菜单图标补全（已实现）** | 菜单项图标按动作关键词统一自动分配（删除/刷新/连接/复制/导入导出/新建/编辑/过滤/对比/统计/SQL 生成等），PNG 显式图标优先 | — |
 | 15 | **代码模板外部化（T1 已落地）** | 模板契约/引擎/目录已实现（`Profiles/Templates/`），T2 管理与导入导出、T3 内置模板分批迁移待推进 | — |
 
 ---
@@ -228,8 +229,7 @@ dotnet run --project DatabaseManager.Avalonia\DatabaseManager.Avalonia\DatabaseM
 
 ## 相关文档
 
-- [todo.md](./todo.md)：Avalonia 版统一 TODO（当前待办、优先级与已完成事项）。
-- [todo-202609.md](./todo-202609.md)：2026-09 功能批次归档入口。
-- [todo-202608.md](./todo-202608.md)：2026-08 功能批次归档入口。
+- [Roadmap.md](./Roadmap.md)：功能决策与优先级（含明确不做清单）。
+- [DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md](./DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)：P3 评估与实施记录。
 - [DatabaseManager.Avalonia/README.md](./DatabaseManager.Avalonia/README.md)：Avalonia 版架构、选型与迁移进度。
 - [DatabaseManager.Avalonia/docs/migration-progress.md](./DatabaseManager.Avalonia/docs/migration-progress.md)：逐阶段迁移证据。

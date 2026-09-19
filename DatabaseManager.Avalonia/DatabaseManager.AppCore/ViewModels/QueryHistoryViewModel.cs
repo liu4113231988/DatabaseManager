@@ -80,10 +80,17 @@ public partial class QueryHistoryViewModel : ViewModelBase
             return;
         }
 
+        long id = SelectedEntry.Id;
         SelectedEntry.IsFavorite = !SelectedEntry.IsFavorite;
         _historyService.Update(SelectedEntry);
-        ToggleFavoriteCommand.NotifyCanExecuteChanged();
-        OnPropertyChanged(nameof(SelectedEntry));
+
+        // QueryHistoryEntry 无 INPC：重新拉取列表以刷新"收藏"列，并按主键恢复原选中行
+        //（取消收藏且启用"仅收藏"时该项会从列表消失，此时选中自动清空）。
+        Refresh();
+        if (id > 0)
+        {
+            SelectedEntry = Entries.FirstOrDefault(e => e.Id == id);
+        }
     }
 
     private bool CanToggleFavorite() => SelectedEntry is not null;

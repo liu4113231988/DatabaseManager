@@ -298,6 +298,24 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>对象搜索框输入变化：就地过滤对象树（不匹配节点隐藏，自动展开匹配父级；清空恢复）。
+    /// 输入 dbm:// URI 期间不过滤（避免 URI 未输完时把树过滤成空）。</summary>
+    private void TreeFilterBox_TextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (DataContext is not MainWindowViewModel vm)
+            return;
+
+        var text = TreeFilterBox.Text;
+        if (!string.IsNullOrWhiteSpace(text)
+            && text.TrimStart().StartsWith(DatabaseManager.AppCore.Common.DbObjectUri.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            vm.ObjectsExplorer.ClearTreeFilter();
+            return;
+        }
+
+        vm.ObjectsExplorer.ApplyTreeFilter(text);
+    }
+
     private async void TreeFilterSearch_Click(object? sender, RoutedEventArgs e)
     {
         await RunTreeFilterSearchAsync();
@@ -2253,6 +2271,117 @@ public partial class MainWindow : Window
             RebuildResultGridColumns(grid, tabVm);
         }
     }
+
+    #region 查询结果"复制为格式"
+
+    /// <summary>结果网格右键菜单：复制单元格 / 复制选中行为 CSV/制表符/JSON/Markdown/INSERT / 复制全部。</summary>
+    private void QueryResultGrid_ContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (sender is not DataGrid grid || grid.DataContext is not QueryTabViewModel tab)
+            return;
+
+        // 显式打开菜单（与对象树/标签头一致）：ContextMenu 在事件处理期间才构建，
+        // 若仅赋值 grid.ContextMenu 依赖框架自动打开，首次右键可能不弹出。
+        var menu = new ContextMenu();
+
+        var cellItem = new MenuItem { Header = "复制单元格" };
+        cellItem.Click += async (_, _) => await CopyResultCellAsync(grid, tab);
+        menu.Items.Add(cellItem);
+
+        menu.Items.Add(new Separator());
+
+        var rowsMenu = new MenuItem { Header = "复制选中行为" };
+        foreach (var (label, format) in new[]
+                 {
+                     ("CSV", ResultCopyFormat.Csv),
+                     ("制表符（粘贴到 Excel）", ResultCopyFormat.Tsv),
+                     ("JSON", ResultCopyFormat.Json),
+                     ("Markdown 表格", ResultCopyFormat.Markdown),
+                     ("INSERT 语句", ResultCopyFormat.Insert),
+                 })
+        {
+            var item = new MenuItem { Header = label };
+            item.Click += async (_, _) => await CopyResultRowsAsync(grid, tab, format);
+            rowsMenu.Items.Add(item);
+        }
+
+        menu.Items.Add(rowsMenu);
+
+        var allMenu = new MenuItem { Header = "复制全部（当前结果集）" };
+        foreach (var (label, format) in new[]
+                 {
+                     ("CSV", ResultCopyFormat.Csv),
+                     ("JSON", ResultCopyFormat.Json),
+                     ("Markdown 表格", ResultCopyFormat.Markdown),
+                     ("INSERT 语句", ResultCopyFormat.Insert),
+                 })
+        {
+            var item = new MenuItem { Header = label };
+            item.Click += async (_, _) => await CopyAllResultsAsync(tab, format);
+            allMenu.Items.Add(item);
+        }
+
+        menu.Items.Add(allMenu);
+
+        menu.Open(grid);
+        e.Handled = true;
+    }
+
+    /// <summary>复制当前单元格的值（当前行 × 当前列）。</summary>
+    private async Task CopyResultCellAsync(DataGrid grid, QueryTabViewModel tab)
+    {
+        int columnIndex = grid.CurrentColumn is { } column ? grid.Columns.IndexOf(column) : -1;
+        if (grid.SelectedItem is not QueryResultRow row || columnIndex < 0 || columnIndex >= tab.Columns.Count)
+        {
+            tab.StatusMessage = "请先选中一个单元格再复制。";
+            return;
+        }
+
+        await CopyToClipboardAsync(row[columnIndex] ?? string.Empty);
+        tab.StatusMessage = $"已复制单元格 [{tab.Columns[columnIndex]}] 的值。";
+    }
+
+    /// <summary>把选中的行复制为指定格式。</summary>
+    private async Task CopyResultRowsAsync(DataGrid grid, QueryTabViewModel tab, ResultCopyFormat format)
+    {
+        var rows = grid.SelectedItems?.Cast<QueryResultRow>().ToList() ?? new List<QueryResultRow>();
+        if (rows.Count == 0)
+        {
+            tab.StatusMessage = "请先选中要复制的行。";
+            return;
+        }
+
+        await CopyResultRowsCoreAsync(tab, format, rows);
+    }
+
+    /// <summary>把全部可见结果行（筛选/排序后，不受分页限制）复制为指定格式。</summary>
+    private async Task CopyAllResultsAsync(QueryTabViewModel tab, ResultCopyFormat format)
+    {
+        await CopyResultRowsCoreAsync(tab, format, tab.AllRows.ToList());
+    }
+
+    private async Task CopyResultRowsCoreAsync(QueryTabViewModel tab, ResultCopyFormat format, List<QueryResultRow> rows)
+    {
+        string tableName = tab.EditableTable is null
+            ? "TABLE_NAME"
+            : string.IsNullOrEmpty(tab.EditableTable.Schema)
+                ? tab.EditableTable.Name
+                : $"{tab.EditableTable.Schema}.{tab.EditableTable.Name}";
+
+        var text = ResultCopyFormatter.Format(format, tab.Columns.ToList(), rows, tableName);
+        await CopyToClipboardAsync(text);
+        tab.StatusMessage = $"已复制 {rows.Count} 行为 {format}。";
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
+        }
+    }
+
+    #endregion
 
     /// <summary>按查询标签的列集合重建指定结果网格的数据列（共享实现见 ResultGridHelper）。</summary>
     private static void RebuildResultGridColumns(DataGrid grid, QueryTabViewModel tabVm)

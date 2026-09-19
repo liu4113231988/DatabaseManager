@@ -176,6 +176,10 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             connectionNode.IsLoaded = true;
             _activeConnections.Add(connection.Name);
             ClearPrefetchCache(connection.Name);
+
+            // 过滤激活时，重连后的新节点默认可见，需按当前关键字重新应用过滤。
+            ReapplyFilterIfActive(connectionNode);
+
             StatusMessage = nodes.Count == 0 ? $"已连接 {connection.Name}，暂无数据库。" : $"已连接 {connection.Name}，加载 {nodes.Count} 个数据库。";
         }
         catch (OperationCanceledException)
@@ -281,6 +285,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             foreach (var node in nodes)
             {
                 RootNodes.Add(node);
+                ReapplyFilterIfActive(node);
             }
             StatusMessage = nodes.Count == 0 ? "该连接下暂无数据库。" : $"已加载 {nodes.Count} 个数据库。";
         }
@@ -338,6 +343,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
                 folderNode.LoadCts.Token);
 
             FillFolder(folderNode, nodes);
+            ReapplyFilterIfActive(folderNode);
         }
         catch (OperationCanceledException)
         {
@@ -458,6 +464,116 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         }
     }
 
+    #region 就地过滤
+
+    /// <summary>当前就地过滤关键字（null 表示未启用过滤）。</summary>
+    private string? _filterKeyword;
+
+    /// <summary>进入过滤前各节点的展开状态快照（清空过滤后恢复；仅记录一次）。</summary>
+    private readonly Dictionary<DbObjectTreeNode, bool> _preFilterExpansion = new();
+
+    /// <summary>就地过滤：节点名匹配或拥有匹配后代时可见，其余隐藏；自动展开匹配父级。
+    /// 空关键字清除过滤并恢复展开状态。未加载的子级不触发懒加载（避免连接风暴）。</summary>
+    public void ApplyTreeFilter(string? keyword)
+    {
+        _filterKeyword = string.IsNullOrWhiteSpace(keyword) ? null : keyword.Trim();
+
+        if (_filterKeyword is null)
+        {
+            ClearTreeFilter();
+            return;
+        }
+
+        int matchCount = 0;
+        foreach (var root in RootNodes)
+        {
+            ApplyFilterToNode(root, _filterKeyword, ref matchCount);
+        }
+
+        StatusMessage = $"就地过滤「{_filterKeyword}」：{matchCount} 个匹配节点（未加载的子级展开后参与过滤）。";
+    }
+
+    /// <summary>递归计算节点子树的可见性；返回该子树是否存在可见节点。</summary>
+    private bool ApplyFilterToNode(DbObjectTreeNode node, string keyword, ref int matchCount)
+    {
+        bool selfMatch = !string.IsNullOrEmpty(node.Name)
+            && node.Name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
+
+        bool childMatch = false;
+        foreach (var child in node.Children)
+        {
+            if (ApplyFilterToNode(child, keyword, ref matchCount))
+            {
+                childMatch = true;
+            }
+        }
+
+        bool visible = selfMatch || childMatch;
+        node.IsVisible = visible;
+
+        if (visible)
+        {
+            // 只在首次进入过滤时快照展开状态，避免过滤期间的自动展开覆盖原始值。
+            if (!_preFilterExpansion.ContainsKey(node))
+            {
+                _preFilterExpansion[node] = node.IsExpanded;
+            }
+
+            if (childMatch)
+            {
+                node.IsExpanded = true;
+            }
+        }
+
+        if (selfMatch)
+        {
+            matchCount++;
+        }
+
+        return visible;
+    }
+
+    /// <summary>清除就地过滤：恢复全部节点可见性与过滤前的展开状态。</summary>
+    public void ClearTreeFilter()
+    {
+        _filterKeyword = null;
+
+        foreach (var entry in _preFilterExpansion)
+        {
+            entry.Key.IsExpanded = entry.Value;
+        }
+
+        _preFilterExpansion.Clear();
+
+        foreach (var root in RootNodes)
+        {
+            ResetVisibility(root);
+        }
+    }
+
+    private void ResetVisibility(DbObjectTreeNode node)
+    {
+        node.IsVisible = true;
+        foreach (var child in node.Children)
+        {
+            ResetVisibility(child);
+        }
+    }
+
+    /// <summary>过滤激活时对刚加载完的子树重应用过滤（新加载节点默认可见，需重算）。</summary>
+    private void ReapplyFilterIfActive(DbObjectTreeNode subtreeRoot)
+    {
+        if (_filterKeyword is null)
+        {
+            return;
+        }
+
+        int matchCount = 0;
+        ApplyFilterToNode(subtreeRoot, _filterKeyword, ref matchCount);
+    }
+
+    #endregion
+
     /// <summary>按需展开：加载表/视图的子类型文件夹下的具体子对象（列/索引/键/约束/触发器）。</summary>
     public async Task LoadTableChildFolderAsync(DbObjectTreeNode childFolder, string connectionName)
     {
@@ -514,6 +630,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             // 数量展示（如 Columns (3)）。
             childFolder.Text = nodes.Count > 0 ? $"{childFolder.Name} ({nodes.Count})" : childFolder.Name;
             childFolder.IsLoaded = true;
+            ReapplyFilterIfActive(childFolder);
         }
         catch (OperationCanceledException)
         {

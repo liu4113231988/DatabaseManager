@@ -96,6 +96,9 @@ public partial class QueryTabViewModel : ViewModelBase
 
     // 视图层：筛选/排序后的可见行（未启用时与 _allRows 同序）。
     private readonly List<QueryResultRow> _viewRows = new();
+
+    /// <summary>全部可见结果行（筛选/排序后；不受分页限制，供"复制全部"使用）。</summary>
+    public IReadOnlyList<QueryResultRow> AllRows => _viewRows;
     private readonly List<GridFilterCondition> _activeFilters = new();
     private int _sortColumnIndex = -1;
     private bool _sortDescending;

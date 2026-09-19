@@ -70,6 +70,19 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>该节点当前加载操作的取消令牌源（加载期间可取消；完成后置空）。</summary>
     public CancellationTokenSource? LoadCts { get; set; }
 
+    private bool _isVisible = true;
+    /// <summary>就地过滤可见性：节点名匹配或拥有匹配后代时可见；清空过滤后恢复 true。</summary>
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set
+        {
+            if (_isVisible == value) return;
+            _isVisible = value;
+            OnPropertyChanged(nameof(IsVisible));
+        }
+    }
+
     /// <summary>关联的连接项（当节点为 Connection 类型时有效）。</summary>
     public ConnectionItem? Connection { get; set; }
 

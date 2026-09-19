@@ -331,9 +331,10 @@
                     <!-- 对象搜索框：Enter 或点击按钮深度搜索元数据，结果可定位到树 -->
                     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,6">
                         <atom:TextBox Grid.Column="0" x:Name="TreeFilterBox"
-                                 PlaceholderText="搜索表/视图/列...（Enter）；支持 dbm:// 直达"
+                                 PlaceholderText="输入即时过滤树；Enter 深度搜索 / dbm:// 直达"
                                  FontSize="11" MinHeight="0" VerticalContentAlignment="Center"
-                                 KeyDown="TreeFilterBox_KeyDown" />
+                                 KeyDown="TreeFilterBox_KeyDown"
+                                 TextChanged="TreeFilterBox_TextChanged" />
                         <Button Grid.Column="1" Classes="compact" Content="搜索" Margin="6,0,0,0"
                                 Click="TreeFilterSearch_Click" ToolTip.Tip="深度搜索当前连接的元数据并定位到树（Ctrl+Shift+D）" />
                     </Grid>
@@ -371,6 +372,8 @@
                                     <Setter Property="MinHeight" Value="26" />
                                     <!-- 展开状态持久化：绑定到模型，刷新/重建后容器自动恢复展开，避免整树折叠 -->
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                    <!-- 就地过滤：不匹配的节点隐藏（模型 IsVisible 默认 true，无过滤时零开销） -->
+                                    <Setter Property="IsVisible" Value="{Binding IsVisible}" />
                                     <!-- 展开事件已在 code-behind AddHandler 订阅（ObjectsTree_Item_Expanded），无需 EventSetter。 -->
                                 </Style>
                                 <!-- 悬停与选中态（对齐 AtomUI Tree 选中 #E6F4FF） -->
@@ -617,6 +620,7 @@
                                               CanUserResizeColumns="True"
                                               CanUserSortColumns="True"
                                               Sorting="QueryResultGrid_Sorting"
+                                              ContextRequested="QueryResultGrid_ContextRequested"
                                               FontSize="11"
                                               AttachedToVisualTree="QueryResultGrid_AttachedToVisualTree"
                                               Margin="2" x:Name="QueryResultGrid">

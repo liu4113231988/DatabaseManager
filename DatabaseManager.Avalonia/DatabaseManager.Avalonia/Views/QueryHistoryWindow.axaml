@@ -66,7 +66,7 @@
                       CanUserResizeColumns="True" FontSize="11"
                       ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="收藏" Binding="{Binding IsFavorite}" Width="50" />
+                    <DataGridCheckBoxColumn Header="收藏" Binding="{Binding IsFavorite}" Width="50" />
                     <DataGridTextColumn Header="时间" Binding="{Binding Time, StringFormat='MM-dd HH:mm:ss'}" Width="110" />
                     <DataGridTextColumn Header="连接" Binding="{Binding ConnectionName}" Width="110" />
                     <DataGridTextColumn Header="数据库" Binding="{Binding Database}" Width="100" />

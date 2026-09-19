@@ -5,6 +5,9 @@ namespace DatabaseManager.AppCore.Services;
 /// <summary>查询历史条目。</summary>
 public class QueryHistoryEntry
 {
+    /// <summary>存储主键（SQLite 自增；仅由查询历史服务填充，用于 Update 定位）。</summary>
+    public long Id { get; set; }
+
     public DateTime Time { get; set; } = DateTime.Now;
 
     public string ConnectionName { get; set; } = string.Empty;

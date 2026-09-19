@@ -221,3 +221,10 @@ Roadmap 原文目标为**收藏查询、URI 直达对象、专注模式、完整
 1. DuckDB / 达梦：真实实例回归（连接、对象树、查询、数据编辑、脚本生成主链路）；
 2. PostgreSQL / KingbaseES：`pg_class` 改写后核对对象树表/视图清单与旧版一致（含分区表、外部表、扩展对象排除开启时）；
 3. 专注模式 / 收藏 / URI 直达：UI 手工回归（状态持久化、历史裁剪、URI 各段缺失提示）。
+
+### 5.4 2026-09-19 追加
+
+- **查询历史存储改 SQLite**：`Profiles/query-history.db3`（`Microsoft.Data.Sqlite`，经 DatabaseInterpreter.Core 传递引用），表 `QueryHistory` 自增主键 + `(Id, IsFavorite)` 索引；`Add/Update/GetRecent/Clear` 语义与 500 条裁剪、收藏不裁剪规则不变；按用户决策**不迁移**旧 `query-history.json`（文件被直接忽略，可手动删除）。
+- **对象树就地过滤**：搜索框输入即时过滤（节点名匹配或有匹配后代可见，匹配父级自动展开，清空恢复展开快照）；`dbm://` 输入期间跳过；未加载子级不触发懒加载。
+- **表设计器 UI 美化**：模式胶囊/未保存徽标、信息卡片化、工具栏主次分离、表格圆角容器、复选框列按表头自适应、关键列 MinWidth；修复底部操作条被 `DockPanel.LastChildFill` 顶到 Tab 行右端的问题。
+- **查询结果"复制为格式"**：结果网格右键菜单支持复制单元格、选中行与全部可见结果（筛选/排序后），格式含 CSV / 制表符（Excel）/ JSON / Markdown / INSERT 语句（INSERT 表名取自可编辑表的 Schema.Name，空值→NULL、数字原样、字符串单引号转义）；格式化器 `ResultCopyFormatter` 独立于 UI 可测试。
