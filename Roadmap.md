@@ -2,7 +2,9 @@
 
 本文汇总当前 Avalonia 主线与 Navicat Premium 的功能对比结果，作为后续功能取舍清单。
 
-状态说明：`[ ]` 待决定，`[x]` 已实施，`[-]` 暂不实施，`[~]` 已评估并给出分期方案。2026-09-12 按本轮确认将原 P1 提升为 P0；ER 图与多数据库完整实例验收暂不实施。2026-09-17 明确不做数据库建模、存储过程调试、团队协作、企业认证、达梦支持、完整可拖拽停靠布局六类；新增 DuckDB；查询结果增强（收藏查询、专注模式、应用内 URI）与模板外部化已完成评估。2026-09-18 确认达梦官方包 `DM.DmProvider` 已上架 NuGet（发布者 dameng），达梦（DM8）按 Oracle 兼容方言接入（未经真实实例验收）。
+状态说明：`[ ]` 待决定，`[x]` 已实施，`[-]` 暂不实施，`[~]` 已评估并给出分期方案。2026-09-12 按本轮确认将原 P1 提升为 P0；ER 图与多数据库完整实例验收暂不实施。2026-09-17 明确不做数据库建模、存储过程调试、团队协作、企业认证、达梦支持、完整可拖拽停靠布局六类；新增 DuckDB；查询结果增强（收藏查询、专注模式、应用内 URI）与模板外部化已完成评估。2026-09-18 确认达梦官方包 `DM.DmProvider` 已上架 NuGet（发布者 dameng），达梦（DM8）按 Oracle 兼容方言接入（未经真实实例验收）。2026-09-19 将各批次已完成交付记录合并入 [README 已完成能力](DatabaseManager.Avalonia/README.md)，**未完成与待验收事项**集中登记到 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)，各历史交付/评估记录文档移除。
+
+> 文档分工：本文只记录**功能取舍与优先级决策**；已经交付的能力见 [README.md](DatabaseManager.Avalonia/README.md)「已完成能力」；尚未闭环的事项见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 优先级依据：日常使用频率、数据安全与运维价值、现有架构基础，以及开发成本。
 
@@ -18,7 +20,7 @@
 | [x] | 自动化作业完善 | 已增加导入、迁移、表结构/数据同步、顺序批处理、停止/继续失败策略及持久化日志、TLS SMTP 通知。 | PostgreSQL 导入导出、迁移、结构/数据同步已实测；客户端仍需运行；独立调度服务未纳入本轮。真实邮件投递尚未执行。 |
 | [-] | 多数据库真实实例验收 | 按本轮要求跳过完整跨数据库矩阵；仅使用 SQLite 和本地 PostgreSQL 完成本轮功能回归。 | SQL Server、MySQL、Oracle、KingbaseES 的真实实例矩阵留待具备环境后验收。 |
 
-逐项验证、复现方式与限制见 [P0 交付与验收记录](DatabaseManager.Avalonia/docs/p0-delivery-20260912.md)。
+P0 各项的实现要点与限制见 [README 已完成能力](DatabaseManager.Avalonia/README.md)；对应功能与数据库实例的验收边界见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 ## P2：效率与数据治理（2026-09-13 交付）
 
@@ -35,7 +37,7 @@
 | [-] | 结果网格布局记忆 | 按本轮要求暂缓。 | 不实施跨结果的列宽、排序、显示/隐藏列和筛选记忆。 |
 | [x] | 数据脱敏 | 查询结果副本/表样本的手机号、证件、银行卡、全部遮盖和正则规则已实现。 | 可保存规则，预览并导出脱敏 CSV；不更新源数据，采样/截断范围明确展示。 |
 
-本轮同时移除主窗口工具菜单的图片工具入口。逐项检查与限制见 [P2 交付与验收记录](DatabaseManager.Avalonia/docs/p2-delivery-20260913.md)。
+本轮同时移除主窗口工具菜单的图片工具入口。P2 各项的实现要点见 [README 已完成能力](DatabaseManager.Avalonia/README.md)；使用边界与待验收见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 ## P3：专业与团队能力
 
@@ -51,11 +53,11 @@
 | [-] | 完整可拖拽停靠布局 | 已有结果区浮动/停靠；`Dock.Avalonia` 已引用但未使用，主窗口为手写 Grid + DockPanel。 | 暂不实施：主窗口布局与 code-behind 需整体迁移到 Dock 模型，回归面覆盖 P0/P2 全部功能；保留现有结果浮动即可满足当前诉求。 |
 | [~] | 代码与文档模板外部化 | 模板主要内置，且存在 4 套互不兼容的占位符语法；**T1 已落地**：`TemplateManifest` 契约（`{name}` 统一语法 + `$TOKEN$` 兼容别名）、`ITemplateEngine`/`ITemplateStore`、`Profiles/Templates/` 目录（内置同名可覆盖），SqlSnippets 已桥接为首批内置模板。 | 先统一模板变量契约与目录（`Profiles/Templates/`），再配渲染、预览与带版本信封的导入导出（T2），最后按 SQL 片段、数据字典、DDL、文档导出、代码生成的顺序分批迁移内置模板（T3）。 |
 
-DuckDB 的落地清单与风险，以及查询结果增强、模板外部化的分期方案见 [P3 评估与实施方案](DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)。
+DuckDB / 达梦的待验收边界、查询结果增强与模板外部化的后续分期方案见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 ## 已识别的基础改进
 
-以下不是新增产品模块，但会影响后续功能质量，建议在启动相关大型功能前纳入对应项目验收：
+以下不是新增产品模块，但会影响后续功能质量，建议在启动相关大型功能前纳入对应项目验收（细化跟踪见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md) 第四节）：
 
 - 多查询标签共用同一连接事务的隔离与生命周期设计。
 - 构建现有的可空性、未使用成员和 Avalonia 资源加载告警逐项处理。
@@ -75,4 +77,4 @@ Navicat Premium 官方功能矩阵列出了 SSH/HTTP 隧道、数据编辑辅助
 - [Navicat Premium 产品说明](https://www.navicat.com/en/products/navicat-premium.html)
 - [Navicat 数据字典说明](https://www.navicat.com/en/company/aboutus/blog/2426-create-a-data-dictionary-in-navicat-17)
 
-本项目的事务与任务中心检查结果见 [功能检查记录](DatabaseManager.Avalonia/docs/function-audit-20260910.md)。
+本项目的事务与任务中心能力见 [README 已完成能力](DatabaseManager.Avalonia/README.md)；仍需真实实例与并发压力验收的部分见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。

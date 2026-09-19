@@ -2,7 +2,7 @@
 
 > 本文档汇总两条开发主线：
 > - **WinForms 版**（`DatabaseManager.CoreApp`，原树结构功能缺失清单，见下文）
-> - **Avalonia 迁移版**（`DatabaseManager.Avalonia/`，跨平台重写主线，阶段进度详见 `DatabaseManager.Avalonia/docs/migration-progress.md`）
+> - **Avalonia 迁移版**（`DatabaseManager.Avalonia/`，跨平台重写主线，已完成能力详见 `DatabaseManager.Avalonia/README.md`，未完成事项详见 `DatabaseManager.Avalonia/docs/backlog.md`）
 
 ## 📋 检查日期：2026-04-05  
 ## 🔄 最后更新：2026-08-20

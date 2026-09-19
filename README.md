@@ -1,6 +1,6 @@
 # DatabaseManager
 
-最新的功能评估与实施边界见 [P3 评估与实施方案](DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)。
+最新的已完成能力见 [Avalonia 版 README](DatabaseManager.Avalonia/README.md)，未完成与待验收边界见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 一个基于 **.NET 8** 的多数据库管理与迁移工具，提供对象浏览、SQL 开发、数据编辑、表设计、结构/数据转换、差异对比与同步、导入导出、诊断优化、备份恢复等一站式数据库运维能力。
 
@@ -155,15 +155,15 @@
 | Mock 数据生成 / 数据脱敏 | ✅ | ⚠️ PRO | ✅ | ❌ | ❌ |
 | AI 助手（自然语言 → SQL） | ✅ | ⚠️ PRO | ✅ v17 | ✅ | ⚠️ |
 
-结论：**核心数据库管理链路（连接、浏览、SQL 开发、编辑、设计、迁移、对比、备份、导入导出、任务）已基本对齐主流工具**；已决策不做与后续方向的取舍以 [Roadmap.md](./Roadmap.md) 为准，已实现能力的具体边界以交付记录为准。
+结论：**核心数据库管理链路（连接、浏览、SQL 开发、编辑、设计、迁移、对比、备份、导入导出、任务）已基本对齐主流工具**；功能取舍与后续方向以 [Roadmap.md](./Roadmap.md) 为准，已实现能力的具体边界见 [Avalonia 版 README](DatabaseManager.Avalonia/README.md)，待验收项见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
 ---
 
 ## 功能路线图（Roadmap）
 
-2026-09-12 已实现多结果集与快照、增强数据编辑、执行计划树、SSH 隧道和多步骤任务。范围见 [Roadmap.md](./Roadmap.md)，逐项验证及限制见 [P0 交付记录](./DatabaseManager.Avalonia/docs/p0-delivery-20260912.md)。
+2026-09-12 已实现多结果集与快照、增强数据编辑、执行计划树、SSH 隧道和多步骤任务。范围见 [Roadmap.md](./Roadmap.md)，已完成能力与限制见 [Avalonia 版 README](./DatabaseManager.Avalonia/README.md)，待验收项见 [docs/backlog.md](./DatabaseManager.Avalonia/docs/backlog.md)。
 
-> 依据与主流平台的差距分析整理。**2026-09 批次已实现**：全库数据搜索、数据网格内交互式筛选/排序、连接分组与颜色标签、图表/仪表盘、用户/权限管理 UI、会话与锁监控、任务定时调度、查询性能剖析、结果区浮动/停靠（实施记录与验收边界见各交付记录及 [P3 评估与实施方案](./DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)）。
+> 依据与主流平台的差距分析整理。**2026-09 批次已实现**：全库数据搜索、数据网格内交互式筛选/排序、连接分组与颜色标签、图表/仪表盘、用户/权限管理 UI、会话与锁监控、任务定时调度、查询性能剖析、结果区浮动/停靠（实施情况见 [Avalonia 版 README](./DatabaseManager.Avalonia/README.md)，验收边界见 [docs/backlog.md](./DatabaseManager.Avalonia/docs/backlog.md)）。
 
 ### P0 · 本批次交付与暂缓
 
@@ -174,7 +174,7 @@
 
 ### P2 · 进阶能力（2026-09-13 已交付）
 
-九项 P2 已接入「工具 → 数据工作台」及仪表盘：查询/视图构建、测试数据、质量剖析、数据字典、AI SQL、连接迁移、ODBC/Access/DBF 导入、仪表盘深化、数据脱敏。结果网格布局记忆暂缓，图片工具入口已移除；测试与限制见 [P2 交付记录](./DatabaseManager.Avalonia/docs/p2-delivery-20260913.md)。
+九项 P2 已接入「工具 → 数据工作台」及仪表盘：查询/视图构建、测试数据、质量剖析、数据字典、AI SQL、连接迁移、ODBC/Access/DBF 导入、仪表盘深化、数据脱敏。结果网格布局记忆暂缓，图片工具入口已移除；使用边界与待验收见 [docs/backlog.md](./DatabaseManager.Avalonia/docs/backlog.md)。
 
 | # | 功能 | 说明 | 参考 |
 | --- | --- | --- | --- |
@@ -230,6 +230,6 @@ dotnet run --project DatabaseManager.Avalonia\DatabaseManager.Avalonia\DatabaseM
 ## 相关文档
 
 - [Roadmap.md](./Roadmap.md)：功能决策与优先级（含明确不做清单）。
-- [DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md](./DatabaseManager.Avalonia/docs/p3-evaluation-20260917.md)：P3 评估与实施记录。
-- [DatabaseManager.Avalonia/README.md](./DatabaseManager.Avalonia/README.md)：Avalonia 版架构、选型与迁移进度。
-- [DatabaseManager.Avalonia/docs/migration-progress.md](./DatabaseManager.Avalonia/docs/migration-progress.md)：逐阶段迁移证据。
+- [DatabaseManager.Avalonia/README.md](./DatabaseManager.Avalonia/README.md)：Avalonia 版架构、技术选型与已完成能力。
+- [DatabaseManager.Avalonia/docs/backlog.md](./DatabaseManager.Avalonia/docs/backlog.md)：未完成事项与待验收清单。
+- [DatabaseManager.Avalonia/docs/kingbasees-support-plan.md](./DatabaseManager.Avalonia/docs/kingbasees-support-plan.md)：KingbaseES 支持计划与兼容性边界。
