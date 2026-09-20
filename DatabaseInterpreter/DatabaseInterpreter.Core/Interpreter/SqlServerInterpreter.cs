@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -165,18 +165,26 @@ namespace DatabaseInterpreter.Core
 
             string condition = "WHERE t.is_ms_shipped=0";
 
+            // 用 sys.identity_columns 左连接替代逐行调用 IDENT_SEED/IDENT_INCR 标量函数。
+            // 后者对每行做对象名解析，表多时 CPU 开销大；前者是集合操作，性能显著更优。
+            // 每张表至多一个标识列，左连接不会产生重复行。
+            string identityColumns = "CAST(ic.seed_value AS numeric(38,0)) AS [IdentitySeed],CAST(ic.increment_value AS numeric(38,0)) AS [IdentityIncrement]";
+            string identityJoin = "LEFT JOIN sys.identity_columns ic ON t.object_id=ic.object_id";
+
             if (this.IsObjectFectchSimpleMode())
             {
                 sb.Append($@"SELECT schema_name(t.schema_id) AS [Schema], t.name AS [Name],
-                         IDENT_SEED(schema_name(t.schema_id)+'.'+t.name) AS [IdentitySeed],IDENT_INCR(schema_name(t.schema_id)+'.'+t.name) AS [IdentityIncrement]
+                         {identityColumns}
                          FROM sys.tables t
+                         {identityJoin}
                          {condition}");
             }
             else
             {
                 sb.Append($@"SELECT schema_name(t.schema_id) AS [Schema], t.name AS [Name], ext2.value AS [Comment],
-                        IDENT_SEED(schema_name(t.schema_id)+'.'+t.name) AS [IdentitySeed],IDENT_INCR(schema_name(t.schema_id)+'.'+t.name) AS [IdentityIncrement]
+                        {identityColumns}
                         FROM sys.tables t
+                        {identityJoin}
                         LEFT JOIN sys.extended_properties ext ON t.object_id=ext.major_id AND ext.minor_id=0 AND ext.class=1 AND ext.name='microsoft_database_tools_support'
                         LEFT JOIN sys.extended_properties ext2 ON t.object_id=ext2.major_id and ext2.minor_id=0 AND ext2.class_desc='OBJECT_OR_COLUMN' AND ext2.name='MS_Description'
                         {condition} AND ext.class is null");

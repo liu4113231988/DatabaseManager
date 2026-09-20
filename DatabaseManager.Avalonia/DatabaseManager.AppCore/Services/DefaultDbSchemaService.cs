@@ -34,23 +34,33 @@ public class DefaultDbSchemaService : IDbSchemaService
         var databases = (await interpreter.GetDatabasesAsync().WaitAsync(cancellationToken)).OrderBy(d => d.Name).ToList();
         var result = new List<DbObjectTreeNode>();
 
-        // 并行枚举各库的 schema 列表，避免多库实例（如 SQL Server 几十个库）连接时串行 N+1 查询过慢。
-        // 并发度限制为 8：多库实例时进一步压缩总耗时，同时避免连接风暴；说明：SQL Server / Postgres / DuckDB
-        // 分支在 TryGetSchemasAsync 内部会用目标库自己的解释器查询；Oracle/DM 分支复用默认解释器（覆盖 Database 会破坏连接串）。
-        using var schemaSemaphore = new SemaphoreSlim(8);
-        var schemaLists = await Task.WhenAll(
-            databases.Select(db => Task.Run(async () =>
-            {
-                await schemaSemaphore.WaitAsync(cancellationToken);
-                try
+        List<DatabaseSchema>[] schemaLists;
+
+        if (string.Equals(connection.DatabaseType, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            // SQL Server 优化：用单连接 + ChangeDatabase 枚举所有库的 schema。
+            // 原实现为每个库创建独立解释器（连接串 Initial Catalog 不同 → 独立连接池），
+            // 首次连接时所有池均为冷池，N 个库意味着 N 次物理 TCP+认证，多库实例下耗时显著。
+            schemaLists = await GetSchemasSingleConnectionAsync(connection, databases, cancellationToken);
+        }
+        else
+        {
+            // 其他数据库：并行枚举各库的 schema 列表，并发度限制为 8 以避免连接风暴。
+            using var schemaSemaphore = new SemaphoreSlim(8);
+            schemaLists = await Task.WhenAll(
+                databases.Select(db => Task.Run(async () =>
                 {
-                    return await TryGetSchemasAsync(connection, interpreter, db.Name);
-                }
-                finally
-                {
-                    schemaSemaphore.Release();
-                }
-            }, cancellationToken)));
+                    await schemaSemaphore.WaitAsync(cancellationToken);
+                    try
+                    {
+                        return await TryGetSchemasAsync(connection, interpreter, db.Name);
+                    }
+                    finally
+                    {
+                        schemaSemaphore.Release();
+                    }
+                }, cancellationToken)));
+        }
 
         for (int i = 0; i < databases.Count; i++)
         {
@@ -532,6 +542,45 @@ public class DefaultDbSchemaService : IDbSchemaService
             IsPlaceholder = true,
         });
         parent.AddChild(folder);
+    }
+
+    /// <summary>
+    /// SQL Server 专用：用单连接 + ChangeDatabase 顺序枚举所有数据库的 schema。
+    /// 首次连接时避免为每个库建立独立物理连接，显著降低多库实例的连接开销。
+    /// 单个库无权限或切换失败时静默返回空 schema 列表（与 TryGetSchemasAsync 行为一致）。
+    /// </summary>
+    private async Task<List<DatabaseSchema>[]> GetSchemasSingleConnectionAsync(
+        ConnectionItem connection, List<Database> databases, CancellationToken cancellationToken)
+    {
+        var schemaLists = new List<DatabaseSchema>[databases.Count];
+        var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
+        var dbConnection = interpreter.CreateConnection();
+
+        try
+        {
+            await interpreter.OpenConnectionAsync(dbConnection);
+
+            for (int i = 0; i < databases.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    dbConnection.ChangeDatabase(databases[i].Name);
+                    schemaLists[i] = await interpreter.GetDatabaseSchemasAsync(dbConnection);
+                }
+                catch
+                {
+                    schemaLists[i] = new List<DatabaseSchema>();
+                }
+            }
+        }
+        finally
+        {
+            dbConnection.Dispose();
+        }
+
+        return schemaLists;
     }
 
     private async Task<List<DatabaseSchema>> TryGetSchemasAsync(ConnectionItem connection, DbInterpreter interpreter, string databaseName)
