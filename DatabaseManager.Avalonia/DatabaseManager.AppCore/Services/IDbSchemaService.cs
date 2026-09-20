@@ -21,6 +21,15 @@ public interface IDbSchemaService
     Task<IReadOnlyList<DbObjectTreeNode>> GetObjectTreeAsync(string connectionName, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 按需加载指定数据库的 Schema 或类型文件夹。
+    /// 用于需要连接到目标数据库才能读取 Schema 的引擎，避免首次连接时遍历所有数据库。
+    /// </summary>
+    Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(
+        string connectionName,
+        string databaseName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 加载某类型文件夹下的具体对象子节点。
     /// 用于按需展开时获取某数据库下某类对象（如表、视图、存储过程等）。
     /// </summary>

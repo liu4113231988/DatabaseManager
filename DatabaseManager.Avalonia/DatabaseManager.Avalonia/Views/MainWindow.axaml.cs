@@ -788,6 +788,9 @@ public partial class MainWindow : Window
 
         switch (node.NodeType)
         {
+            case DbObjectTreeNodeType.Database:
+                await vm.ObjectsExplorer.LoadDatabaseChildrenAsync(node, connectionName);
+                break;
             case DbObjectTreeNodeType.Folder:
                 await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
                 break;

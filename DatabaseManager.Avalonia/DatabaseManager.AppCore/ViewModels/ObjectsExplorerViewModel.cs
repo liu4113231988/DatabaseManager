@@ -306,6 +306,51 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
     /// <summary>预取查询的并发上限（避免展开文件夹时对服务器形成连接风暴）。</summary>
     private static readonly SemaphoreSlim PrefetchGate = new(4);
 
+    /// <summary>按需加载数据库下的 Schema 或类型文件夹，避免跨数据库引擎首次连接时建立额外连接。</summary>
+    public async Task LoadDatabaseChildrenAsync(DbObjectTreeNode databaseNode, string connectionName)
+    {
+        if (databaseNode is null || databaseNode.IsLoaded || databaseNode.NodeType != DbObjectTreeNodeType.Database)
+            return;
+
+        databaseNode.IsLoading = true;
+        databaseNode.LoadCts = new CancellationTokenSource();
+
+        try
+        {
+            var nodes = await _schemaService.GetDatabaseChildrenAsync(
+                connectionName,
+                databaseNode.Name,
+                databaseNode.LoadCts.Token);
+
+            databaseNode.ClearChildren();
+            foreach (var node in nodes)
+            {
+                databaseNode.AddChild(node);
+            }
+            databaseNode.IsLoaded = true;
+            ReapplyFilterIfActive(databaseNode);
+        }
+        catch (OperationCanceledException)
+        {
+            databaseNode.ClearChildren();
+            databaseNode.AddChild(new DbObjectTreeNode
+            {
+                Name = "_Cancelled_",
+                Text = "（已取消加载，再次展开可重试）",
+                NodeType = DbObjectTreeNodeType.Folder,
+                IsPlaceholder = true,
+                IsLoaded = true,
+            });
+            StatusMessage = $"加载数据库 {databaseNode.Name} 已取消。";
+        }
+        finally
+        {
+            databaseNode.IsLoading = false;
+            databaseNode.LoadCts?.Dispose();
+            databaseNode.LoadCts = null;
+        }
+    }
+
     /// <summary>按需展开：一次性全量加载某类型文件夹下的具体对象（表/视图/存储过程等，不再分页）。
     /// 加载完成后并行预取同 Schema 下其余类型文件夹（放入缓存，展开时零等待）。加载中再次双击可取消。</summary>
     public async Task LoadFolderChildrenAsync(DbObjectTreeNode folderNode, string connectionName)

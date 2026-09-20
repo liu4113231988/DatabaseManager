@@ -31,36 +31,44 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
 
-        var databases = (await interpreter.GetDatabasesAsync().WaitAsync(cancellationToken)).OrderBy(d => d.Name).ToList();
-        var result = new List<DbObjectTreeNode>();
-
+        List<Database> databases;
         List<DatabaseSchema>[] schemaLists;
 
-        if (string.Equals(connection.DatabaseType, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(connection.DatabaseType, "SqlServer", StringComparison.OrdinalIgnoreCase)
+            && interpreter is SqlServerInterpreter sqlServerInterpreter)
         {
-            // SQL Server 优化：用单连接 + ChangeDatabase 枚举所有库的 schema。
+            // SQL Server 优化：以同一条连接获取数据库列表，再通过 ChangeDatabase 枚举 schema。
             // 原实现为每个库创建独立解释器（连接串 Initial Catalog 不同 → 独立连接池），
             // 首次连接时所有池均为冷池，N 个库意味着 N 次物理 TCP+认证，多库实例下耗时显著。
-            schemaLists = await GetSchemasSingleConnectionAsync(connection, databases, cancellationToken);
+            (databases, schemaLists) = await GetSchemasSingleConnectionAsync(sqlServerInterpreter, cancellationToken);
         }
         else
         {
-            // 其他数据库：并行枚举各库的 schema 列表，并发度限制为 8 以避免连接风暴。
-            using var schemaSemaphore = new SemaphoreSlim(8);
-            schemaLists = await Task.WhenAll(
-                databases.Select(db => Task.Run(async () =>
+            databases = (await interpreter.GetDatabasesAsync().WaitAsync(cancellationToken)).OrderBy(d => d.Name).ToList();
+
+            if (RequiresDeferredSchemaDiscovery(connection.DatabaseType))
+            {
+                // PostgreSQL/KingbaseES 不能在同一连接内切换数据库；DuckDB 的 catalog 也不应
+                // 被当成新的数据源打开。首次连接只显示数据库节点，展开时再读取目标 Schema。
+                schemaLists = databases.Select(_ => new List<DatabaseSchema>()).ToArray();
+            }
+            else if (connection.DatabaseType is "Oracle" or "DM")
+            {
+                // Oracle/DM 的数据库节点即当前登录用户 Schema，GetDatabasesAsync 已经取得该值，
+                // 无需再次建立连接查询相同信息。
+                schemaLists = databases.Select(db => new List<DatabaseSchema>
                 {
-                    await schemaSemaphore.WaitAsync(cancellationToken);
-                    try
-                    {
-                        return await TryGetSchemasAsync(connection, interpreter, db.Name);
-                    }
-                    finally
-                    {
-                        schemaSemaphore.Release();
-                    }
-                }, cancellationToken)));
+                    new() { Name = db.Name, Schema = db.Name },
+                }).ToArray();
+            }
+            else
+            {
+                // MySQL/SQLite 没有独立 Schema 层级；不需要为各数据库额外发起查询。
+                schemaLists = databases.Select(_ => new List<DatabaseSchema>()).ToArray();
+            }
         }
+
+        var result = new List<DbObjectTreeNode>();
 
         for (int i = 0; i < databases.Count; i++)
         {
@@ -77,38 +85,43 @@ public class DefaultDbSchemaService : IDbSchemaService
                 DbObject = db,
             };
 
-            // 判断是否为多 Schema 结构（SQL Server/Postgres/Oracle 等），结果来自并行枚举。
-            if (schemas.Count > 1)
+            if (RequiresDeferredSchemaDiscovery(connection.DatabaseType))
             {
-                foreach (var schema in schemas.OrderBy(s => s.Name))
-                {
-                    var schemaNode = new DbObjectTreeNode
-                    {
-                        Name = schema.Name,
-                        Text = schema.Name,
-                        NodeType = DbObjectTreeNodeType.Schema,
-                        DatabaseObjectType = DatabaseObjectType.None,
-                        DatabaseName = db.Name,
-                        Schema = schema.Name,
-                        DbObject = schema,
-                    };
-                    AddTypeFolders(schemaNode, interpreter, db.Name, schema.Name);
-                    dbNode.AddChild(schemaNode);
-                }
+                AddDatabasePlaceholder(dbNode);
             }
             else
             {
-                // 单 Schema：若恰好能枚举出唯一 schema（如 SQL Server 的 dbo、Oracle 当前用户），
-                // 将其作为过滤条件传入，避免表查询混入其他 schema 的对象；
-                // MySQL/SQLite 无 schema 概念时 TryGetSchemasAsync 返回空，schema 保持 null。
-                string? singleSchema = schemas.Count == 1 ? schemas[0].Name : null;
-                AddTypeFolders(dbNode, interpreter, db.Name, singleSchema);
+                AddDatabaseChildren(dbNode, interpreter, schemas);
             }
 
             result.Add(dbNode);
         }
 
         return result;
+    }
+
+    public async Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(
+        string connectionName,
+        string databaseName,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+            return new List<DbObjectTreeNode>();
+
+        var interpreter = string.Equals(connection.DatabaseType, "DuckDB", StringComparison.OrdinalIgnoreCase)
+            ? CreateInterpreter(connection)
+            : CreateInterpreter(connection, databaseName);
+        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName, cancellationToken);
+        var databaseNode = new DbObjectTreeNode
+        {
+            Name = databaseName,
+            Text = databaseName,
+            NodeType = DbObjectTreeNodeType.Database,
+            DatabaseName = databaseName,
+        };
+        AddDatabaseChildren(databaseNode, interpreter, schemas);
+        return databaseNode.Children.ToList();
     }
 
     public async Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
@@ -118,7 +131,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             return false;
 
         var interpreter = CreateInterpreter(connection, databaseName);
-        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName);
+        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName, cancellationToken);
         return schemas.Count > 1;
     }
 
@@ -129,7 +142,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             return new List<DbObjectTreeNode>();
 
         var interpreter = CreateInterpreter(connection, databaseName);
-        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName);
+        var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName, cancellationToken);
 
         return schemas.OrderBy(s => s.Name)
                       .Select(s => new DbObjectTreeNode
@@ -522,6 +535,47 @@ public class DefaultDbSchemaService : IDbSchemaService
             AddFolder(parent, "Sequences", DatabaseObjectType.Sequence, databaseName, schema);
     }
 
+    /// <summary>按 Schema 数量构造数据库子节点：多 Schema 时分组，其他情况直接放置类型文件夹。</summary>
+    private void AddDatabaseChildren(DbObjectTreeNode databaseNode, DbInterpreter interpreter, IReadOnlyList<DatabaseSchema> schemas)
+    {
+        if (schemas.Count > 1)
+        {
+            foreach (var schema in schemas.OrderBy(s => s.Name))
+            {
+                var schemaNode = new DbObjectTreeNode
+                {
+                    Name = schema.Name,
+                    Text = schema.Name,
+                    NodeType = DbObjectTreeNodeType.Schema,
+                    DatabaseObjectType = DatabaseObjectType.None,
+                    DatabaseName = databaseNode.Name,
+                    Schema = schema.Name,
+                    DbObject = schema,
+                };
+                AddTypeFolders(schemaNode, interpreter, databaseNode.Name, schema.Name);
+                databaseNode.AddChild(schemaNode);
+            }
+
+            return;
+        }
+
+        // 单 Schema：传入过滤条件，避免查询混入其他 Schema 的对象；MySQL/SQLite 无 Schema 时为 null。
+        string? singleSchema = schemas.Count == 1 ? schemas[0].Name : null;
+        AddTypeFolders(databaseNode, interpreter, databaseNode.Name, singleSchema);
+    }
+
+    /// <summary>为按需加载的数据库预置占位节点，以显示展开箭头。</summary>
+    private static void AddDatabasePlaceholder(DbObjectTreeNode databaseNode)
+    {
+        databaseNode.AddChild(new DbObjectTreeNode
+        {
+            Name = "_Placeholder_",
+            Text = string.Empty,
+            NodeType = DbObjectTreeNodeType.Folder,
+            IsPlaceholder = true,
+        });
+    }
+
     private static void AddFolder(DbObjectTreeNode parent, string text, DatabaseObjectType type, string databaseName, string? schema)
     {
         var folder = new DbObjectTreeNode
@@ -545,60 +599,70 @@ public class DefaultDbSchemaService : IDbSchemaService
     }
 
     /// <summary>
-    /// SQL Server 专用：用单连接 + ChangeDatabase 顺序枚举所有数据库的 schema。
-    /// 首次连接时避免为每个库建立独立物理连接，显著降低多库实例的连接开销。
+    /// SQL Server 专用：在单连接上读取数据库列表，再用 ChangeDatabase 顺序枚举各库的 schema。
+    /// 首次连接时避免为每个库建立独立物理连接，也避免数据库列表与 schema 枚举各自建立连接。
     /// 单个库无权限或切换失败时静默返回空 schema 列表（与 TryGetSchemasAsync 行为一致）。
     /// </summary>
-    private async Task<List<DatabaseSchema>[]> GetSchemasSingleConnectionAsync(
-        ConnectionItem connection, List<Database> databases, CancellationToken cancellationToken)
+    private static async Task<(List<Database> Databases, List<DatabaseSchema>[] SchemaLists)> GetSchemasSingleConnectionAsync(
+        SqlServerInterpreter interpreter, CancellationToken cancellationToken)
     {
+        using var dbConnection = interpreter.CreateConnection();
+
+        // GetDatabasesAsync 会在需要时打开连接；之后的 ChangeDatabase 与 schema 查询复用它。
+        var databases = (await interpreter.GetDatabasesAsync(dbConnection).WaitAsync(cancellationToken))
+            .OrderBy(d => d.Name)
+            .ToList();
         var schemaLists = new List<DatabaseSchema>[databases.Count];
-        var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
-        var dbConnection = interpreter.CreateConnection();
 
-        try
+        for (int i = 0; i < databases.Count; i++)
         {
-            await interpreter.OpenConnectionAsync(dbConnection);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            for (int i = 0; i < databases.Count; i++)
+            try
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                try
-                {
-                    dbConnection.ChangeDatabase(databases[i].Name);
-                    schemaLists[i] = await interpreter.GetDatabaseSchemasAsync(dbConnection);
-                }
-                catch
-                {
-                    schemaLists[i] = new List<DatabaseSchema>();
-                }
+                dbConnection.ChangeDatabase(databases[i].Name);
+                schemaLists[i] = await interpreter.GetDatabaseSchemasAsync(dbConnection).WaitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                schemaLists[i] = new List<DatabaseSchema>();
             }
         }
-        finally
-        {
-            dbConnection.Dispose();
-        }
 
-        return schemaLists;
+        return (databases, schemaLists);
     }
 
-    private async Task<List<DatabaseSchema>> TryGetSchemasAsync(ConnectionItem connection, DbInterpreter interpreter, string databaseName)
+    private async Task<List<DatabaseSchema>> TryGetSchemasAsync(
+        ConnectionItem connection,
+        DbInterpreter interpreter,
+        string databaseName,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             // 仅对支持多 Schema 的数据库（SQL Server/Postgres/KingbaseES/DuckDB/Oracle/DM）枚举；其余返回空。
-            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES" or "DuckDB")
+            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES")
             {
-                // SQL Server、Postgres 与 KingbaseES 的 Schema 是每个数据库独立的，需用目标库自己的解释器查询（避免跨库复用默认库的 schema）。
-                // Oracle 的 Schema 即当前用户，且覆盖 Database 会破坏 Oracle 连接串（服务名），故用默认解释器。
-                var dbInterpreter = CreateInterpreter(connection, databaseName);
-                return await dbInterpreter.GetDatabaseSchemasAsync();
+                // 调用方已为目标库创建解释器；Schema 查询必须在该库自己的连接上执行。
+                return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
+            }
+            if (connection.DatabaseType == "DuckDB")
+            {
+                // DuckDB 的 Database 是文件路径或 :memory: 数据源，而非 catalog 名；复用原连接配置。
+                return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
             }
             if (connection.DatabaseType is "Oracle" or "DM")
             {
-                return await interpreter.GetDatabaseSchemasAsync();
+                return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -607,6 +671,9 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         return new List<DatabaseSchema>();
     }
+
+    private static bool RequiresDeferredSchemaDiscovery(string databaseType)
+        => databaseType is "Postgres" or "KingbaseES" or "DuckDB";
 
     private static DbObjectTreeNode ToNode(DatabaseObject dbObject, string databaseName, string? schema)
     {
@@ -747,7 +814,10 @@ public class DefaultDbSchemaService : IDbSchemaService
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
         var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
-        connectionInfo.Database = useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null;
+        // DuckDB 的 Database 是文件路径或 :memory: 数据源，不能用 catalog 名覆盖；否则会意外打开另一数据库。
+        connectionInfo.Database = dbType == DatabaseType.DuckDB
+            ? connection.Database
+            : useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null;
 
         var option = new DbInterpreterOption
         {

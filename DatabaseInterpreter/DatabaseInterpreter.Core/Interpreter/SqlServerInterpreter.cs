@@ -70,6 +70,18 @@ namespace DatabaseInterpreter.Core
 
             return base.GetDbObjectsAsync<Database>(sql);
         }
+
+        /// <summary>
+        /// Returns the databases visible to the current login using an existing connection.
+        /// This lets callers enumerate databases and then switch between them without
+        /// creating a second physical SQL Server connection.
+        /// </summary>
+        public Task<List<Database>> GetDatabasesAsync(DbConnection dbConnection)
+        {
+            string sql = $@"SELECT name AS [Name] FROM sys.databases {this.GetExcludeBuiltinDbNamesCondition("name")} ORDER BY name";
+
+            return base.GetDbObjectsAsync<Database>(dbConnection, sql);
+        }
         #endregion
 
         #region Database Schema
