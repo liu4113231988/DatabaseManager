@@ -2,6 +2,7 @@
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Profile.Model;
+using DatabaseManager.Profile.Security;
 using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
@@ -23,7 +24,12 @@ namespace DatabaseManager.Profile.Manager
            
         }
 
-        public static async void Init()
+        public static void Init()
+        {
+            InitAsync().GetAwaiter().GetResult();
+        }
+
+        public static async Task InitAsync()
         {
             var assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
@@ -40,16 +46,11 @@ namespace DatabaseManager.Profile.Manager
 
             if (!File.Exists(templateFilePath))
             {
-                return;
+                throw new FileNotFoundException($@"File ""{templateFilePath}"" is not found.", templateFilePath);
             }
 
             if (!File.Exists(dataFilePath))
             {
-                if (!File.Exists(templateFilePath))
-                {
-                    throw new FileNotFoundException($@"File ""{templateFilePath}"" is not found.");
-                }
-
                 File.Copy(templateFilePath, dataFilePath);
 
                 ProfileDataFile = dataFilePath;
@@ -131,6 +132,38 @@ namespace DatabaseManager.Profile.Manager
             }
 
             return value;
+        }
+
+        protected static async Task<string> UnprotectSecretAsync(
+            SqliteConnection connection,
+            string table,
+            string column,
+            object id,
+            string protectedValue)
+        {
+            string plainText = CredentialProtector.Default.Unprotect(protectedValue, out bool needsMigration);
+            if (!needsMigration)
+            {
+                return plainText;
+            }
+
+            bool allowed = (table, column) switch
+            {
+                ("Account", "Password") => true,
+                ("FileConnection", "Password") => true,
+                ("PersonalSetting", "LockPassword") => true,
+                _ => false,
+            };
+            if (!allowed)
+            {
+                throw new ArgumentException("Unsupported credential storage location.");
+            }
+
+            string migratedValue = CredentialProtector.Default.Protect(plainText);
+            await connection.ExecuteAsync(
+                $"UPDATE {table} SET {column}=@Value WHERE Id=@Id",
+                new { Value = migratedValue, Id = id });
+            return plainText;
         }
 
         protected static bool ExistsProfileDataFile()

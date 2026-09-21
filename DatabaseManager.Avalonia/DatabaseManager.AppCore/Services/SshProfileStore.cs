@@ -1,5 +1,5 @@
 using DatabaseManager.AppCore.Models;
-using DatabaseInterpreter.Utility;
+using DatabaseManager.Profile.Security;
 using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Services;
@@ -16,8 +16,25 @@ public static class SshProfileStore
     {
         lock (Gate)
         {
-            if (id is null || !Load().TryGetValue(id, out var options)) return null;
-            options.Secret = SessionSecrets.TryGetValue(id, out var secret) ? secret : string.IsNullOrEmpty(options.EncryptedSecret) ? "" : AesHelper.Decrypt(options.EncryptedSecret);
+            var items = Load();
+            if (id is null || !items.TryGetValue(id, out var options)) return null;
+            if (SessionSecrets.TryGetValue(id, out var secret))
+            {
+                options.Secret = secret;
+            }
+            else if (string.IsNullOrEmpty(options.EncryptedSecret))
+            {
+                options.Secret = "";
+            }
+            else
+            {
+                options.Secret = CredentialProtector.Default.Unprotect(options.EncryptedSecret, out bool needsMigration);
+                if (needsMigration)
+                {
+                    options.EncryptedSecret = CredentialProtector.Default.Protect(options.Secret);
+                    Write(items);
+                }
+            }
             return options;
         }
     }
@@ -31,13 +48,18 @@ public static class SshProfileStore
             {
                 SessionSecrets[id] = options.Secret;
                 var copy = JsonConvert.DeserializeObject<SshTunnelOptions>(JsonConvert.SerializeObject(options))!;
-                copy.EncryptedSecret = remember && options.Secret.Length > 0 ? AesHelper.Encrypt(options.Secret) : "";
+                copy.EncryptedSecret = remember && options.Secret.Length > 0 ? CredentialProtector.Default.Protect(options.Secret) : "";
                 items[id] = copy;
             }
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            var temp = FilePath + ".tmp";
-            File.WriteAllText(temp, JsonConvert.SerializeObject(items, Formatting.Indented));
-            File.Move(temp, FilePath, true);
+            Write(items);
         }
+    }
+
+    private static void Write(Dictionary<string, SshTunnelOptions> items)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+        var temp = FilePath + ".tmp";
+        File.WriteAllText(temp, JsonConvert.SerializeObject(items, Formatting.Indented));
+        File.Move(temp, FilePath, true);
     }
 }

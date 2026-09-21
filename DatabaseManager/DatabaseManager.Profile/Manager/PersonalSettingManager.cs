@@ -1,6 +1,6 @@
 ﻿using Dapper;
-using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
+using DatabaseManager.Profile.Security;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -22,7 +22,7 @@ namespace DatabaseManager.Profile.Manager
 
                     if(setting!=null && !string.IsNullOrEmpty(setting.LockPassword))
                     {
-                        setting.LockPassword = AesHelper.Decrypt(setting.LockPassword);
+                        setting.LockPassword = await UnprotectSecretAsync(connection, "PersonalSetting", "LockPassword", setting.Id, setting.LockPassword);
                     }
 
                     return setting;
@@ -47,7 +47,7 @@ namespace DatabaseManager.Profile.Manager
                     var cmd = connection.CreateCommand();
                     cmd.CommandText = sql;
 
-                    string lockPassword = string.IsNullOrEmpty(setting.LockPassword) ? null : AesHelper.Encrypt(setting.LockPassword);
+                    string lockPassword = string.IsNullOrEmpty(setting.LockPassword) ? null : CredentialProtector.Default.Protect(setting.LockPassword);
 
                     cmd.Parameters.AddWithValue("@LockPassword", GetParameterValue(lockPassword));
 

@@ -2,6 +2,7 @@
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
+using DatabaseManager.Profile.Security;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -77,7 +78,7 @@ namespace DatabaseManager.Profile.Manager
                     {
                         if (!string.IsNullOrEmpty(profile.Password))
                         {
-                            profile.Password = AesHelper.Decrypt(profile.Password);
+                            profile.Password = await UnprotectSecretAsync(connection, "FileConnection", "Password", profile.Id, profile.Password);
                         }
                     }
                 }
@@ -105,7 +106,7 @@ namespace DatabaseManager.Profile.Manager
 
                 if (!string.IsNullOrEmpty(password) && rememberPassword)
                 {
-                    password = AesHelper.Encrypt(password);
+                    password = CredentialProtector.Default.Protect(password);
                 }
                 else
                 {

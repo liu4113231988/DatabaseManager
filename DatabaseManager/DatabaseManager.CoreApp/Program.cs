@@ -16,16 +16,25 @@ namespace DatabaseManager
         [STAThread]
         static void Main()
         {
-            DbInterpreter.Setting = SettingManager.GetInterpreterSetting();
+            ApplicationExceptionHandler.Register();
 
-            ProfileBaseManager.Init();
+            try
+            {
+                DbInterpreter.Setting = SettingManager.GetInterpreterSetting();
 
-            AntdUiThemeHelper.ApplyGlobalTheme(SettingManager.Setting.ThemeOption.ThemeType);
+                ProfileBaseManager.Init();
 
-            Application.SetHighDpiMode(HighDpiMode.SystemAware);
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new frmMain());
+                AntdUiThemeHelper.ApplyGlobalTheme(SettingManager.Setting.ThemeOption.ThemeType);
+
+                Application.SetHighDpiMode(HighDpiMode.SystemAware);
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new frmMain());
+            }
+            catch (Exception ex)
+            {
+                ApplicationExceptionHandler.Report(ex, "应用启动");
+            }
         }
     }
 }

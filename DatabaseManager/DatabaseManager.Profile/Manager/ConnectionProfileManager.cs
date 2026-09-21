@@ -1,7 +1,6 @@
 ﻿using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
-using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
 using System;
 using System.Collections.Generic;
@@ -100,7 +99,7 @@ namespace DatabaseManager.Profile.Manager
                         {
                             if (!string.IsNullOrEmpty(profile.Password))
                             {
-                                profile.Password = AesHelper.Decrypt(profile.Password);
+                                profile.Password = await UnprotectSecretAsync(connection, "Account", "Password", profile.AccountId, profile.Password);
                             }
                         }
                     }

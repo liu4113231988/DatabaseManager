@@ -1709,7 +1709,7 @@ public partial class MainWindow : Window
         var planVm = _services.GetRequiredService<ExecutionPlanViewModel>();
         planVm.Connection = vm.SelectedConnection;
         planVm.SqlText = sql!;
-        new ExecutionPlanWindow(planVm).ShowDialog(this);
+        await new ExecutionPlanWindow(planVm).ShowDialog(this);
     }
 
     #endregion
@@ -2226,16 +2226,17 @@ public partial class MainWindow : Window
         return new ObjectTreeContextMenuBuilder(
             vm,
             ObjectsTree,
-            asyncAction: async (action) => action(),
+            asyncAction: action => AppExceptionHandler.Run(action, "对象树操作"),
             connectionService: connectionService,
             ddlService: ddlService,
-            openConnectionManager: () => _ = OpenConnectionManagerAsync(),
-            openTableDesigner: (n, isNew) => _ = isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n),
-            openExportWindow: (n) => _ = OpenExportWindowForTableAsync(n),
-            openImportWindow: (n) => _ = OpenImportWindowForTableAsync(n),
-            openSchemaCompare: (n) => _ = OpenSchemaCompareForNodeAsync(n),
-            openDataCompare: (n) => _ = OpenDataCompareForNodeAsync(n),
-            openConvert: (n) => _ = OpenConvertForNodeAsync(n));
+            openConnectionManager: () => AppExceptionHandler.Run(OpenConnectionManagerAsync, "打开连接管理"),
+            openTableDesigner: (n, isNew) => AppExceptionHandler.Run(
+                () => isNew ? OpenNewTableDesignerAsync(n) : OpenTableDesignerAsync(n), "打开表设计器"),
+            openExportWindow: n => AppExceptionHandler.Run(() => OpenExportWindowForTableAsync(n), "打开导出窗口"),
+            openImportWindow: n => AppExceptionHandler.Run(() => OpenImportWindowForTableAsync(n), "打开导入窗口"),
+            openSchemaCompare: n => AppExceptionHandler.Run(() => OpenSchemaCompareForNodeAsync(n), "打开结构对比"),
+            openDataCompare: n => AppExceptionHandler.Run(() => OpenDataCompareForNodeAsync(n), "打开数据对比"),
+            openConvert: n => AppExceptionHandler.Run(() => OpenConvertForNodeAsync(n), "打开数据库转换"));
     }
 
     /// <summary>P2: 为节点打开结构对比窗口。</summary>

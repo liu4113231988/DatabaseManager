@@ -209,13 +209,16 @@ public class DefaultBackupService : IBackupService
         if (string.IsNullOrWhiteSpace(connection.UserId) || string.IsNullOrWhiteSpace(connection.Password))
             return new BackupResultItem(false, "Oracle 恢复需要用户名和密码。", string.Empty);
 
-        var service = string.IsNullOrWhiteSpace(connection.Port) ? connection.Server : $"{connection.Server}:{connection.Port}";
-        var args = new List<string>
-        {
-            $"userid={connection.UserId}/{connection.Password}@{service}/{connection.Database}",
-            $"file={backupFilePath}", "full=y", "ignore=y", "commit=y",
-        };
-        return await RunToolAsync(toolPath!, args, null, null, string.Empty, feedback, ct);
+        var invocation = BuildOracleRestoreInvocation(connection, backupFilePath);
+        return await RunToolAsync(
+            toolPath!,
+            invocation.Arguments,
+            null,
+            null,
+            string.Empty,
+            feedback,
+            ct,
+            invocation.StandardInput);
     }
 
     private static Task<BackupResultItem> RestoreSqliteAsync(
@@ -272,10 +275,26 @@ public class DefaultBackupService : IBackupService
         return args;
     }
 
-    private static async Task<BackupResultItem> RunToolAsync(
-        string toolPath, IEnumerable<string> arguments, string? password, string? standardInputFile, string passwordVariable, Action<string>? feedback, CancellationToken ct)
+    internal static OracleRestoreInvocation BuildOracleRestoreInvocation(ConnectionItem connection, string backupFilePath)
     {
-        using var process = new Process { StartInfo = new ProcessStartInfo(toolPath) { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = standardInputFile is not null, UseShellExecute = false, CreateNoWindow = true } };
+        var service = string.IsNullOrWhiteSpace(connection.Port) ? connection.Server : $"{connection.Server}:{connection.Port}";
+        var connectName = $"{connection.UserId}@{service}/{connection.Database}";
+        var standardInput = string.Join(Environment.NewLine, connectName, connection.Password, string.Empty);
+        var arguments = new[] { $"file={backupFilePath}", "full=y", "ignore=y", "commit=y" };
+        return new OracleRestoreInvocation(arguments, standardInput);
+    }
+
+    private static async Task<BackupResultItem> RunToolAsync(
+        string toolPath,
+        IEnumerable<string> arguments,
+        string? password,
+        string? standardInputFile,
+        string passwordVariable,
+        Action<string>? feedback,
+        CancellationToken ct,
+        string? standardInputText = null)
+    {
+        using var process = new Process { StartInfo = new ProcessStartInfo(toolPath) { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = standardInputFile is not null || standardInputText is not null, UseShellExecute = false, CreateNoWindow = true } };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
         if (!string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(passwordVariable)) process.StartInfo.Environment[passwordVariable] = password;
         process.Start();
@@ -285,7 +304,12 @@ public class DefaultBackupService : IBackupService
         var errorTask = process.StandardError.ReadToEndAsync();
         try
         {
-            if (standardInputFile is not null)
+            if (standardInputText is not null)
+            {
+                await process.StandardInput.WriteAsync(standardInputText.AsMemory(), ct);
+                process.StandardInput.Close();
+            }
+            else if (standardInputFile is not null)
             {
                 await using var source = File.OpenRead(standardInputFile);
                 await source.CopyToAsync(process.StandardInput.BaseStream, ct);
@@ -310,3 +334,5 @@ public class DefaultBackupService : IBackupService
 
     private static string QuoteSqlServerIdentifier(string value) => $"[{value.Replace("]", "]]", StringComparison.Ordinal)}]";
 }
+
+internal sealed record OracleRestoreInvocation(IReadOnlyList<string> Arguments, string StandardInput);

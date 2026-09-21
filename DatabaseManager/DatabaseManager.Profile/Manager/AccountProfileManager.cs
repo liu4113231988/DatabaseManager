@@ -2,6 +2,7 @@
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
+using DatabaseManager.Profile.Security;
 using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
@@ -36,7 +37,7 @@ namespace DatabaseManager.Profile.Manager
                     {
                         if (!profile.IntegratedSecurity && !string.IsNullOrEmpty(profile.Password))
                         {
-                            profile.Password = AesHelper.Decrypt(profile.Password);
+                            profile.Password = await UnprotectSecretAsync(connection, "Account", "Password", profile.Id, profile.Password);
                         }
                     }
                 }
@@ -93,7 +94,7 @@ namespace DatabaseManager.Profile.Manager
 
                     if (profile != null && !string.IsNullOrEmpty(profile.Password))
                     {
-                        profile.Password = AesHelper.Decrypt(profile.Password);
+                        profile.Password = await UnprotectSecretAsync(connection, "Account", "Password", profile.Id, profile.Password);
                     }
                 }
             }
@@ -126,7 +127,7 @@ namespace DatabaseManager.Profile.Manager
 
                     if (profile != null && !string.IsNullOrEmpty(profile.Password))
                     {
-                        profile.Password = AesHelper.Decrypt(profile.Password);
+                        profile.Password = await UnprotectSecretAsync(connection, "Account", "Password", profile.Id, profile.Password);
                     }
                 }
             }
@@ -181,7 +182,7 @@ namespace DatabaseManager.Profile.Manager
                 }
                 else if (rememberPassword && !string.IsNullOrEmpty(info.Password))
                 {
-                    password = AesHelper.Encrypt(info.Password);
+                    password = CredentialProtector.Default.Protect(info.Password);
                 }
 
                 string sql = $"SELECT IFNULL(MAX(Priority),0) as MaxId FROM Account WHERE DatabaseType=@DatabaseType";
@@ -219,18 +220,17 @@ namespace DatabaseManager.Profile.Manager
             {
                 id = oldProfile.Id;
 
-                string password = oldProfile.Password;
+                string password = null;
 
                 if (rememberPassword)
                 {
-                    if (!string.IsNullOrEmpty(info.Password))
+                    string plainPassword = !string.IsNullOrEmpty(info.Password)
+                        ? info.Password
+                        : oldProfile.Password;
+                    if (!string.IsNullOrEmpty(plainPassword))
                     {
-                        password = AesHelper.Encrypt(info.Password);
+                        password = CredentialProtector.Default.Protect(plainPassword);
                     }
-                }
-                else
-                {
-                    password = null;
                 }
 
                 string sql = $@"UPDATE Account SET 

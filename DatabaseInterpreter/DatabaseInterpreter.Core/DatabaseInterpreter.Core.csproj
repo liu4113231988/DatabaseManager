@@ -180,6 +180,8 @@
     <PackageReference Include="SqlSugarCore.Kdbndp" Version="9.3.8.413" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+    <!-- Override the vulnerable native SQLite transitively selected by Microsoft.Data.Sqlite. -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
   <ItemGroup>

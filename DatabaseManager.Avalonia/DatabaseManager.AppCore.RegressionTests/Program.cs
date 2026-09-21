@@ -5,6 +5,10 @@ using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
+using DatabaseManager.Profile.Manager;
+using DatabaseManager.Profile.Security;
+using System.Security.Cryptography;
+using System.Text;
 
 static class Program
 {
@@ -72,6 +76,10 @@ static class Program
             "KingbaseES PG 兼容路径应使用 PostgreSQL 脚本生成器。 ");
         AssertTrue(!kingbaseInterpreter.SupportBulkCopy,
             "Kdbndp 二进制批量导入尚未验证前，KingbaseES 必须退回可回放的参数化批量插入。 ");
+
+        VerifyCredentialProtection();
+        VerifyOracleRestoreDoesNotExposePassword();
+        VerifyProfileInitializationIsCatchable();
         var kingbaseCondition = new QueryConditionBuilder
         {
             DatabaseType = DatabaseType.KingbaseES,
@@ -97,6 +105,88 @@ static class Program
 
         Console.WriteLine("All regression checks passed.");
         return 0;
+    }
+
+    private static void VerifyCredentialProtection()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), $"dbm-credential-{Guid.NewGuid():N}");
+        try
+        {
+            var protector = new CredentialProtector(folder);
+            const string secret = "P@ssw0rd-安全";
+            var first = protector.Protect(secret);
+            var second = protector.Protect(secret);
+
+            AssertTrue(CredentialProtector.IsCurrentFormat(first), "保存的凭据必须使用带版本的安全格式。");
+            AssertTrue(!string.Equals(first, second, StringComparison.Ordinal), "相同凭据每次加密必须产生不同密文。");
+            AssertEqual(secret, protector.Unprotect(first));
+
+            var legacy = CreateLegacyCiphertext(secret);
+            AssertEqual(secret, protector.Unprotect(legacy, out bool needsMigration));
+            AssertTrue(needsMigration, "旧版凭据读取后必须标记为待迁移。");
+
+            var tampered = first.ToCharArray();
+            var index = first.LastIndexOf(':') + 2;
+            tampered[index] = tampered[index] == 'A' ? 'B' : 'A';
+            bool rejected = false;
+            try
+            {
+                protector.Unprotect(new string(tampered));
+            }
+            catch (CryptographicException)
+            {
+                rejected = true;
+            }
+            AssertTrue(rejected, "被篡改的凭据密文必须被拒绝。");
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private static string CreateLegacyCiphertext(string plainText)
+    {
+        using var aes = Aes.Create();
+        aes.Key = Encoding.UTF8.GetBytes(string.Concat("FA5DEAAB-5171-", "405A-9CED-E2C6DED6"));
+        aes.IV = Encoding.UTF8.GetBytes(string.Concat("12345678", "12345678"));
+        using var encryptor = aes.CreateEncryptor();
+        var plain = Encoding.UTF8.GetBytes(plainText);
+        try
+        {
+            return Convert.ToBase64String(encryptor.TransformFinalBlock(plain, 0, plain.Length));
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(plain);
+        }
+    }
+
+    private static void VerifyOracleRestoreDoesNotExposePassword()
+    {
+        var connection = new ConnectionItem
+        {
+            Server = "db.example.test",
+            Port = "1521",
+            Database = "ORCL",
+            UserId = "restore_user",
+            Password = "command-line-secret",
+        };
+        var invocation = DefaultBackupService.BuildOracleRestoreInvocation(connection, "backup.dmp");
+        AssertTrue(invocation.Arguments.All(argument => !argument.Contains(connection.Password, StringComparison.Ordinal)),
+            "Oracle 恢复命令行不得包含密码。");
+        AssertContains("restore_user@db.example.test:1521/ORCL", invocation.StandardInput);
+        AssertContains(connection.Password, invocation.StandardInput);
+    }
+
+    private static void VerifyProfileInitializationIsCatchable()
+    {
+        var syncInit = typeof(ProfileBaseManager).GetMethod(nameof(ProfileBaseManager.Init));
+        var asyncInit = typeof(ProfileBaseManager).GetMethod(nameof(ProfileBaseManager.InitAsync));
+        AssertTrue(syncInit?.ReturnType == typeof(void), "Profile 同步初始化入口必须保留兼容性。");
+        AssertTrue(asyncInit?.ReturnType == typeof(Task), "Profile 异步初始化必须返回 Task，禁止 async void 丢失异常。");
+        AssertTrue(syncInit?.GetCustomAttributes(typeof(System.Runtime.CompilerServices.AsyncStateMachineAttribute), false).Length == 0,
+            "Profile 同步初始化入口不得是 async void。");
     }
 
     private static void AssertEqual(string? expected, string? actual)

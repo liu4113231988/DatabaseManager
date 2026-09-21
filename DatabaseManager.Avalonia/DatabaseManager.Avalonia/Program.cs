@@ -14,17 +14,28 @@ sealed class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        // 冒烟测试模式：仅用于自动拍屏验证，启动后自动连接默认测试库、打开关键窗口并渲染若干画面后退出。
-        if (args.Any(a => string.Equals(a, "--smoke", StringComparison.OrdinalIgnoreCase)))
-        {
-            SmokeRequested = true;
-            SmokeArgs = args;
-            // 立即初始化日志（WinExe 无 console，必须写到文件），让 App 启动阶段任何异常都能被记录。
-            DatabaseManager.Avalonia.Smoke.SmokeHarness.Run(args);
-        }
+        AppExceptionHandler.Register();
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-        return Environment.ExitCode;
+        try
+        {
+            // 冒烟测试模式：仅用于自动拍屏验证，启动后自动连接默认测试库、打开关键窗口并渲染若干画面后退出。
+            if (args.Any(a => string.Equals(a, "--smoke", StringComparison.OrdinalIgnoreCase)))
+            {
+                SmokeRequested = true;
+                SmokeArgs = args;
+                // 立即初始化日志（WinExe 无 console，必须写到文件），让 App 启动阶段任何异常都能被记录。
+                DatabaseManager.Avalonia.Smoke.SmokeHarness.Run(args);
+            }
+
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            return Environment.ExitCode;
+        }
+        catch (Exception ex)
+        {
+            // 图形平台本身尚未启动时无法安全显示跨平台窗口，但仍保留完整诊断日志。
+            AppExceptionHandler.Report(ex, "应用启动", showDialog: false);
+            return 1;
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp()

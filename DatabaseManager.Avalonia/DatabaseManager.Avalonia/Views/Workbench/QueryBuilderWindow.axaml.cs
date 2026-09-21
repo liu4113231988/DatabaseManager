@@ -93,7 +93,9 @@ public sealed partial class QueryBuilderWindow : Window
             {
                 var transfer = new DataTransfer();
                 transfer.Add(DataTransferItem.CreateText(source.DisplayName));
-                _ = DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Copy);
+                AppExceptionHandler.Run(
+                    () => DragDrop.DoDragDropAsync(e, transfer, DragDropEffects.Copy),
+                    "拖拽查询对象");
             }
         }, RoutingStrategies.Bubble, true);
         DragDrop.AddDragOverHandler(DropArea, (_, e) => e.DragEffects = DragDropEffects.Copy);

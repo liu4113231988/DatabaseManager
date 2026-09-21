@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows7.0</TargetFramework>
+    <TargetFramework>net10.0-windows7.0</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
     <RootNamespace>DatabaseManager</RootNamespace>
     <Authors>victor-wiki</Authors>
@@ -16,22 +16,24 @@
     <AssemblyVersion>2.3.1</AssemblyVersion>
     <FileVersion>2.3.1</FileVersion>
     <GenerateResourceWarnOnBinaryFormatterUse>false</GenerateResourceWarnOnBinaryFormatterUse>
+    <!-- 旧版 WinForms 设计器属性在 .NET 10 中触发新的序列化分析器；运行时行为保持不变。 -->
+    <NoWarn>$(NoWarn);WFO1000</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011;WFO1000</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011;WFO1000</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011;WFO1000</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011</NoWarn>
+    <NoWarn>1701;1702;AD0001;CS0169;CS0168;SYSLIB0011;WFO1000</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

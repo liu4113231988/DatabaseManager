@@ -36,24 +36,31 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
-        // 注册代码页编码提供程序（GBK/GB18030 等在 .NET Core 后需显式注册）。
-        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-
-        // 初始化 Profile 数据文件（连接/账号/文件连接配置），对应原 WinForms Program.Main 中的 ProfileBaseManager.Init()
-        ProfileBaseManager.Init();
-
-        // 构建 DI 容器并注册 AppCore 服务
-        _services = new ServiceCollection()
-            .AddAppCore()
-            .BuildServiceProvider();
-
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
+            try
             {
-                DataContext = _services.GetRequiredService<MainWindowViewModel>(),
-                Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
-            };
+                // 注册代码页编码提供程序（GBK/GB18030 等在 .NET Core 后需显式注册）。
+                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+                // 配置文件必须在构建服务和窗口前完成初始化，避免 async void 把失败抛到进程级。
+                ProfileBaseManager.Init();
+
+                _services = new ServiceCollection()
+                    .AddAppCore()
+                    .BuildServiceProvider();
+
+                desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
+                {
+                    DataContext = _services.GetRequiredService<MainWindowViewModel>(),
+                    Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
+                };
+            }
+            catch (Exception ex)
+            {
+                AppExceptionHandler.Report(ex, "应用初始化", showDialog: false);
+                desktop.MainWindow = CreateStartupErrorWindow(ex);
+            }
 
             // 冒烟测试模式：主窗口就绪后异步驱动全界面拍屏；完成后自动 Shutdown。
             if (Program.SmokeRequested)
@@ -80,5 +87,45 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static global::Avalonia.Controls.Window CreateStartupErrorWindow(Exception exception)
+    {
+        var window = new global::Avalonia.Controls.Window
+        {
+            Title = "DatabaseManager - 启动失败",
+            Width = 620,
+            Height = 300,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+        };
+        var closeButton = new global::Avalonia.Controls.Button
+        {
+            Content = "关闭",
+            HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Right,
+            MinWidth = 90,
+        };
+        closeButton.Click += (_, _) => window.Close();
+        window.Content = new StackPanel
+        {
+            Margin = new Thickness(24),
+            Spacing = 16,
+            Children =
+            {
+                new global::Avalonia.Controls.TextBlock
+                {
+                    Text = "应用初始化失败",
+                    FontSize = 22,
+                    FontWeight = global::Avalonia.Media.FontWeight.SemiBold,
+                },
+                new global::Avalonia.Controls.TextBlock
+                {
+                    Text = AppExceptionHandler.BuildUserMessage(exception, "应用初始化"),
+                    TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,
+                },
+                closeButton,
+            },
+        };
+        return window;
     }
 }
