@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Profile.Model;
@@ -31,7 +31,10 @@ namespace DatabaseManager.Profile.Manager
 
         public static async Task InitAsync()
         {
-            var assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            // single-file 发布模式下 Assembly.Location 可能为 null，用 AppContext.BaseDirectory 兜底
+            var assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+                ?? AppContext.BaseDirectory
+                ?? Environment.CurrentDirectory;
 
             string folder = Path.Combine(assemblyFolder, ProfileFolder);
 
