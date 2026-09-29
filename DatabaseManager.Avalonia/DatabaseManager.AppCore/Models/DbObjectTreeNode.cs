@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Services;
 
 namespace DatabaseManager.AppCore.Models;
 
@@ -253,6 +254,168 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     public DbObjectTreeNode? FindChild(string name, DbObjectTreeNodeType? nodeType = null)
         => Children.FirstOrDefault(c =>
             c.Name == name && (nodeType is null || c.NodeType == nodeType));
+
+    /// <summary>
+    /// 生成拖拽到 SQL 编辑器时插入的文本（默认模式）。
+    /// 表/视图自动包含 schema 限定名并按目标数据库方言正确引用标识符；
+    /// 列名直接返回名称（由用户自行添加限定前缀）。
+    /// </summary>
+    public string GetDragDropSqlText() => GetDragDropSqlText(DragTextMode.Default);
+
+    /// <summary>
+    /// 按修饰键模式生成拖拽插入文本。
+    /// Ctrl → 纯名称无引号；Shift+表 → SELECT 模板；Shift+列 → column AS alias。
+    /// </summary>
+    public string GetDragDropSqlText(DragTextMode mode)
+    {
+        if (string.IsNullOrWhiteSpace(Name))
+            return string.Empty;
+
+        var dbType = GetDatabaseType();
+
+        // Ctrl → 纯名称模式，跳过 schema 和引号
+        if (mode == DragTextMode.PlainName)
+        {
+            return Name;
+        }
+
+        // Shift 修饰的特殊模板
+        if (mode == DragTextMode.SelectTemplate)
+        {
+            // 只有表/视图生成 SELECT 模板，其他降级为默认
+            if (NodeType == DbObjectTreeNodeType.DbObject
+                && DatabaseObjectType is DatabaseObjectType.Table or DatabaseObjectType.View)
+            {
+                var qualified = BuildQualifiedName(dbType);
+                return $"SELECT * FROM {qualified};";
+            }
+            // 非表/视图节点 fallback 到默认
+            mode = DragTextMode.Default;
+        }
+
+        if (mode == DragTextMode.ColumnAlias)
+        {
+            // 只有列节点生成 alias 格式，其他降级为默认
+            if (NodeType == DbObjectTreeNodeType.ChildObject)
+            {
+                var quoted = QuoteIdentifier(Name, dbType);
+                return $"{quoted} AS {Name}";
+            }
+            mode = DragTextMode.Default;
+        }
+
+        // 默认模式
+        return mode switch
+        {
+            DragTextMode.Default => BuildQualifiedOrPlain(dbType),
+            _ => BuildQualifiedOrPlain(dbType),
+        };
+    }
+
+    /// <summary>默认模式下的文本：表/视图带 schema 限定 + 引号，其余直接引号名称。</summary>
+    private string BuildQualifiedOrPlain(DatabaseType dbType)
+    {
+        switch (NodeType)
+        {
+            case DbObjectTreeNodeType.DbObject:
+                if (DatabaseObjectType is DatabaseObjectType.Table or DatabaseObjectType.View)
+                    return BuildQualifiedName(dbType);
+                return QuoteIdentifier(Name, dbType);
+
+            case DbObjectTreeNodeType.ChildObject:
+                return QuoteIdentifier(Name, dbType);
+
+            default:
+                return QuoteIdentifier(Name, dbType);
+        }
+    }
+
+    /// <summary>按数据库方言构建带 schema 的引号限定名。</summary>
+    private string BuildQualifiedName(DatabaseType dbType)
+    {
+        var schema = Schema ?? Parent?.Schema;
+        if (!string.IsNullOrWhiteSpace(schema))
+        {
+            return $"{QuoteIdentifier(schema, dbType)}.{QuoteIdentifier(Name, dbType)}";
+        }
+        return QuoteIdentifier(Name, dbType);
+    }
+
+    /// <summary>向上追溯到连接节点。</summary>
+    public DbObjectTreeNode? FindConnectionNode()
+    {
+        var current = this;
+        while (current is not null)
+        {
+            if (current.NodeType == DbObjectTreeNodeType.Connection)
+                return current;
+            current = current.Parent;
+        }
+        return null;
+    }
+
+    /// <summary>获取所属连接的数据库类型（解析为 DatabaseType 枚举）；无法确定时返回 Unknown。</summary>
+    public DatabaseType GetDatabaseType()
+    {
+        var connNode = FindConnectionNode();
+        if (connNode?.Connection is not null)
+            return ConnectionHelper.ParseDatabaseType(connNode.Connection.DatabaseType);
+        return DatabaseType.Unknown;
+    }
+
+    /// <summary>
+    /// 按数据库方言给标识符加引号。
+    /// 未知方言或包含特殊字符时保守处理：仅当标识符不是纯字母数字下划线时才添加引号。
+    /// </summary>
+    public static string QuoteIdentifier(string identifier, DatabaseType dbType)
+    {
+        if (string.IsNullOrWhiteSpace(identifier)) return identifier;
+
+        // 纯标识符（字母/数字/下划线开头字母/下划线）在多数数据库中可省略引号
+        bool needsQuote = !IsPlainIdentifier(identifier);
+        if (!needsQuote && dbType == DatabaseType.Unknown)
+            return identifier;
+
+        var (open, close) = dbType switch
+        {
+            DatabaseType.MySql => ("`", "`"),
+            DatabaseType.SqlServer or DatabaseType.Sqlite or DatabaseType.DM => ("[", "]"),
+            // Postgres, KingbaseES, Oracle, DuckDB 及其他统一用双引号
+            _ => ("\"", "\""),
+        };
+
+        // 内部出现结束符时做转义（双写）
+        var escaped = identifier.Replace(close, close + close);
+        return open + escaped + close;
+    }
+
+    private static bool IsPlainIdentifier(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier)) return false;
+        if (!char.IsLetter(identifier[0]) && identifier[0] != '_') return false;
+        for (int i = 1; i < identifier.Length; i++)
+        {
+            if (!char.IsLetterOrDigit(identifier[i]) && identifier[i] != '_')
+                return false;
+        }
+        return true;
+    }
+}
+
+/// <summary>拖拽修饰键模式（由 UI 层把 Avalonia KeyModifiers 翻译过来）。</summary>
+public enum DragTextMode
+{
+    /// <summary>默认：按数据库方言生成带引号的限定名（表/视图自动加 schema）。</summary>
+    Default,
+
+    /// <summary>Ctrl 修饰：纯名称，不加引号、不带 schema。</summary>
+    PlainName,
+
+    /// <summary>Shift + 表/视图：生成 SELECT * FROM 限定名; 模板。</summary>
+    SelectTemplate,
+
+    /// <summary>Shift + 列：生成 column AS alias 格式（其他节点降级为 Default）。</summary>
+    ColumnAlias,
 }
 
 /// <summary>对象树节点类型。</summary>

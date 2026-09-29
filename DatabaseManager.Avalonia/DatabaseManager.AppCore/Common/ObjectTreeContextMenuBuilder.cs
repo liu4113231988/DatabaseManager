@@ -1006,15 +1006,112 @@ public class ObjectTreeContextMenuBuilder
                 break;
 
             case DbObjectTreeNodeType.DbObject when node.DbObject is Table or View:
-                // 复制 schema.table 格式
-                var copySchemaTable = CreateMenuItem("复制 Schema.Table", "复制 schema.table 格式名称");
-                copySchemaTable.Click += (_, _) => CopyToClipboard(GetQualifiedObjectName(node));
-                menu.Items.Add(copySchemaTable);
+                // 复制带引号的 schema.table 限定名
+                var copyQualified = CreateMenuItem("复制限定名（带引号）", "按当前连接方言生成带引号的 schema.table 格式");
+                copyQualified.Click += (_, _) => CopyToClipboard(GetQualifiedObjectName(node));
+                menu.Items.Add(copyQualified);
+
+                // 表已加载列时，额外提供复制列清单
+                var colsFolder = node.Children.FirstOrDefault(c =>
+                    c.NodeType == DbObjectTreeNodeType.ChildFolder
+                    && string.Equals(c.Name, "Columns", StringComparison.OrdinalIgnoreCase));
+                if (colsFolder?.IsLoaded == true && colsFolder.Children.Count > 0)
+                {
+                    var copyCols = CreateMenuItem("复制列清单", "复制逗号分隔的列名列表");
+                    copyCols.Click += (_, _) => CopyColumnList(node);
+                    menu.Items.Add(copyCols);
+                }
+                break;
+
+            case DbObjectTreeNodeType.DbObject:
+                // 存储过程/函数/序列/触发器等：也提供带引号限定名
+                var copyNameQuoted = CreateMenuItem("复制名称（带引号）", "按当前连接方言生成带引号的对象名");
+                copyNameQuoted.Click += (_, _) => CopyToClipboard(node.GetDragDropSqlText());
+                menu.Items.Add(copyNameQuoted);
                 break;
 
             case DbObjectTreeNodeType.ChildObject when node.DbObject is TableColumn:
                 // 列的高级复制已在 BuildColumnMenu 中通过 AddCopyColumnDefinition 处理
                 break;
+        }
+
+        // 所有数据库对象节点（表/视图/存储过程/函数）统一追加「复制对象定义（DDL）」
+        if (node.NodeType == DbObjectTreeNodeType.DbObject)
+        {
+            AddCopyDdlDefinition(menu, node);
+        }
+    }
+
+    /// <summary>异步拉取对象 CREATE 脚本并复制到剪贴板。</summary>
+    private void AddCopyDdlDefinition(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var ddl = GetDdlService();
+        if (ddl is null) return;
+
+        var copyDdl = CreateMenuItem("复制对象定义（DDL）", "复制 CREATE 脚本到剪贴板");
+        copyDdl.Click += (_, _) => _asyncAction(async () =>
+        {
+            var connectionName = _viewModel.FindNodeConnectionName(node);
+            if (string.IsNullOrEmpty(connectionName) || node.DbObject is null)
+            {
+                _viewModel.QueryEditor.StatusMessage = "请先连接对应连接。";
+                return;
+            }
+
+            var result = await ddl.GetObjectDefinitionAsync(
+                connectionName,
+                node.DatabaseName ?? string.Empty,
+                node.DbObject);
+
+            if (!string.IsNullOrEmpty(result?.Script))
+            {
+                await CopyToClipboardAsync(result.Script);
+                _viewModel.QueryEditor.StatusMessage = $"已复制 {node.Name} 的 DDL 定义。";
+            }
+            else
+            {
+                _viewModel.QueryEditor.StatusMessage = "未能获取对象定义。";
+            }
+        });
+        menu.Items.Add(copyDdl);
+    }
+
+    /// <summary>从已加载的 Columns 子文件夹复制逗号分隔的列名列表。</summary>
+    private static void CopyColumnList(DbObjectTreeNode tableNode)
+    {
+        var colsFolder = tableNode.Children.FirstOrDefault(c =>
+            c.NodeType == DbObjectTreeNodeType.ChildFolder
+            && string.Equals(c.Name, "Columns", StringComparison.OrdinalIgnoreCase));
+        if (colsFolder?.IsLoaded != true) return;
+
+        var dbType = tableNode.GetDatabaseType();
+        var quoted = colsFolder.Children
+            .Where(c => !c.IsPlaceholder && c.NodeType == DbObjectTreeNodeType.ChildObject)
+            .Select(c => DbObjectTreeNode.QuoteIdentifier(c.Name, dbType));
+
+        var sb = new StringBuilder();
+        bool first = true;
+        foreach (var col in quoted)
+        {
+            if (!first) sb.Append(", ");
+            sb.Append(col);
+            first = false;
+        }
+
+        if (sb.Length > 0)
+        {
+            CopyToClipboard(sb.ToString());
+        }
+    }
+
+    private async Task CopyToClipboardAsync(string text)
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            if (desktop.MainWindow?.Clipboard is { } clipboard)
+            {
+                await clipboard.SetTextAsync(text);
+            }
         }
     }
 
@@ -1185,17 +1282,22 @@ public class ObjectTreeContextMenuBuilder
 
     #endregion
 
-    #region 辅助方法：获取限定对象名
+    #region 辅助方法：获取限定对象名（db-type 感知）
 
+    /// <summary>
+    /// 获取数据库对象的 schema 限定名（按所属连接方言正确引用标识符）。
+    /// 例如 SQL Server 返回 [dbo].[Users]，MySQL 返回 `mydb`.`users`。
+    /// </summary>
     private string GetQualifiedObjectName(DbObjectTreeNode node)
     {
-        var sb = new StringBuilder();
-        if (!string.IsNullOrEmpty(node.Schema))
+        var dbType = node.GetDatabaseType();
+        var schema = node.Schema ?? node.Parent?.Schema;
+
+        if (!string.IsNullOrWhiteSpace(schema))
         {
-            sb.Append(node.Schema).Append('.');
+            return $"{DbObjectTreeNode.QuoteIdentifier(schema, dbType)}.{DbObjectTreeNode.QuoteIdentifier(node.Name, dbType)}";
         }
-        sb.Append(node.DbObject!.Name);
-        return sb.ToString();
+        return DbObjectTreeNode.QuoteIdentifier(node.Name, dbType);
     }
 
     #endregion

@@ -32,6 +32,16 @@ public partial class MainWindow : Window
     private DispatcherTimer? _scheduleTimer;
     private bool _restoreMaximizedAfterFirstRender;
 
+    // 拖拽源状态（对象树 → SQL 编辑器）
+    private DbObjectTreeNode? _dragStartNode;
+    private Point _dragStartPoint;
+    private bool _isDragging;
+    private PointerPressedEventArgs? _dragPressArgs;
+
+    // 拖拽悬停自动展开状态（500ms 停顿自动展开下一层节点）
+    private DispatcherTimer? _autoExpandTimer;
+    private DbObjectTreeNode? _autoExpandTarget;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -40,6 +50,16 @@ public partial class MainWindow : Window
         // 的 12,0,12,0 Margin 是主题在代码中设置的本地值，样式无法覆盖；导致对象树根节点左侧
         // 有约 36px 的死空隙。这里在容器就绪后用本地值将其收紧（层级缩进来自模板嵌套，不受影响）。
         ObjectsTree.ContainerPrepared += ObjectsTree_ContainerPrepared;
+
+        // 注册对象树拖拽源事件
+        ObjectsTree.PointerPressed += ObjectsTree_PointerPressed;
+        ObjectsTree.PointerMoved += ObjectsTree_PointerMoved;
+        ObjectsTree.PointerReleased += ObjectsTree_PointerReleased;
+        ObjectsTree.PointerCaptureLost += ObjectsTree_PointerCaptureLost;
+
+        // 拖拽中悬停自动展开（只在拖拽进行期间触发，不影响普通交互）
+        ObjectsTree.AddHandler(DragDrop.DragOverEvent, ObjectsTree_DragOver);
+        ObjectsTree.AddHandler(DragDrop.DragLeaveEvent, ObjectsTree_DragLeave);
     }
 
     private void ObjectsTree_ContainerPrepared(object? sender, ContainerPreparedEventArgs e)
@@ -118,6 +138,13 @@ public partial class MainWindow : Window
 
             // 监听对象树选中变化，更新 Schema 选择器上下文。
             ObjectsTree.SelectionChanged += ObjectsTree_SelectionChanged;
+
+            // 为多目标控件注册拖放：对象树节点可拖到搜索框、过滤器值等。
+            RegisterTextDropTarget(TreeFilterBox, replaceContent: true);
+
+            // TabControl 内的过滤器控件（QueryFilterBar/Value/Column）按标签页懒加载，
+            // 在 TabControl 的 SelectionChanged 里每次给当前可见标签页注册。
+            QueryTabsControl.SelectionChanged += (_, _) => RegisterCurrentTabFilterDropTargets();
         }
 
         // 任务中心接线：状态栏计数 + 完成/失败 Toast 通知。
@@ -2097,6 +2124,323 @@ public partial class MainWindow : Window
                 break;
         }
     }
+
+    #region 对象树拖拽源（拖到 SQL 编辑器插入对象名）
+
+    private static readonly Point DragThreshold = new(4, 4);
+
+    private void ObjectsTree_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        // 仅左键按下记录拖拽起点；右键/中键不作拖拽
+        if (!e.GetCurrentPoint(ObjectsTree).Properties.IsLeftButtonPressed)
+            return;
+
+        var point = e.GetPosition(ObjectsTree);
+        var hitNode = FindNodeAtPosition(point);
+        if (hitNode is null || !IsDraggableNode(hitNode))
+            return;
+
+        _dragStartNode = hitNode;
+        _dragStartPoint = point;
+        _dragPressArgs = e;
+        _isDragging = false;
+    }
+
+    private async void ObjectsTree_PointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_dragStartNode is null || _isDragging || _dragPressArgs is null)
+            return;
+
+        var point = e.GetPosition(ObjectsTree);
+        var delta = _dragStartPoint - point;
+        if (Math.Abs(delta.X) < DragThreshold.X && Math.Abs(delta.Y) < DragThreshold.Y)
+            return;
+
+        // 超过拖拽阈值，启动拖拽（Avalonia 12 使用 DoDragDropAsync + DataTransfer）
+        _isDragging = true;
+
+        // 读取当前修饰键，决定生成什么文本模板
+        var mode = ResolveDragTextMode(e.KeyModifiers);
+        var text = _dragStartNode.GetDragDropSqlText(mode);
+        if (string.IsNullOrEmpty(text))
+        {
+            ResetDragState();
+            return;
+        }
+
+        var data = new DataTransfer();
+        data.Add(DataTransferItem.CreateText(text));
+
+        // 用保存的 PointerPressedEventArgs 调用 DoDragDropAsync
+        e.Handled = true;
+        await DragDrop.DoDragDropAsync(_dragPressArgs, data, DragDropEffects.Copy);
+
+        ResetDragState();
+    }
+
+    /// <summary>把 Avalonia KeyModifiers 映射到 UI 无关的 DragTextMode 枚举。</summary>
+    private static DragTextMode ResolveDragTextMode(KeyModifiers modifiers)
+    {
+        bool ctrl = modifiers.HasFlag(KeyModifiers.Control);
+        bool shift = modifiers.HasFlag(KeyModifiers.Shift);
+        bool alt = modifiers.HasFlag(KeyModifiers.Alt);
+
+        // 优先级：Ctrl 最高（显式要求纯名称），其次 Shift 特殊模板
+        if (ctrl) return DragTextMode.PlainName;
+        if (shift && !alt) return DragTextMode.SelectTemplate; // 表→SELECT 模板；列→自动降级
+        if (alt) return DragTextMode.ColumnAlias;             // 列→column AS alias；其他→默认
+        return DragTextMode.Default;
+    }
+
+    private void ObjectsTree_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        ResetDragState();
+    }
+
+    private void ObjectsTree_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        ResetDragState();
+    }
+
+    private void ResetDragState()
+    {
+        _dragStartNode = null;
+        _dragPressArgs = null;
+        _isDragging = false;
+        CancelAutoExpand();
+    }
+
+    /// <summary>停止拖拽悬停自动展开计时器并清空目标。</summary>
+    private void CancelAutoExpand()
+    {
+        _autoExpandTimer?.Stop();
+        _autoExpandTarget = null;
+    }
+
+    /// <summary>判断节点是否可拖拽到 SQL 编辑器。仅 DbObject（表/视图/存储过程/函数）和 ChildObject（列/索引等）可拖。</summary>
+    private static bool IsDraggableNode(DbObjectTreeNode node)
+    {
+        if (node.IsPlaceholder || string.IsNullOrWhiteSpace(node.Name))
+            return false;
+        return node.NodeType == DbObjectTreeNodeType.DbObject
+               || node.NodeType == DbObjectTreeNodeType.ChildObject;
+    }
+
+    /// <summary>从对象树给定坐标向上命中 TreeViewItem 并取其 DataContext 节点。</summary>
+    private DbObjectTreeNode? FindNodeAtPosition(Point point)
+    {
+        var hit = ObjectsTree.InputHitTest(point);
+        if (hit is null) return null;
+
+        // 先尝试直接命中 TreeViewItem
+        if (hit is TreeViewItem directItem && directItem.DataContext is DbObjectTreeNode directNode)
+            return directNode;
+
+        // 通过 Visual 树向上查找
+        var visual = hit as Visual;
+        while (visual is not null)
+        {
+            if (visual is TreeViewItem tvi && tvi.DataContext is DbObjectTreeNode node)
+                return node;
+            visual = visual.GetVisualParent();
+        }
+        return null;
+    }
+
+    #endregion
+
+    #region 对象树拖拽悬停自动展开（500ms 停顿 → 下一层）
+
+    private const int AutoExpandHoverMs = 500;
+
+    /// <summary>
+    /// 拖拽过程中持续触发的悬停事件：
+    /// 命中新的「可展开但未展开」节点时启动 500ms 计时器；
+    /// 命中已展开/不可展开/空白区时取消计时器。
+    /// </summary>
+    private void ObjectsTree_DragOver(object? sender, DragEventArgs e)
+    {
+        // 没有有效的拖拽源（不是从本应用对象树拖出）时忽略
+        if (_dragStartNode is null) return;
+
+        var point = e.GetPosition(ObjectsTree);
+        var target = FindNodeAtPosition(point);
+
+        if (target is null || !CanAutoExpand(target))
+        {
+            CancelAutoExpand();
+            return;
+        }
+
+        // 切换了目标节点 → 重新计时
+        if (_autoExpandTarget != target)
+        {
+            _autoExpandTarget = target;
+            StartAutoExpandTimer(target);
+        }
+    }
+
+    private void ObjectsTree_DragLeave(object? sender, DragEventArgs e)
+    {
+        // 鼠标离开对象树区域 → 取消悬停计时
+        CancelAutoExpand();
+    }
+
+    /// <summary>可被悬停自动展开的节点类型 + 未展开 + 非加载中。</summary>
+    private static bool CanAutoExpand(DbObjectTreeNode node)
+    {
+        // 跳过正在加载的节点，避免与用户手动操作冲突
+        if (node.IsLoading || node.IsPlaceholder) return false;
+
+        // 已经展开或无子节点也没必要
+        if (node.IsExpanded || node.Children.Count == 0) return false;
+
+        // 只对容器类型生效（Connection 特殊：还需判断已建立连接才设 IsExpanded，
+        // 未连接时 ConnectConnectionNodeAsync 会被 ExpandedEvent 自动触发）
+        return node.NodeType is DbObjectTreeNodeType.Connection
+            or DbObjectTreeNodeType.Database
+            or DbObjectTreeNodeType.Schema
+            or DbObjectTreeNodeType.Folder
+            or DbObjectTreeNodeType.DbObject
+            or DbObjectTreeNodeType.ChildFolder;
+    }
+
+    private void StartAutoExpandTimer(DbObjectTreeNode target)
+    {
+        _autoExpandTimer?.Stop();
+
+        var timer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(AutoExpandHoverMs),
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+
+            // 只有悬停目标仍然存在且有效，才执行展开
+            if (_autoExpandTarget == target && CanAutoExpand(target))
+            {
+                // 模型层设 IsExpanded → TwoWay 绑定推到 TreeViewItem → 自动触发
+                // TreeViewItem.ExpandedEvent → ObjectsTree_Item_Expanded → 懒加载子节点
+                target.IsExpanded = true;
+            }
+
+            _autoExpandTarget = null;
+            _autoExpandTimer = null;
+        };
+
+        _autoExpandTimer = timer;
+        timer.Start();
+    }
+
+    #endregion
+
+    #region 多目标控件拖放（搜索框 / 过滤器值 / 过滤器列选择）
+
+    // 跟踪已注册过拖放的控件，避免 TabControl SelectionChanged 时重复注册。
+    private readonly HashSet<Control> _dropTargetRegistered = new();
+
+    /// <summary>
+    /// 找到当前选中的 TabItem 中的 QueryFilterBar，给内部的 QueryFilterColumn / QueryFilterValue 注册拖放。
+    /// 每个控件只注册一次（用 HashSet 跟踪）。
+    /// </summary>
+    private void RegisterCurrentTabFilterDropTargets()
+    {
+        if (QueryTabsControl.SelectedItem is not Control selectedItem) return;
+
+        var bar = selectedItem.GetVisualDescendants()
+            .OfType<StackPanel>()
+            .FirstOrDefault(p => p.Name == "QueryFilterBar");
+        if (bar is null) return;
+
+        var colCombo = bar.GetVisualDescendants().OfType<ComboBox>()
+            .FirstOrDefault(c => c.Name == "QueryFilterColumn");
+        var valueBox = bar.GetVisualDescendants().OfType<TextBox>()
+            .FirstOrDefault(t => t.Name == "QueryFilterValue");
+
+        if (colCombo is not null && _dropTargetRegistered.Add(colCombo))
+            RegisterComboBoxDropTarget(colCombo);
+        if (valueBox is not null && _dropTargetRegistered.Add(valueBox))
+            RegisterTextDropTarget(valueBox, replaceContent: true);
+    }
+
+    /// <summary>为任意 TextBox 注册拖放：放置时用拖入文本替换（或追加）内容。</summary>
+    private static void RegisterTextDropTarget(TextBox box, bool replaceContent = false)
+    {
+        DragDrop.SetAllowDrop(box, true);
+
+        DragDrop.AddDragOverHandler(box, (_, e) =>
+        {
+            var text = e.DataTransfer.TryGetText();
+            e.DragEffects = string.IsNullOrEmpty(text) ? DragDropEffects.None : DragDropEffects.Copy;
+            e.Handled = true;
+        });
+
+        DragDrop.AddDropHandler(box, (_, e) =>
+        {
+            var text = e.DataTransfer.TryGetText();
+            if (string.IsNullOrEmpty(text)) return;
+
+            if (replaceContent)
+            {
+                box.Text = text;
+            }
+            else
+            {
+                var pos = box.SelectionStart;
+                box.Text = box.Text?.Insert(pos, text) ?? text;
+                box.SelectionStart = pos + text.Length;
+            }
+
+            box.Focus();
+            e.Handled = true;
+        });
+    }
+
+    /// <summary>为 ComboBox 注册拖放：放置列名时匹配 ItemsSource 中对应项。</summary>
+    private static void RegisterComboBoxDropTarget(ComboBox combo)
+    {
+        DragDrop.SetAllowDrop(combo, true);
+
+        DragDrop.AddDragOverHandler(combo, (_, e) =>
+        {
+            var text = e.DataTransfer.TryGetText();
+            e.DragEffects = string.IsNullOrEmpty(text) ? DragDropEffects.None : DragDropEffects.Copy;
+            e.Handled = true;
+        });
+
+        DragDrop.AddDropHandler(combo, (_, e) =>
+        {
+            var text = e.DataTransfer.TryGetText();
+            if (string.IsNullOrEmpty(text)) return;
+
+            // 尝试在 ItemsSource 中匹配同名项（支持 DataGridColumn / 简单字符串）
+            if (combo.ItemsSource is System.Collections.IEnumerable items)
+            {
+                foreach (var item in items)
+                {
+                    // DataGridColumn 有 Header 属性
+                    if (item is global::Avalonia.Controls.DataGridColumn col
+                        && string.Equals(col.Header?.ToString(), text, StringComparison.OrdinalIgnoreCase))
+                    {
+                        combo.SelectedItem = item;
+                        break;
+                    }
+                    // 字符串项
+                    if (item is string s && string.Equals(s, text, StringComparison.OrdinalIgnoreCase))
+                    {
+                        combo.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+
+            combo.Focus();
+            e.Handled = true;
+        });
+    }
+
+    #endregion
 
     /// <summary>对象树右键菜单：使用 ObjectTreeContextMenuBuilder 按节点类型分发构建。</summary>
     private void ObjectsTree_ContextRequested(object? sender, ContextRequestedEventArgs e)

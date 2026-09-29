@@ -195,6 +195,11 @@ public partial class SqlEditor : UserControl
         _editor.TextArea.KeyDown += OnKeyDown;
         _editor.ContextRequested += OnEditorContextRequested;
 
+        // 注册拖拽放置事件（对象树拖表名/列名到编辑器）
+        DragDrop.SetAllowDrop(_editor, true);
+        DragDrop.AddDragOverHandler(_editor, OnEditorDragOver);
+        DragDrop.AddDropHandler(_editor, OnEditorDrop);
+
         // 安装 AvaloniaEdit 自带的查找/替换面板（Ctrl+F 打开、Esc 关闭）。
         _searchPanel = SearchPanel.Install(_editor);
 
@@ -959,6 +964,65 @@ public partial class SqlEditor : UserControl
 
         return false;
     }
+
+    #region 拖拽放置（对象树 → SQL 编辑器）
+
+    private void OnEditorDragOver(object? sender, DragEventArgs e)
+    {
+        if (_editor is null) return;
+
+        var text = e.DataTransfer.TryGetText();
+        if (string.IsNullOrEmpty(text))
+        {
+            e.DragEffects = DragDropEffects.None;
+            return;
+        }
+
+        e.DragEffects = DragDropEffects.Copy;
+        e.Handled = true;
+
+        // 将光标定位到鼠标下的文档位置（用户可视反馈：拖到哪插到哪）
+        SetCaretFromDragPoint(e.GetPosition(_editor));
+    }
+
+    private void OnEditorDrop(object? sender, DragEventArgs e)
+    {
+        if (_editor is null) return;
+
+        var text = e.DataTransfer.TryGetText();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        // 先定位光标到放置点
+        SetCaretFromDragPoint(e.GetPosition(_editor));
+        InsertAtCaret(text);
+
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// 根据拖拽鼠标位置定位光标到编辑器对应位置。
+    /// AvaloniaEdit 的 TextView.GetPosition(Point) 返回 TextViewPosition（行/列/可视列），
+    /// 再用 TextDocument.GetOffset 转成文档偏移。
+    /// </summary>
+    private void SetCaretFromDragPoint(Point position)
+    {
+        if (_editor is null) return;
+
+        var textView = _editor.TextArea.TextView;
+        // 将编辑器坐标转为 TextView 坐标（减去滚动偏移）
+        var posInTextView = position - new Vector(textView.ScrollOffset.X, textView.ScrollOffset.Y);
+        var tvPos = textView.GetPosition(posInTextView);
+        if (!tvPos.HasValue) return;
+
+        var doc = _editor.Document;
+        var offset = doc.GetOffset(tvPos.Value.Line, tvPos.Value.Column);
+        // 钳制到有效范围
+        offset = Math.Clamp(offset, 0, doc.TextLength);
+        _editor.CaretOffset = offset;
+    }
+
+    #endregion
 
     private void OnEditorContextRequested(object? sender, ContextRequestedEventArgs e)
     {
