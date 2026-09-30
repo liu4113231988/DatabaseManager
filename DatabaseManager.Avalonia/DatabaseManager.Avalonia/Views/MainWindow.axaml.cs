@@ -52,7 +52,10 @@ public partial class MainWindow : Window
         ObjectsTree.ContainerPrepared += ObjectsTree_ContainerPrepared;
 
         // 注册对象树拖拽源事件
-        ObjectsTree.PointerPressed += ObjectsTree_PointerPressed;
+        // 注意：Avalonia 12 中 TreeViewItem 在容器内直接处理 PointerPressed 用于选中，
+        // 并标记 e.Handled=true，事件不再冒泡到 TreeView。因此必须用 handledEventsToo:true
+        // 才能收到按下事件，否则拖拽源逻辑完全不会触发。
+        ObjectsTree.AddHandler(PointerPressedEvent, ObjectsTree_PointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         ObjectsTree.PointerMoved += ObjectsTree_PointerMoved;
         ObjectsTree.PointerReleased += ObjectsTree_PointerReleased;
         ObjectsTree.PointerCaptureLost += ObjectsTree_PointerCaptureLost;
@@ -2144,6 +2147,10 @@ public partial class MainWindow : Window
         _dragStartPoint = point;
         _dragPressArgs = e;
         _isDragging = false;
+
+        // 捕获指针：即使快速拖出对象树范围，PointerMoved 仍会投递到 ObjectsTree，
+        // 保证阈值判断与 DoDragDropAsync 能可靠启动。
+        e.Pointer.Capture(ObjectsTree);
     }
 
     private async void ObjectsTree_PointerMoved(object? sender, PointerEventArgs e)
@@ -2204,6 +2211,10 @@ public partial class MainWindow : Window
 
     private void ResetDragState()
     {
+        // 释放可能在 PointerPressed 中建立的指针捕获，避免后续交互被锁死
+        if (_dragPressArgs?.Pointer?.Captured is not null)
+            _dragPressArgs.Pointer.Capture(null);
+
         _dragStartNode = null;
         _dragPressArgs = null;
         _isDragging = false;
