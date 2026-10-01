@@ -150,7 +150,7 @@ static class Program
         AssertTrue(literalCommentParse.IsSimpleSelect && literalCommentParse.TableName == "users", "字符串字面量中的 -- 不应被当作注释。");
         AssertContains("VIEW SERVER STATE", DbAdminGuidance.GetSessionPermissionHint(DatabaseType.SqlServer));
         AssertContains("pg_read_all_stats", DbAdminGuidance.GetUserPermissionHint(DatabaseType.Postgres));
-        AssertContains("不存在", DbAdminGuidance.ValidateClientToolPath("C:\\missing-tool.exe")!);
+        AssertContains("不存在", DbAdminGuidance.ValidateClientToolPath(Path.Combine(Path.GetTempPath(), $"missing-tool-{Guid.NewGuid():N}.exe"))!);
         AssertTrue(QueryProfilerSql.SupportsAnalyze(DatabaseType.SqlServer), "SQL Server 应支持服务端剖析输出。");
         AssertContains("STATISTICS XML", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.SqlServer, "SELECT 1"));
         AssertContains("DISPLAY_CURSOR", QueryProfilerSql.BuildAnalyzeSql(DatabaseType.Oracle, "SELECT 1"));

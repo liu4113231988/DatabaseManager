@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-      - name: Build and verify
+      - name: Build and verify across platforms
         run: |
           dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release -p:UsedAvaloniaProducts=
           dotnet build DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release -p:UsedAvaloniaProducts=
