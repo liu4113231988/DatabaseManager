@@ -803,9 +803,9 @@ public partial class SqlEditor : UserControl
         // 2) Avalonia AssetLoader 路径（若 csproj 改为 AvaloniaResource）
         try
         {
-            if (global::Avalonia.Platform.AssetLoader.Exists(new Uri("avares://DatabaseManager.Avalonia/Assets/Sql.xshd")))
+            if (global::Avalonia.Platform.AssetLoader.Exists(new Uri("avares://DatabaseManager/Assets/Sql.xshd")))
             {
-                using var stream = global::Avalonia.Platform.AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/Sql.xshd"));
+                using var stream = global::Avalonia.Platform.AssetLoader.Open(new Uri("avares://DatabaseManager/Assets/Sql.xshd"));
                 using var reader = XmlReader.Create(stream);
                 var def = HighlightingLoader.Load(reader, HighlightingManager.Instance);
                 _cachedHighlighting = def;

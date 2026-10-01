@@ -452,14 +452,14 @@ public class ObjectTreeContextMenuBuilder
 
         // ==== Open/View 组 ====
         var select = CreateMenuItem("查看数据 (SELECT)\tF4", "生成 SELECT 查询并查看数据");
-        select.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/tree_Table.png");
+        select.Icon = CreateIcon("avares://DatabaseManager/Assets/tree_Table.png");
         select.Click += (_, _) => _viewModel.GenerateSelectScript(node);
         menu.Items.Add(select);
 
         if (isTable)
         {
             var editData = CreateMenuItem("编辑数据", "在查询结果中编辑（生成 SELECT 后可直接增删改）");
-            editData.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Edit.png");
+            editData.Icon = CreateIcon("avares://DatabaseManager/Assets/Edit.png");
             editData.Click += (_, _) => _viewModel.GenerateSelectScript(node);
             menu.Items.Add(editData);
         }
@@ -467,21 +467,21 @@ public class ObjectTreeContextMenuBuilder
         if (isTable)
         {
             var design = CreateMenuItem("设计表...", "打开表设计器修改表结构");
-            design.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Tool16.png");
+            design.Icon = CreateIcon("avares://DatabaseManager/Assets/Tool16.png");
             design.Click += (_, _) => _openTableDesigner?.Invoke(node, false);
             menu.Items.Add(design);
         }
         else
         {
             var viewDef = CreateMenuItem("查看视图定义", "在新查询标签页显示 CREATE VIEW 脚本");
-            viewDef.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/tree_View.png");
+            viewDef.Icon = CreateIcon("avares://DatabaseManager/Assets/tree_View.png");
             viewDef.Click += (_, _) => _asyncAction(async () => await ViewObjectDefinitionAsync(node));
             menu.Items.Add(viewDef);
         }
 
         // P2: Filter 功能
         var filter = CreateMenuItem("过滤数据...", "生成带 WHERE 的 SELECT 模板");
-        filter.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Tool16.png");
+        filter.Icon = CreateIcon("avares://DatabaseManager/Assets/Tool16.png");
         filter.Click += (_, _) => GenerateFilterTemplate(node);
         menu.Items.Add(filter);
 
@@ -491,12 +491,12 @@ public class ObjectTreeContextMenuBuilder
         if (isTable)
         {
             var exportData = CreateMenuItem("导出数据...", "导出表数据到文件");
-            exportData.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/DbBackup.png");
+            exportData.Icon = CreateIcon("avares://DatabaseManager/Assets/DbBackup.png");
             exportData.Click += (_, _) => _openExportWindow?.Invoke(node);
             menu.Items.Add(exportData);
 
             var importData = CreateMenuItem("导入数据...", "从文件导入数据到表");
-            importData.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/DbConvert.png");
+            importData.Icon = CreateIcon("avares://DatabaseManager/Assets/DbConvert.png");
             importData.Click += (_, _) => _openImportWindow?.Invoke(node);
             menu.Items.Add(importData);
 
@@ -538,12 +538,12 @@ public class ObjectTreeContextMenuBuilder
         if (isTable)
         {
             var truncate = CreateMenuItem("截断表 (TRUNCATE)...", "生成 TRUNCATE TABLE 模板（清空数据，不可回滚）");
-            truncate.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Translate.png");
+            truncate.Icon = CreateIcon("avares://DatabaseManager/Assets/Translate.png");
             truncate.Click += (_, _) => SetQueryTextInNewTab(node, $"TRUNCATE TABLE {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的 TRUNCATE 模板。");
             menu.Items.Add(truncate);
 
             var count = CreateMenuItem("查看行数 (COUNT)...", "生成 SELECT COUNT(*) 查询");
-            count.Icon = CreateIcon("avares://DatabaseManager.Avalonia/Assets/Database16.png");
+            count.Icon = CreateIcon("avares://DatabaseManager/Assets/Database16.png");
             count.Click += (_, _) => SetQueryTextInNewTab(node, $"SELECT COUNT(*) AS RowCount FROM {GetQualifiedObjectName(node)};", $"已生成 {node.Name} 的行数统计查询。");
             menu.Items.Add(count);
 

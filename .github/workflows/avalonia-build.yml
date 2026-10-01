@@ -21,10 +21,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.x
       - name: Restore
         run: dotnet restore DatabaseManager.Avalonia.sln
       - name: Build
         run: dotnet build DatabaseManager.Avalonia.sln --no-restore --configuration Release -warnaserror:0
+      - name: Regression checks
+        run: dotnet run --project DatabaseManager.AppCore.RegressionTests --no-build --configuration Release
       - name: Test
         run: dotnet test DatabaseManager.Avalonia.sln --no-restore --configuration Release --no-build

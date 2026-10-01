@@ -42,6 +42,8 @@
 
             <StackPanel Spacing="6">
                 <TextBlock Text="数据库类型" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
+                <TextBlock x:Name="TxtConnectionHint" TextWrapping="Wrap" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
                 <atom:ComboBox x:Name="ComboDatabaseType"
                                HorizontalAlignment="Stretch"
                                SelectionChanged="ComboDatabaseType_SelectionChanged" />

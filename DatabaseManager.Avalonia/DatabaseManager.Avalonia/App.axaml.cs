@@ -53,7 +53,7 @@ public partial class App : Application
                 desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
                 {
                     DataContext = _services.GetRequiredService<MainWindowViewModel>(),
-                    Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager.Avalonia/Assets/database-manager.ico"))),
+                    Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager/Assets/database-manager.ico"))),
                 };
             }
             catch (Exception ex)

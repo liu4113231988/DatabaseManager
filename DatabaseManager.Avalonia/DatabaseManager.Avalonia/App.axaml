@@ -18,7 +18,7 @@
 				- 主色 VS Blue #0078D4
 			-->
 			<ResourceDictionary.MergedDictionaries>
-				<ResourceInclude Source="avares://DatabaseManager.Avalonia/Resources/Converters.axaml" />
+				<ResourceInclude Source="avares://DatabaseManager/Resources/Converters.axaml" />
 			</ResourceDictionary.MergedDictionaries>
 			<ResourceDictionary.ThemeDictionaries>
 				<ResourceDictionary x:Key="Default">

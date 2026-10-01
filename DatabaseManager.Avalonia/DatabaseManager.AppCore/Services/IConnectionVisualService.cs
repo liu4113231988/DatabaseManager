@@ -20,6 +20,8 @@ public class ConnectionVisualInfo
 
     /// <summary>KingbaseES 服务端兼容模式（连接档案尚无字段时由侧车保存）。</summary>
     public string? KingbaseCompatibilityMode { get; set; }
+
+    public bool DuckDbReadOnly { get; set; }
 }
 
 /// <summary>连接可视化标注服务。</summary>
@@ -32,7 +34,7 @@ public interface IConnectionVisualService
     ConnectionVisualInfo? Find(string? connectionId);
 
     /// <summary>保存/更新标注及 KingbaseES 兼容模式（group/colorTag 传空串表示清除该项）。</summary>
-    void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null);
+    void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null, bool? duckDbReadOnly = null);
 
     /// <summary>删除标注（连接被删除时调用）。</summary>
     void Remove(string connectionId);
@@ -71,7 +73,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
             ? null
             : _items.FirstOrDefault(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
 
-    public void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null)
+    public void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null, bool? duckDbReadOnly = null)
     {
         if (string.IsNullOrEmpty(connectionId))
             return;
@@ -87,6 +89,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
             existing.Group = group;
             existing.ColorTag = colorTag;
             existing.KingbaseCompatibilityMode = kingbaseCompatibilityMode;
+            if (duckDbReadOnly.HasValue) existing.DuckDbReadOnly = duckDbReadOnly.Value;
         }
         else
         {
@@ -97,6 +100,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
                 Group = group,
                 ColorTag = colorTag,
                 KingbaseCompatibilityMode = kingbaseCompatibilityMode,
+                DuckDbReadOnly = duckDbReadOnly ?? false,
             });
         }
 

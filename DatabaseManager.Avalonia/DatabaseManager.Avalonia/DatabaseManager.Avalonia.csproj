@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\database-manager.ico</ApplicationIcon>
+    <AssemblyName>DatabaseManager</AssemblyName>
+    <Version>1.1.1</Version>
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
     <!-- 仅保留 win-x64 与 linux-x64 运行时，避免发布包携带大量其他平台原生依赖 -->
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>

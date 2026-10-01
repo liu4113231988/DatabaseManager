@@ -124,7 +124,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
         {
             connection.Id = id;
             SshProfileStore.Save(id, connection.Ssh, rememberPassword);
-            _visualService.Save(id, connection.Name, connection.Group, connection.ColorTag, connection.KingbaseCompatibilityMode);
+            _visualService.Save(id, connection.Name, connection.Group, connection.ColorTag, connection.KingbaseCompatibilityMode, connection.DuckDbReadOnly);
         }
 
         return string.IsNullOrEmpty(id) ? null : id;
@@ -184,6 +184,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
             item.Group = visual.Group;
             item.ColorTag = visual.ColorTag;
             item.KingbaseCompatibilityMode = visual.KingbaseCompatibilityMode;
+            item.DuckDbReadOnly = visual.DuckDbReadOnly;
         }
 
         return item;

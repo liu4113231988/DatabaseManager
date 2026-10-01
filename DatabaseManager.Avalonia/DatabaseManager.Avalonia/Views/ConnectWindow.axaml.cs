@@ -23,6 +23,7 @@ public partial class ConnectWindow : Window
     private readonly IConnectionVisualService? _visualService;
     private readonly bool _isAdd;
     private readonly ConnectionItem _working;
+    private DatabaseType _previousDatabaseType;
 
     /// <summary>保存成功后返回的连接项。</summary>
     public ConnectionItem? Result { get; private set; }
@@ -105,7 +106,12 @@ public partial class ConnectWindow : Window
 
     private void ComboDatabaseType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (ConnectionHelper.IsFileDatabase(GetDatabaseType()))
+        var dbType = GetDatabaseType();
+        TxtPort.Text = ConnectionHelper.UpdateDefaultPort(_previousDatabaseType, dbType, TxtPort.Text);
+        _previousDatabaseType = dbType;
+        ComboDatabase.ItemsSource = null;
+        ComboDatabase.Text = string.Empty;
+        if (ConnectionHelper.IsFileDatabase(dbType))
             TxtPassword.Text = null;
         UpdateAuthVisibility();
     }
@@ -126,8 +132,8 @@ public partial class ConnectWindow : Window
         // 仅 Oracle 显示 DBA
         ChkIsDba.IsVisible = dbType == DatabaseType.Oracle;
 
-        // MySql 与 KingbaseES 均支持通过连接串传递 SSL 设置。
-        ChkUseSsl.IsVisible = dbType is DatabaseType.MySql or DatabaseType.KingbaseES;
+        // 仅显示当前驱动支持的 SSL 设置。
+        ChkUseSsl.IsVisible = ConnectionHelper.SupportsSsl(dbType);
         PanelKingbaseMode.IsVisible = dbType == DatabaseType.KingbaseES;
 
         // 文件数据库无需服务器或用户认证。
@@ -140,24 +146,31 @@ public partial class ConnectWindow : Window
         ChkRememberPassword.IsVisible = !isFileDatabase;
         PanelSsh.IsVisible = !isFileDatabase;
         ComboDatabase.IsVisible = !isFileDatabase;
+        ComboDatabase.IsEnabled = dbType is not (DatabaseType.Oracle or DatabaseType.DM);
+        BtnLoadDatabases.Content = dbType is DatabaseType.Oracle or DatabaseType.DM ? "读取 Schema" : "加载数据库";
         TxtDatabasePath.IsVisible = isFileDatabase;
         BtnBrowseDatabase.IsVisible = isFileDatabase;
         BtnLoadDatabases.IsVisible = !isFileDatabase;
-        LblDatabase.Text = isFileDatabase ? "数据库路径" : "数据库";
-
-        // 默认端口
-        if (string.IsNullOrEmpty(TxtPort.Text))
+        LblDatabase.Text = isFileDatabase ? "数据库路径"
+            : dbType is DatabaseType.Oracle or DatabaseType.DM ? "登录用户 Schema（自动读取）" : "数据库";
+        TxtServer.PlaceholderText = dbType switch
         {
-            TxtPort.Text = dbType switch
-            {
-                DatabaseType.MySql => MySqlInterpreter.DEFAULT_PORT.ToString(),
-                DatabaseType.Oracle => OracleInterpreter.DEFAULT_PORT.ToString(),
-                DatabaseType.Postgres => PostgresInterpreter.DEFAULT_PORT.ToString(),
-                DatabaseType.KingbaseES => KingbaseInterpreter.DEFAULT_PORT.ToString(),
-                DatabaseType.DM => DmInterpreter.DEFAULT_PORT.ToString(),
-                _ => string.Empty,
-            };
-        }
+            DatabaseType.Oracle => "主机/服务名，例如 localhost/ORCL",
+            DatabaseType.SqlServer => @"主机或主机\实例，例如 localhost\SQLEXPRESS",
+            _ => "服务器地址（端口在右侧填写）",
+        };
+        TxtPort.PlaceholderText = dbType == DatabaseType.SqlServer ? "可留空，使用默认或实例端口" : "默认端口";
+        TxtConnectionHint.Text = dbType switch
+        {
+            DatabaseType.Oracle => "服务器填写主机/服务名（未写服务名时使用 ORCL）；Schema 按登录用户自动读取，无需填写数据库名。",
+            DatabaseType.DM => "填写主机、端口和账号；Schema 按登录用户自动读取，无需填写数据库名。",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => "数据库可直接填写；加载列表也需要先连接到一个数据库，留空时驱动默认使用用户名作为库名。",
+            DatabaseType.SqlServer => @"支持主机、主机\实例或主机,端口；命名实例的端口可留空。",
+            DatabaseType.DuckDB => "填写文件路径或选择内存模式；只读模式需要已有文件，不能与内存模式同时使用。",
+            DatabaseType.Sqlite => "选择已有 SQLite 数据库文件，无需填写服务器或用户名。",
+            _ => "填写主机、端口和账号；数据库可直接填写或加载后选择。",
+        };
+
     }
 
     private bool UsesWindowsAuthentication => DatabaseAuthentication.SupportsIntegratedSecurity(GetDatabaseType())
@@ -200,8 +213,8 @@ public partial class ConnectWindow : Window
             || connection.IntegratedSecurity && !DatabaseAuthentication.AllowsIntegratedUserName(GetDatabaseType())
             ? null : TxtUserId.Text?.Trim();
         connection.Password = connection.IntegratedSecurity ? null : TxtPassword.Text;
-        connection.IsDba = ChkIsDba.IsChecked == true;
-        connection.UseSsl = ChkUseSsl.IsChecked == true;
+        connection.IsDba = GetDatabaseType() == DatabaseType.Oracle && ChkIsDba.IsChecked == true;
+        connection.UseSsl = ConnectionHelper.SupportsSsl(GetDatabaseType()) && ChkUseSsl.IsChecked == true;
         connection.Ssh = new SshTunnelOptions
         {
             Enabled = !ConnectionHelper.IsFileDatabase(GetDatabaseType()) && ChkSsh.IsChecked == true, Host = TxtSshHost.Text?.Trim() ?? "",
@@ -342,17 +355,9 @@ public partial class ConnectWindow : Window
             return;
         }
 
-        if (!ConnectionHelper.IsFileDatabase(GetDatabaseType()) && !connection.IntegratedSecurity && string.IsNullOrEmpty(connection.UserId))
+        if (ConnectionHelper.RequiresDatabase(GetDatabaseType()) && string.IsNullOrEmpty(connection.Database))
         {
-            await ShowErrorAsync("请填写用户名（User ID）。");
-            return;
-        }
-
-        if (string.IsNullOrEmpty(connection.Database))
-        {
-            await ShowErrorAsync(GetDatabaseType() == DatabaseType.DuckDB
-                ? "请填写 DuckDB 数据库文件路径，或勾选内存模式（:memory:）。"
-                : "请选择或填写数据库。");
+            await ShowErrorAsync("请选择或填写数据库。");
             return;
         }
 
@@ -381,7 +386,7 @@ public partial class ConnectWindow : Window
         connection.Group = TxtGroup.Text?.Trim();
         connection.ColorTag = ResolveSelectedColorTag();
         _visualService?.Save(connection.Id ?? string.Empty, connection.Name, connection.Group, connection.ColorTag,
-            connection.KingbaseCompatibilityMode);
+            connection.KingbaseCompatibilityMode, connection.DuckDbReadOnly);
 
         Result = connection;
         Close();

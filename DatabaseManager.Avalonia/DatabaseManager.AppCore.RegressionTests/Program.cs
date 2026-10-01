@@ -56,8 +56,65 @@ static class Program
         }
     }
 
+    private static void VerifyConnectionInputs()
+    {
+        var ports = new Dictionary<DatabaseType, string>
+        {
+            [DatabaseType.MySql] = "3306", [DatabaseType.Oracle] = "1521",
+            [DatabaseType.Postgres] = "5432", [DatabaseType.KingbaseES] = "54321",
+            [DatabaseType.DM] = "5236", [DatabaseType.SqlServer] = "",
+            [DatabaseType.Sqlite] = "", [DatabaseType.DuckDB] = "",
+        };
+        foreach (var (type, expected) in ports)
+        {
+            AssertEqual(expected, ConnectionHelper.GetDefaultPort(type));
+            AssertEqual(expected, ConnectionHelper.UpdateDefaultPort(DatabaseType.MySql, type, "3306"));
+            AssertEqual("13306", ConnectionHelper.UpdateDefaultPort(DatabaseType.MySql, type, "13306"));
+            if (ConnectionHelper.IsFileDatabase(type)) continue;
+            var connection = new ConnectionItem { DatabaseType = type.ToString(), Server = "localhost", UserId = "tester" };
+            AssertEqual(null, ConnectionHelper.ValidateEndpoint(connection));
+            foreach (var port in new[] { "0", "-1", "65536", "abc" })
+            {
+                connection.Port = port;
+                AssertContains("端口", ConnectionHelper.ValidateEndpoint(connection)!);
+            }
+            connection.Port = "65535";
+            AssertEqual(null, ConnectionHelper.ValidateEndpoint(connection));
+            connection.UserId = null;
+            AssertContains("用户名", ConnectionHelper.ValidateEndpoint(connection)!);
+            connection.IntegratedSecurity = true;
+            AssertEqual(DatabaseAuthentication.SupportsIntegratedSecurity(type) ? null : "该数据库类型不支持 Windows 身份验证。",
+                ConnectionHelper.ValidateEndpoint(connection));
+        }
+        AssertTrue(!ConnectionHelper.RequiresDatabase(DatabaseType.Oracle) && !ConnectionHelper.RequiresDatabase(DatabaseType.DM),
+            "Oracle/DM 不应强制填写数据库名。");
+        AssertTrue(ConnectionHelper.RequiresDatabase(DatabaseType.Postgres), "PostgreSQL 保存时需要目标数据库。");
+        AssertTrue(ConnectionHelper.SupportsSsl(DatabaseType.Postgres), "PostgreSQL 应显示 SSL 设置。");
+        AssertTrue(!ConnectionHelper.SupportsSsl(DatabaseType.DM), "DM 不应沿用隐藏的 SSL 设置。");
+        var duck = new ConnectionItem { DatabaseType = "DuckDB", Database = ":memory:" };
+        AssertEqual(null, ConnectionHelper.ValidateEndpoint(duck));
+        duck.DuckDbReadOnly = true;
+        AssertContains("内存", ConnectionHelper.ValidateEndpoint(duck)!);
+        duck.Database = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.duckdb");
+        AssertContains("已有", ConnectionHelper.ValidateEndpoint(duck)!);
+
+        var id = $"regression-{Guid.NewGuid():N}";
+        var visuals = new DefaultConnectionVisualService();
+        try
+        {
+            visuals.Save(id, "readonly-test", null, null, duckDbReadOnly: true);
+            AssertTrue(new DefaultConnectionVisualService().Find(id)?.DuckDbReadOnly == true, "DuckDB 只读设置应在重新读取后保留。");
+            visuals.Save(id, "readonly-test", "group", null);
+            AssertTrue(new DefaultConnectionVisualService().Find(id)?.DuckDbReadOnly == true, "修改分组不能清除只读设置。");
+            visuals.Save(id, "readonly-test", "group", null, duckDbReadOnly: false);
+            AssertTrue(new DefaultConnectionVisualService().Find(id)?.DuckDbReadOnly == false, "只读设置应允许关闭。");
+        }
+        finally { visuals.Remove(id); }
+    }
+
     private static int Main()
     {
+        VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP2Checks.RunAsync().GetAwaiter().GetResult();
