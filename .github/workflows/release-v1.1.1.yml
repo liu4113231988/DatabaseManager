@@ -18,8 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: v1.1.1
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
@@ -28,6 +26,9 @@ jobs:
           dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release -p:UsedAvaloniaProducts=
           dotnet build DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release -p:UsedAvaloniaProducts=
           dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release --no-build
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.1.1
       - name: Publish and package
         run: |
           project=DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj

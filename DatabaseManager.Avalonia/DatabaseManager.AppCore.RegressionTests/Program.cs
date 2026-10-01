@@ -138,7 +138,7 @@ static class Program
             userService.BuildGrantSql("SqlServer", "reporter", null, "SELECT", "dbo.*"));
         AssertEqual(string.Empty,
             userService.BuildGrantSql("Oracle", "reporter", null, "SELECT", "*.*"));
-        AssertEqual("SELECT id, name FROM orders\r\nORDER BY 2 DESC;",
+        AssertEqual($"SELECT id, name FROM orders{Environment.NewLine}ORDER BY 2 DESC;",
             SqlQueryTransform.AppendOrdinalOrderBy("SELECT id, name FROM orders", 2, true));
         AssertEqualDate(new DateTime(2026, 9, 1, 9, 30, 0),
             CronSchedule.GetNextOccurrence("30 9 * * 1-5", new DateTime(2026, 8, 31, 10, 0, 0)));
