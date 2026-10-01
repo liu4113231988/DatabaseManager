@@ -57,7 +57,7 @@ public partial class MainWindow : Window
         // 才能收到按下事件，否则拖拽源逻辑完全不会触发。
         ObjectsTree.AddHandler(PointerPressedEvent, ObjectsTree_PointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
         ObjectsTree.PointerMoved += ObjectsTree_PointerMoved;
-        ObjectsTree.PointerReleased += ObjectsTree_PointerReleased;
+        ObjectsTree.AddHandler(PointerReleasedEvent, ObjectsTree_PointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
         ObjectsTree.PointerCaptureLost += ObjectsTree_PointerCaptureLost;
 
         // 拖拽中悬停自动展开（只在拖拽进行期间触发，不影响普通交互）
@@ -2148,9 +2148,8 @@ public partial class MainWindow : Window
         _dragPressArgs = e;
         _isDragging = false;
 
-        // 捕获指针：即使快速拖出对象树范围，PointerMoved 仍会投递到 ObjectsTree，
-        // 保证阈值判断与 DoDragDropAsync 能可靠启动。
-        e.Pointer.Capture(ObjectsTree);
+        // 按下时保留节点自己的指针捕获，否则会打断双击展开手势。
+        // 超过移动阈值后由 DoDragDropAsync 接管拖放。
     }
 
     private async void ObjectsTree_PointerMoved(object? sender, PointerEventArgs e)
@@ -2211,10 +2210,6 @@ public partial class MainWindow : Window
 
     private void ResetDragState()
     {
-        // 释放可能在 PointerPressed 中建立的指针捕获，避免后续交互被锁死
-        if (_dragPressArgs?.Pointer?.Captured is not null)
-            _dragPressArgs.Pointer.Capture(null);
-
         _dragStartNode = null;
         _dragPressArgs = null;
         _isDragging = false;

@@ -61,6 +61,26 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
 
     public async Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem connection, CancellationToken cancellationToken = default)
     {
+        if (ConnectionHelper.ValidateEndpoint(connection) is { } error)
+            throw new ArgumentException(error);
+
+        if (ParseDatabaseType(connection.DatabaseType) == DatabaseType.Sqlite)
+        {
+            var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+            {
+                DataSource = connection.Database,
+                Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
+                Password = connection.Password ?? string.Empty,
+                Pooling = false,
+            };
+            using var sqlite = new Microsoft.Data.Sqlite.SqliteConnection(builder.ConnectionString);
+            await sqlite.OpenAsync(cancellationToken);
+            using var command = sqlite.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_schema";
+            await command.ExecuteScalarAsync(cancellationToken);
+            return new[] { connection.Database };
+        }
+
         var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var dbType = ParseDatabaseType(connection.DatabaseType);

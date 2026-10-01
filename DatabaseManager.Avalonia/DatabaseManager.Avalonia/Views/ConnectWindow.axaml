@@ -101,7 +101,7 @@
                 <atom:CheckBox x:Name="ChkRememberPassword" Content="记住密码" IsChecked="True" />
                 <atom:CheckBox x:Name="ChkIsDba" Content="DBA" />
                 <atom:CheckBox x:Name="ChkUseSsl" Content="使用 SSL" />
-            </StackPanel>            <StackPanel Spacing="6">
+            </StackPanel>            <StackPanel x:Name="PanelSsh" Spacing="6">
                 <TextBlock Text="SSH 隧道" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                 <Border Background="{DynamicResource AppSurfaceBrush}"
                         BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
@@ -142,10 +142,14 @@
             </Grid>
 
             <StackPanel Spacing="6">
-                <TextBlock Text="数据库" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
+                <TextBlock x:Name="LblDatabase" Text="数据库" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <atom:ComboBox x:Name="ComboDatabase" Grid.Column="0" Margin="0,0,8,0"
                                    HorizontalAlignment="Stretch" IsEditable="True" />
+                    <atom:TextBox x:Name="TxtDatabasePath" Grid.Column="0" Margin="0,0,8,0"
+                                  IsVisible="False" PlaceholderText="选择或填写数据库文件路径" />
+                    <atom:Button x:Name="BtnBrowseDatabase" Grid.Column="1" Content="选择文件" Margin="0,0,8,0"
+                                 IsVisible="False" Click="BtnBrowseDatabase_Click" />
                     <atom:Button x:Name="BtnLoadDatabases" Grid.Column="1" Content="加载数据库" Margin="0,0,8,0"
                                  Click="BtnLoadDatabases_Click" />
                     <atom:Button x:Name="BtnTestConnection" Grid.Column="2" Content="测试连接"

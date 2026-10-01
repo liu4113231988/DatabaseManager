@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
@@ -89,6 +90,7 @@ public partial class ConnectWindow : Window
         TxtSshSecret.Text = connection.Ssh?.Secret;
         TxtSshFingerprint.Text = connection.Ssh?.HostFingerprint;
         ComboDatabase.Text = connection.Database;
+        TxtDatabasePath.Text = connection.Database;
         TxtGroup.Text = connection.Group ?? string.Empty;
         ComboColorTag.SelectedItem = string.IsNullOrEmpty(connection.ColorTag)
             ? "无"
@@ -103,6 +105,8 @@ public partial class ConnectWindow : Window
 
     private void ComboDatabaseType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        if (ConnectionHelper.IsFileDatabase(GetDatabaseType()))
+            TxtPassword.Text = null;
         UpdateAuthVisibility();
     }
 
@@ -126,12 +130,20 @@ public partial class ConnectWindow : Window
         ChkUseSsl.IsVisible = dbType is DatabaseType.MySql or DatabaseType.KingbaseES;
         PanelKingbaseMode.IsVisible = dbType == DatabaseType.KingbaseES;
 
-        // DuckDB 为嵌入式数据库：无服务器/认证，仅需文件路径或内存模式。
+        // 文件数据库无需服务器或用户认证。
         bool isDuckDb = dbType == DatabaseType.DuckDB;
         PanelDuckDbMode.IsVisible = isDuckDb;
-        PanelServerPort.IsVisible = !isDuckDb;
-        PanelAuthentication.IsVisible = !isDuckDb;
-        PanelUserPassword.IsVisible = !isDuckDb;
+        bool isFileDatabase = ConnectionHelper.IsFileDatabase(dbType);
+        PanelServerPort.IsVisible = !isFileDatabase;
+        PanelAuthentication.IsVisible = !isFileDatabase;
+        PanelUserPassword.IsVisible = !isFileDatabase;
+        ChkRememberPassword.IsVisible = !isFileDatabase;
+        PanelSsh.IsVisible = !isFileDatabase;
+        ComboDatabase.IsVisible = !isFileDatabase;
+        TxtDatabasePath.IsVisible = isFileDatabase;
+        BtnBrowseDatabase.IsVisible = isFileDatabase;
+        BtnLoadDatabases.IsVisible = !isFileDatabase;
+        LblDatabase.Text = isFileDatabase ? "数据库路径" : "数据库";
 
         // 默认端口
         if (string.IsNullOrEmpty(TxtPort.Text))
@@ -181,22 +193,24 @@ public partial class ConnectWindow : Window
 
         connection.DatabaseType = GetDatabaseType().ToString();
         connection.Name = TxtProfileName.Text?.Trim() ?? string.Empty;
-        connection.Server = TxtServer.Text?.Trim() ?? string.Empty;
-        connection.Port = TxtPort.Text?.Trim();
+        connection.Server = ConnectionHelper.IsFileDatabase(GetDatabaseType()) ? string.Empty : TxtServer.Text?.Trim() ?? string.Empty;
+        connection.Port = ConnectionHelper.IsFileDatabase(GetDatabaseType()) ? null : TxtPort.Text?.Trim();
         connection.IntegratedSecurity = UsesWindowsAuthentication;
-        connection.UserId = connection.IntegratedSecurity && !DatabaseAuthentication.AllowsIntegratedUserName(GetDatabaseType())
+        connection.UserId = ConnectionHelper.IsFileDatabase(GetDatabaseType())
+            || connection.IntegratedSecurity && !DatabaseAuthentication.AllowsIntegratedUserName(GetDatabaseType())
             ? null : TxtUserId.Text?.Trim();
         connection.Password = connection.IntegratedSecurity ? null : TxtPassword.Text;
         connection.IsDba = ChkIsDba.IsChecked == true;
         connection.UseSsl = ChkUseSsl.IsChecked == true;
         connection.Ssh = new SshTunnelOptions
         {
-            Enabled = ChkSsh.IsChecked == true, Host = TxtSshHost.Text?.Trim() ?? "",
+            Enabled = !ConnectionHelper.IsFileDatabase(GetDatabaseType()) && ChkSsh.IsChecked == true, Host = TxtSshHost.Text?.Trim() ?? "",
             Port = int.TryParse(TxtSshPort.Text, out var sshPort) ? sshPort : 0,
             UserName = TxtSshUser.Text?.Trim() ?? "", PrivateKeyPath = TxtSshKey.Text?.Trim() ?? "",
             Secret = TxtSshSecret.Text ?? "", HostFingerprint = TxtSshFingerprint.Text?.Trim() ?? "",
         };
-        connection.Database = ComboDatabase.Text?.Trim() ?? string.Empty;
+        connection.Database = (ConnectionHelper.IsFileDatabase(GetDatabaseType())
+            ? TxtDatabasePath.Text : ComboDatabase.Text)?.Trim() ?? string.Empty;
         connection.RememberPassword = !connection.IntegratedSecurity && ChkRememberPassword.IsChecked == true;
         connection.KingbaseCompatibilityMode = GetDatabaseType() == DatabaseType.KingbaseES
             ? KingbaseCompatibilityModes.Normalize(ComboKingbaseMode.SelectedItem as string)
@@ -225,6 +239,17 @@ public partial class ConnectWindow : Window
         return false;
     }
 
+    private async void BtnBrowseDatabase_Click(object? sender, RoutedEventArgs e)
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "选择数据库文件",
+            AllowMultiple = false,
+        });
+        if (files.Count > 0 && files[0].TryGetLocalPath() is { } path)
+            TxtDatabasePath.Text = path;
+    }
+
     private async void BtnLoadDatabases_Click(object? sender, RoutedEventArgs e)
     {
         var connection = BuildConnection();
@@ -232,9 +257,9 @@ public partial class ConnectWindow : Window
         if (!await EnsureSupportedKingbaseModeAsync(connection))
             return;
 
-        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
+        if (ConnectionHelper.ValidateEndpoint(connection) is { } endpointError)
         {
-            await ShowErrorAsync("请填写服务器地址（Server）。");
+            await ShowErrorAsync(endpointError);
             return;
         }
 
@@ -261,9 +286,9 @@ public partial class ConnectWindow : Window
         if (!await EnsureSupportedKingbaseModeAsync(connection))
             return;
 
-        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
+        if (ConnectionHelper.ValidateEndpoint(connection) is { } endpointError)
         {
-            await ShowErrorAsync("请填写服务器地址（Server）。");
+            await ShowErrorAsync(endpointError);
             return;
         }
 
@@ -276,7 +301,8 @@ public partial class ConnectWindow : Window
             var databases = await _vm.TestConnectionAsync(connection);
             PopulateDatabases(databases, connection);
 
-            await ShowInfoAsync($"连接成功，共发现 {databases.Count} 个数据库。");
+            await ShowInfoAsync(ConnectionHelper.IsFileDatabase(GetDatabaseType())
+                ? "连接成功。" : $"连接成功，共发现 {databases.Count} 个数据库。");
         }
         catch (Exception ex)
         {
@@ -291,6 +317,9 @@ public partial class ConnectWindow : Window
     /// <summary>将加载到的数据库列表填充到下拉框，供用户选择。</summary>
     private void PopulateDatabases(IReadOnlyList<string> databases, ConnectionItem connection)
     {
+        if (ConnectionHelper.IsFileDatabase(GetDatabaseType()))
+            return;
+
         ComboDatabase.ItemsSource = databases;
         if (databases.Count > 0 && string.IsNullOrEmpty(ComboDatabase.Text))
         {
@@ -307,13 +336,13 @@ public partial class ConnectWindow : Window
             return;
 
         // 基本校验
-        if (GetDatabaseType() != DatabaseType.DuckDB && string.IsNullOrEmpty(connection.Server))
+        if (ConnectionHelper.ValidateEndpoint(connection) is { } endpointError)
         {
-            await ShowErrorAsync("请填写服务器地址（Server）。");
+            await ShowErrorAsync(endpointError);
             return;
         }
 
-        if (!connection.IntegratedSecurity && string.IsNullOrEmpty(connection.UserId))
+        if (!ConnectionHelper.IsFileDatabase(GetDatabaseType()) && !connection.IntegratedSecurity && string.IsNullOrEmpty(connection.UserId))
         {
             await ShowErrorAsync("请填写用户名（User ID）。");
             return;

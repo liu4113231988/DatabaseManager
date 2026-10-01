@@ -12,8 +12,53 @@ using System.Text;
 
 static class Program
 {
+    private static async Task VerifySqliteConnectionAsync()
+    {
+        var connection = new ConnectionItem { DatabaseType = "Sqlite", Database = "" };
+        AssertContains("路径", ConnectionHelper.ValidateEndpoint(connection)!);
+        AssertTrue(ConnectionHelper.IsFileDatabase(DatabaseType.Sqlite), "SQLite 应使用文件连接表单。");
+        AssertTrue(ConnectionHelper.IsFileDatabase(DatabaseType.DuckDB), "DuckDB 应使用文件连接表单。");
+        AssertTrue(!ConnectionHelper.IsFileDatabase(DatabaseType.MySql), "MySQL 应使用服务器连接表单。");
+        AssertContains("服务器", ConnectionHelper.ValidateEndpoint(new ConnectionItem { DatabaseType = "MySql" })!);
+        var path = Path.Combine(Path.GetTempPath(), $"dbm-sqlite-{Guid.NewGuid():N}.db");
+        connection.Database = path;
+        var service = new ProfileDbConnectionService(null!);
+        try
+        {
+            AssertContains("不存在", ConnectionHelper.ValidateEndpoint(connection)!);
+            try
+            {
+                await service.TestConnectionAsync(connection);
+                throw new InvalidOperationException("缺失的 SQLite 文件不能通过连接测试。");
+            }
+            catch (ArgumentException) { }
+            AssertTrue(!File.Exists(path), "测试连接不能创建缺失的数据库文件。");
+            using (var sqlite = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={path};Pooling=False"))
+            {
+                await sqlite.OpenAsync();
+                using var command = sqlite.CreateCommand();
+                command.CommandText = "CREATE TABLE sample (id INTEGER)";
+                await command.ExecuteNonQueryAsync();
+            }
+            AssertEqual(null, ConnectionHelper.ValidateEndpoint(connection));
+            AssertEqual(path, (await service.TestConnectionAsync(connection)).Single());
+            await File.WriteAllTextAsync(path, "invalid sqlite database");
+            try
+            {
+                await service.TestConnectionAsync(connection);
+                throw new InvalidOperationException("无效的 SQLite 文件不能通过连接测试。");
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException) { }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static int Main()
     {
+        VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP2Checks.RunAsync().GetAwaiter().GetResult();
         QueryExecutionChecks.RunAsync().GetAwaiter().GetResult();
