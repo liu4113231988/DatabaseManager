@@ -27,6 +27,8 @@ jobs:
       - name: Build
         run: dotnet build DatabaseManager.Avalonia.sln --no-restore --configuration Release -warnaserror:0
       - name: Regression checks
-        run: dotnet run --project DatabaseManager.AppCore.RegressionTests --no-build --configuration Release
+        run: |
+          dotnet build DatabaseManager.AppCore.RegressionTests --configuration Release -p:UsedAvaloniaProducts=
+          dotnet run --project DatabaseManager.AppCore.RegressionTests --no-build --configuration Release
       - name: Test
         run: dotnet test DatabaseManager.Avalonia.sln --no-restore --configuration Release --no-build

@@ -26,6 +26,7 @@ jobs:
       - name: Build and verify
         run: |
           dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release -p:UsedAvaloniaProducts=
+          dotnet build DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release -p:UsedAvaloniaProducts=
           dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release --no-build
       - name: Publish and package
         run: |
