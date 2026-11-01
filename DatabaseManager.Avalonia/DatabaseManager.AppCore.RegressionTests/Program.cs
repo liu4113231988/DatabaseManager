@@ -289,6 +289,26 @@ static class Program
         AssertTrue(asyncInit?.ReturnType == typeof(Task), "Profile 异步初始化必须返回 Task，禁止 async void 丢失异常。");
         AssertTrue(syncInit?.GetCustomAttributes(typeof(System.Runtime.CompilerServices.AsyncStateMachineAttribute), false).Length == 0,
             "Profile 同步初始化入口不得是 async void。");
+
+        var path = Path.Combine(Path.GetTempPath(), $"dbm-profile-{Guid.NewGuid():N};配置.db");
+        try
+        {
+            var create = typeof(ProfileBaseManager).GetMethod("CreateDbConnection",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+            using var connection = (Microsoft.Data.Sqlite.SqliteConnection)create.Invoke(null, new object[] { path })!;
+            AssertEqual(path, connection.DataSource);
+            AssertTrue(connection.State == System.Data.ConnectionState.Closed && !File.Exists(path),
+                "创建配置连接不应提前打开或创建文件。");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "CREATE TABLE StartupCheck (Id INTEGER); INSERT INTO StartupCheck VALUES (1); SELECT Id FROM StartupCheck;";
+            AssertTrue(Convert.ToInt64(command.ExecuteScalar()) == 1, "配置连接必须仍支持 SQLite 读写和特殊字符路径。");
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            File.Delete(path);
+        }
     }
 
     private static void AssertEqual(string? expected, string? actual)

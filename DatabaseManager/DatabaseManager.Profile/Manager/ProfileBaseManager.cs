@@ -119,12 +119,9 @@ namespace DatabaseManager.Profile.Manager
 
         internal static SqliteConnection CreateDbConnection(string dataFilePath = null)
         {
-            if (dataFilePath == null)
-            {
-                dataFilePath = ProfileDataFile;
-            }
-
-            return GetDbInterpreter(dataFilePath).CreateConnection() as SqliteConnection;
+            // 本地配置库只用 SQLite，避免启动时经通用工厂加载其他数据库驱动。
+            var builder = new DatabaseInterpreter.Core.SqliteConnectionStringBuilder();
+            return new SqliteConnection(builder.BuildConntionString(GetConnectionInfo(dataFilePath ?? ProfileDataFile)));
         }
 
         protected static object GetParameterValue(string value)

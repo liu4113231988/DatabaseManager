@@ -53,7 +53,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public void RefreshQueryDatabases(QueryTabViewModel tab)
     {
-        var connection = _connectionService.GetConnections().FirstOrDefault(c =>
+        var connection = Connections.FirstOrDefault(c =>
             string.Equals(c.Name, tab.ConnectionName, StringComparison.OrdinalIgnoreCase));
         if (connection?.DatabaseType is not ("SqlServer" or "MySql" or "Postgres" or "KingbaseES"))
         {
@@ -130,6 +130,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _appSettingsService = appSettingsService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
+        System.Diagnostics.Trace.WriteLine("startup|viewmodel-resolved");
     }
 
     /// <summary>连接被选中时同步对象树节点，便于工具栏按节点状态计算可用性。</summary>
@@ -206,9 +207,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         SupportedDatabases = string.Join(", ", _schemaService.GetSupportedDatabaseTypes());
         RefreshConnections();
+        System.Diagnostics.Trace.WriteLine("startup|connections-end");
         RefreshRecentScripts();
+        System.Diagnostics.Trace.WriteLine("startup|recent-scripts-end");
 
         RestoreSession();
+        System.Diagnostics.Trace.WriteLine("startup|session-end");
     }
 
     /// <summary>恢复上次会话打开的查询标签（含未保存的 SQL 草稿）；无可恢复内容时新建一个空标签。</summary>

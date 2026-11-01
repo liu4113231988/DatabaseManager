@@ -12,6 +12,8 @@
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
     <!-- 仅保留 win-x64 与 linux-x64 运行时，避免发布包携带大量其他平台原生依赖 -->
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>false</PublishReadyToRun>
 	  <SatelliteResourceLanguages>zh-Hans;es;</SatelliteResourceLanguages>
 	  <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
@@ -25,10 +27,10 @@
 
   <ItemGroup>
     <!-- Avalonia 12.x：生态兼容基座（AtomUI / Dock / MessageBox 均基于 Avalonia 12） -->
-    <PackageReference Include="Avalonia" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
 
     <!-- 表格：查询结果网格 -->
     <PackageReference Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
@@ -40,7 +42,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
 
     <!-- 主题：AtomUI.Desktop.Controls（Ant Design 风格，对齐原 AntdUI 视觉）；6.x 基于 Avalonia 12 -->
-    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.1.9" />
+    <PackageReference Include="AtomUI.Desktop.Controls" Version="6.2.7" />
 
     <!-- 停靠布局：Dock -->
     <PackageReference Include="Dock.Avalonia" Version="12.1.0.6" />

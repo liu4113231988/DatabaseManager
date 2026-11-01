@@ -78,7 +78,12 @@ internal static class QueryExecutionChecks
 
     internal sealed class Connections(params ConnectionItem[] connections) : IDbConnectionService
     {
-        public IReadOnlyList<ConnectionItem> GetConnections() => connections;
+        public int ReadCount { get; private set; }
+        public IReadOnlyList<ConnectionItem> GetConnections()
+        {
+            ReadCount++;
+            return connections;
+        }
         public IReadOnlyList<ConnectionItem> GetConnections(string databaseType) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => connections.FirstOrDefault(c => c.Id == id);
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem item, CancellationToken cancellationToken = default) => throw new NotSupportedException();

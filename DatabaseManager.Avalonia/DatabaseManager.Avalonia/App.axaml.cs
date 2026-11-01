@@ -1,7 +1,4 @@
 using System;
-using AtomUI;
-using AtomUI.Desktop.Controls;
-using AtomUI.Theme;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -25,13 +22,11 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        System.Diagnostics.Trace.WriteLine("startup|app-xaml-start");
         AvaloniaXamlLoader.Load(this);
+        System.Diagnostics.Trace.WriteLine("startup|app-xaml-end");
 
-        // 初始化 AtomUI（Ant Design 风格主题，对齐原 AntdUI 视觉）
-        this.UseAtomUI(builder =>
-        {
-            builder.UseDesktopControls();
-        });
+        System.Diagnostics.Trace.WriteLine("startup|app-initialize-end");
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -44,17 +39,21 @@ public partial class App : Application
                 System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
                 // 配置文件必须在构建服务和窗口前完成初始化，避免 async void 把失败抛到进程级。
+                System.Diagnostics.Trace.WriteLine("startup|profile-start");
                 ProfileBaseManager.Init();
+                System.Diagnostics.Trace.WriteLine("startup|profile-end");
 
                 _services = new ServiceCollection()
                     .AddAppCore()
                     .BuildServiceProvider();
+                System.Diagnostics.Trace.WriteLine("startup|container-end");
 
                 desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
                 {
                     DataContext = _services.GetRequiredService<MainWindowViewModel>(),
                     Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager/Assets/database-manager.ico"))),
                 };
+                System.Diagnostics.Trace.WriteLine("startup|main-window-ready");
             }
             catch (Exception ex)
             {

@@ -6,6 +6,7 @@ internal static class P0FeatureChecks
 {
     public static async Task RunAsync()
     {
+        VerifyQueryDatabaseRefresh();
         var plan = ExecutionPlanParser.Parse(new QueryResult { Rows = new[] { new[] { "[{\"Plan\":{\"Node Type\":\"Hash Join\",\"Total Cost\":40,\"Plans\":[{\"Node Type\":\"Seq Scan\",\"Relation Name\":\"items\",\"Total Cost\":30,\"Actual Total Time\":2.5}]}}]" } } });
         Check(plan.Count == 1 && plan[0].Children[0].ObjectName == "items" && plan[0].Children[0].Milliseconds == 2.5 && plan[0].Children[0].IsHotspot, "Structured execution plan tree and metrics.");
         var sqlitePlan = ExecutionPlanParser.Parse(new QueryResult { Columns = new[] { "id", "parent", "detail" }, Rows = new[] { new[] { "1", "0", "ROOT" }, new[] { "2", "1", "SCAN items" } } });
@@ -91,6 +92,31 @@ internal static class P0FeatureChecks
         }
         Console.WriteLine("P0 feature regression checks passed.");
     }
+    private static void VerifyQueryDatabaseRefresh()
+    {
+        var connection = new ConnectionItem { Name = "startup", DatabaseType = "Postgres", Database = "app_db" };
+        var connections = new QueryExecutionChecks.Connections(connection);
+        var query = new DefaultQueryService(connections);
+        var schema = new DefaultDbSchemaService(connections);
+        var explorer = new ObjectsExplorerViewModel(schema);
+        var vm = new MainWindowViewModel(schema, connections, query, new DefaultDataEditService(connections),
+            explorer, new QueryEditorViewModel(query));
+        vm.Initialize();
+        var node = explorer.FindConnectionNode(connection.Name)!;
+        node.Children.Add(new DbObjectTreeNode { Name = "report_db", NodeType = DbObjectTreeNodeType.Database });
+        var tab = vm.OpenSqlInNewTab(connection.Name, "SELECT 1", connection.Database);
+        for (int i = 0; i < 30; i++) vm.RefreshQueryDatabases(tab);
+        Check(connections.ReadCount == 1, "Startup and database selectors must share the loaded connections.");
+        Check(tab.AvailableDatabases.SequenceEqual(new[] { "app_db", "report_db" }), "Database choices retain the current context and loaded databases.");
+        node.Children.Add(new DbObjectTreeNode { Name = "new_db", NodeType = DbObjectTreeNodeType.Database });
+        vm.RefreshQueryDatabases(tab);
+        Check(tab.AvailableDatabases.Contains("new_db"), "Database choices must reflect newly loaded tree nodes.");
+        connection.DatabaseType = "Sqlite";
+        vm.RefreshConnections();
+        vm.RefreshQueryDatabases(tab);
+        Check(connections.ReadCount == 2 && tab.AvailableDatabases.Count == 0, "Explicit connection refresh must still reload profiles and clear unsupported choices.");
+    }
+
     private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static void Throws(Action action, string message) { try { action(); } catch (InvalidOperationException) { return; } throw new InvalidOperationException(message); }
     private sealed class CaptureTasks : ITaskCenterService

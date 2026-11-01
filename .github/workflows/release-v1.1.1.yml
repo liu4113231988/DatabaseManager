@@ -32,10 +32,12 @@ jobs:
       - name: Publish and package
         run: |
           project=DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj
-          dotnet publish "$project" -c Release -r win-x64 --self-contained true -p:UsedAvaloniaProducts= -o artifacts/win-x64
-          dotnet publish "$project" -c Release -r linux-x64 --self-contained true -p:UsedAvaloniaProducts= -o artifacts/linux-x64
+          dotnet publish "$project" -c Release -r win-x64 --self-contained false -p:UsedAvaloniaProducts= -o artifacts/win-x64
+          dotnet publish "$project" -c Release -r linux-x64 --self-contained false -p:UsedAvaloniaProducts= -o artifacts/linux-x64
           test -f artifacts/win-x64/DatabaseManager.exe
           test -x artifacts/linux-x64/DatabaseManager
+          test ! -f artifacts/win-x64/coreclr.dll
+          test ! -f artifacts/linux-x64/libcoreclr.so
           test ! -d artifacts/win-x64/Profiles
           test ! -d artifacts/linux-x64/Profiles
           (cd artifacts/win-x64 && zip -qr ../DatabaseManager-v1.1.1-win-x64.zip .)
@@ -54,6 +56,6 @@ jobs:
           - Oracle/达梦自动读取登录用户 Schema；DuckDB 持久保存只读设置。
           - 主程序更名为 DatabaseManager.exe（Windows）和 DatabaseManager（Linux）。
 
-          Windows x64 和 Linux x64 发布包均包含 .NET 10 运行时。
+          Windows x64 和 Linux x64 发布包均不包含 .NET 运行时，运行前需安装对应平台的 .NET 10 运行时。
           NOTES
           gh release create v1.1.1 artifacts/DatabaseManager-v1.1.1-win-x64.zip artifacts/DatabaseManager-v1.1.1-linux-x64.tar.gz artifacts/SHA256SUMS.txt --verify-tag --title "DatabaseManager V1.1.1" --notes-file release-notes.md

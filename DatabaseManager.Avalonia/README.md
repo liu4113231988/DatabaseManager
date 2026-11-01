@@ -20,8 +20,8 @@ DatabaseManager.Avalonia.sln
 
 | 用途 | 选型 |
 |------|------|
-| 框架 | Avalonia 12.1.1（.NET 8） |
-| 主题 | **AtomUI 6.1.5**（Ant Design 风格） |
+| 框架 | Avalonia 12.1.4（.NET 10；DataGrid 保持 12.1.2） |
+| 主题 | **AtomUI 6.2.7**（Ant Design 风格） |
 | 停靠布局 | **Dock.Avalonia 12.1.0.4** |
 | MVVM | CommunityToolkit.Mvvm |
 | DI | Microsoft.Extensions.DependencyInjection |
@@ -51,6 +51,8 @@ DatabaseManager.Avalonia.sln
 当前版本已具备日常数据库浏览、查询、编辑、建表、跨库处理和运维监控的主链路。功能决策、优先级与明确不做清单见根目录 [Roadmap.md](../Roadmap.md)，**未完成事项与待验收清单**见 [docs/backlog.md](./docs/backlog.md)。KingbaseES 的支持边界与验证状态见 [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)。
 
 ## 构建与运行
+
+源码构建需要 .NET 10 SDK。发布包默认不携带 .NET 运行时，运行前需安装对应平台和架构的 .NET 10 运行时；Windows x64 包需 x64 运行时。发布及裁剪检查结果见 [docs/startup-performance.md](./docs/startup-performance.md)。
 
 ```bash
 # 构建 Avalonia 解决方案

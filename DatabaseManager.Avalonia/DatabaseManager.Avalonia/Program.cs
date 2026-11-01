@@ -1,4 +1,5 @@
 using AtomUI;
+using AtomUI.Desktop.Controls;
 using Avalonia;
 using System;
 using System.Linq;
@@ -42,5 +43,6 @@ sealed class Program
         => AppBuilder.Configure<App>()
             .UseAtomUIPlatformDetect()
             .WithAtomUIDefaultOptions()
+            .UseAtomUI(builder => builder.UseDesktopControls())
             .LogToTrace();
 }

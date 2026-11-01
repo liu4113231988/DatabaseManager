@@ -44,7 +44,9 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
+        System.Diagnostics.Trace.WriteLine("startup|window-xaml-start");
         InitializeComponent();
+        System.Diagnostics.Trace.WriteLine("startup|window-xaml-end");
 
         // Avalonia 12 Fluent 的 TreeViewItem 模板中，展开箭头容器（PART_ExpandCollapseChevronContainer）
         // 的 12,0,12,0 Margin 是主题在代码中设置的本地值，样式无法覆盖；导致对象树根节点左侧
@@ -92,13 +94,16 @@ public partial class MainWindow : Window
 
     protected override void OnOpened(EventArgs e)
     {
+        System.Diagnostics.Trace.WriteLine("startup|opened-start");
         base.OnOpened(e);
 
         _services = (Application.Current as App)?.Services;
 
         if (DataContext is MainWindowViewModel vm)
         {
+            System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-start");
             vm.Initialize();
+            System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-end");
 
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
@@ -151,6 +156,7 @@ public partial class MainWindow : Window
         }
 
         // 任务中心接线：状态栏计数 + 完成/失败 Toast 通知。
+        System.Diagnostics.Trace.WriteLine("startup|event-wiring-end");
         _taskCenter = _services?.GetService<ITaskCenterService>();
         if (_taskCenter is not null)
         {
@@ -172,6 +178,7 @@ public partial class MainWindow : Window
         }
 
         // 最大化会扩展原生客户区。将其放到首帧布局/绘制之后，避免启动时短暂露出尚未重绘的黑色区域。
+        System.Diagnostics.Trace.WriteLine("startup|appearance-end");
         if (_restoreMaximizedAfterFirstRender)
         {
             Dispatcher.UIThread.Post(() =>
@@ -190,6 +197,7 @@ public partial class MainWindow : Window
                 (_, _) => scheduleService.CheckAndRunDue(DateTime.Now));
             _scheduleTimer.Start();
         }
+        System.Diagnostics.Trace.WriteLine("startup|opened-end");
     }
 
     private IAppSettingsService? _appSettings;

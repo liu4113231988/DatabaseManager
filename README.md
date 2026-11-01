@@ -2,7 +2,7 @@
 
 最新的已完成能力见 [Avalonia 版 README](DatabaseManager.Avalonia/README.md)，未完成与待验收边界见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 
-一个基于 **.NET 8** 的多数据库管理与迁移工具，提供对象浏览、SQL 开发、数据编辑、表设计、结构/数据转换、差异对比与同步、导入导出、诊断优化、备份恢复等一站式数据库运维能力。
+一个基于 **.NET 10** 的多数据库管理与迁移工具，提供对象浏览、SQL 开发、数据编辑、表设计、结构/数据转换、差异对比与同步、导入导出、诊断优化、备份恢复等一站式数据库运维能力。
 
 当前产品客户端为 **DatabaseManager.Avalonia**：基于 Avalonia UI + AtomUI，支持 Windows / Linux / macOS。它通过 `DatabaseManager.AppCore` 承载 UI 无关的业务服务和 ViewModel，并复用 `DatabaseInterpreter`、`DatabaseConverter` 与 `DatabaseManager.Core` 等核心引擎。
 
@@ -201,7 +201,7 @@
 ## 构建与运行
 
 ### 环境要求
-- .NET 8 SDK
+- 源码构建需要 .NET 10 SDK；运行发布包需要对应平台和架构的 .NET 10 运行时（发布包不携带运行时）
 - Windows / Linux / macOS（需 GUI 环境）
 - 对应数据库的客户端驱动（随 NuGet 包引入）；备份/恢复功能需对应数据库客户端工具（mysqldump、pg_dump 等）
 
