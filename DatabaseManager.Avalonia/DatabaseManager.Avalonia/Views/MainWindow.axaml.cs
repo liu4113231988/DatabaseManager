@@ -1585,17 +1585,28 @@ public partial class MainWindow : Window
         (DataContext as MainWindowViewModel)?.NewQuery();
     }
 
+    private void QueryDatabase_DropDownOpened(object? sender, EventArgs e)
+    {
+        if (sender is Control { DataContext: QueryTabViewModel tab } && DataContext is MainWindowViewModel vm)
+            vm.RefreshQueryDatabases(tab);
+    }
+
+    private void QueryDatabase_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not AtomUI.Desktop.Controls.ComboBox { DataContext: QueryTabViewModel tab } selector) return;
+        // 等双向绑定完成后恢复被拒绝的选择，避免界面显示与执行上下文不一致。
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (ReferenceEquals(selector.DataContext, tab) && !Equals(selector.SelectedItem, tab.DatabaseName))
+                selector.SelectedItem = tab.DatabaseName;
+        });
+    }
+
     /// <summary>主工具栏：执行当前查询标签的 SQL（有选区时仅执行选区）。</summary>
     private async void ToolExecute_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is MainWindowViewModel vm && vm.SelectedQueryTab is not null)
         {
-            // 同步当前数据库上下文（内联编辑定位目标表需要）。
-            if (!string.IsNullOrEmpty(vm.CurrentDatabase))
-            {
-                vm.SelectedQueryTab.DatabaseName = vm.CurrentDatabase;
-            }
-
             // 若编辑器有选中文本则仅执行选区
             var tabControl = this.FindControl<TabControl>("QueryTabsControl");
             var editor = tabControl is not null ? FindSqlEditorInVisualTree(tabControl) : null;
@@ -1657,12 +1668,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 同步当前数据库上下文（内联编辑定位目标表需要）。
-        if (!string.IsNullOrEmpty(vm.CurrentDatabase))
-        {
-            vm.SelectedQueryTab.DatabaseName = vm.CurrentDatabase;
-        }
-
         var selected = string.IsNullOrWhiteSpace(selection) ? null : selection!.Trim();
         if (!string.IsNullOrEmpty(selected))
         {
@@ -1688,7 +1693,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var tab = vm.OpenSqlInNewTab(vm.SelectedConnection?.Name ?? string.Empty, sql!, vm.CurrentDatabase);
+        var tab = vm.OpenSqlInNewTab(vm.SelectedQueryTab?.ConnectionName ?? vm.SelectedConnection?.Name ?? string.Empty,
+            sql!, vm.SelectedQueryTab?.DatabaseName ?? vm.CurrentDatabase);
         await tab.ExecuteAsync();
     }
 
@@ -1879,14 +1885,8 @@ public partial class MainWindow : Window
     /// <summary>查询结果内联编辑：新增一行并滚动定位到该行。</summary>
     private void QueryAddRow_Click(object? sender, RoutedEventArgs e)
     {
-        if (_currentQueryTab is null || DataContext is not MainWindowViewModel vm)
+        if (_currentQueryTab is null)
             return;
-
-        // 执行前同步数据库上下文。
-        if (string.IsNullOrEmpty(_currentQueryTab.DatabaseName) && !string.IsNullOrEmpty(vm.CurrentDatabase))
-        {
-            _currentQueryTab.DatabaseName = vm.CurrentDatabase;
-        }
 
         _currentQueryTab.AddRowForEdit(out var newRow);
 

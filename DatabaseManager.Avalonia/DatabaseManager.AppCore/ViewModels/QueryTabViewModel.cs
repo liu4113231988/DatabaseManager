@@ -79,9 +79,30 @@ public partial class QueryTabViewModel : ViewModelBase
     [ObservableProperty]
     private string _connectionName = string.Empty;
 
-    /// <summary>当前数据库名（内联编辑定位表时使用；由主窗口在执行前同步）。</summary>
-    [ObservableProperty]
+    public ObservableCollection<string> AvailableDatabases { get; } = new();
+
+    /// <summary>标签独立的执行上下文；已有结果不会随切库成为新库的可编辑数据。</summary>
     private string _databaseName = string.Empty;
+
+    public string DatabaseName
+    {
+        get => _databaseName;
+        set
+        {
+            if (value is null || value == _databaseName) return;
+            if (IsExecuting || IsSavingChanges || HasPendingChanges || _queryService.IsTransactionActive(ConnectionName))
+            {
+                StatusMessage = "请先完成执行、保存或还原修改，并提交或回滚事务后再切换数据库。";
+                OnPropertyChanged();
+                return;
+            }
+            if (SetProperty(ref _databaseName, value))
+            {
+                ResetEditingState();
+                EditReadOnlyReason = "数据库已切换，请重新执行查询后编辑结果。";
+            }
+        }
+    }
 
     [ObservableProperty]
     private bool _isModified;

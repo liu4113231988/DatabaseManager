@@ -25,6 +25,8 @@ internal static class PostgresP0Checks
             var multi = await query.ExecuteAsync(connection.Name, "SELECT 1 AS first; SELECT 2 AS second; SELECT 3 WHERE false;");
             Check(multi.IsSuccess && multi.ResultSets.Count == 3 && multi.ResultSets[1].Rows[0][0] == "2", "PG multiple result sets.");
             Check(await query.BeginTransactionAsync(connection.Name), "PG begin transaction.");
+            var wrongDatabase = await query.ExecuteAsync(connection.Name, "SELECT 1", databaseName: "dbm_other_database");
+            Check(!wrongDatabase.IsSuccess && wrongDatabase.ErrorMessage!.Contains("事务"), "Transactions must reject a different database context.");
             await query.ExecuteAsync(connection.Name, $"UPDATE {schema}.items SET name='uncommitted' WHERE id=1");
             Check((await query.ExecuteStandaloneAsync(connection, $"SELECT name FROM {schema}.items")).Rows[0][0] == "alpha", "PG standalone isolation.");
             Check(await query.RollbackAsync(connection.Name), "PG rollback.");

@@ -30,6 +30,42 @@ public static class P0SmokeHarness
             await tab.ExecuteAsync(); tab.PinResultCommand.Execute(null);
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
+            var server = new ConnectionItem { Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
+            var serverConnections = new FixtureConnections(server);
+            var serverQuery = new DefaultQueryService(serverConnections);
+            var schema = new DefaultDbSchemaService(serverConnections);
+            var explorer = new ObjectsExplorerViewModel(schema);
+            var mainVm = new MainWindowViewModel(schema, serverConnections, serverQuery,
+                new DefaultDataEditService(serverConnections), explorer, new QueryEditorViewModel(serverQuery));
+            mainVm.Initialize();
+            var shell = new MainWindow { DataContext = mainVm };
+            var content = shell.Content;
+            shell.Content = null;
+            var databaseWindow = new Window { DataContext = mainVm, Content = content, Width = 1280, Height = 800 };
+            await Capture(databaseWindow, "query-database", () =>
+            {
+                var node = explorer.FindConnectionNode(server.Name)!;
+                foreach (var name in new[] { "app_db", "report_db" })
+                    node.Children.Add(new DbObjectTreeNode { Name = name, NodeType = DbObjectTreeNodeType.Database });
+                var queryTab = mainVm.OpenSqlInNewTab(server.Name, "SELECT current_database();", server.Database);
+                if (queryTab.AvailableDatabases.Count != 2) throw new InvalidOperationException("Database selector fixture failed.");
+            }, async () =>
+            {
+                var queryTab = mainVm.SelectedQueryTab!;
+                var selector = databaseWindow.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.ComboBox>()
+                    .Single(c => ReferenceEquals(c.ItemsSource, queryTab.AvailableDatabases));
+                if (!selector.IsVisible || !Equals(selector.SelectedItem, "app_db"))
+                    throw new InvalidOperationException("Database selector must display its initial context.");
+                selector.SelectedItem = "report_db";
+                await Task.Delay(100);
+                if (queryTab.DatabaseName != "report_db") throw new InvalidOperationException("Database selection binding failed.");
+                queryTab.IsExecuting = true;
+                selector.SelectedItem = "app_db";
+                await Task.Delay(100);
+                if (queryTab.DatabaseName != "report_db" || !Equals(selector.SelectedItem, "report_db"))
+                    throw new InvalidOperationException("Rejected database selection must restore the displayed context.");
+                queryTab.IsExecuting = false;
+            });
             var vm = new ExecutionPlanViewModel(new FixturePlan()) { Connection = item, SqlText = "SELECT * FROM sample" };
             await Capture(new ExecutionPlanWindow(vm), "plan");
             var connect = new ConnectWindow(new ConnectionManagerViewModel(connections), new ConnectionItem { DatabaseType = "Postgres", Name = "SSH 测试", Server = "db.internal", Port = "5432", Ssh = new() { Enabled = true, Host = "bastion.example", UserName = "developer" } });
@@ -45,9 +81,10 @@ public static class P0SmokeHarness
             query.CloseConnection(item.Name);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         }
-        async Task Capture(Window window, string name, Action? arrange = null)
+        async Task Capture(Window window, string name, Action? arrange = null, Func<Task>? verify = null)
         {
             window.Show(); await Task.Delay(200); arrange?.Invoke(); await Task.Delay(200);
+            if (verify is not null) await verify();
             using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96,96));
             bitmap.Render(window);
             bitmap.Save(Path.Combine(output, name + ".png"));

@@ -473,6 +473,13 @@
                                         <TextBlock Text="{Binding ConnectionName}"
                                                    VerticalAlignment="Center" FontSize="11"
                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
+                                        <atom:ComboBox ItemsSource="{Binding AvailableDatabases}"
+                                                       SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
+                                                       DropDownOpened="QueryDatabase_DropDownOpened"
+                                                       SelectionChanged="QueryDatabase_SelectionChanged"
+                                                       MinWidth="150" MaxWidth="240" MinHeight="0" FontSize="11"
+                                                       IsVisible="{Binding AvailableDatabases.Count}"
+                                                       ToolTip.Tip="选择当前查询标签执行 SQL 的数据库" />
                                         <TextBlock Text="{Binding CommandTimeoutSeconds, StringFormat='超时 {0}s'}"
                                                    VerticalAlignment="Center" FontSize="11"
                                                    Foreground="{DynamicResource AppStatusBarSecondaryTextBrush}" />
@@ -739,4 +746,3 @@
     </Grid>
 
 </Window>
-

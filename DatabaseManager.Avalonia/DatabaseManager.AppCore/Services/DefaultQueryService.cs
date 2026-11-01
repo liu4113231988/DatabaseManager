@@ -75,6 +75,11 @@ public class DefaultQueryService : IQueryService
         // 若当前处于手动事务中，则在该事务连接上执行（使语句纳入同一事务）。
         if (_transactions.TryGetValue(connectionName, out var ctx) && ctx is not null)
         {
+            var targetDatabase = string.IsNullOrWhiteSpace(databaseName) ? connection.Database : databaseName;
+            if (connection.DatabaseType is "SqlServer" or "MySql" or "Postgres" or "KingbaseES"
+                && !string.IsNullOrWhiteSpace(targetDatabase)
+                && !string.Equals(ctx.Connection.Database, targetDatabase, StringComparison.Ordinal))
+                return new QueryResult { ErrorMessage = "当前事务属于其他数据库，请先提交或回滚事务后再执行。" };
             return await ExecuteInTransactionAsync(ctx, interpreter, connectionName, sql, cancellationToken, commandTimeoutSeconds);
         }
 

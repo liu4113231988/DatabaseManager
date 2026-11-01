@@ -46,6 +46,30 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private QueryTabViewModel? _selectedQueryTab;
 
+    partial void OnSelectedQueryTabChanged(QueryTabViewModel? value)
+    {
+        if (value is not null) RefreshQueryDatabases(value);
+    }
+
+    public void RefreshQueryDatabases(QueryTabViewModel tab)
+    {
+        var connection = _connectionService.GetConnections().FirstOrDefault(c =>
+            string.Equals(c.Name, tab.ConnectionName, StringComparison.OrdinalIgnoreCase));
+        if (connection?.DatabaseType is not ("SqlServer" or "MySql" or "Postgres" or "KingbaseES"))
+        {
+            tab.AvailableDatabases.Clear();
+            return;
+        }
+        var node = ObjectsExplorer.FindConnectionNode(tab.ConnectionName);
+        var names = node?.Children.Where(n => n.NodeType == DbObjectTreeNodeType.Database).Select(n => n.Name)
+            ?? Enumerable.Empty<string>();
+        var databases = names.Append(tab.DatabaseName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n).ToArray();
+        if (tab.AvailableDatabases.SequenceEqual(databases)) return;
+        tab.AvailableDatabases.Clear();
+        foreach (var name in databases)
+            tab.AvailableDatabases.Add(name);
+    }
+
     /// <summary>对象浏览器子 ViewModel。</summary>
     public ObjectsExplorerViewModel ObjectsExplorer { get; }
 
@@ -381,6 +405,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
         await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
 
+        foreach (var tab in QueryTabs.Where(t => t.ConnectionName == connectionNode.Connection.Name))
+            RefreshQueryDatabases(tab);
+
         // 仅当对象树标记为已连接时才通知查询服务为已连接
         if (connectionNode.IsConnectionActive)
         {
@@ -507,7 +534,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>将连接上下文同步到当前选中的查询标签页。</summary>
     private void SyncConnectionToCurrentTab(string connectionName, string? databaseName)
     {
-        if (SelectedQueryTab is not null)
+        if (SelectedQueryTab is not null && string.IsNullOrWhiteSpace(SelectedQueryTab.ConnectionName))
         {
             SelectedQueryTab.ConnectionName = connectionName;
             SelectedQueryTab.DatabaseName = databaseName ?? string.Empty;

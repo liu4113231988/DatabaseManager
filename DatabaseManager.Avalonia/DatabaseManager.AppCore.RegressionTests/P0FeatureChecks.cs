@@ -32,6 +32,8 @@ internal static class P0FeatureChecks
             int nameIndex = tab.Columns.IndexOf("name");
             Check(tab.ReplaceValues(nameIndex, "alpha", "gamma", false) == 1 && tab.Rows[0][nameIndex] == "alpha", "Replace preview must not mutate.");
             Check(tab.ReplaceValues(nameIndex, "alpha", "gamma", true) == 1 && tab.HasPendingChanges, "Replace marks edits dirty.");
+            tab.DatabaseName = "other";
+            Check(tab.DatabaseName == connection.Database && tab.HasPendingChanges, "Database switching must preserve unsaved edits.");
             var displayed = tab.SelectedResultSnapshot;
             tab.SelectedResultSnapshot = pinned;
             Check(tab.SelectedResultSnapshot == displayed, "Unsaved edits must prevent result switch.");
@@ -44,6 +46,18 @@ internal static class P0FeatureChecks
             tab.ApplyFormValues(row, values);
             await tab.SaveEditsCommand.ExecuteAsync(null);
             Check((await query.ExecuteAsync("p0", "SELECT hex(payload) FROM items WHERE id=1")).Rows[0][0] == "AABB", "Binary editing must preserve bytes.");
+            tab.IsExecuting = true;
+            tab.DatabaseName = "other";
+            Check(tab.DatabaseName == connection.Database, "Executing tabs cannot change database.");
+            tab.IsExecuting = false;
+            Check(await query.BeginTransactionAsync("p0"), "Begin switch guard transaction.");
+            tab.DatabaseName = "other";
+            Check(tab.DatabaseName == connection.Database, "Active transactions prevent database switching.");
+            await query.RollbackAsync("p0");
+            var sibling = new QueryTabViewModel(query) { ConnectionName = "p0", DatabaseName = connection.Database };
+            tab.DatabaseName = "other";
+            Check(!tab.IsResultEditable && sibling.DatabaseName == connection.Database && tab.Rows.Count == 2,
+                "Switching preserves read-only results and does not affect sibling tabs.");
 
             var tasks = new CaptureTasks();
             var schedules = new DefaultScheduleService(tasks, connections, query, new DefaultBackupService(), new DefaultExportImportService(connections), storageDirectory: folder);
