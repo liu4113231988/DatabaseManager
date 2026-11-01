@@ -1,0 +1,60 @@
+name: Publish release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Verify release version
+        run: |
+          [[ "$GITHUB_REF" == refs/tags/v* ]]
+          version=$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj').findtext('./PropertyGroup/Version'))")
+          test "$GITHUB_REF_NAME" = "v$version"
+          test -f ".github/release-notes/${GITHUB_REF_NAME}.md"
+      - name: Build and verify across platforms
+        run: |
+          dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release -p:UsedAvaloniaProducts=
+          dotnet build DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release -p:UsedAvaloniaProducts=
+          dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release --no-build
+      - name: Publish and package
+        run: |
+          project=DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj
+          dotnet publish "$project" -c Release -r win-x64 --self-contained false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/win-x64
+          dotnet publish "$project" -c Release -r linux-x64 --self-contained false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/linux-x64
+          test -f artifacts/win-x64/DatabaseManager.exe
+          test -x artifacts/linux-x64/DatabaseManager
+          test ! -f artifacts/win-x64/coreclr.dll
+          test ! -f artifacts/linux-x64/libcoreclr.so
+          test ! -d artifacts/win-x64/Profiles
+          test ! -d artifacts/linux-x64/Profiles
+          (cd artifacts/win-x64 && zip -qr "../DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" .)
+          tar -czf "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" -C artifacts/linux-x64 .
+          unzip -tq "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip"
+          tar -tzf "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" > /dev/null
+          (cd artifacts && sha256sum "DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" "DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" > SHA256SUMS.txt)
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" \
+            "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" \
+            artifacts/SHA256SUMS.txt \
+            --verify-tag --latest --title "DatabaseManager ${GITHUB_REF_NAME}" \
+            --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
