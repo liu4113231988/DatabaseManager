@@ -496,6 +496,7 @@
                                 <ctrl:SqlEditor Grid.Row="1"
                                                 SqlText="{Binding SqlText, Mode=TwoWay}"
                                                 ConnectionName="{Binding ConnectionName}"
+                                                DatabaseName="{Binding DatabaseName}"
                                                 ObjectTreeRoots="{ReflectionBinding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandRequested="SqlEditor_CommandRequested" />
 
@@ -706,7 +707,7 @@
                                 <Grid ColumnDefinitions="*,Auto">
                                     <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="12"
                                                TextTrimming="CharacterEllipsis" Margin="0,0,4,0"
-                                               ToolTip.Tip="{Binding Title}" />
+                                               ToolTip.Tip="{Binding ConnectionName}" />
                                     <Button Grid.Column="1" Click="CloseTab_Click" Tag="{Binding}"
                                             Width="20" Height="20" MinWidth="0" MinHeight="0" Padding="0"
                                             Margin="0"

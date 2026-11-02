@@ -94,22 +94,25 @@ public partial class QueryEditorViewModel : ViewModelBase
 
         IsExecuting = true;
         StatusMessage = "正在执行...";
+        var connectionName = ConnectionName;
+        var sql = SqlText;
 
         try
         {
             // 手动事务模式下且尚未开启事务：自动开启事务（对齐 dbeaver 手动提交行为）。
-            if (!AutoCommit && !_queryService.IsTransactionActive(ConnectionName))
+            if (!AutoCommit && !_queryService.IsTransactionActive(connectionName))
             {
-                bool began = await _queryService.BeginTransactionAsync(ConnectionName);
+                bool began = await _queryService.BeginTransactionAsync(connectionName);
                 if (!began)
                 {
                     StatusMessage = "无法自动开启事务，请检查连接。";
                     return;
                 }
-                IsTransactionActive = true;
+                if (ConnectionName == connectionName) IsTransactionActive = true;
             }
 
-            var result = await _queryService.ExecuteAsync(ConnectionName, SqlText);
+            var result = await _queryService.ExecuteAsync(connectionName, sql);
+            if (ConnectionName != connectionName) return;
 
             ApplyResult(result);
 
@@ -118,8 +121,11 @@ public partial class QueryEditorViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            StatusMessage = $"执行失败：{ex.Message}";
-            HasResult = false;
+            if (ConnectionName == connectionName)
+            {
+                StatusMessage = $"执行失败：{ex.Message}";
+                HasResult = false;
+            }
         }
         finally
         {
@@ -143,7 +149,9 @@ public partial class QueryEditorViewModel : ViewModelBase
             return;
         }
 
-        bool ok = await _queryService.BeginTransactionAsync(ConnectionName);
+        var connectionName = ConnectionName;
+        bool ok = await _queryService.BeginTransactionAsync(connectionName);
+        if (ConnectionName != connectionName) return;
         if (ok)
         {
             AutoCommit = false;
@@ -172,8 +180,10 @@ public partial class QueryEditorViewModel : ViewModelBase
             return;
         }
 
-        bool ok = await _queryService.CommitAsync(ConnectionName);
-        IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        var connectionName = ConnectionName;
+        bool ok = await _queryService.CommitAsync(connectionName);
+        if (ConnectionName != connectionName) return;
+        OnConnectionChanged();
         StatusMessage = ok ? "事务已提交。" : "事务提交失败。";
     }
 
@@ -193,8 +203,10 @@ public partial class QueryEditorViewModel : ViewModelBase
             return;
         }
 
-        bool ok = await _queryService.RollbackAsync(ConnectionName);
-        IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        var connectionName = ConnectionName;
+        bool ok = await _queryService.RollbackAsync(connectionName);
+        if (ConnectionName != connectionName) return;
+        OnConnectionChanged();
         StatusMessage = ok ? "事务已回滚。" : "事务回滚失败。";
     }
 
@@ -202,7 +214,10 @@ public partial class QueryEditorViewModel : ViewModelBase
     public void OnConnectionChanged()
     {
         IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
-        AutoCommit = !IsTransactionActive;
+        // 刷新显示不能触发 OnAutoCommitChanged，否则切换标签可能提交事务。
+#pragma warning disable MVVMTK0034
+        SetProperty(ref _autoCommit, _queryService.IsAutoCommit(ConnectionName), nameof(AutoCommit));
+#pragma warning restore MVVMTK0034
     }
 
     private void ApplyResult(QueryResult result)

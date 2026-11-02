@@ -46,9 +46,38 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private QueryTabViewModel? _selectedQueryTab;
 
-    partial void OnSelectedQueryTabChanged(QueryTabViewModel? value)
+    partial void OnSelectedQueryTabChanged(QueryTabViewModel? oldValue, QueryTabViewModel? newValue)
     {
-        if (value is not null) RefreshQueryDatabases(value);
+        if (oldValue is not null) oldValue.PropertyChanged -= OnQueryTabContextChanged;
+        if (newValue is not null)
+        {
+            newValue.PropertyChanged += OnQueryTabContextChanged;
+            RefreshQueryDatabases(newValue);
+        }
+        RefreshQueryEditorContext();
+    }
+
+    private void OnQueryTabContextChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(QueryTabViewModel.ConnectionName) or nameof(QueryTabViewModel.DatabaseName)
+            or nameof(QueryTabViewModel.IsExecuting)) RefreshQueryEditorContext();
+    }
+
+    private void RefreshQueryEditorContext()
+    {
+        QueryEditor.ConnectionName = SelectedQueryTab?.ConnectionName ?? string.Empty;
+        QueryEditor.OnConnectionChanged();
+    }
+
+    /// <summary>查询工具使用标签的上下文快照，不受对象浏览器选择变化影响。</summary>
+    public ConnectionItem? GetSelectedQueryConnection()
+    {
+        var tab = SelectedQueryTab;
+        var saved = Connections.FirstOrDefault(c => string.Equals(c.Name, tab?.ConnectionName, StringComparison.OrdinalIgnoreCase));
+        if (tab is null || saved is null) return null;
+        var connection = saved.Clone();
+        if (!string.IsNullOrWhiteSpace(tab.DatabaseName)) connection.Database = tab.DatabaseName;
+        return connection;
     }
 
     public void RefreshQueryDatabases(QueryTabViewModel tab)
@@ -145,6 +174,11 @@ public partial class MainWindowViewModel : ViewModelBase
         SelectedConnectionNode = value is null
             ? null
             : ObjectsExplorer.FindConnectionNode(value.Name);
+
+        CurrentDatabase = value?.Database ?? string.Empty;
+        IsConnected = SelectedConnectionNode?.IsConnectionActive == true;
+        CurrentSchema = string.Empty;
+        SchemaSelectorVisible = false;
 
         // 订阅新节点的 IsConnectionActive 变化
         if (SelectedConnectionNode is not null)
@@ -336,7 +370,8 @@ public partial class MainWindowViewModel : ViewModelBase
         var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService)
         {
             ConnectionName = connectionName,
-            DatabaseName = databaseName ?? CurrentDatabase,
+            DatabaseName = databaseName ?? (string.Equals(connectionName, SelectedConnection?.Name, StringComparison.OrdinalIgnoreCase)
+                ? CurrentDatabase : Connections.FirstOrDefault(c => string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase))?.Database) ?? string.Empty,
             SqlText = sql,
         };
         newTab.MarkAsSaved();
@@ -399,26 +434,29 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
 
         SelectedConnection = connectionNode.Connection;
-        IsConnected = true;
+        IsConnected = connectionNode.IsConnectionActive;
         CurrentDatabase = connectionNode.Connection.Database ?? string.Empty;
         CurrentSchema = string.Empty;
         SchemaSelectorVisible = false;
 
-        // 同步连接名到当前选中的查询标签
-        SyncConnectionToCurrentTab(connectionNode.Connection.Name, connectionNode.Connection.Database);
-
-        await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
-
-        foreach (var tab in QueryTabs.Where(t => t.ConnectionName == connectionNode.Connection.Name))
-            RefreshQueryDatabases(tab);
-
-        // 仅当对象树标记为已连接时才通知查询服务为已连接
-        if (connectionNode.IsConnectionActive)
+        var targetTab = SelectedQueryTab;
+        try
         {
-            _queryService.NotifyConnected(connectionNode.Connection.Name);
+            await ObjectsExplorer.LoadAsync(connectionNode.Connection.Name);
+            if (connectionNode.IsConnectionActive)
+            {
+                _queryService.NotifyConnected(connectionNode.Connection.Name);
+                InitializeQueryTabConnection(targetTab, connectionNode.Connection.Name, connectionNode.Connection.Database);
+            }
+            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, connectionNode.Connection.Name, StringComparison.OrdinalIgnoreCase)))
+                RefreshQueryDatabases(tab);
         }
-
-        RaiseCommandStateChanged();
+        finally
+        {
+            if (SelectedConnection == connectionNode.Connection) IsConnected = connectionNode.IsConnectionActive;
+            RefreshQueryEditorContext();
+            RaiseCommandStateChanged();
+        }
     }
 
     /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
@@ -440,12 +478,15 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         ObjectsExplorer.Disconnect(connectionNode);
-        IsConnected = false;
-        CurrentDatabase = string.Empty;
-        CurrentSchema = string.Empty;
-        SchemaSelectorVisible = false;
+        if (connectionNode == SelectedConnectionNode)
+        {
+            IsConnected = false;
+            CurrentSchema = string.Empty;
+            SchemaSelectorVisible = false;
+        }
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
         RaiseCommandStateChanged();
+        RefreshQueryEditorContext();
     }
 
     /// <summary>重连指定连接节点。</summary>
@@ -535,16 +576,16 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    /// <summary>将连接上下文同步到当前选中的查询标签页。</summary>
-    private void SyncConnectionToCurrentTab(string connectionName, string? databaseName)
+    /// <summary>仅为发起连接时尚未绑定的标签初始化上下文，保留所有已有绑定。</summary>
+    private void InitializeQueryTabConnection(QueryTabViewModel? tab, string connectionName, string? databaseName)
     {
-        if (SelectedQueryTab is not null && string.IsNullOrWhiteSpace(SelectedQueryTab.ConnectionName))
+        if (tab is not null && QueryTabs.Contains(tab) && string.IsNullOrWhiteSpace(tab.ConnectionName)
+            && !tab.IsExecuting && !tab.IsSavingChanges && !tab.HasPendingChanges && !tab.HasResult)
         {
-            SelectedQueryTab.ConnectionName = connectionName;
-            SelectedQueryTab.DatabaseName = databaseName ?? string.Empty;
+            tab.ConnectionName = connectionName;
+            tab.DatabaseName = databaseName ?? string.Empty;
+            RefreshQueryDatabases(tab);
         }
-        // 同时更新 QueryEditor 以保持向后兼容
-        QueryEditor.ConnectionName = connectionName;
     }
 
     public void TestSelectedConnection()

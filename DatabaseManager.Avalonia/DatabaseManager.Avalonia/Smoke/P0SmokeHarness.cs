@@ -25,6 +25,7 @@ public static class P0SmokeHarness
         query.NotifyConnected(item.Name);
         try
         {
+            await SqlCompletionSmokeChecks.RunAsync(output);
             await query.ExecuteAsync(item.Name, "CREATE TABLE sample(id INTEGER PRIMARY KEY, title TEXT, payload BLOB); INSERT INTO sample VALUES(1,'测试文本',X'0102');");
             var tab = new QueryTabViewModel(query, new DefaultDataEditService(connections)) { ConnectionName = item.Name, DatabaseName = item.Database, SqlText = "SELECT * FROM sample" };
             await tab.ExecuteAsync(); tab.PinResultCommand.Execute(null);

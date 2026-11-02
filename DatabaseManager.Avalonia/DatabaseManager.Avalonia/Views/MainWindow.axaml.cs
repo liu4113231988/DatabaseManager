@@ -1736,10 +1736,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (vm.SelectedConnection is null)
+        var connection = vm.GetSelectedQueryConnection();
+        if (connection is null)
         {
             await MessageBoxManager.GetMessageBoxStandard(
-                    "执行计划", "请先连接一个数据库。", ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning)
+                    "执行计划", "请先为当前查询标签绑定连接。", ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning)
                 .ShowWindowDialogAsync(this);
             return;
         }
@@ -1751,7 +1752,7 @@ public partial class MainWindow : Window
         }
 
         var planVm = _services.GetRequiredService<ExecutionPlanViewModel>();
-        planVm.Connection = vm.SelectedConnection;
+        planVm.Connection = connection;
         planVm.SqlText = sql!;
         await new ExecutionPlanWindow(planVm).ShowDialog(this);
     }

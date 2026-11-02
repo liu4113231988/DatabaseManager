@@ -79,4 +79,7 @@ public class ConnectionItem
         DatabaseType = databaseType,
         RememberPassword = true,
     };
+
+    /// <summary>复制配置供查询工具覆盖数据库，不修改已保存的连接。</summary>
+    public ConnectionItem Clone() => (ConnectionItem)MemberwiseClone();
 }

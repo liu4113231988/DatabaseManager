@@ -114,6 +114,8 @@ static class Program
 
     private static int Main()
     {
+        SqlCompletionChecks.Run();
+        QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
