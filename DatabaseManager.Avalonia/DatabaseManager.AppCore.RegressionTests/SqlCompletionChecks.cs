@@ -41,6 +41,13 @@ internal static class SqlCompletionChecks
         Resolve("SELECT * FROM public.users u WHERE EXISTS (SELECT u.| FROM public.orders u)", orders);
         Resolve("SELECT (SELECT u.id FROM public.orders u), u.| FROM public.users u", users);
         Resolve("SELECT 'FROM public.orders u', u.| FROM public.users u", users);
+        Resolve("SELECT ';' AS x; SELECT u.| FROM public.users u; SELECT * FROM public.orders", users);
+        Resolve("SELECT 1; /* outer ; /* inner ; */ still ; */ SELECT u.| FROM public.users u", users);
+        Resolve("SELECT $tag$ ; FROM fake $tag$; SELECT u.| FROM public.users u", users);
+        Resolve("SELECT \"a;\"\"b\", [a;]]b], `a;``b`; SELECT u.| FROM public.users u", users);
+        Resolve("SELECT foo$tag$; SELECT u.| FROM public.users u", users);
+        Resolve("-- ; SELECT * FROM fake\nSELECT u.| FROM public.users u", users);
+        Check(Context("SELECT 1;|").StartOffset == 9, "Completion offsets after a statement terminator must remain absolute.");
         Resolve("SELECT $$ FROM public.orders u $$, u.| FROM public.users u", users);
         Resolve("SELECT u.| FROM public.users u /* JOIN public.orders u */", users);
         Resolve("SELECT u.| FROM sales.users u", salesUsers);

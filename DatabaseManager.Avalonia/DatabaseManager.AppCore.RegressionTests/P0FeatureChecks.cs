@@ -55,6 +55,7 @@ internal static class P0FeatureChecks
             tab.DatabaseName = "other";
             Check(tab.DatabaseName == connection.Database, "Active transactions prevent database switching.");
             await query.RollbackAsync("p0");
+            Check(await query.SetAutoCommitAsync("p0", true), "Restore auto commit for independent editing and scheduled operations.");
             var sibling = new QueryTabViewModel(query) { ConnectionName = "p0", DatabaseName = connection.Database };
             tab.DatabaseName = "other";
             Check(!tab.IsResultEditable && sibling.DatabaseName == connection.Database && tab.Rows.Count == 2,
@@ -85,7 +86,7 @@ internal static class P0FeatureChecks
         }
         finally
         {
-            query.CloseConnection(connection.Name);
+            await query.CloseConnectionAsync(connection.Name);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { Directory.Delete(folder, true); }
             catch (IOException) { Console.WriteLine("Temporary SQLite files are still held by the provider: " + folder); }

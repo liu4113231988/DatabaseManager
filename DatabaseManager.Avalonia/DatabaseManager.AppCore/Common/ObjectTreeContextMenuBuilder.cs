@@ -204,7 +204,7 @@ public class ObjectTreeContextMenuBuilder
         menu.Items.Add(reconnect);
 
         var disconnect = CreateMenuItem("断开", "断开当前连接");
-        disconnect.Click += (_, _) => _viewModel.DisconnectConnectionNode(node);
+        disconnect.Click += (_, _) => _asyncAction(() => _viewModel.DisconnectConnectionNodeAsync(node));
         disconnect.IsEnabled = node.IsConnectionActive;
         menu.Items.Add(disconnect);
 
@@ -223,7 +223,7 @@ public class ObjectTreeContextMenuBuilder
         {
             if (node.IsConnectionActive)
             {
-                _viewModel.DisconnectConnectionNode(node);
+                await _viewModel.DisconnectConnectionNodeAsync(node);
             }
             await _viewModel.ConnectConnectionNodeAsync(node);
             ExpandNode(node);

@@ -46,6 +46,48 @@ internal static class QueryConnectionContextChecks
             Check(tabB.Rows.Single()[0] == b.Name, "B tab must execute against database B.");
 
             vm.SelectedQueryTab = tabA;
+            await vm.QueryEditor.SetAutoCommitAsync(false);
+            Check(!vm.QueryEditor.AutoCommit && !query.IsAutoCommit(a.Name) && !query.IsTransactionActive(a.Name),
+                "Manual mode must persist before its first SQL statement.");
+            tabA.SqlText = "UPDATE marker SET value='manual'";
+            await tabA.ExecuteAsync();
+            Check(query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit,
+                "The normal tab execution path must start a manual transaction without resetting its checkbox.");
+            Check((await query.ExecuteStandaloneAsync(a, "SELECT value FROM marker")).Rows.Single()[0] == a.Name,
+                "Uncommitted manual-mode writes must remain invisible to standalone SQL.");
+            await vm.QueryEditor.RollbackTransactionAsync();
+            Check(!query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit,
+                "Rollback ends the transaction but preserves manual mode.");
+            vm.OpenSqlInNewTab(a.Name, "SELECT value FROM marker", a.Database);
+            await tabA.ExecuteAsync();
+            await vm.QueryEditor.CommitTransactionAsync();
+            Check(!query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit
+                && (await query.ExecuteStandaloneAsync(a, "SELECT value FROM marker")).Rows.Single()[0] == "manual",
+                "A background sibling tab starts a fresh transaction which the selected tab can commit without a tab switch.");
+            await tabA.ExecuteAsync();
+
+            var gates = (System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim>)typeof(DefaultQueryService)
+                .GetField("_connectionLocks", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(query)!;
+            var gate = gates[a.Name];
+            await gate.WaitAsync();
+            Task modeChange;
+            try
+            {
+                modeChange = vm.QueryEditor.SetAutoCommitAsync(true);
+                Check(!modeChange.IsCompleted && vm.QueryEditor.IsTransactionBusy && !vm.QueryEditor.CanChangeTransaction,
+                    "Switching to auto commit must asynchronously wait for the current connection operation.");
+                vm.SelectedQueryTab = tabB;
+                await tabB.ExecuteAsync();
+                Check(tabB.Rows.Single()[0] == b.Name && vm.QueryEditor.AutoCommit,
+                    "A pending mode change must not block B or copy A's transaction display to B.");
+            }
+            finally { gate.Release(); }
+            await modeChange.WaitAsync(TimeSpan.FromSeconds(10));
+            Check(query.IsAutoCommit(a.Name) && !query.IsTransactionActive(a.Name) && vm.QueryEditor.AutoCommit,
+                "Async mode change must commit A and leave selected B's state intact.");
+            await query.ExecuteAsync(a.Name, $"UPDATE marker SET value='{a.Name}'");
+            tabA.SqlText = "SELECT value FROM marker";
+            vm.SelectedQueryTab = tabA;
             await vm.QueryEditor.BeginTransactionAsync();
             await query.ExecuteAsync(a.Name, "UPDATE marker SET value='pending'");
             vm.SelectedQueryTab = tabB;
@@ -75,14 +117,49 @@ internal static class QueryConnectionContextChecks
             vm.SelectedConnection = b;
             vm.NewQuery();
             Check(vm.SelectedQueryTab!.DatabaseName == b.Database, "Selecting B must discard A's browser database context.");
-            vm.DisconnectConnectionNode(explorer.FindConnectionNode(a.Name)!);
+            await query.ExecuteAsync(a.Name, "UPDATE marker SET value='closing'");
+            await gate.WaitAsync();
+            Task disconnect;
+            Task<QueryResult> queued;
+            try
+            {
+                disconnect = vm.DisconnectConnectionNodeAsync(explorer.FindConnectionNode(a.Name)!);
+                Check(!disconnect.IsCompleted && !query.IsConnected(a.Name),
+                    "Disconnect must reject new work immediately and asynchronously wait for in-flight work.");
+                queued = query.ExecuteAsync(a.Name, "UPDATE marker SET value='must not execute'");
+                using var canceled = new CancellationTokenSource();
+                var waiting = query.ExecuteAsync(a.Name, "DELETE FROM marker", canceled.Token);
+                canceled.Cancel();
+                Check(!(await waiting).IsSuccess, "Queued queries must be cancellable without releasing another operation's lock.");
+                Check((await query.ExecuteAsync(b.Name, "SELECT value FROM marker")).IsSuccess,
+                    "Disconnecting A must not block queries on B.");
+            }
+            finally { gate.Release(); }
+            await disconnect.WaitAsync(TimeSpan.FromSeconds(10));
+            Check(!(await queued).IsSuccess
+                && (await query.ExecuteStandaloneAsync(a, "SELECT value FROM marker")).Rows.Single()[0] == a.Name,
+                "Disconnect must roll back pending changes and reject queued writes.");
             Check(query.IsConnected(b.Name) && vm.IsConnected && tabA.ConnectionName == a.Name,
                 "Disconnecting A must retain A's binding and leave B's browser connection active.");
+
+            var group = new DbObjectTreeNode { Name = "group", NodeType = DbObjectTreeNodeType.Folder };
+            var bNode = explorer.FindConnectionNode(b.Name)!;
+            explorer.RootNodes.Remove(bNode);
+            group.AddChild(bNode);
+            explorer.RootNodes.Add(group);
+            await vm.ConnectConnectionNodeAsync(explorer.FindConnectionNode(a.Name)!);
+            Check(vm.CanDisconnectAll, "Grouped active connections must enable Disconnect All.");
+            await vm.DisconnectAllAsync();
+            Check(!query.IsConnected(a.Name) && !query.IsConnected(b.Name) && !bNode.IsConnectionActive && !vm.CanDisconnectAll,
+                "Disconnect All must include both root-level and grouped connections.");
+            await vm.QueryEditor.SetAutoCommitAsync(false);
+            Check(vm.QueryEditor.AutoCommit && !vm.QueryEditor.IsTransactionBusy && vm.SelectedQueryTab!.StatusMessage.Contains("失败"),
+                "Failed mode changes on a disconnected connection must restore the displayed mode and report failure.");
         }
         finally
         {
-            query.CloseConnection(a.Name);
-            query.CloseConnection(b.Name);
+            await query.CloseConnectionAsync(a.Name);
+            await query.CloseConnectionAsync(b.Name);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             try { Directory.Delete(folder, true); }
             catch (IOException) { Console.WriteLine("Temporary SQLite files are still held by the provider: " + folder); }

@@ -24,12 +24,21 @@ internal static class PostgresP0Checks
             await Run($"CREATE TABLE {schema}.parents(id integer PRIMARY KEY); INSERT INTO {schema}.parents VALUES(10),(20); CREATE TABLE {schema}.items(id integer PRIMARY KEY, parent_id integer REFERENCES {schema}.parents(id), name text, payload bytea); INSERT INTO {schema}.items VALUES(1,10,'alpha',decode('0102','hex'))");
             var multi = await query.ExecuteAsync(connection.Name, "SELECT 1 AS first; SELECT 2 AS second; SELECT 3 WHERE false;");
             Check(multi.IsSuccess && multi.ResultSets.Count == 3 && multi.ResultSets[1].Rows[0][0] == "2", "PG multiple result sets.");
-            Check(await query.BeginTransactionAsync(connection.Name), "PG begin transaction.");
+            var targetDatabase = connection.Database;
+            connection.Database = "dbm_missing_configured_database";
+            try
+            {
+                var editor = new QueryEditorViewModel(query) { ConnectionName = connection.Name, DatabaseName = targetDatabase };
+                await editor.BeginTransactionAsync();
+                Check(editor.IsTransactionActive, "PG toolbar must begin the transaction in the tab database, overriding the configured database.");
+            }
+            finally { connection.Database = targetDatabase; }
             var wrongDatabase = await query.ExecuteAsync(connection.Name, "SELECT 1", databaseName: "dbm_other_database");
             Check(!wrongDatabase.IsSuccess && wrongDatabase.ErrorMessage!.Contains("事务"), "Transactions must reject a different database context.");
             await query.ExecuteAsync(connection.Name, $"UPDATE {schema}.items SET name='uncommitted' WHERE id=1");
             Check((await query.ExecuteStandaloneAsync(connection, $"SELECT name FROM {schema}.items")).Rows[0][0] == "alpha", "PG standalone isolation.");
             Check(await query.RollbackAsync(connection.Name), "PG rollback.");
+            Check(await query.SetAutoCommitAsync(connection.Name, true), "PG restore auto commit.");
             var planResult = await new DefaultExecutionPlanService().ExplainAsync(connection, $"SELECT * FROM {schema}.items WHERE id=1", true);
             var plan = ExecutionPlanParser.Parse(planResult);
             Check(planResult.IsSuccess && plan.Count > 0 && plan[0].Milliseconds.HasValue, "PG real execution plan metrics.");
@@ -70,7 +79,7 @@ internal static class PostgresP0Checks
         }
         finally
         {
-            query.CloseConnection(connection.Name);
+            await query.CloseConnectionAsync(connection.Name);
             if (created) await Run($"DROP SCHEMA {schema} CASCADE");
         }
         async Task Run(string sql) { await using var command = new NpgsqlCommand(sql, db); await command.ExecuteNonQueryAsync(); }

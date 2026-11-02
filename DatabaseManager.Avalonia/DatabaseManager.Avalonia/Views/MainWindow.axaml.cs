@@ -2103,7 +2103,7 @@ public partial class MainWindow : Window
         {
             if (node.IsConnectionActive)
             {
-                vm.DisconnectConnectionNode(node);
+                await vm.DisconnectConnectionNodeAsync(node);
             }
             else
             {

@@ -90,7 +90,8 @@ public partial class QueryTabViewModel : ViewModelBase
         set
         {
             if (value is null || value == _databaseName) return;
-            if (IsExecuting || IsSavingChanges || HasPendingChanges || _queryService.IsTransactionActive(ConnectionName))
+            if (IsExecuting || IsSavingChanges || HasPendingChanges
+                || (_queryService.IsTransactionActive(ConnectionName) && (!string.IsNullOrEmpty(_databaseName) || HasResult)))
             {
                 StatusMessage = "请先完成执行、保存或还原修改，并提交或回滚事务后再切换数据库。";
                 OnPropertyChanged();

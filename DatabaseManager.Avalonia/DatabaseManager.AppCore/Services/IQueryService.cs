@@ -21,8 +21,8 @@ public interface IQueryService
         int commandTimeoutSeconds = 60,
         string? databaseName = null);
 
-    /// <summary>开启一个事务（持久化连接）。若已存在活动事务则返回 false。</summary>
-    Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default);
+    /// <summary>在指定数据库开启事务并进入手动提交模式。若已存在活动事务则返回 false。</summary>
+    Task<bool> BeginTransactionAsync(string connectionName, CancellationToken cancellationToken = default, string? databaseName = null);
 
     /// <summary>提交当前事务并关闭事务连接。</summary>
     Task<bool> CommitAsync(string connectionName, CancellationToken cancellationToken = default);
@@ -33,14 +33,14 @@ public interface IQueryService
     /// <summary>查询当前连接是否处于活动事务中。</summary>
     bool IsTransactionActive(string connectionName);
 
-    /// <summary>设置当前连接的自动提交模式（true=每条 SQL 自动提交；false=手动事务）。</summary>
-    void SetAutoCommit(string connectionName, bool enabled);
+    /// <summary>设置提交模式；启用自动提交时异步提交已有事务，失败返回 false 并保留手动模式。</summary>
+    Task<bool> SetAutoCommitAsync(string connectionName, bool enabled, CancellationToken cancellationToken = default);
 
     /// <summary>获取当前连接是否处于自动提交模式。</summary>
     bool IsAutoCommit(string connectionName);
 
-    /// <summary>关闭并释放连接（含活动事务连接）。</summary>
-    void CloseConnection(string connectionName);
+    /// <summary>立即拒绝新查询，等待当前操作完成后回滚事务并释放连接。</summary>
+    Task CloseConnectionAsync(string connectionName);
 
     /// <summary>查询指定连接是否处于已连接状态（对象浏览器已建立连接）。</summary>
     bool IsConnected(string connectionName);

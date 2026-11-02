@@ -74,7 +74,7 @@ public static class P2SmokeHarness
                 if (Status(window) == "正在处理…") throw new Exception("UI action did not finish: " + name);
             }
         }
-        finally { query.CloseConnection(item.Name); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }
+        finally { await query.CloseConnectionAsync(item.Name); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }
         async Task Capture(Window window, string name)
         {
             await Task.Delay(150); using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96, 96)); bitmap.Render(window); bitmap.Save(Path.Combine(output, name + ".png"));

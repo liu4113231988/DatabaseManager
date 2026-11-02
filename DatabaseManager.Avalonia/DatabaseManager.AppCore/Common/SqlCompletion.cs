@@ -30,10 +30,13 @@ public static class SqlCompletion
     public static SqlCompletionContext? Analyze(string sql, int caret)
     {
         if (caret < 0 || caret > sql.Length) throw new ArgumentOutOfRangeException(nameof(caret));
+        // 先线性定位当前语句，避免为历史脚本的每个标记创建正则对象。
+        var (statementStart, statementEnd) = StatementRange(sql, caret);
         var tokens = new List<Token>();
         int skippedUntil = 0, depth = 0;
-        foreach (Match match in Tokens.Matches(sql))
+        foreach (Match match in Tokens.Matches(sql, statementStart))
         {
+            if (match.Index >= statementEnd) break;
             if (match.Index < skippedUntil) continue;
             int end = match.Index + match.Length;
             bool ignored = match.Groups["line"].Success || match.Groups["literal"].Success || match.Groups["block"].Success;
@@ -58,9 +61,6 @@ public static class SqlCompletion
             if (match.Value == "(") depth++;
         }
 
-        int statementStart = tokens.LastOrDefault(t => t.Text == ";" && t.End <= caret)?.End ?? 0;
-        int statementEnd = tokens.FirstOrDefault(t => t.Text == ";" && t.Start >= caret)?.Start ?? sql.Length;
-        tokens = tokens.Where(t => t.Start >= statementStart && t.End <= statementEnd).ToList();
         var word = tokens.FirstOrDefault(t => t.Identifier && t.Start < caret && caret <= t.End);
         int start = word?.Start ?? caret, finish = word?.End ?? caret;
         string prefix = word is null ? string.Empty : Unquote(sql[start..caret]);
@@ -137,6 +137,69 @@ public static class SqlCompletion
                 alias ?? (cte ? parts.LastOrDefault() : null)));
         }
         return new(start, finish, prefix, qualifiers, afterDot, expectsTable, expectsColumn, tables);
+    }
+
+    private static (int Start, int End) StatementRange(string sql, int caret)
+    {
+        int start = 0;
+        for (int i = 0; i < sql.Length;)
+        {
+            char c = sql[i];
+            if (c == '-' && i + 1 < sql.Length && sql[i + 1] == '-')
+            {
+                while (i < sql.Length && sql[i] is not ('\r' or '\n')) i++;
+                continue;
+            }
+            if (c == '/' && i + 1 < sql.Length && sql[i + 1] == '*')
+            {
+                int nesting = 1;
+                i += 2;
+                while (i < sql.Length && nesting > 0)
+                {
+                    if (i + 1 < sql.Length && sql[i] == '/' && sql[i + 1] == '*') { nesting++; i += 2; }
+                    else if (i + 1 < sql.Length && sql[i] == '*' && sql[i + 1] == '/') { nesting--; i += 2; }
+                    else i++;
+                }
+                continue;
+            }
+            if (c is '\'' or '"' or '[' or '`')
+            {
+                char close = c == '[' ? ']' : c;
+                i++;
+                while (i < sql.Length)
+                {
+                    if (sql[i++] != close) continue;
+                    if (i < sql.Length && sql[i] == close) { i++; continue; }
+                    break;
+                }
+                continue;
+            }
+            if (char.IsLetter(c) || c == '_')
+            {
+                do { i++; } while (i < sql.Length && (char.IsLetterOrDigit(sql[i]) || sql[i] is '_' or '$' or '#'));
+                continue;
+            }
+            if (c == '$')
+            {
+                int tagEnd = i + 1;
+                while (tagEnd < sql.Length && (char.IsAsciiLetterOrDigit(sql[tagEnd]) || sql[tagEnd] == '_')) tagEnd++;
+                if (tagEnd < sql.Length && sql[tagEnd] == '$'
+                    && (tagEnd == i + 1 || char.IsAsciiLetter(sql[i + 1]) || sql[i + 1] == '_'))
+                {
+                    var tag = sql[i..(tagEnd + 1)];
+                    int end = sql.IndexOf(tag, tagEnd + 1, StringComparison.Ordinal);
+                    i = end < 0 ? sql.Length : end + tag.Length;
+                    continue;
+                }
+            }
+            if (c == ';')
+            {
+                if (i >= caret) return (start, i);
+                start = i + 1;
+            }
+            i++;
+        }
+        return (start, sql.Length);
     }
 
     public static IEnumerable<DbObjectTreeNode> Objects(IEnumerable<DbObjectTreeNode>? roots, string connectionName, string? databaseName)
@@ -229,6 +292,7 @@ public static class SqlCompletion
         foreach (var child in node.Children)
         {
             yield return child;
+            if (child.Children.Count == 0) continue;
             foreach (var descendant in Descendants(child)) yield return descendant;
         }
     }

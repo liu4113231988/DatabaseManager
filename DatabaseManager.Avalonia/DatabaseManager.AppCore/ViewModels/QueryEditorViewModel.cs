@@ -46,6 +46,13 @@ public partial class QueryEditorViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isTransactionActive;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChangeTransaction))]
+    [NotifyCanExecuteChangedFor(nameof(BeginTransactionCommand), nameof(CommitTransactionCommand), nameof(RollbackTransactionCommand))]
+    private bool _isTransactionBusy;
+
+    public bool CanChangeTransaction => !IsTransactionBusy && !string.IsNullOrWhiteSpace(ConnectionName);
+
     public QueryEditorViewModel(IQueryService queryService)
     {
         _queryService = queryService;
@@ -53,23 +60,36 @@ public partial class QueryEditorViewModel : ViewModelBase
 
     /// <summary>当前执行的连接名。</summary>
     public string ConnectionName { get; set; } = string.Empty;
+    public string DatabaseName { get; set; } = string.Empty;
 
     partial void OnAutoCommitChanged(bool value)
+        => _ = SetAutoCommitAsync(value);
+
+    public async Task SetAutoCommitAsync(bool enabled)
     {
-        if (string.IsNullOrWhiteSpace(ConnectionName))
+        if (!CanChangeTransaction)
+        {
+            OnConnectionChanged();
             return;
-
-        _queryService.SetAutoCommit(ConnectionName, value);
-
-        if (value)
-        {
-            // 切换回自动提交时刷新事务状态（可能已提交）。
-            IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
-            StatusMessage = "已切换为自动提交模式。";
         }
-        else
+        var connectionName = ConnectionName;
+        IsTransactionBusy = true;
+        StatusMessage = enabled ? "正在切换为自动提交..." : "正在切换为手动事务...";
+        try
         {
-            StatusMessage = "已切换为手动事务模式（执行后将由你手动提交/回滚）。";
+            bool ok = await _queryService.SetAutoCommitAsync(connectionName, enabled);
+            if (ConnectionName == connectionName)
+                StatusMessage = ok ? enabled ? "已切换为自动提交模式。" : "已切换为手动事务模式（执行后请手动提交/回滚）。"
+                    : "切换提交模式失败，请检查连接和事务状态。";
+        }
+        catch (Exception ex)
+        {
+            if (ConnectionName == connectionName) StatusMessage = $"切换提交模式失败：{ex.Message}";
+        }
+        finally
+        {
+            IsTransactionBusy = false;
+            OnConnectionChanged();
         }
     }
 
@@ -99,19 +119,7 @@ public partial class QueryEditorViewModel : ViewModelBase
 
         try
         {
-            // 手动事务模式下且尚未开启事务：自动开启事务（对齐 dbeaver 手动提交行为）。
-            if (!AutoCommit && !_queryService.IsTransactionActive(connectionName))
-            {
-                bool began = await _queryService.BeginTransactionAsync(connectionName);
-                if (!began)
-                {
-                    StatusMessage = "无法自动开启事务，请检查连接。";
-                    return;
-                }
-                if (ConnectionName == connectionName) IsTransactionActive = true;
-            }
-
-            var result = await _queryService.ExecuteAsync(connectionName, sql);
+            var result = await _queryService.ExecuteAsync(connectionName, sql, databaseName: DatabaseName);
             if (ConnectionName != connectionName) return;
 
             ApplyResult(result);
@@ -134,9 +142,10 @@ public partial class QueryEditorViewModel : ViewModelBase
     }
 
     /// <summary>开启事务（进入手动事务模式）。</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanChangeTransaction))]
     public async Task BeginTransactionAsync()
     {
+        OnConnectionChanged();
         if (string.IsNullOrWhiteSpace(ConnectionName))
         {
             StatusMessage = "请先选择一个连接。";
@@ -150,24 +159,17 @@ public partial class QueryEditorViewModel : ViewModelBase
         }
 
         var connectionName = ConnectionName;
-        bool ok = await _queryService.BeginTransactionAsync(connectionName);
-        if (ConnectionName != connectionName) return;
-        if (ok)
-        {
-            AutoCommit = false;
-            IsTransactionActive = true;
-            StatusMessage = "事务已开启。执行 SQL 后请手动提交或回滚。";
-        }
-        else
-        {
-            StatusMessage = "事务开启失败。";
-        }
+        var databaseName = DatabaseName;
+        await RunTransactionAsync(connectionName,
+            () => _queryService.BeginTransactionAsync(connectionName, databaseName: databaseName),
+            $"事务已开启（{databaseName}）。执行 SQL 后请手动提交或回滚。", "事务开启失败。");
     }
 
     /// <summary>提交当前事务。</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanChangeTransaction))]
     public async Task CommitTransactionAsync()
     {
+        OnConnectionChanged();
         if (string.IsNullOrWhiteSpace(ConnectionName))
         {
             StatusMessage = "请先选择一个连接。";
@@ -181,16 +183,14 @@ public partial class QueryEditorViewModel : ViewModelBase
         }
 
         var connectionName = ConnectionName;
-        bool ok = await _queryService.CommitAsync(connectionName);
-        if (ConnectionName != connectionName) return;
-        OnConnectionChanged();
-        StatusMessage = ok ? "事务已提交。" : "事务提交失败。";
+        await RunTransactionAsync(connectionName, () => _queryService.CommitAsync(connectionName), "事务已提交。", "事务提交失败。");
     }
 
     /// <summary>回滚当前事务。</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanChangeTransaction))]
     public async Task RollbackTransactionAsync()
     {
+        OnConnectionChanged();
         if (string.IsNullOrWhiteSpace(ConnectionName))
         {
             StatusMessage = "请先选择一个连接。";
@@ -204,15 +204,37 @@ public partial class QueryEditorViewModel : ViewModelBase
         }
 
         var connectionName = ConnectionName;
-        bool ok = await _queryService.RollbackAsync(connectionName);
-        if (ConnectionName != connectionName) return;
-        OnConnectionChanged();
-        StatusMessage = ok ? "事务已回滚。" : "事务回滚失败。";
+        await RunTransactionAsync(connectionName, () => _queryService.RollbackAsync(connectionName), "事务已回滚。", "事务回滚失败。");
+    }
+
+    private async Task RunTransactionAsync(string connectionName, Func<Task<bool>> operation, string success, string failure)
+    {
+        if (!CanChangeTransaction) return;
+        IsTransactionBusy = true;
+        StatusMessage = "正在处理事务...";
+        try
+        {
+            bool ok = await operation();
+            if (ConnectionName == connectionName) StatusMessage = ok ? success : failure;
+        }
+        catch (Exception ex)
+        {
+            if (ConnectionName == connectionName) StatusMessage = $"{failure} {ex.Message}";
+        }
+        finally
+        {
+            IsTransactionBusy = false;
+            OnConnectionChanged();
+        }
     }
 
     /// <summary>连接切换/断开时重置事务状态。</summary>
     public void OnConnectionChanged()
     {
+        OnPropertyChanged(nameof(CanChangeTransaction));
+        BeginTransactionCommand.NotifyCanExecuteChanged();
+        CommitTransactionCommand.NotifyCanExecuteChanged();
+        RollbackTransactionCommand.NotifyCanExecuteChanged();
         IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
         // 刷新显示不能触发 OnAutoCommitChanged，否则切换标签可能提交事务。
 #pragma warning disable MVVMTK0034

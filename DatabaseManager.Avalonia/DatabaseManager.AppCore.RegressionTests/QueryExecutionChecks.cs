@@ -22,10 +22,14 @@ internal static class QueryExecutionChecks
             var independent = await service.ExecuteStandaloneAsync(connection, "SELECT value FROM items WHERE id = 1");
             Check(independent.IsSuccess && independent.Rows[0][0] == "10", "Background SQL must not share uncommitted interactive changes.");
             Check(await service.RollbackAsync("REGRESSION"), "Rollback should succeed.");
+            Check(!service.IsAutoCommit(connection.Name), "Rollback must preserve manual commit mode.");
+            Check(await service.SetAutoCommitAsync(connection.Name, true), "Return to auto commit after rollback.");
             Check((await Execute("SELECT value FROM items WHERE id = 1")).Rows[0][0] == "10", "Rollback must restore original data.");
             Check(await service.BeginTransactionAsync(connection.Name), "Second transaction should begin.");
             await Execute("INSERT INTO items VALUES (3, 30)");
             Check(await service.CommitAsync(connection.Name), "Commit should succeed.");
+            Check(!service.IsAutoCommit(connection.Name), "Commit must preserve manual commit mode.");
+            Check(await service.SetAutoCommitAsync(connection.Name, true), "Return to auto commit after commit.");
             Check((await Execute("SELECT COUNT(*) FROM items")).Rows[0][0] == "3", "Committed insert must persist exactly once.");
             var batch = await Execute("SELECT value FROM items WHERE id = 1; UPDATE items SET value = 40 WHERE id = 1;");
             Check(batch.Rows[0][0] == "10", "Batch should preserve its first result.");
@@ -42,7 +46,7 @@ internal static class QueryExecutionChecks
             Check((await Execute("SELECT COUNT(*) FROM items")).Rows[0][0] == "3", "Cancelled execution must not modify data.");
             Check(await service.BeginTransactionAsync(connection.Name), "Close test transaction should begin.");
             await Execute("DELETE FROM items");
-            service.CloseConnection("REGRESSION");
+            await service.CloseConnectionAsync("REGRESSION");
             var standalone = await service.ExecuteStandaloneAsync(connection, "SELECT COUNT(*) FROM items");
             Check(standalone.IsSuccess && standalone.Rows[0][0] == "3", "Background SQL must work without an object-tree connection.");
             service.NotifyConnected(connection.Name);
@@ -50,7 +54,7 @@ internal static class QueryExecutionChecks
         }
         finally
         {
-            service.CloseConnection(connection.Name);
+            await service.CloseConnectionAsync(connection.Name);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             File.Delete(path);
         }

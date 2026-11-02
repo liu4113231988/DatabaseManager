@@ -83,6 +83,7 @@
                 <MenuItem Header="危险 SQL 执行前确认" ToggleType="CheckBox"
                           IsChecked="{Binding SelectedQueryTab.DangerousSqlConfirmationEnabled}" />
                 <MenuItem Header="自动提交" ToggleType="CheckBox"
+                          IsEnabled="{Binding QueryEditor.CanChangeTransaction}"
                           IsChecked="{Binding QueryEditor.AutoCommit}" />
                 <MenuItem Header="开始事务" Command="{Binding QueryEditor.BeginTransactionCommand}" />
                 <MenuItem Header="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
@@ -229,6 +230,7 @@
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
                     <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
                         <atom:CheckBox IsChecked="{Binding QueryEditor.AutoCommit}" Content="自动提交"
+                                  IsEnabled="{Binding QueryEditor.CanChangeTransaction}"
                                   FontSize="11" VerticalAlignment="Center"
                                   ToolTip.Tip="自动提交：开启后每条 SQL 单独提交；关闭后需手动提交/回滚" />
                         <Button Classes="toolbar" Command="{Binding QueryEditor.BeginTransactionCommand}" AutomationProperties.Name="开始事务" ToolTip.Tip="开始事务">

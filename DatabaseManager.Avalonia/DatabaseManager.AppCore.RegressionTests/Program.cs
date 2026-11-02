@@ -114,6 +114,11 @@ static class Program
 
     private static int Main()
     {
+        if (Environment.GetEnvironmentVariable("DBM_TEST_SQL_COMPLETION_PERF") == "1")
+        {
+            SqlCompletionPerformanceChecks.Run();
+            return 0;
+        }
         SqlCompletionChecks.Run();
         QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();
         VerifyConnectionInputs();

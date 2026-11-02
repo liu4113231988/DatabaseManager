@@ -46,6 +46,7 @@ public static class P0SmokeHarness
             await Capture(databaseWindow, "query-database", () =>
             {
                 var node = explorer.FindConnectionNode(server.Name)!;
+                serverQuery.NotifyConnected(server.Name);
                 foreach (var name in new[] { "app_db", "report_db" })
                     node.Children.Add(new DbObjectTreeNode { Name = name, NodeType = DbObjectTreeNodeType.Database });
                 var queryTab = mainVm.OpenSqlInNewTab(server.Name, "SELECT current_database();", server.Database);
@@ -66,6 +67,20 @@ public static class P0SmokeHarness
                 if (queryTab.DatabaseName != "report_db" || !Equals(selector.SelectedItem, "report_db"))
                     throw new InvalidOperationException("Rejected database selection must restore the displayed context.");
                 queryTab.IsExecuting = false;
+                var autoCommit = databaseWindow.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.CheckBox>()
+                    .Single(c => Equals(c.Content, "自动提交"));
+                autoCommit.IsChecked = false;
+                await Task.Delay(100);
+                if (serverQuery.IsAutoCommit(server.Name) || mainVm.QueryEditor.AutoCommit)
+                    throw new InvalidOperationException("Manual commit checkbox must update the service mode.");
+                queryTab.IsExecuting = true;
+                await Task.Delay(100);
+                if (autoCommit.IsChecked != false) throw new InvalidOperationException("Execution state refresh must preserve manual mode.");
+                queryTab.IsExecuting = false;
+                autoCommit.IsChecked = true;
+                await Task.Delay(100);
+                if (!serverQuery.IsAutoCommit(server.Name) || autoCommit.IsChecked != true)
+                    throw new InvalidOperationException("Auto commit checkbox must restore automatic mode.");
             });
             var vm = new ExecutionPlanViewModel(new FixturePlan()) { Connection = item, SqlText = "SELECT * FROM sample" };
             await Capture(new ExecutionPlanWindow(vm), "plan");
@@ -79,7 +94,7 @@ public static class P0SmokeHarness
         }
         finally
         {
-            query.CloseConnection(item.Name);
+            await query.CloseConnectionAsync(item.Name);
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         }
         async Task Capture(Window window, string name, Action? arrange = null, Func<Task>? verify = null)

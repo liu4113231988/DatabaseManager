@@ -66,6 +66,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private void RefreshQueryEditorContext()
     {
         QueryEditor.ConnectionName = SelectedQueryTab?.ConnectionName ?? string.Empty;
+        QueryEditor.DatabaseName = SelectedQueryTab?.DatabaseName ?? string.Empty;
         QueryEditor.OnConnectionChanged();
     }
 
@@ -159,6 +160,12 @@ public partial class MainWindowViewModel : ViewModelBase
         _appSettingsService = appSettingsService;
         ObjectsExplorer = objectsExplorer;
         QueryEditor = queryEditor;
+        QueryEditor.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(QueryEditorViewModel.StatusMessage)
+                && SelectedQueryTab is { } tab && tab.ConnectionName == QueryEditor.ConnectionName)
+                tab.StatusMessage = QueryEditor.StatusMessage;
+        };
         System.Diagnostics.Trace.WriteLine("startup|viewmodel-resolved");
     }
 
@@ -460,12 +467,14 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>断开指定的连接节点（dbeaver 风格：右键断开）。</summary>
-    public void DisconnectConnectionNode(DbObjectTreeNode? connectionNode)
+    public async Task DisconnectConnectionNodeAsync(DbObjectTreeNode? connectionNode)
     {
         if (connectionNode?.NodeType == DbObjectTreeNodeType.Connection && connectionNode.Connection is not null)
         {
             var name = connectionNode.Connection.Name;
-            _queryService.CloseConnection(name);
+            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, name, StringComparison.OrdinalIgnoreCase)))
+                tab.StatusMessage = $"正在断开连接 '{name}'，等待当前查询结束...";
+            await _queryService.CloseConnectionAsync(name);
             // 将使用该连接的查询标签标记为已断开，避免用户误以为仍可执行
             foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, name, StringComparison.OrdinalIgnoreCase)))
             {
@@ -477,7 +486,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // 来自菜单的 Disconnect（按 SelectedConnection）：已在 CloseConnection 中处理
         }
 
-        ObjectsExplorer.Disconnect(connectionNode);
+        if (connectionNode is not null) ObjectsExplorer.Disconnect(connectionNode);
         if (connectionNode == SelectedConnectionNode)
         {
             IsConnected = false;
@@ -495,7 +504,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (connectionNode?.NodeType != DbObjectTreeNodeType.Connection)
             return;
 
-        DisconnectConnectionNode(connectionNode);
+        await DisconnectConnectionNodeAsync(connectionNode);
         await ConnectConnectionNodeAsync(connectionNode);
     }
 
@@ -521,29 +530,33 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>断开当前选中的连接（工具栏/菜单快捷操作）。</summary>
     [RelayCommand]
-    public void Disconnect()
+    public async Task DisconnectAsync()
     {
-        if (SelectedConnection is null)
+        var connection = SelectedConnection;
+        if (connection is null)
             return;
 
-        var node = ObjectsExplorer.FindConnectionNode(SelectedConnection.Name);
+        var node = ObjectsExplorer.FindConnectionNode(connection.Name);
         if (node is not null)
         {
-            DisconnectConnectionNode(node);
+            await DisconnectConnectionNodeAsync(node);
         }
         else
         {
             // 节点未找到时仍需标记查询服务为断开
-            _queryService.CloseConnection(SelectedConnection.Name);
-            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, SelectedConnection.Name, StringComparison.OrdinalIgnoreCase)))
+            await _queryService.CloseConnectionAsync(connection.Name);
+            foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, connection.Name, StringComparison.OrdinalIgnoreCase)))
             {
-                tab.StatusMessage = $"连接 '{SelectedConnection.Name}' 已断开，请重新连接后再执行。";
+                tab.StatusMessage = $"连接 '{connection.Name}' 已断开，请重新连接后再执行。";
             }
-            IsConnected = false;
-            CurrentDatabase = string.Empty;
-            CurrentSchema = string.Empty;
-            SchemaSelectorVisible = false;
+            if (SelectedConnection == connection)
+            {
+                IsConnected = false;
+                CurrentSchema = string.Empty;
+                SchemaSelectorVisible = false;
+            }
             RaiseCommandStateChanged();
+            RefreshQueryEditorContext();
         }
     }
 
@@ -558,22 +571,20 @@ public partial class MainWindowViewModel : ViewModelBase
         if (node is null)
             return;
 
-        DisconnectConnectionNode(node);
+        await DisconnectConnectionNodeAsync(node);
         await ConnectConnectionNodeAsync(node);
     }
 
     /// <summary>断开全部活动连接（对应 DBeaver 的 Database &gt; Disconnect All）。</summary>
     [RelayCommand]
-    public void DisconnectAll()
+    public async Task DisconnectAllAsync()
     {
         var activeNodes = ObjectsExplorer.RootNodes
+            .SelectMany(n => n.NodeType == DbObjectTreeNodeType.Connection ? new[] { n } : n.Children.AsEnumerable())
             .Where(n => n.NodeType == DbObjectTreeNodeType.Connection && n.IsConnectionActive)
             .ToList();
 
-        foreach (var node in activeNodes)
-        {
-            DisconnectConnectionNode(node);
-        }
+        await Task.WhenAll(activeNodes.Select(DisconnectConnectionNodeAsync));
     }
 
     /// <summary>仅为发起连接时尚未绑定的标签初始化上下文，保留所有已有绑定。</summary>

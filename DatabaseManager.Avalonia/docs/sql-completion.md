@@ -39,3 +39,17 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 ```
 
 UI 冒烟不连接真实服务器；服务器元数据权限、网络延迟以及 Linux/macOS 的实际桌面交互仍需在对应环境验收。
+
+## 大脚本解析测量
+
+分析前用线性扫描定位光标所在语句，仅对该语句创建正则标记。语句边界跳过引号、行注释、嵌套块注释及 dollar 字符串中的分号，替换区间保持文档绝对偏移。对象树遍历不再为叶节点创建空递归迭代器。
+
+2026-11-02 本机 Release 合成测量（15 次取中位数，不含 UI 绘制/网络）：光标位于末尾 395 字符查询，前面分别放置 1000/10000 条语句。49395 字符脚本解析从 49.01 ms 降到 0.30 ms；490395 字符从 476.32 ms 降到 1.28 ms。490395 字符场景的单次分配由约 137 MB 降到 138 KB。5000 个对象中解析 10 个表引用的分配由约 3.6 MB 降到 14 KB，最终中位数约 4.6–4.9 ms。计时仅用于同机比较，不作为通过阈值；单条很长的 SQL 仍完整解析。
+
+可选测量入口（只运行测量，不运行完整回归）：
+
+```powershell
+$env:DBM_TEST_SQL_COMPLETION_PERF = '1'
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release --no-build --no-restore
+Remove-Item Env:DBM_TEST_SQL_COMPLETION_PERF
+```
