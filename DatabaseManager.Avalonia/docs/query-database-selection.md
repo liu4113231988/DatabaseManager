@@ -18,9 +18,7 @@ PostgreSQL 一个连接只能访问一个数据库，因此不能通过添加通
 4. 服务层校验活动事务连接的真实数据库，避免其他执行调用绕过界面保护。
 5. 在现有回归与隔离 UI 冒烟框架增加检查，不增加依赖。
 
-## 数据库范围与边界
-
-### 多连接标签的目标连接
+## 标签连接与事务行为
 
 打开连接只更新对象浏览器；已经绑定的查询标签保留自己的连接和数据库。仅在连接成功后，为发起连接时尚未绑定的标签初始化上下文；新建查询继承对象浏览器的连接和数据库。标签头悬停可查看连接名。
 
@@ -36,7 +34,7 @@ PostgreSQL 一个连接只能访问一个数据库，因此不能通过添加通
 
 上述修复的最终 Release 解决方案构建通过（0 错误，91 个已有警告），完整回归通过，P0 界面冒烟通过并实际切换自动提交复选框。未配置 `DBSMOKE_CONNSTR`，PostgreSQL 实库检查跳过。
 
-2026-11-02：Release 构建通过；完整回归输出 `All regression checks passed.`；隔离 P0 UI 冒烟退出码为 0。未设置 `DBSMOKE_CONNSTR`，真实 PostgreSQL 检查按约定跳过。
+## 数据库范围与边界
 
 | 数据库 | 行为 |
 | --- | --- |
@@ -55,9 +53,11 @@ PostgreSQL 一个连接只能访问一个数据库，因此不能通过添加通
 
 ![SQL 标签数据库选择](smoke/query-database-selection.png)
 
-- Release 解决方案构建与回归可使用已还原依赖运行：`dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release --no-restore`；`dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release --no-build --no-restore`。
+- Release 构建：`dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release`；回归：`dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release`。回归项目未包含在解决方案中，需要直接运行，不能只构建解决方案后就假设回归程序已生成。
 - 确定性检查覆盖：未保存数据保护、执行中保护、活动事务保护、标签独立上下文、切库后旧结果只读。
 - PostgreSQL 集成检查增加不同数据库的事务执行拒绝断言；需设置 `DBSMOKE_CONNSTR`，未配置时按原框架跳过。
 - 隔离 UI 冒烟：`dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Release --no-build --no-restore -- --smoke --p0`。数据库下拉框使用合成服务器节点，不连接服务器。截图输出 `artifacts/p0-ui/query-database.png`。
 
 服务器实际跨库查询和权限差异需要另行在已配置的 SQL Server/MySQL/PostgreSQL/KingbaseES 上验收，不能用 SQLite 保护检查代替。
+
+各验证入口、输出目录与环境要求见 [验证与冒烟说明](../../docs/smoke/verification.md)。

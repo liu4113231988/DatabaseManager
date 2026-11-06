@@ -1,0 +1,42 @@
+# 验证与冒烟说明
+
+以下命令从仓库根目录运行，需要 .NET 10 SDK；UI 冒烟还需要桌面 GUI 环境。先构建 Release 客户端：
+
+```powershell
+dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release
+```
+
+## 控制台回归
+
+回归项目未包含在 Avalonia 解决方案中，需要单独运行；`dotnet test` 不会执行其控制台断言：
+
+```powershell
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release
+```
+
+成功输出 `All regression checks passed.`。其中 `QueryConnectionContextChecks` 验证标签连接、手动模式、提交/回滚、异步等待与分组断开；`SqlCompletionChecks` 验证 SQL 补全作用域及语句边界。
+
+测试会创建临时 SQLite 和测试配置。PostgreSQL 集成检查从环境变量 `DBSMOKE_CONNSTR` 读取测试连接串；未设置时跳过。数据库作业的临时库检查还需显式设置 `DBM_TEST_TEMP_DATABASES=1`。真实数据库检查使用专用测试实例与具备建表/建 Schema/建库等相应权限的测试账号，按启用的检查准备权限。
+
+## 隔离 UI 冒烟
+
+P0/P2 使用临时 SQLite 或合成元数据，无需真实服务器，不执行已保存连接的查询或调度任务：
+
+```powershell
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Release --no-build -- --smoke --p0
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Release --no-build -- --smoke --p2
+```
+
+- P0：覆盖智能提示的实际键盘输入、异步字段补全、数据库下拉框、自动提交复选框绑定，以及结果/执行计划等窗口。输出到 `artifacts/p0-ui/`。
+- P2：覆盖查询构建、测试数据、质量剖析、数据字典、脱敏、仪表盘等交互。输出到 `artifacts/p2-ui/`。
+- 成功退出码为 0，输出目录包含当次 `passed.txt`；每次运行开始会清除旧标记。失败时检查应用输出目录的 `smoke.log`。截图不代表真实服务器或其他平台验收。
+
+## 真实数据库截图入口
+
+仅传 `--smoke` 会进入历史 PostgreSQL 截图流程，使用 `DBSMOKE_CONNSTR` 或代码中的本地默认连接，并可能保存测试连接配置。运行前准备专用测试环境。需要指定截图目录时使用 `--smoke-out <目录>`；已有截图索引见 [README.md](README.md)。该索引由程序生成，通用验证说明维护在本文件。
+
+## 当前证据与测量
+
+2026-11-02，事务与智能提示修复已通过 Release 构建、完整控制台回归和 Windows P0 隔离 UI 冒烟；本轮未配置 `DBSMOKE_CONNSTR`，真实 PostgreSQL 检查跳过。P2 和其他平台的历史结果不等于本轮重新验收。
+
+智能提示的可选合成性能测量命令和适用范围见 [sql-completion.md](../../DatabaseManager.Avalonia/docs/sql-completion.md)；标签与事务规则见 [query-database-selection.md](../../DatabaseManager.Avalonia/docs/query-database-selection.md)。

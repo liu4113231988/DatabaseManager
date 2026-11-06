@@ -5,7 +5,8 @@ DatabaseManager 的主线跨平台客户端，基于 **Avalonia UI** 构建，�
 ## 目标架构
 
 ```
-DatabaseManager.Avalonia.sln
+DatabaseManager.Avalonia/
+├─ DatabaseManager.Avalonia.sln # 客户端及核心依赖；回归可执行项目需单独运行
 ├─ DatabaseManager.AppCore/      # UI 无关业务层（复用原核心引擎，零 WinForms 依赖）
 │   ├─ ViewModels/               # MainWindowViewModel / ConnectionManagerViewModel 等
 │   ├─ Services/                 # IDbConnectionService / IDbSchemaService 等 + 默认实现
@@ -31,10 +32,14 @@ DatabaseManager.Avalonia.sln
 
 > 以下为已交付能力汇总。**未完成事项与待验收清单**见 [docs/backlog.md](./docs/backlog.md)；功能取舍与优先级决策见根目录 [Roadmap.md](../Roadmap.md)。
 
+本节以当前 `master` 源码为准；发布包行为以对应版本的发布说明为准。
+
 - **连接与工作区**：连接的新建、编辑、重命名、删除、测试、连接/重连/断开/断开全部与 Profile 持久化（支持 SSL、集成认证）；主窗口提供菜单、工具栏、对象浏览器、查询区、结果区和状态栏，布局与未保存 SQL 草稿随会话恢复；连接配置多选导入导出（无密码 / 加密携密，PBKDF2 + AES-GCM）。
 - **SSH 隧道**：跳板机密码 / 私钥认证、固定 SHA256 主机指纹、仅回环地址端口转发；断线在下次操作时重连，不重放 SQL，随断开 / 进程退出释放（真实 SSH 服务端联调待办）。
 - **对象浏览**：对象树支持数据库、Schema、表、视图、过程、函数、序列及列/索引/键/约束/触发器多级懒加载；树内就地过滤（输入即时隐藏不匹配节点，清空恢复）与深度搜索定位、右键菜单（Generate SQL、新建/删除/重命名对象、过滤模板、比较迁移入口，菜单图标按动作统一）、元数据搜索窗口与菜单扩展点；`dbm://` 应用内 URI 直达对象。
 - **SQL 开发**：多标签编辑、语法高亮、关键字/对象/字段智能提示、SQL 格式化、参数化执行、可视化执行计划（树形 + 节点详情 + 成本/耗时热点）、选区执行、超时与取消、危险 SQL 二次确认、错误行号定位、事务（自动提交 / Commit / Rollback）、查询历史（SQLite 存储）、脚本库与收藏查询、专注模式、结果分页与导出。
+- **查询上下文与事务**：已有标签保留独立连接/数据库；事务工具栏和执行计划跟随当前标签。关闭自动提交后由查询服务开启事务，提交/回滚后保留手动模式；启用自动提交异步提交已有事务。同一连接的标签共享事务并串行执行查询和事务操作，不同连接可并行；分组连接也包含在“断开全部”中。详见 [查询连接与事务说明](./docs/query-database-selection.md)。
+- **上下文智能提示**：匹配表、字段、别名、Schema 与 SQL 上下文，按标签连接/数据库过滤；字段异步加载，支持 Ctrl+Space、Tab/Enter 接受，注释和字符串内不弹出。候选使用已加载元数据，暂不推断 CTE/派生表输出列。大脚本只对当前语句创建解析标记，测量及限制见 [智能提示说明](./docs/sql-completion.md)。
 - **SQL 编辑器辅助**：选中文本右键菜单与快捷键——执行选中 / 新标签执行选中（`Ctrl+Enter`、`Ctrl+Shift+Enter`）、显示执行计划（`Ctrl+L`）、保存选中到脚本库（`Ctrl+Shift+S`）、美化选区 SQL（`Ctrl+Shift+F`）、查找与替换（`Ctrl+F` / `Ctrl+R`）、注释与取消注释行（`Ctrl+Shift+C`）、选中内容大小写转换（`Ctrl+Shift+U` / `Ctrl+Shift+L`）、增减缩进、复制当前行或选区（`Ctrl+D`）、删除行（`Ctrl+Shift+K`）、上下移动行（`Alt+↑` / `Alt+↓`）、复制选中 SQL 为一行 / JSON 字符串 / C# 字面量。
 - **查询结果**：独立结果标签与左右对照窗口、最多固定 3 份快照（单次最多 64 结果集 / 100000 行 / 约 32 MiB 文本预算）、结果网格右键「复制为格式」（CSV / 制表符 / JSON / Markdown / INSERT）。
 - **数据与表设计**：查询结果内联增删改保存（事务 + 乐观锁）、表/视图数据分页查看、图片/JSON 单元格查看器；外键候选、单记录表单、批量查找替换、文本 / 十六进制 / 文件二进制编辑；表、列、主键、索引、外键和约束的设计、DDL 预览与保存。
@@ -64,10 +69,25 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj
 
 > 核心引擎（`DatabaseInterpreter.*` / `DatabaseConverter.*` / `DatabaseManager.Core` 等）直接复用原仓库，通过 `ProjectReference` 引用，无需拷贝代码。
 
+### 回归与 UI 冒烟
+
+以下命令从仓库根目录运行。回归项目虽与解决方案同目录，但未包含在解决方案中，需要直接运行；`dotnet test` 不会运行其控制台断言。
+
+```powershell
+dotnet build DatabaseManager.Avalonia/DatabaseManager.Avalonia.sln -c Release
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Release --no-build -- --smoke --p0
+```
+
+完整回归成功输出 `All regression checks passed.`。P0 使用合成元数据和临时 SQLite，无需真实服务器；截图与结果标记输出到 `artifacts/p0-ui/`。数据库集成检查和其他冒烟模式见 [验证与冒烟说明](../docs/smoke/verification.md)。
+
 ## 架构与维护文档
 
 - [docs/backlog.md](./docs/backlog.md)：**未完成事项与待验收清单**（执行跟踪）。
 - [docs/extensibility.md](./docs/extensibility.md)：方言、对象树菜单、导出器与代码模板的扩展方式。
+- [docs/query-database-selection.md](./docs/query-database-selection.md)：标签连接、数据库选择、事务模式与并发规则。
+- [docs/sql-completion.md](./docs/sql-completion.md)：智能提示范围、限制、回归与性能测量。
+- [docs/startup-performance.md](./docs/startup-performance.md)：启动基线、诊断与发布体积取舍。
 - [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)：KingbaseES 支持计划、能力矩阵与兼容性边界。
 - [docs/testing/](./docs/testing/)：KingbaseES 各阶段测试证据（TDD）。
 - 根目录 [Roadmap.md](../Roadmap.md)：产品功能取舍与优先级决策。

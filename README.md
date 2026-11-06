@@ -43,6 +43,8 @@
 
 ## 功能总览（Avalonia 版）
 
+以下说明以当前 `master` 源码为准；发布包行为以对应版本的发布说明为准。
+
 ### 1. 连接与配置管理
 - 连接的新建、编辑、重命名、删除、测试、连接/重连/断开/断开全部；Profile 持久化。
 - 支持 SSL、集成认证、记住密码、优先级；按数据库类型过滤连接列表。
@@ -60,10 +62,11 @@
 - 对象树菜单扩展点（`IObjectTreeMenuContributor`），支持第三方菜单贡献。
 
 ### 3. SQL 开发
-- 多标签查询编辑器：语法高亮、关键字/数据库对象/字段智能提示（支持表别名、Schema 限定名、`[]`/`"`/`` ` `` 标识符）、Tab 接受提示。
+- 多标签查询编辑器：标签独立保存连接和数据库，打开其他连接不覆盖已有标签；事务工具栏与执行计划跟随当前标签，断开后保留绑定。
+- 智能提示：按 SQL 上下文匹配表、字段与别名，限定当前连接/数据库；字段异步加载，支持 Ctrl+Space、Tab/Enter 接受及引号标识符。表候选来自已加载元数据，暂不推断 CTE/派生表输出列，详见 [智能提示说明](DatabaseManager.Avalonia/docs/sql-completion.md)。
 - 执行：全部执行、选区执行（F5）、单次超时、随时取消；常见驱动错误行号解析并自动定位光标。
 - 安全：危险 DDL/DML 二次确认（可按标签开关）、关闭含未保存修改标签时的确认提示。
-- 事务：自动提交切换、开始事务 / Commit / Rollback。
+- 事务：关闭自动提交后，下一次查询按标签数据库开启事务；提交/回滚后保留手动模式，启用自动提交会异步提交已有事务。同一连接的标签共享事务，查询与事务操作串行；不同连接可并行。“断开全部”覆盖分组内连接，详见 [查询连接与事务说明](DatabaseManager.Avalonia/docs/query-database-selection.md)。
 - 工作台：查询历史（500 条，支持收藏且收藏不参与裁剪）、脚本库收藏 + 内置代码片段、最近脚本、参数化执行（占位符替换）、SQL 格式化、执行计划（EXPLAIN / SHOWPLAN）、Schema 快速切换。
 - 结果区：分页浏览、消息输出、结果导出、内联编辑（见下）；右键"复制为"单元格/选中行/全部结果（CSV / 制表符 / JSON / Markdown / INSERT）。
 - 编辑辅助（选中文本右键菜单 / 快捷键）：执行选中与新标签执行选中（`Ctrl+Enter` / `Ctrl+Shift+Enter`）、执行计划（`Ctrl+L`）、保存选中到脚本库（`Ctrl+Shift+S`）、美化选区（`Ctrl+Shift+F`）、查找替换（`Ctrl+F` / `Ctrl+R`）、注释切换（`Ctrl+Shift+C`）、大小写转换（`Ctrl+Shift+U` / `Ctrl+Shift+L`）、缩进调整、行复制/删除/上下移动（`Ctrl+D` / `Ctrl+Shift+K` / `Alt+↑↓`）、复制选中 SQL 为一行 / JSON / C# 字符串。
@@ -217,6 +220,16 @@ dotnet build DatabaseManager.Avalonia\DatabaseManager.Avalonia.sln
 dotnet run --project DatabaseManager.Avalonia\DatabaseManager.Avalonia\DatabaseManager.Avalonia.csproj
 ```
 
+### 回归验证
+
+回归项目是独立可执行程序，不包含在 Avalonia 解决方案中，需直接运行；`dotnet test` 不会代替这些检查：
+
+```powershell
+dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.RegressionTests -c Release
+```
+
+成功输出 `All regression checks passed.`；未设置 `DBSMOKE_CONNSTR` 时跳过 PostgreSQL 集成检查。隔离 UI 冒烟、数据库环境要求与截图入口见 [验证与冒烟说明](docs/smoke/verification.md)。
+
 ---
 
 ## 目录说明
@@ -233,4 +246,6 @@ dotnet run --project DatabaseManager.Avalonia\DatabaseManager.Avalonia\DatabaseM
 - [Roadmap.md](./Roadmap.md)：功能决策与优先级（含明确不做清单）。
 - [DatabaseManager.Avalonia/README.md](./DatabaseManager.Avalonia/README.md)：Avalonia 版架构、技术选型与已完成能力。
 - [DatabaseManager.Avalonia/docs/backlog.md](./DatabaseManager.Avalonia/docs/backlog.md)：未完成事项与待验收清单。
+- [DatabaseManager.Avalonia/docs/query-database-selection.md](./DatabaseManager.Avalonia/docs/query-database-selection.md)：标签连接、数据库选择与共享事务规则。
+- [DatabaseManager.Avalonia/docs/sql-completion.md](./DatabaseManager.Avalonia/docs/sql-completion.md)：智能提示范围、限制与大脚本测量。
 - [DatabaseManager.Avalonia/docs/kingbasees-support-plan.md](./DatabaseManager.Avalonia/docs/kingbasees-support-plan.md)：KingbaseES 支持计划与兼容性边界。
