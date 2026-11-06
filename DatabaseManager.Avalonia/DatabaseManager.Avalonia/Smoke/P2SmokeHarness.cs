@@ -20,6 +20,7 @@ public static class P2SmokeHarness
         var connections = new FixtureConnections(item); var query = new DefaultQueryService(connections);
         try
         {
+            File.WriteAllBytes(item.Database, []);
             var created = await query.ExecuteStandaloneAsync(item, "CREATE TABLE sample(id INTEGER PRIMARY KEY, phone TEXT, amount INTEGER); INSERT INTO sample VALUES(1,'13812345678',12),(2,'13912345678',25);");
             if (!created.IsSuccess) throw new Exception(created.ErrorMessage);
             var source = await query.ExecuteStandaloneAsync(item, "SELECT * FROM sample");

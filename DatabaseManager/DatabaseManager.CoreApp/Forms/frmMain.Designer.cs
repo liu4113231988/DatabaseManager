@@ -1,5 +1,6 @@
 using AntdUI;
 using WeifenLuo.WinFormsUI.Docking;
+using DockPanel = WeifenLuo.WinFormsUI.Docking.DockPanel;
 namespace DatabaseManager.Forms
 {
     partial class frmMain

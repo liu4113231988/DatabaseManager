@@ -1,7 +1,7 @@
-﻿using CsvHelper.Configuration;
 using DatabaseManager.FileUtility.Model;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace DatabaseManager.FileUtility
 {
@@ -22,20 +22,15 @@ namespace DatabaseManager.FileUtility
 
             using (StreamReader textReader = encoding == null ? new StreamReader(filePath) : new StreamReader(filePath, encoding))
             {
-                CsvConfiguration configuration = new CsvConfiguration(System.Globalization.CultureInfo.CurrentCulture);
-
-                configuration.HasHeaderRecord = firstRowIsColumnName;
-                configuration.Delimiter = ",";
-
-                CsvHelper.CsvReader reader = new CsvHelper.CsvReader(textReader, configuration);
-
-                if (firstRowIsColumnName)
+                using var reader = CsvHelper.CsvReader.Create(textReader, new CsvHelper.CsvReaderOptions
                 {
-                    reader.Read();
-                    reader.ReadHeader();
-                }
+                    HasHeader = firstRowIsColumnName,
+                    Separator = ',',
+                    FormatProvider = System.Globalization.CultureInfo.CurrentCulture,
+                    MalformedData = CsvHelper.CsvMalformedDataHandling.Throw,
+                }, leaveOpen: true);
 
-                result.HeaderColumns = reader.HeaderRecord;
+                result.HeaderColumns = firstRowIsColumnName ? reader.Headers.ToArray() : null;
 
                 if(!onlyReadHeader)
                 {
@@ -47,9 +42,9 @@ namespace DatabaseManager.FileUtility
                     {
                         Dictionary<int, object> dictRow = new Dictionary<int, object>();
 
-                        for (int i = 0; i < reader.ColumnCount; i++)
+                        for (int i = 0; i < reader.FieldCount; i++)
                         {
-                            string value = reader.GetField(i);
+                            string value = reader.GetString(i);
 
                             dictRow.Add(i, value);
                         }

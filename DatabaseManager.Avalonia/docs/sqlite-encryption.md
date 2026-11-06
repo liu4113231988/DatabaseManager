@@ -2,7 +2,7 @@
 
 ## 依赖与连接规则
 
-当前源码使用 `Microsoft.Data.Sqlite.Core 10.0.1` 与 `SQLite3MC.PCLRaw.bundle 2.6.1`。移除已弃用的 `SQLitePCLRaw.bundle_e_sqlcipher`，同时移除普通 SQLite 原生包的直接引用，避免同一进程混用多个 bundle。普通文件、配置库与查询历史继续使用无密码连接。
+当前源码使用 `Microsoft.Data.Sqlite.Core 10.0.14` 与 `SQLite3MC.PCLRaw.bundle 2.6.1`。移除已弃用的 `SQLitePCLRaw.bundle_e_sqlcipher`，同时移除普通 SQLite 原生包的直接引用，避免同一进程混用多个 bundle。普通文件、配置库与查询历史继续使用无密码连接。
 
 SQLite3MC 的默认加密算法不是 SQLCipher，因此项目为带密码的文件连接显式添加 `cipher=sqlcipher&legacy=4` URI 参数，密码仍通过独立的 `Password` 连接属性传递，不放进 URI。文件路径转为绝对 URI 并转义特殊字符。“测试连接”和实际查询共用连接构建规则；测试使用只读、不池化的连接，不创建或重加密文件。
 

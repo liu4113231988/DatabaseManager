@@ -1,0 +1,56 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="AntdUI" Version="2.4.18" />
+    <PackageVersion Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+    <PackageVersion Include="AtomUI.Desktop.Controls" Version="6.2.13" />
+    <PackageVersion Include="Avalonia" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.5" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.5" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="CompareNETObjects" Version="4.84.0" />
+    <PackageVersion Include="CoreCLR-NCalc" Version="3.1.253" />
+    <PackageVersion Include="CsvHelper" Version="34.0.0" />
+    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="DiffPlex" Version="1.9.0" />
+    <PackageVersion Include="DM.DmProvider" Version="8.3.1.47463" />
+    <PackageVersion Include="Dock.Avalonia" Version="12.1.5" />
+    <PackageVersion Include="DockPanelSuite.ThemeVS2015" Version="3.1.1" />
+    <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.6.1" />
+    <PackageVersion Include="FontAwesome.Sharp" Version="6.6.0" />
+    <PackageVersion Include="Hogimn.Sql.Formatter" Version="2.0.5" />
+    <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
+    <PackageVersion Include="MessageBox.Avalonia" Version="12.1.0" />
+    <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.1.1" />
+    <PackageVersion Include="Microsoft.Data.Sqlite.Core" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+    <PackageVersion Include="Microsoft.Msagl" Version="1.1.6" />
+    <PackageVersion Include="Microsoft.Msagl.GraphViewerGDI" Version="1.1.7" />
+    <PackageVersion Include="Microsoft.SqlServer.Types" Version="170.1000.7" />
+    <PackageVersion Include="MiniProfiler.Shared" Version="4.5.4" />
+    <PackageVersion Include="MySqlConnector" Version="2.6.2" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageVersion Include="Npgsql" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.NetTopologySuite" Version="10.0.3" />
+    <PackageVersion Include="NPOI" Version="2.8.1" />
+    <PackageVersion Include="ObjectListView.Repack.Core3" Version="2.9.3" />
+    <PackageVersion Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
+    <PackageVersion Include="SharpZipLib" Version="1.4.2" />
+    <PackageVersion Include="SqlCodeEditor" Version="2.1.0" />
+    <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.6.1" />
+    <PackageVersion Include="SqlParserSharp" Version="2.2.0" />
+    <PackageVersion Include="SqlSugarCore.Kdbndp" Version="9.3.8.413" />
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
+    <PackageVersion Include="System.Data.Odbc" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="10.0.14" />
+    <PackageVersion Include="TSQL.Parser" Version="2.6.0" />
+  </ItemGroup>
+</Project>

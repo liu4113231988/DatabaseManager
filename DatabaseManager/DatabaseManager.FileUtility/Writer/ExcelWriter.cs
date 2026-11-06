@@ -266,7 +266,7 @@ namespace DatabaseManager.FileUtility
 
         private void AddComment(IWorkbook workbook, ISheet sheet, ICell cell, string text)
         {
-            IDrawing drawing = sheet.CreateDrawingPatriarch();
+            var drawing = sheet.CreateDrawingPatriarch();
             IClientAnchor anchor = workbook.GetCreationHelper().CreateClientAnchor();
 
             anchor.Row1 = cell.RowIndex;

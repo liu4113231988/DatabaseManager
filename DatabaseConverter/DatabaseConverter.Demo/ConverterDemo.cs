@@ -60,7 +60,7 @@ namespace DatabaseConverter.Demo
 
                     FeedbackHelper.EnableLog = true;
 
-                    await dbConverter.Convert();
+                    await dbConverter.Convert(System.Threading.CancellationToken.None);
                 }                   
             }
             catch (Exception ex)

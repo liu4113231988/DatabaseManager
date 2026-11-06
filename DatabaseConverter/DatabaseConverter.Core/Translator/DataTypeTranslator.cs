@@ -1,5 +1,3 @@
-﻿using Antlr.Runtime.Tree;
-using Antlr4.Runtime.Misc;
 using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;

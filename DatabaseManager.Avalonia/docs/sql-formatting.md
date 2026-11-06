@@ -1,6 +1,6 @@
 # SQL 格式化与视图转换
 
-转换引擎将已弃用的 `PoorMansTSqlFormatterRedux 1.0.3` 替换为 `Hogimn.Sql.Formatter 2.0.4`。转换入口 `DbObjectTranslator.FormatSql(sql, out hasError)` 与编辑器入口 `DatabaseManager.AppCore.Common.SqlFormatter` 共用 `SqlFormattingHelper`。编辑器按当前标签的连接类型选择方言，无连接时使用 Standard SQL；支持选区格式化和一次撤销。
+转换引擎将已弃用的 `PoorMansTSqlFormatterRedux 1.0.3` 替换为 `Hogimn.Sql.Formatter 2.0.5`。转换入口 `DbObjectTranslator.FormatSql(sql, out hasError)` 与编辑器入口 `DatabaseManager.AppCore.Common.SqlFormatter` 共用 `SqlFormattingHelper`。编辑器按当前标签的连接类型选择方言，无连接时使用 Standard SQL；支持选区格式化和一次撤销。
 
 ## 方言与保真
 
@@ -30,6 +30,6 @@ MySQL 允许的无条件 `JOIN` 在某些目标方言中不可直接执行；本
 
 `SqlFormattingChecks` 在控制台回归中覆盖：各目标方言、大小写、字符串、引号标识符、注释、PostgreSQL dollar 字符串/JSON/参数、MySQL DEFINER、多语句、幂等性及安全回退；通过 SQLite 实际执行比较编辑器排版前后的值和结果集边界。视图检查覆盖 JOIN/LEFT JOIN/USING/CROSS JOIN/子查询、字面量、比较运算符和视图头，检查 token 内容并运行现有目标语法分析器。P0 冒烟覆盖真实编辑器方言、全文、选区和撤销行为。
 
-2026-11-06：Release 解决方案构建通过；完整回归（包含 SQLite 加密检查）输出 `All regression checks passed.`；Windows P0 隔离 UI 冒烟退出码为 0。转换引擎、AppCore、客户端与回归项目的依赖图均只引用 Hogimn 2.0.4，不再包含旧格式化包。
+2026-11-06：Release 解决方案构建通过；完整回归（包含 SQLite 加密检查）输出 `All regression checks passed.`；Windows P0 隔离 UI 冒烟退出码为 0。转换引擎、AppCore、客户端与回归项目的依赖图均只引用 Hogimn 2.0.5，不再包含旧格式化包。
 
 运行命令见 [验证与冒烟说明](../../docs/smoke/verification.md)。本地评估依据为 [Hogimn 2.0.4 官方说明](https://www.nuget.org/packages/Hogimn.Sql.Formatter/2.0.4)；存储过程、真实数据库回放与性能基准未在本轮验收。

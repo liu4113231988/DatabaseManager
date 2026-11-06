@@ -38,7 +38,11 @@ namespace DatabaseManager.FileUtility
 
             using (StreamWriter sw = new StreamWriter(filePath, false, encoding))
             {
-                CsvHelper.CsvWriter writer = new CsvHelper.CsvWriter(sw, CultureInfo.CurrentCulture);
+                using var writer = CsvHelper.CsvWriter.Create(sw, new CsvHelper.CsvWriterOptions
+                {
+                    Separator = ',',
+                    FormatProvider = CultureInfo.CurrentCulture,
+                }, leaveOpen: true);
 
                 bool showColumnNames = this.option.ShowColumnNames;
 
@@ -49,7 +53,7 @@ namespace DatabaseManager.FileUtility
                         writer.WriteField(column.ColumnName);
                     }
 
-                    writer.NextRecord();
+                    writer.EndRecord();
                 }
 
                 int count = 0;
@@ -63,7 +67,7 @@ namespace DatabaseManager.FileUtility
 
                     if(count< dataTable.Rows.Count)
                     {
-                        writer.NextRecord();
+                        writer.EndRecord();
                     }                  
 
                     count++;

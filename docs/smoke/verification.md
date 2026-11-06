@@ -20,6 +20,8 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.Regression
 
 `SqliteEncryptionChecks` 使用临时 SQLCipher 4 格式文件验证密码、只读测试、事务、元数据和路径处理，以及错误密码/缺失文件的实际连接拒绝和禁止普通查询自动建库；说明与兼容边界见 [SQLite 加密访问](../../DatabaseManager.Avalonia/docs/sqlite-encryption.md)。P0 同时验证 SQLite 密码表单，截图为 `artifacts/p0-ui/sqlite-encryption.png`。
 
+`PackageCompatibilityChecks` 验证升级后的 CSV/Excel 往返读写、表头/无表头、畸形 CSV 拒绝、Excel 批注、Word、ZIP、NCalc 及 DuckDB 原生库；包版本与框架兼容性见 [依赖升级说明](../../DatabaseManager.Avalonia/docs/dependencies.md)。
+
 测试会创建临时 SQLite 和测试配置。PostgreSQL 集成检查从环境变量 `DBSMOKE_CONNSTR` 读取测试连接串；未设置时跳过。数据库作业的临时库检查还需显式设置 `DBM_TEST_TEMP_DATABASES=1`。真实数据库检查使用专用测试实例与具备建表/建 Schema/建库等相应权限的测试账号，按启用的检查准备权限。
 
 ## 隔离 UI 冒烟
@@ -41,6 +43,6 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 
 ## 当前证据与测量
 
-2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复已通过 Release 构建、完整控制台回归和 Windows P0 隔离 UI 冒烟；本轮未配置 `DBSMOKE_CONNSTR`，真实 PostgreSQL 检查跳过。P2 和其他平台的历史结果不等于本轮重新验收。
+2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复通过 Release 构建和完整回归。随后依赖统一升级的验收覆盖全仓库 19 个项目的编译、完整控制台回归、认证检查与 Windows P0/P2 隔离 UI 冒烟；主解决方案和旧客户端的 NuGet 已知漏洞审计（含传递依赖）为零。本轮未配置 `DBSMOKE_CONNSTR`，真实 PostgreSQL 检查跳过；其他平台未重新验收。既有源码警告与 NPOI 新增许可证提示仍保留。
 
 智能提示的可选合成性能测量命令和适用范围见 [sql-completion.md](../../DatabaseManager.Avalonia/docs/sql-completion.md)；标签与事务规则见 [query-database-selection.md](../../DatabaseManager.Avalonia/docs/query-database-selection.md)。

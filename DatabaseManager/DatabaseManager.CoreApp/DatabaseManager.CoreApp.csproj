@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -45,15 +45,15 @@
   </ItemGroup>
 	
   <ItemGroup>
-    <PackageReference Include="AntdUI" Version="2.3.2" />
-    <PackageReference Include="DiffPlex" Version="1.7.2" />
-    <PackageReference Include="DockPanelSuite.ThemeVS2015" Version="3.1.1" />
-    <PackageReference Include="FontAwesome.Sharp" Version="6.6.0" />
-    <PackageReference Include="Microsoft.Msagl" Version="1.1.6" />
-    <PackageReference Include="Microsoft.Msagl.GraphViewerGDI" Version="1.1.7" />
-    <PackageReference Include="Microsoft.SqlServer.Types" Version="170.1000.7" />
-    <PackageReference Include="ObjectListView.Repack.Core3" Version="2.9.3" />
-    <PackageReference Include="SqlCodeEditor" Version="2.0.1" />
+    <PackageReference Include="AntdUI" />
+    <PackageReference Include="DiffPlex" />
+    <PackageReference Include="DockPanelSuite.ThemeVS2015" />
+    <PackageReference Include="FontAwesome.Sharp" />
+    <PackageReference Include="Microsoft.Msagl" />
+    <PackageReference Include="Microsoft.Msagl.GraphViewerGDI" />
+    <PackageReference Include="Microsoft.SqlServer.Types" />
+    <PackageReference Include="ObjectListView.Repack.Core3" />
+    <PackageReference Include="SqlCodeEditor" />
   </ItemGroup>
 
   <ItemGroup>
