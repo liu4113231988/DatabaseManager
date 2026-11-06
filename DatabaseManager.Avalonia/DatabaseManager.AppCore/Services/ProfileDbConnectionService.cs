@@ -64,23 +64,6 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
         if (ConnectionHelper.ValidateEndpoint(connection) is { } error)
             throw new ArgumentException(error);
 
-        if (ParseDatabaseType(connection.DatabaseType) == DatabaseType.Sqlite)
-        {
-            var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
-            {
-                DataSource = connection.Database,
-                Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
-                Password = connection.Password ?? string.Empty,
-                Pooling = false,
-            };
-            using var sqlite = new Microsoft.Data.Sqlite.SqliteConnection(builder.ConnectionString);
-            await sqlite.OpenAsync(cancellationToken);
-            using var command = sqlite.CreateCommand();
-            command.CommandText = "SELECT COUNT(*) FROM sqlite_schema";
-            await command.ExecuteScalarAsync(cancellationToken);
-            return new[] { connection.Database };
-        }
-
         var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
 
         var dbType = ParseDatabaseType(connection.DatabaseType);
@@ -93,7 +76,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
 
         var dbInterpreter = DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, new DbInterpreterOption());
 
-        var databases = await dbInterpreter.GetDatabasesAsync();
+        var databases = await dbInterpreter.GetDatabasesAsync().WaitAsync(cancellationToken);
         return databases.Select(d => d.Name).OrderBy(n => n).ToList();
     }
 
@@ -172,6 +155,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
             IntegratedSecurity = profile.IntegratedSecurity,
             UserId = profile.UserId,
             Password = profile.Password,
+            RememberPassword = !string.IsNullOrEmpty(profile.Password),
             IsDba = profile.IsDba,
             UseSsl = profile.UseSsl,
             Priority = profile.Priority,

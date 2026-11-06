@@ -140,10 +140,16 @@ public partial class ConnectWindow : Window
         bool isDuckDb = dbType == DatabaseType.DuckDB;
         PanelDuckDbMode.IsVisible = isDuckDb;
         bool isFileDatabase = ConnectionHelper.IsFileDatabase(dbType);
+        bool isSqlite = dbType == DatabaseType.Sqlite;
         PanelServerPort.IsVisible = !isFileDatabase;
         PanelAuthentication.IsVisible = !isFileDatabase;
-        PanelUserPassword.IsVisible = !isFileDatabase;
-        ChkRememberPassword.IsVisible = !isFileDatabase;
+        PanelUserPassword.IsVisible = !isFileDatabase || isSqlite;
+        PanelUserId.IsVisible = !isFileDatabase;
+        Grid.SetColumn(PanelPassword, isSqlite ? 0 : 1);
+        Grid.SetColumnSpan(PanelPassword, isSqlite ? 2 : 1);
+        PanelPassword.Margin = isSqlite ? new global::Avalonia.Thickness(0) : new global::Avalonia.Thickness(7, 0, 0, 0);
+        TxtPassword.PlaceholderText = isSqlite ? "未加密文件请留空" : "密码";
+        ChkRememberPassword.IsVisible = !isFileDatabase || isSqlite;
         PanelSsh.IsVisible = !isFileDatabase;
         ComboDatabase.IsVisible = !isFileDatabase;
         ComboDatabase.IsEnabled = dbType is not (DatabaseType.Oracle or DatabaseType.DM);
@@ -167,7 +173,7 @@ public partial class ConnectWindow : Window
             DatabaseType.Postgres or DatabaseType.KingbaseES => "数据库可直接填写；加载列表也需要先连接到一个数据库，留空时驱动默认使用用户名作为库名。",
             DatabaseType.SqlServer => @"支持主机、主机\实例或主机,端口；命名实例的端口可留空。",
             DatabaseType.DuckDB => "填写文件路径或选择内存模式；只读模式需要已有文件，不能与内存模式同时使用。",
-            DatabaseType.Sqlite => "选择已有 SQLite 数据库文件，无需填写服务器或用户名。",
+            DatabaseType.Sqlite => "选择已有 SQLite 文件；支持 SQLCipher 4 加密库，未加密文件请留空密码。无需填写服务器或用户名。",
             _ => "填写主机、端口和账号；数据库可直接填写或加载后选择。",
         };
 

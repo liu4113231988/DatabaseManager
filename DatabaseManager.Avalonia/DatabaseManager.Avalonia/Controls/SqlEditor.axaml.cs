@@ -806,7 +806,9 @@ public partial class SqlEditor : UserControl
 
         if (string.IsNullOrWhiteSpace(original)) return;
 
-        var formatted = DatabaseManager.AppCore.Common.SqlFormatter.Format(original);
+        var connection = SqlCompletion.Connection(ObjectTreeRoots, ConnectionName);
+        Enum.TryParse<DatabaseType>(connection?.Connection?.DatabaseType, true, out var databaseType);
+        var formatted = DatabaseManager.AppCore.Common.SqlFormatter.Format(original, databaseType);
         if (formatted == original) return;
 
         _editor.Document.Replace(offset, length, formatted);

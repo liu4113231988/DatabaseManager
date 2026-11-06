@@ -40,6 +40,22 @@ internal static class SqlCompletionSmokeChecks
             window.Show();
             await Task.Delay(100);
             var textEditor = editor.FindControl<TextEditor>("PART_TextEditor")!;
+            const string formatSql = "SELECT 'from a,b and end', $$from, where;$$, 1 -- keep comment\n+2;";
+            editor.SqlText = formatSql;
+            textEditor.Select(0, 0);
+            editor.Format();
+            string expectedFormat = DatabaseManager.AppCore.Common.SqlFormatter.Format(formatSql, DatabaseType.Postgres);
+            Check(textEditor.Text == expectedFormat && textEditor.Text.Contains("'from a,b and end'")
+                && textEditor.Text.Contains("$$from, where;$$") && textEditor.Text.Contains("-- keep comment\n"),
+                "The real editor formatting command must preserve literals and line comment boundaries using its connection dialect.");
+            textEditor.Undo();
+            Check(textEditor.Text == formatSql, "Formatting must be undoable as one edit.");
+            const string selection = "select 1+2, 'from, and'";
+            editor.SqlText = "-- prefix\n" + selection + "\n-- suffix";
+            textEditor.Select("-- prefix\n".Length, selection.Length);
+            editor.Format();
+            Check(textEditor.Text == "-- prefix\n" + DatabaseManager.AppCore.Common.SqlFormatter.Format(selection, DatabaseType.Postgres) + "\n-- suffix",
+                "Selection formatting must preserve text outside the selection.");
             await Show("SELECT * FROM |");
             Check(Items().Any(c => c.Text == "table_099") && Items().All(c => c.Text != "SELECT" && c.Text != "beta_only"),
                 "FROM candidates must include all loaded tables from the current database.");

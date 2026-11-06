@@ -25,6 +25,7 @@ public static class P0SmokeHarness
         query.NotifyConnected(item.Name);
         try
         {
+            File.WriteAllBytes(item.Database, []);
             await SqlCompletionSmokeChecks.RunAsync(output);
             await query.ExecuteAsync(item.Name, "CREATE TABLE sample(id INTEGER PRIMARY KEY, title TEXT, payload BLOB); INSERT INTO sample VALUES(1,'测试文本',X'0102');");
             var tab = new QueryTabViewModel(query, new DefaultDataEditService(connections)) { ConnectionName = item.Name, DatabaseName = item.Database, SqlText = "SELECT * FROM sample" };
@@ -87,6 +88,46 @@ public static class P0SmokeHarness
             var connect = new ConnectWindow(new ConnectionManagerViewModel(connections), new ConnectionItem { DatabaseType = "Postgres", Name = "SSH 测试", Server = "db.internal", Port = "5432", Ssh = new() { Enabled = true, Host = "bastion.example", UserName = "developer" } });
             connect.Height = 980;
             await Capture(connect, "ssh", () => { foreach (var expander in connect.GetVisualDescendants().OfType<Expander>()) expander.IsExpanded = true; });
+            var encrypted = new ConnectionItem
+            {
+                Name = "SQLite 加密测试", DatabaseType = "Sqlite", Database = Path.Combine(folder, "encrypted.db"),
+                Password = "fixture-only-password", RememberPassword = true,
+            };
+            var encryptedString = new DatabaseInterpreter.Core.SqliteConnectionStringBuilder().BuildConntionString(
+                new DatabaseInterpreter.Model.ConnectionInfo { Database = encrypted.Database, Password = encrypted.Password });
+            using (var sqlite = new Microsoft.Data.Sqlite.SqliteConnection(encryptedString))
+            {
+                await sqlite.OpenAsync();
+                using var command = sqlite.CreateCommand();
+                command.CommandText = "CREATE TABLE sample(id INTEGER)";
+                await command.ExecuteNonQueryAsync();
+            }
+            var encryptedConnect = new ConnectWindow(new ConnectionManagerViewModel(connections), encrypted);
+            await Capture(encryptedConnect, "sqlite-encryption", verify: async () =>
+            {
+                var password = encryptedConnect.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.TextBox>()
+                    .Single(t => t.Name == "TxtPassword");
+                var user = encryptedConnect.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.TextBox>()
+                    .Single(t => t.Name == "TxtUserId");
+                var remember = encryptedConnect.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.CheckBox>()
+                    .Single(c => c.Name == "ChkRememberPassword");
+                if (!password.IsEffectivelyVisible || user.IsEffectivelyVisible || !remember.IsEffectivelyVisible
+                    || password.PasswordChar != '*' || password.Text != encrypted.Password || remember.IsChecked != true)
+                    throw new InvalidOperationException("SQLite must show a masked password and remember-password option without a user name.");
+                var built = (ConnectionItem)typeof(ConnectWindow).GetMethod("BuildConnection",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(encryptedConnect, null)!;
+                await new ProfileDbConnectionService(null!).TestConnectionAsync(built);
+                var types = encryptedConnect.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.ComboBox>()
+                    .Single(c => c.Name == "ComboDatabaseType");
+                types.SelectedItem = "DuckDB";
+                await Task.Delay(50);
+                if (password.IsEffectivelyVisible || !string.IsNullOrEmpty(password.Text))
+                    throw new InvalidOperationException("DuckDB must hide and clear the SQLite password.");
+                types.SelectedItem = "Sqlite";
+                await Task.Delay(50);
+                if (!password.IsEffectivelyVisible || !string.IsNullOrEmpty(password.Text))
+                    throw new InvalidOperationException("Returning to SQLite must show an empty password field.");
+            });
             var schedule = new DefaultScheduleService(new DefaultTaskCenterService(), connections, query, new DefaultBackupService(), new DefaultExportImportService(connections), storageDirectory: folder);
             var window = new ScheduleWindow(schedule, connections);
             await Capture(window, "schedule", () => window.GetVisualDescendants().OfType<Button>().First(b => b.Content?.ToString() == "新建计划").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));

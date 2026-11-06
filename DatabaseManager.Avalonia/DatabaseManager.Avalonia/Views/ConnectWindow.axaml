@@ -89,11 +89,11 @@
             </StackPanel>
 
             <Grid x:Name="PanelUserPassword" ColumnDefinitions="*,*">
-                <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,7,0">
+                <StackPanel x:Name="PanelUserId" Spacing="6" Grid.Column="0" Margin="0,0,7,0">
                     <TextBlock Text="用户名" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                     <atom:TextBox x:Name="TxtUserId" PlaceholderText="用户名" />
                 </StackPanel>
-                <StackPanel Spacing="6" Grid.Column="1" Margin="7,0,0,0">
+                <StackPanel x:Name="PanelPassword" Spacing="6" Grid.Column="1" Margin="7,0,0,0">
                     <TextBlock Text="密码" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
                     <atom:TextBox x:Name="TxtPassword" PlaceholderText="密码" PasswordChar="*" />
                 </StackPanel>

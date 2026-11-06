@@ -10,6 +10,7 @@ internal static class QueryExecutionChecks
         var service = new DefaultQueryService(new Connections(connection));
         try
         {
+            File.WriteAllBytes(path, []);
             Check(!await service.BeginTransactionAsync(connection.Name), "Disconnected connections cannot begin transactions.");
             service.NotifyConnected(connection.Name);
             await Execute("CREATE TABLE items (id INTEGER PRIMARY KEY, value INTEGER)");

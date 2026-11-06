@@ -120,9 +120,11 @@ static class Program
             return 0;
         }
         SqlCompletionChecks.Run();
+        SqlFormattingChecks.Run();
         QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
+        SqliteEncryptionChecks.RunAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP2Checks.RunAsync().GetAwaiter().GetResult();
         QueryExecutionChecks.RunAsync().GetAwaiter().GetResult();

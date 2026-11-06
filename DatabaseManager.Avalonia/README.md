@@ -35,6 +35,7 @@ DatabaseManager.Avalonia/
 本节以当前 `master` 源码为准；发布包行为以对应版本的发布说明为准。
 
 - **连接与工作区**：连接的新建、编辑、重命名、删除、测试、连接/重连/断开/断开全部与 Profile 持久化（支持 SSL、集成认证）；主窗口提供菜单、工具栏、对象浏览器、查询区、结果区和状态栏，布局与未保存 SQL 草稿随会话恢复；连接配置多选导入导出（无密码 / 加密携密，PBKDF2 + AES-GCM）。
+- **SQLite 加密访问**：使用 SQLite3MC 原生实现，支持普通文件与 SQLCipher 4 默认参数加密文件；连接窗口可填写并记住数据库密码，测试连接采用只读方式。兼容范围及验证见 [SQLite 加密说明](./docs/sqlite-encryption.md)。
 - **SSH 隧道**：跳板机密码 / 私钥认证、固定 SHA256 主机指纹、仅回环地址端口转发；断线在下次操作时重连，不重放 SQL，随断开 / 进程退出释放（真实 SSH 服务端联调待办）。
 - **对象浏览**：对象树支持数据库、Schema、表、视图、过程、函数、序列及列/索引/键/约束/触发器多级懒加载；树内就地过滤（输入即时隐藏不匹配节点，清空恢复）与深度搜索定位、右键菜单（Generate SQL、新建/删除/重命名对象、过滤模板、比较迁移入口，菜单图标按动作统一）、元数据搜索窗口与菜单扩展点；`dbm://` 应用内 URI 直达对象。
 - **SQL 开发**：多标签编辑、语法高亮、关键字/对象/字段智能提示、SQL 格式化、参数化执行、可视化执行计划（树形 + 节点详情 + 成本/耗时热点）、选区执行、超时与取消、危险 SQL 二次确认、错误行号定位、事务（自动提交 / Commit / Rollback）、查询历史（SQLite 存储）、脚本库与收藏查询、专注模式、结果分页与导出。
@@ -87,6 +88,8 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 - [docs/extensibility.md](./docs/extensibility.md)：方言、对象树菜单、导出器与代码模板的扩展方式。
 - [docs/query-database-selection.md](./docs/query-database-selection.md)：标签连接、数据库选择、事务模式与并发规则。
 - [docs/sql-completion.md](./docs/sql-completion.md)：智能提示范围、限制、回归与性能测量。
+- [docs/sql-formatting.md](./docs/sql-formatting.md)：转换引擎格式化包迁移、方言与 JOIN/ON 保真规则。
+- [docs/sqlite-encryption.md](./docs/sqlite-encryption.md)：SQLite 原生包选择、密码访问与 SQLCipher 兼容边界。
 - [docs/startup-performance.md](./docs/startup-performance.md)：启动基线、诊断与发布体积取舍。
 - [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)：KingbaseES 支持计划、能力矩阵与兼容性边界。
 - [docs/testing/](./docs/testing/)：KingbaseES 各阶段测试证据（TDD）。

@@ -44,9 +44,19 @@ namespace DatabaseInterpreter.Core
         #region Database & Schema
         public override async Task<List<Database>> GetDatabasesAsync()
         {
-            var databases = new List<Database>() { new Database() { Name = this.ConnectionInfo.Database } };
-
-            return await Task.Run(() => { return databases; });
+            // 打开连接不足以验证加密密钥，读取 schema 后才能报告连接成功。
+            var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(
+                new SqliteConnectionStringBuilder().BuildConntionString(this.ConnectionInfo))
+            {
+                Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly,
+                Pooling = false,
+            };
+            using var connection = new Microsoft.Data.Sqlite.SqliteConnection(builder.ConnectionString);
+            await connection.OpenAsync();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM sqlite_schema";
+            await command.ExecuteScalarAsync();
+            return new List<Database> { new Database { Name = this.ConnectionInfo.Database } };
         }
 
         public override async Task<List<DatabaseSchema>> GetDatabaseSchemasAsync()

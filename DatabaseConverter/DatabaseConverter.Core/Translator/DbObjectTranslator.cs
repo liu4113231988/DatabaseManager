@@ -1,10 +1,9 @@
-﻿using DatabaseConverter.Core.Functions;
+using DatabaseConverter.Core.Functions;
 using DatabaseConverter.Core.Model;
 using DatabaseConverter.Model;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
-using PoorMansTSqlFormatterRedux;
 using SqlAnalyser.Model;
 using System;
 using System.Collections.Generic;
@@ -715,16 +714,9 @@ namespace DatabaseConverter.Core
             return functionInfo;
         }
 
+        /// <summary>按目标方言排版；异常或 token 变化时返回原文，hasError 仅表示排版失败。</summary>
         public string FormatSql(string sql, out bool hasError)
-        {
-            hasError = false;
-
-            SqlFormattingManager manager = new SqlFormattingManager();
-
-            string formattedSql = manager.Format(sql, ref hasError);
-
-            return formattedSql;
-        }
+            => SqlFormattingHelper.Format(sql, this.targetDbType, out hasError);
 
         protected string GetTrimedName(string name)
         {

@@ -20,6 +20,7 @@ internal static class QueryConnectionContextChecks
         {
             foreach (var connection in new[] { a, b })
             {
+                File.WriteAllBytes(connection.Database, []);
                 var result = await query.ExecuteStandaloneAsync(connection,
                     $"CREATE TABLE marker (value TEXT); INSERT INTO marker VALUES ('{connection.Name}');");
                 Check(result.IsSuccess, result.ErrorMessage ?? "Create marker database failed.");

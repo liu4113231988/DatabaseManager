@@ -4,8 +4,8 @@ using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Linq;
+using TSQL.Tokens;
 
 namespace DatabaseConverter.Core
 {
@@ -54,49 +54,46 @@ namespace DatabaseConverter.Core
                     string viewNameWithQuotation = $"{targetDbInterpreter.QuotationLeftChar}{view.Name}{targetDbInterpreter.QuotationRightChar}";
 
                     string definition = view.Definition;
+                    string columnList = string.Empty;
 
-                    definition = definition
-                               .Replace("<>", "!=")
-                               .Replace(">", " > ")
-                               .Replace("<", " < ")
-                               .Replace("!=", "<>");
-
-                    if(this.sourceDbInterpreter.QuotationLeftChar.HasValue)
+                    // 先按 token 去掉旧视图头，避免名称、注释及字面量中的 AS 被当作分隔符。
+                    var tokens = this.GetTokens(definition).Where(t => t.Type is not
+                        (TSQLTokenType.Whitespace or TSQLTokenType.SingleLineComment or TSQLTokenType.MultilineComment)).ToList();
+                    if (tokens.FirstOrDefault()?.Text.Equals("CREATE", StringComparison.OrdinalIgnoreCase) == true)
                     {
-                        definition = definition
-                               .Replace(sourceDbInterpreter.QuotationLeftChar.Value, '"')
-                               .Replace(sourceDbInterpreter.QuotationRightChar.Value, '"');
-                    }
-
-                    StringBuilder sb = new StringBuilder();
-
-                    string[] lines = definition.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
-                    
-                    foreach(string line in lines)
-                    {
-                        if(line.StartsWith(this.sourceDbInterpreter.CommentString))
+                        int viewIndex = tokens.FindIndex(t => t.Type == TSQLTokenType.Keyword && t.Text.Equals("VIEW", StringComparison.OrdinalIgnoreCase));
+                        TSQLToken asToken = null;
+                        int depth = 0, columnStart = -1;
+                        foreach (var token in tokens.Skip(viewIndex + 1))
                         {
-                            continue;
+                            if (token.Type == TSQLTokenType.Character && token.Text == "(")
+                            {
+                                if (depth == 0) columnStart = token.BeginPosition;
+                                depth++;
+                            }
+                            if (token.Type == TSQLTokenType.Character && token.Text == ")")
+                            {
+                                depth--;
+                                if (depth == 0 && columnStart >= 0)
+                                    columnList = this.ParseDefinition(definition.Substring(columnStart, token.EndPosition - columnStart + 1));
+                            }
+                            if (depth == 0 && token.Type == TSQLTokenType.Keyword && token.Text.Equals("AS", StringComparison.OrdinalIgnoreCase))
+                            {
+                                asToken = token;
+                                break;
+                            }
                         }
-
-                        sb.AppendLine(line);
+                        if (viewIndex < 0 || asToken is null) throw new FormatException("无法识别视图定义的 AS 分隔符。");
+                        definition = definition.Substring(asToken.EndPosition + 1);
                     }
 
-                    definition = this.ParseDefinition(sb.ToString());
+                    definition = this.ParseDefinition(definition);
 
                     string createClause = this.targetDbInterpreter.DatabaseType == DatabaseType.Oracle ? "CREATE OR REPLACE" : "CREATE";
 
-                    string createAsClause = $"{createClause} VIEW {(string.IsNullOrEmpty(targetSchemaName)? "": targetSchemaName + "." )}{viewNameWithQuotation} AS ";
+                    string createAsClause = $"{createClause} VIEW {(string.IsNullOrEmpty(targetSchemaName)? "": targetSchemaName + "." )}{viewNameWithQuotation}{columnList} AS ";
 
-                    if (!definition.Trim().ToLower().StartsWith("create"))
-                    {
-                        definition = createAsClause + Environment.NewLine + definition;
-                    }
-                    else
-                    {
-                        int asIndex = definition.ToLower().IndexOf("as");
-                        definition = createAsClause + definition.Substring(asIndex + 2);
-                    }
+                    definition = createAsClause + Environment.NewLine + definition;
 
                     view.Definition = definition;
 
@@ -133,56 +130,12 @@ namespace DatabaseConverter.Core
         {
             definition = base.ParseDefinition(definition);
 
-            #region Handle join cluase for mysql which has no "on", so it needs to make up that.
-            try
+            // 只排版，不再根据换行猜测 JOIN 条件，避免改写字符串、注释及嵌套查询。
+            if (this.sourceDbType == DatabaseType.MySql)
             {
-                StringBuilder sb = new StringBuilder();
-
-                if (this.sourceDbInterpreter.GetType() == typeof(MySqlInterpreter))
-                {
-                    bool hasError = false;
-                    string formattedDefinition = this.FormatSql(definition, out hasError);
-
-                    if (!hasError)
-                    {
-                        string[] lines = formattedDefinition.Split(new char[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-                        Regex joinRegex = new Regex(@"\b(join)\b", RegexOptions.IgnoreCase);
-                        Regex onRegex = new Regex(@"\b(on)\b", RegexOptions.IgnoreCase);
-                        Regex wordRegex = new Regex("([a-zA-Z(]+)", RegexOptions.IgnoreCase);
-
-                        sb = new StringBuilder();
-                        foreach (string line in lines)
-                        {
-                            bool hasChanged = false;
-
-                            if (joinRegex.IsMatch(line))
-                            {
-                                string leftStr = line.Substring(line.ToLower().LastIndexOf("join") + 4);
-                                
-                                if (!onRegex.IsMatch(line) && !wordRegex.IsMatch(leftStr))
-                                {
-                                    hasChanged = true;
-                                    sb.AppendLine($"{line} ON 1=1 ");
-                                }
-                            }
-
-                            if (!hasChanged)
-                            {
-                                sb.AppendLine(line);
-                            }
-                        }
-
-                        definition = sb.ToString();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                FeedbackInfo info = new FeedbackInfo() { InfoType = FeedbackInfoType.Error, Message = ExceptionHelper.GetExceptionDetails(ex), Owner = this };
-                FeedbackHelper.Feedback(info);
+                string formattedDefinition = this.FormatSql(definition, out bool hasFormatError);
+                if (!hasFormatError) definition = formattedDefinition;
             } 
-            #endregion
 
             return definition.Trim();
         }             

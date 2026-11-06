@@ -814,8 +814,8 @@ public class DefaultDbSchemaService : IDbSchemaService
         var dbType = ParseDatabaseType(connection.DatabaseType);
 
         var connectionInfo = ConnectionHelper.ToConnectionInfo(connection);
-        // DuckDB 的 Database 是文件路径或 :memory: 数据源，不能用 catalog 名覆盖；否则会意外打开另一数据库。
-        connectionInfo.Database = dbType == DatabaseType.DuckDB
+        // 文件数据库必须保留数据源路径；清空 SQLite 路径会误连临时空库。
+        connectionInfo.Database = ConnectionHelper.IsFileDatabase(dbType)
             ? connection.Database
             : useConnectionDatabase ? (string.IsNullOrEmpty(databaseOverride) ? connection.Database : databaseOverride) : null;
 

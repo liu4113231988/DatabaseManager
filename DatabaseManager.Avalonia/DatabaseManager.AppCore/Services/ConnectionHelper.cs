@@ -85,6 +85,7 @@ public static class ConnectionHelper
         IsDba = connection.IsDba,
         UseSsl = connection.UseSsl,
         UseReadOnly = connection.DuckDbReadOnly,
+        RequireExistingDatabase = ParseDatabaseType(connection.DatabaseType) == DatabaseType.Sqlite,
     };
     }
 }

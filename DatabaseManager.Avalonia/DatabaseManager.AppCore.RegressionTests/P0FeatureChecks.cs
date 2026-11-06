@@ -24,6 +24,7 @@ internal static class P0FeatureChecks
         query.NotifyConnected(connection.Name);
         try
         {
+            File.WriteAllBytes(connection.Database, []);
             Check((await query.ExecuteAsync("p0", "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, payload BLOB); INSERT INTO items VALUES (1,'alpha',X'0102'),(2,'beta',X'0304');")).IsSuccess, "Create fixture.");
             var tab = new QueryTabViewModel(query, new DefaultDataEditService(connections)) { ConnectionName = "p0", DatabaseName = connection.Database, SqlText = "SELECT * FROM items", DangerousSqlConfirmationEnabled = false, AutoRefreshAfterSave = false };
             await tab.ExecuteAsync();
