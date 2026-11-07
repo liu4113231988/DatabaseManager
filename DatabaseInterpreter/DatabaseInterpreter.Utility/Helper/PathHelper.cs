@@ -1,5 +1,4 @@
 ﻿using System.IO;
-using System.Reflection;
 
 namespace DatabaseInterpreter.Utility
 {
@@ -7,8 +6,7 @@ namespace DatabaseInterpreter.Utility
     {
         public static string GetAssemblyFolder()
         {
-            string dllFolder = Assembly.GetExecutingAssembly().CodeBase;
-            return Path.GetDirectoryName(dllFolder.Substring(8, dllFolder.Length - 8));
+            return Path.GetDirectoryName(typeof(PathHelper).Assembly.Location);
         }
     }
 }

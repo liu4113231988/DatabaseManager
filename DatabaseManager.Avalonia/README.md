@@ -21,7 +21,7 @@ DatabaseManager.Avalonia/
 
 | 用途 | 选型 |
 |------|------|
-| 框架 | Avalonia 12.1.4（.NET 10；DataGrid 保持 12.1.2） |
+| 框架 | Avalonia 12.1.5（.NET 10；DataGrid 保持 12.1.2） |
 | 主题 | **AtomUI 6.2.7**（Ant Design 风格） |
 | 停靠布局 | **Dock.Avalonia 12.1.0.4** |
 | MVVM | CommunityToolkit.Mvvm |
@@ -58,7 +58,7 @@ DatabaseManager.Avalonia/
 
 ## 构建与运行
 
-源码构建需要 .NET 10 SDK。发布包默认不携带 .NET 运行时，运行前需安装对应平台和架构的 .NET 10 运行时；Windows x64 包需 x64 运行时。发布及裁剪检查结果见 [docs/startup-performance.md](./docs/startup-performance.md)。
+源码构建需要 .NET 10 SDK。从 v1.1.3 起，Windows/Linux x64 发布包自带 .NET 运行时，无需另行安装 .NET；Linux 仍需桌面 GUI 环境及系统原生依赖。发布及裁剪评估见 [docs/release-size.md](./docs/release-size.md)，历史启动测量见 [docs/startup-performance.md](./docs/startup-performance.md)。
 
 ```bash
 # 构建 Avalonia 解决方案

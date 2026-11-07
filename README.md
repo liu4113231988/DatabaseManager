@@ -205,7 +205,7 @@
 ## 构建与运行
 
 ### 环境要求
-- 源码构建需要 .NET 10 SDK；运行发布包需要对应平台和架构的 .NET 10 运行时（发布包不携带运行时）
+- 源码构建需要 .NET 10 SDK；从 v1.1.3 起，Windows/Linux x64 发布包自带 .NET 运行时，解压即可运行，无需另行安装 .NET。
 - Windows / Linux / macOS（需 GUI 环境）
 - 对应数据库的客户端驱动（随 NuGet 包引入）；备份/恢复功能需对应数据库客户端工具（mysqldump、pg_dump 等）
 

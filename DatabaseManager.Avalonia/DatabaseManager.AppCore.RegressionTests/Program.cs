@@ -1,5 +1,6 @@
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Core;
+using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -119,6 +120,9 @@ static class Program
             SqlCompletionPerformanceChecks.Run();
             return 0;
         }
+        AssertTrue(Path.IsPathRooted(PathHelper.GetAssemblyFolder())
+            && File.Exists(Path.Combine(PathHelper.GetAssemblyFolder(), "Config", "FunctionMapping.xml")),
+            "Shared configuration must resolve from an absolute assembly path on every platform.");
         SqlCompletionChecks.Run();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();

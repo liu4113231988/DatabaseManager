@@ -34,12 +34,17 @@ jobs:
       - name: Publish and package
         run: |
           project=DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj
-          dotnet publish "$project" -c Release -r win-x64 --self-contained false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/win-x64
-          dotnet publish "$project" -c Release -r linux-x64 --self-contained false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/linux-x64
+          dotnet publish "$project" -c Release -r win-x64 --self-contained true -p:PublishTrimmed=false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/win-x64
+          dotnet publish "$project" -c Release -r linux-x64 --self-contained true -p:PublishTrimmed=false -p:PublishReadyToRun=false -p:UsedAvaloniaProducts= -o artifacts/linux-x64
           test -f artifacts/win-x64/DatabaseManager.exe
           test -x artifacts/linux-x64/DatabaseManager
-          test ! -f artifacts/win-x64/coreclr.dll
-          test ! -f artifacts/linux-x64/libcoreclr.so
+          test -f artifacts/win-x64/coreclr.dll
+          test -f artifacts/win-x64/hostfxr.dll
+          test -f artifacts/win-x64/System.Private.CoreLib.dll
+          test -f artifacts/linux-x64/libcoreclr.so
+          test -f artifacts/linux-x64/libhostfxr.so
+          test -f artifacts/linux-x64/System.Private.CoreLib.dll
+          test -z "$(find artifacts/win-x64 artifacts/linux-x64 -iname 'NPOI*.dll' -print -quit)"
           test ! -d artifacts/win-x64/Profiles
           test ! -d artifacts/linux-x64/Profiles
           (cd artifacts/win-x64 && zip -qr "../DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" .)

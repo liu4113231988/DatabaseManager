@@ -11,7 +11,6 @@
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.5" />
-    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.5" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.5" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageVersion Include="CompareNETObjects" Version="4.84.0" />
@@ -21,7 +20,6 @@
     <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageVersion Include="DiffPlex" Version="1.9.0" />
     <PackageVersion Include="DM.DmProvider" Version="8.3.1.47463" />
-    <PackageVersion Include="Dock.Avalonia" Version="12.1.5" />
     <PackageVersion Include="DockPanelSuite.ThemeVS2015" Version="3.1.1" />
     <PackageVersion Include="DuckDB.NET.Data.Full" Version="1.5.6.1" />
     <PackageVersion Include="FontAwesome.Sharp" Version="6.6.0" />

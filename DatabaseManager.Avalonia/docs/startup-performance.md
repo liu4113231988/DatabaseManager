@@ -1,5 +1,7 @@
 # 发布版启动性能
 
+> 当前发布策略（v1.1.3，2026-11-07）：Windows/Linux x64 改为自包含，无需安装 .NET；继续关闭 ReadyToRun 和裁剪。最新体积与裁剪实验见 [发布体积评估](release-size.md)。下文保留 2026-11-01 的历史测量，其中不携带运行时的命令和大小仅适用于当时版本。
+
 2026-11-01，针对直接启动 Windows EXE 的等待时间优化：
 
 - 最初试验启用 `PublishReadyToRun`，提前编译托管程序集以减少 JIT 工作。下表保留该次历史对照；目前已关闭 ReadyToRun，改用下文的 UI 启动链路优化，不启用裁剪。参见 [Microsoft ReadyToRun 文档](https://learn.microsoft.com/en-us/dotnet/core/deploying/ready-to-run)。
