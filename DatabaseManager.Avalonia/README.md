@@ -90,7 +90,9 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 - [docs/sql-completion.md](./docs/sql-completion.md)：智能提示范围、限制、回归与性能测量。
 - [docs/sql-formatting.md](./docs/sql-formatting.md)：转换引擎格式化包迁移、方言与 JOIN/ON 保真规则。
 - [docs/sqlite-encryption.md](./docs/sqlite-encryption.md)：SQLite 原生包选择、密码访问与 SQLCipher 兼容边界。
-- [docs/dependencies.md](./docs/dependencies.md)：中央包版本、升级兼容性检查与 NPOI 许可证变化。
+- [docs/dependencies.md](./docs/dependencies.md)：中央包版本、升级兼容性检查与办公文档依赖。
+- [docs/word-export.md](./docs/word-export.md)：Word 开源库评估、Open XML 导出实现与验证边界。
+- [docs/excel-io.md](./docs/excel-io.md)：MiniExcel 数据读写、格式边界与批注样式、数据保真和分表检查。
 - [docs/startup-performance.md](./docs/startup-performance.md)：启动基线、诊断与发布体积取舍。
 - [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)：KingbaseES 支持计划、能力矩阵与兼容性边界。
 - [docs/testing/](./docs/testing/)：KingbaseES 各阶段测试证据（TDD）。

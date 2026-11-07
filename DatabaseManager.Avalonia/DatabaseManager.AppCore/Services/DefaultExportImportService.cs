@@ -271,7 +271,7 @@ public class DefaultExportImportService : IExportImportService
             BaseReader reader = extension switch
             {
                 ".csv" => new CsvReader(info),
-                ".xlsx" or ".xls" => new ExcelReader(info),
+                ".xlsx" => new ExcelReader(info),
                 ".json" => new JsonDataReader(info),
                 ".xml" => new XmlDataReader(info),
                 _ => throw new NotSupportedException($"不支持的预览文件类型：{extension}"),

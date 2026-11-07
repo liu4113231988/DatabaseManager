@@ -94,7 +94,7 @@ namespace DatabaseManager.Forms
 
                     result = reader.Read(true);
                 }
-                else if (fileExtension == ".xlsx" || fileExtension == ".xls")
+                else if (fileExtension == ".xlsx")
                 {
                     ExcelReader reader = new ExcelReader(sourceFileInfo);
 

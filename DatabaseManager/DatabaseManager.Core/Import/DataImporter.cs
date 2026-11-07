@@ -54,7 +54,7 @@ namespace DatabaseManager.Core
                     {
                         result = this.ReadFromCsv(info, tableName);
                     }
-                    else if (fileExtension == ".xlsx" || fileExtension == ".xls")
+                    else if (fileExtension == ".xlsx")
                     {
                         result = this.ReadFromExcel(info, tableName);
                     }
@@ -69,7 +69,7 @@ namespace DatabaseManager.Core
 
                     if (result == null)
                     {
-                        throw new NotSupportedException($@"Unsupported import file type: ""{fileExtension}"". Supported: .csv/.xlsx/.xls/.json/.xml");
+                        throw new NotSupportedException($@"Unsupported import file type: ""{fileExtension}"". Supported: .csv/.xlsx/.json/.xml");
                     }
 
                     if (this.Option.SkipRows > 0 && result.Data != null && result.Data.Count > 0)

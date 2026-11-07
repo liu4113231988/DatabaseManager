@@ -15,10 +15,9 @@
 
   <ItemGroup>
     <PackageReference Include="CsvHelper" />
+    <PackageReference Include="MiniExcel" />
+    <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="Newtonsoft.Json" />
-    <PackageReference Include="NPOI" />
-    <!-- Keep NPOI cryptography dependencies on the current security patch. -->
-    <PackageReference Include="System.Security.Cryptography.Xml" />
   </ItemGroup>
 
 </Project>

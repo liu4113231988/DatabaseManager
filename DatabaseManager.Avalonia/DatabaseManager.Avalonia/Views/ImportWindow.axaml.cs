@@ -119,7 +119,7 @@ public partial class ImportWindow : Window
             FileTypeFilter = new[]
             {
                 new global::Avalonia.Platform.Storage.FilePickerFileType("CSV 文件") { Patterns = new[] { "*.csv" } },
-                new global::Avalonia.Platform.Storage.FilePickerFileType("Excel 文件") { Patterns = new[] { "*.xlsx", "*.xls" } },
+                new global::Avalonia.Platform.Storage.FilePickerFileType("Excel 文件") { Patterns = new[] { "*.xlsx" } },
                 new global::Avalonia.Platform.Storage.FilePickerFileType("JSON 文件") { Patterns = new[] { "*.json" } },
                 new global::Avalonia.Platform.Storage.FilePickerFileType("XML 文件") { Patterns = new[] { "*.xml" } },
                 new global::Avalonia.Platform.Storage.FilePickerFileType("所有文件") { Patterns = new[] { "*" } },

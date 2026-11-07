@@ -1,8 +1,8 @@
-﻿using DatabaseInterpreter.Core;
+using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
-using Org.BouncyCastle.Crypto.Generators;
+
 using System;
 using System.Collections.Generic;
 using System.Data;

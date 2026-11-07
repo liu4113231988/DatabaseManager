@@ -1,11 +1,11 @@
-﻿using DatabaseInterpreter.Core;
+using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
 using DatabaseManager.FileUtility.Model;
 using DatabaseManager.Helper;
-using NPOI.Util.Collections;
+
 using System;
 using System.Collections.Generic;
 using System.Data;

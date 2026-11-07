@@ -22,6 +22,10 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.AppCore.Regression
 
 `PackageCompatibilityChecks` 验证升级后的 CSV/Excel 往返读写、表头/无表头、畸形 CSV 拒绝、Excel 批注、Word、ZIP、NCalc 及 DuckDB 原生库；包版本与框架兼容性见 [依赖升级说明](../../DatabaseManager.Avalonia/docs/dependencies.md)。
 
+`ExcelMigrationChecks` 验证 MiniExcel 的 `.xlsx` 数据保真、导入预览、多工作表、全 NULL 记录、批注/高亮兼容及失败时保护原文件。设置 `DBM_TEST_LARGE_EXCEL=1` 额外检查 1,048,576 条数据按表头上限拆为两张工作表且无重复；2026-11-07 已执行并通过。边界见 [Excel 读写说明](../../DatabaseManager.Avalonia/docs/excel-io.md)。
+
+2026-11-07 完全移除 NPOI 后，`ExcelMigrationChecks` 改用 Open XML SDK 构造独立输入并验证标准批注/高亮、VML 关系和最右列锚点；旧 `.xls` 在读取与预览入口均明确拒绝。`WordExportChecks` 校验 DOCX schema、标题/说明、动态与空表格、表头颜色/对齐、特殊字符/换行，以及非法数据不会破坏原文件。Word 候选评估见 [Word 导出说明](../../DatabaseManager.Avalonia/docs/word-export.md)。
+
 测试会创建临时 SQLite 和测试配置。PostgreSQL 集成检查从环境变量 `DBSMOKE_CONNSTR` 读取测试连接串；未设置时跳过。数据库作业的临时库检查还需显式设置 `DBM_TEST_TEMP_DATABASES=1`。真实数据库检查使用专用测试实例与具备建表/建 Schema/建库等相应权限的测试账号，按启用的检查准备权限。
 
 ## 隔离 UI 冒烟
@@ -43,6 +47,6 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 
 ## 当前证据与测量
 
-2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复通过 Release 构建和完整回归。随后依赖统一升级的验收覆盖全仓库 19 个项目的编译、完整控制台回归、认证检查与 Windows P0/P2 隔离 UI 冒烟；主解决方案和旧客户端的 NuGet 已知漏洞审计（含传递依赖）为零。本轮未配置 `DBSMOKE_CONNSTR`，真实 PostgreSQL 检查跳过；其他平台未重新验收。既有源码警告与 NPOI 新增许可证提示仍保留。
+2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复通过 Release 构建和完整回归。随后依赖统一升级的验收覆盖全仓库 19 个项目的编译、完整控制台回归、认证检查与 Windows P0/P2 隔离 UI 冒烟；主解决方案和旧客户端的 NuGet 已知漏洞审计（含传递依赖）为零。2026-11-07 移除办公文档旧依赖后，已不再产生原有的 NPOI 许可提示。未配置 `DBSMOKE_CONNSTR` 的真实 PostgreSQL 检查跳过；其他平台未重新验收，既有源码警告仍保留。
 
 智能提示的可选合成性能测量命令和适用范围见 [sql-completion.md](../../DatabaseManager.Avalonia/docs/sql-completion.md)；标签与事务规则见 [query-database-selection.md](../../DatabaseManager.Avalonia/docs/query-database-selection.md)。

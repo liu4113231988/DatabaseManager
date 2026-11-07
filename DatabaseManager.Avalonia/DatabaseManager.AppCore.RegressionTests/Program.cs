@@ -122,6 +122,8 @@ static class Program
         SqlCompletionChecks.Run();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();
+        ExcelMigrationChecks.Run();
+        WordExportChecks.Run();
         QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();

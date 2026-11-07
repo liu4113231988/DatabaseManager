@@ -50,10 +50,9 @@ internal static class PackageCompatibilityChecks
             };
             string commented = Path.Combine(folder, "commented.xlsx");
             new ExcelWriter(new ExportDataOption { FilePath = commented }).Write(grid);
-            using (var stream = File.OpenRead(commented))
-            using (var workbook = NPOI.SS.UserModel.WorkbookFactory.Create(stream))
-                Check(workbook.GetSheetAt(0).GetRow(1).GetCell(0).CellComment.String.String == "字段备注",
-                    "The new NPOI drawing API must preserve Excel cell comments.");
+            using (var workbook = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(commented, false))
+                Check(workbook.WorkbookPart!.WorksheetParts.First().WorksheetCommentsPart!.Comments.CommentList!.InnerText == "字段备注",
+                    "Excel cell comments must survive the Open XML annotation pass.");
 
             string document = Path.Combine(folder, "dictionary.docx");
             new WordWriter(new WordGenerationOption { FilePath = document }).Write(new DocumentBody

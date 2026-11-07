@@ -11,9 +11,9 @@
 | SQLite / 加密原生实现 | Microsoft.Data.Sqlite.Core 10.0.14 / SQLite3MC 2.6.1 |
 | Oracle / DuckDB | 23.26.400 / 1.5.6.1 |
 | SQL 格式化与分析 | Hogimn 2.0.5、TSQL.Parser 2.6.0、SqlParserSharp 2.2.0、ANTLR 4.13.1 |
-| 文件与压缩 | NPOI 2.8.1、CsvHelper 34.0.0、SharpZipLib 1.4.2 |
+| 文件与压缩 | MiniExcel 1.46.0、Open XML SDK 3.5.1、CsvHelper 34.0.0、SharpZipLib 1.4.2 |
 
-移除 .NET 10 自带的旧 `System.Net.Http`、正则及 XML 框架包引用；旧 `SharpZipLib.NETStandard` 改为维护中的 `SharpZipLib`。NPOI 2.8 改用 SkiaSharp，项目没有直接调用 ImageSharp，因此删除原先为旧 NPOI 固定的 ImageSharp 引用。XML 和 PKCS 使用 10.0.14 安全补丁，避免数据库驱动或文档库带入旧版。
+移除 .NET 10 自带的旧正则、HTTP 和 XML 框架包引用；旧压缩包改为维护中的 SharpZipLib。PKCS 通过 10.0.14 修复版本保护数据库驱动的传递依赖。2026-11-07 已移除 NPOI 及其专用 XML 加密覆盖引用，Word 与 Excel 批注/高亮改用 MIT 许可的 Open XML SDK。
 
 引用 .NET 10 核心库的示例和认证测试也统一为 .NET 10，避免示例项目停留在 .NET 8 而无法引用新核心库。
 
@@ -21,9 +21,9 @@ FileUtility 同步为 .NET 10。CsvHelper 34 的 .NET Standard 与 .NET 10 资�
 
 CsvHelper 34 重写了公开 API，文件读写入口改用 `CsvReader.Create` / `CsvWriter.Create`、不可变选项及 `EndRecord`。显式保留逗号分隔、当前区域格式、原有编码和表头规则；读取表头不额外消耗第一条数据。畸形引号仍按错误处理，不采用新版默认的宽松恢复。迁移依据见 [官方升级说明](https://joshclose.github.io/CsvHelper/migration/v34.0.0.html)。
 
-## NPOI 许可证变化
+## 办公文档依赖
 
-[NPOI 2.8.1 官方包说明](https://www.nuget.org/packages/NPOI/2.8.1)引入二进制发行版的 OSMF EULA，并说明面向产生营收的使用者收取维护费。使用、分发或商业部署前需要审阅该版本随包提供的条款；项目自身的 MIT 许可证不能替代依赖许可证。本次升级不包含购买或支付任何许可费用，也没有代替使用者设置 `AcceptNPOIOSMFLicense=true`；构建保留该包的许可证提示。
+Excel 数据读写使用 MiniExcel，批注与高亮使用 Open XML SDK，Word 也复用该 SDK。旧 XLS 不再作为可选导入格式。实现边界及开源库评估见 [Excel 导入导出](excel-io.md) 和 [Word 导出评估](word-export.md)。
 
 ## 验证
 

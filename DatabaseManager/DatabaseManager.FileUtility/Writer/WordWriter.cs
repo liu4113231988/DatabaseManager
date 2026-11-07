@@ -1,140 +1,110 @@
-﻿using DatabaseManager.FileUtility.Model;
-using NPOI.OpenXmlFormats.Wordprocessing;
-using NPOI.XWPF.UserModel;
+using DatabaseManager.FileUtility.Model;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using W = DocumentFormat.OpenXml.Wordprocessing;
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace DatabaseManager.FileUtility
 {
     public class WordWriter
     {
-        private WordGenerationOption option;
+        private readonly WordGenerationOption _option;
 
         public WordWriter(WordGenerationOption option)
         {
-            this.option = option;
+            _option = option ?? throw new ArgumentNullException(nameof(option));
         }
 
         public string Write(DocumentBody body)
         {
-            XWPFDocument doc = new XWPFDocument();
-
-            var parts = body.Parts;
-
-            for (int i = 0; i < parts.Count; i++)
+            ArgumentNullException.ThrowIfNull(body);
+            string? foreground = ColorValue(_option.GridColumnHeaderForegroundColor);
+            string? background = ColorValue(_option.GridColumnHeaderBackgroundColor);
+            string path = _option.FilePath;
+            string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, $".{Guid.NewGuid():N}.docx");
+            try
             {
-                var part = parts[i];
-
-                XWPFParagraph paragraph = doc.CreateParagraph();
-
-                paragraph.SpacingAfter = 0;
-                paragraph.SpacingBefore = 0;
-
-                var title = paragraph.CreateRun();
-                title.IsBold = true;
-                title.SetText(part.Title);
-
-                if (!string.IsNullOrEmpty(part.Comment))
+                using (var document = WordprocessingDocument.Create(temporary, WordprocessingDocumentType.Document))
                 {
-                    var comment = paragraph.CreateRun();
-
-                    comment.SetText($"({part.Comment})");
-                }
-
-                var gridData = part.Data;
-
-                int rowCount = gridData.Rows.Count + 1;
-                int columnCount = gridData.Columns.Count;
-
-                var table = doc.CreateTable(rowCount, columnCount);               
-
-                for (var j = 0; j < rowCount; j++)
-                {
-                    if (j == 0) //column header
+                    var main = document.AddMainDocumentPart();
+                    var content = new W.Body();
+                    main.Document = new W.Document(content);
+                    foreach (var part in body.Parts)
                     {
-                        for (int k = 0; k < columnCount; k++)
+                        var title = TextRun(part.Title);
+                        title.RunProperties = new W.RunProperties(new W.Bold());
+                        var paragraph = new W.Paragraph(new W.ParagraphProperties(new W.SpacingBetweenLines { Before = "0", After = "0" }), title);
+                        if (!string.IsNullOrEmpty(part.Comment)) paragraph.Append(TextRun($"({part.Comment})"));
+                        content.Append(paragraph);
+
+                        var grid = part.Data;
+                        if (grid.Columns.Count == 0 || grid.Rows.Any(row => row.Cells is null || row.Cells.Count != grid.Columns.Count))
+                            throw new InvalidDataException("Word 表格必须有列，且每行数据必须与列数一致。");
+                        var table = new W.Table(new W.TableProperties(new W.TableWidth { Width = "0", Type = W.TableWidthUnitValues.Auto },
+                            new W.TableBorders(new W.TopBorder { Val = W.BorderValues.Single, Size = 4U },
+                                new W.LeftBorder { Val = W.BorderValues.Single, Size = 4U },
+                                new W.BottomBorder { Val = W.BorderValues.Single, Size = 4U },
+                                new W.RightBorder { Val = W.BorderValues.Single, Size = 4U },
+                                new W.InsideHorizontalBorder { Val = W.BorderValues.Single, Size = 4U },
+                                new W.InsideVerticalBorder { Val = W.BorderValues.Single, Size = 4U })));
+                        var columns = new W.TableGrid();
+                        foreach (var column in grid.Columns) columns.Append(new W.GridColumn());
+                        table.Append(columns);
+                        for (int index = -1; index < grid.Rows.Count; index++)
                         {
-                            var cell = table.GetRow(j).GetCell(k);
-
-                            var cellParagraph = cell.Paragraphs.FirstOrDefault();
-
-                            if (cellParagraph == null)
+                            bool header = index < 0;
+                            var row = new W.TableRow();
+                            for (int column = 0; column < grid.Columns.Count; column++)
                             {
-                                cellParagraph = cell.AddParagraph();
+                                var properties = new W.TableCellProperties(new W.TableCellVerticalAlignment { Val = W.TableVerticalAlignmentValues.Center });
+                                var run = TextRun(header ? grid.Columns[column].Name : grid.Rows[index].Cells[column].Content?.ToString());
+                                var format = new W.RunProperties();
+                                if (header)
+                                {
+                                    if (_option.GridColumnHeaderFontIsBold) format.Append(new W.Bold());
+                                    if (foreground is not null) format.Append(new W.Color { Val = foreground });
+                                    if (background is not null)
+                                        properties.AddChild(new W.Shading { Val = W.ShadingPatternValues.Clear, Fill = background }, true);
+                                }
+                                run.RunProperties = format;
+                                var p = new W.ParagraphProperties(new W.SpacingBetweenLines { Before = "0", After = "0" });
+                                if (header) p.Append(new W.Justification { Val = W.JustificationValues.Center });
+                                row.Append(new W.TableCell(properties, new W.Paragraph(p, run)));
                             }
-
-                            cellParagraph.Alignment = ParagraphAlignment.CENTER;
-                            cellParagraph.VerticalAlignment = TextAlignment.CENTER;
-                            cellParagraph.SpacingAfter = 0;
-
-                            var cellRun = cellParagraph.CreateRun();
-                            cellRun.SetText(gridData.Columns[k].Name);
-
-                            if (option.GridColumnHeaderFontIsBold)
-                            {
-                                cellRun.IsBold = true;
-                            }
-
-                            if (!string.IsNullOrEmpty(option.GridColumnHeaderForegroundColor))
-                            {
-                                cellRun.SetColor(option.GridColumnHeaderForegroundColor);
-                            }
-
-                            if (!string.IsNullOrEmpty(option.GridColumnHeaderBackgroundColor))
-                            {
-                                var tcPr = cell.GetCTTc().AddNewTcPr();
-
-                                var valign = tcPr.AddNewVAlign();
-                                var shd = tcPr.AddNewShd();
-
-                                valign.val = ST_VerticalJc.center;                             
-                                shd.val = NPOI.OpenXmlFormats.Wordprocessing.ST_Shd.solid;
-                                shd.color = option.GridColumnHeaderBackgroundColor;
-                            }
+                            table.Append(row);
                         }
+                        content.Append(table, new W.Paragraph());
                     }
-                    else
-                    {
-                        for (int k = 0; k < columnCount; k++)
-                        {
-                            var cell = table.GetRow(j).GetCell(k);
-                            cell.SetText(gridData.Rows[j - 1].Cells[k].Content?.ToString());
-
-                            var tcPr = cell.GetCTTc().AddNewTcPr();
-                            var valign = tcPr.AddNewVAlign();
-
-                            valign.val = ST_VerticalJc.center;
-
-                            var cellParagraph = cell.Paragraphs.FirstOrDefault();
-
-                            if (cellParagraph != null)
-                            {
-                                cellParagraph.SpacingAfter = 0;
-                            }
-                        }
-                    }
+                    main.Document.Save();
                 }
-
-                if (i < parts.Count)
-                {
-                    var blankLineParagraph = doc.CreateParagraph();
-                    var blankLineRun = blankLineParagraph.CreateRun();
-
-                    blankLineRun.SetText(Environment.NewLine);
-                }
+                File.Move(temporary, path, overwrite: true);
+                return path;
             }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
 
-            string filePath = this.option.FilePath;
-
-            using (FileStream fs = File.Create(filePath))
+        private static W.Run TextRun(string? text)
+        {
+            var run = new W.Run();
+            var lines = (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+            for (int index = 0; index < lines.Length; index++)
             {
-                doc.Write(fs);
-
-                doc.Close();
+                if (index > 0) run.Append(new W.Break());
+                run.Append(new W.Text(lines[index]) { Space = SpaceProcessingModeValues.Preserve });
             }
+            return run;
+        }
 
-            return filePath;
+        private static string? ColorValue(string? color)
+        {
+            if (string.IsNullOrWhiteSpace(color)) return null;
+            string value = color.Trim().TrimStart('#');
+            if (!Regex.IsMatch(value, "\\A[0-9a-fA-F]{6}\\z"))
+                throw new ArgumentException("Word 表格颜色必须为六位十六进制 RGB。");
+            return value.ToUpperInvariant();
         }
     }
 }

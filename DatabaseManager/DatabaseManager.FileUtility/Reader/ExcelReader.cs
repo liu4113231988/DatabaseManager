@@ -1,113 +1,55 @@
-﻿using DatabaseManager.FileUtility.Model;
-using NPOI.SS.UserModel;
+using DatabaseManager.FileUtility.Model;
+using MiniExcelLibs;
+using MiniExcelLibs.OpenXml;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace DatabaseManager.FileUtility
 {
     public class ExcelReader : BaseReader
     {
-        private readonly Regex numericReg = new Regex("^[0]+[.][0]+[_]*");
         public ExcelReader(SourceFileInfo info) : base(info) { }
 
         public override DataReadResult Read(bool onlyReadHeader = false)
         {
-            DataReadResult result = new DataReadResult();           
-
-            string filePath = this.info.FilePath;
-
-            using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            if (!string.Equals(Path.GetExtension(info.FilePath), ".xlsx", StringComparison.OrdinalIgnoreCase))
+                throw new NotSupportedException("Excel 导入仅支持 .xlsx 文件。");
+            var result = new DataReadResult { Data = new Dictionary<int, Dictionary<int, object>>() };
+            var configuration = new OpenXmlConfiguration { TrimColumnNames = false };
+            foreach (string sheet in MiniExcel.GetSheetNames(info.FilePath))
             {
-                IWorkbook workbook = WorkbookFactory.Create(fs);
-
-                int sheetCount = workbook.NumberOfSheets;
-
-                Dictionary<int, Dictionary<int, object>> dict = new Dictionary<int, Dictionary<int, object>>();
-
-                for (int i = 0; i < sheetCount; i++)
+                bool first = true;
+                foreach (IDictionary<string, object> row in MiniExcel.Query(info.FilePath, useHeaderRow: false,
+                    sheetName: sheet, configuration: configuration))
                 {
-                    ISheet sheet = workbook.GetSheetAt(i);
-
-                    int startRowIndex = sheet.FirstRowNum;
-                    int endRowIndex = sheet.LastRowNum;
-
-                    for (int j = startRowIndex; j <= endRowIndex; j++)
+                    if (first && info.FirstRowIsColumnName && row.Values.All(value => value is null)) continue;
+                    var values = new Dictionary<int, object>();
+                    foreach (var entry in row)
                     {
-                        var row = sheet.GetRow(j);
-
-                        int k = 0;
-                        int cellCount = row.LastCellNum;
-
-                        Dictionary<int, object> dictRow = new Dictionary<int, object>();
-
-                        for (int m = 0; m < cellCount; m++)
-                        {
-                            var cell = row.GetCell(m);
-
-                            if (j == startRowIndex && info.FirstRowIsColumnName)
-                            {
-                                if (result.HeaderColumns == null)
-                                {
-                                    result.HeaderColumns = new string[cellCount];
-                                }
-
-                                result.HeaderColumns[k] = cell.StringCellValue;                                
-                            }
-                            else if(!onlyReadHeader)
-                            {
-                                dictRow.Add(k, this.GetCellValue(cell));
-                            }
-
-                            k++;
-                        }
-
-                        if (onlyReadHeader && j == startRowIndex)
-                        {
-                            break;
-                        }
-
-                        if (dictRow.Any())
-                        {
-                            dict.Add(j, dictRow);
-                        }
+                        int column = 0;
+                        foreach (char letter in entry.Key) column = checked(column * 26 + letter - 'A' + 1);
+                        values.Add(column - 1, entry.Value);
                     }
-
-                    if(onlyReadHeader)
+                    if (first && info.FirstRowIsColumnName)
                     {
-                        break;
+                        var headers = Enumerable.Range(0, values.Keys.Max() + 1)
+                            .Select(index => values.TryGetValue(index, out var value) ? Convert.ToString(value) : string.Empty).ToArray();
+                        if (result.HeaderColumns is not null && !result.HeaderColumns.SequenceEqual(headers))
+                            throw new InvalidDataException($"工作表 {sheet} 的表头与前一工作表不一致，无法合并导入。");
+                        result.HeaderColumns = headers;
                     }
+                    else if (!onlyReadHeader)
+                    {
+                        result.Data.Add(result.Data.Count + (info.FirstRowIsColumnName ? 1 : 0), values);
+                    }
+                    first = false;
+                    if (onlyReadHeader) return result;
                 }
-
-                result.Data = dict;
-            }          
-
+            }
             return result;
         }
 
-        public object GetCellValue(ICell cell)
-        {
-            if (cell == null)
-            {
-                return null;
-            }
-
-            switch (cell.CellType)
-            {
-                case CellType.Boolean:
-                    return cell.BooleanCellValue;
-                case CellType.Numeric:
-                    return cell.NumericCellValue;
-                case CellType.String:
-                    return cell.StringCellValue;
-                case CellType.Error:
-                case CellType.Blank:
-                case CellType.Formula:
-                    return null;
-                default:
-                    return cell.StringCellValue;
-            }           
-        }
     }
 }
