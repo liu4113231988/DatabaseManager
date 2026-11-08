@@ -86,6 +86,8 @@ public static class P2SmokeHarness
         public IReadOnlyList<ConnectionItem> GetConnections() => new[] { item };
         public IReadOnlyList<ConnectionItem> GetConnections(string type) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => item;
+        public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());
+        public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(GetConnectionById(id));
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new[] { c.Database });
         public Task<string?> SaveAsync(ConnectionItem c, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(IEnumerable<string> ids, CancellationToken ct = default) => throw new NotSupportedException();

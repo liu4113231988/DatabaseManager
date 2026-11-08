@@ -13,8 +13,8 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultDiagnoseService : IDiagnoseService
 {
     /// <summary>DbDiagnosis.GetInstance 返回按 (DbType,ConnectionString) 缓存的单例，
-    /// 并发设置 Schema / OnFeedback 会竞态，这里用全局锁序列化诊断调用。</summary>
-    private static readonly object DbDiagnosisLock = new();
+    /// 并发设置 Schema / OnFeedback 会竞态，这里用信号量序列化诊断调用。</summary>
+    private static readonly SemaphoreSlim DbDiagnosisLock = new(1, 1);
 
     public Task<IReadOnlyList<TableDiagnoseResultItem>> DiagnoseTableAsync(
         ConnectionItem connection,
@@ -34,8 +34,9 @@ public class DefaultDiagnoseService : IDiagnoseService
             cancellationToken.ThrowIfCancellationRequested();
             onFeedback?.Invoke("正在初始化诊断器...");
 
-            // 锁内部：获取单例 → 设置状态 → 执行诊断 → 读取结果，整段串行化避免竞态。
-            lock (DbDiagnosisLock)
+            // 信号量内部：获取单例 → 设置状态 → 执行诊断 → 读取结果，整段串行化避免竞态。
+            await DbDiagnosisLock.WaitAsync(cancellationToken);
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -45,9 +46,7 @@ public class DefaultDiagnoseService : IDiagnoseService
                 var feedback = new FeedbackObserver(onFeedback);
                 dbDiagnosis.OnFeedback = feedback.Notify;
 
-                var diagnoseTask = dbDiagnosis.DiagnoseTable(diagnoseType);
-                // 阻塞等待（在锁内必须同步完成以免后续并发覆盖回调）。
-                var result = diagnoseTask.GetAwaiter().GetResult();
+                var result = await dbDiagnosis.DiagnoseTable(diagnoseType);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -65,6 +64,10 @@ public class DefaultDiagnoseService : IDiagnoseService
 
                 onFeedback?.Invoke($"表诊断完成，共检出 {items.Count} 处问题。");
                 return (IReadOnlyList<TableDiagnoseResultItem>)items;
+            }
+            finally
+            {
+                DbDiagnosisLock.Release();
             }
         }, cancellationToken);
     }
@@ -87,7 +90,8 @@ public class DefaultDiagnoseService : IDiagnoseService
             cancellationToken.ThrowIfCancellationRequested();
             onFeedback?.Invoke("正在初始化诊断器...");
 
-            lock (DbDiagnosisLock)
+            await DbDiagnosisLock.WaitAsync(cancellationToken);
+            try
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -97,8 +101,7 @@ public class DefaultDiagnoseService : IDiagnoseService
                 var feedback = new FeedbackObserver(onFeedback);
                 dbDiagnosis.OnFeedback = feedback.Notify;
 
-                var diagnoseTask = dbDiagnosis.DiagnoseScript(diagnoseType);
-                var results = diagnoseTask.GetAwaiter().GetResult();
+                var results = await dbDiagnosis.DiagnoseScript(diagnoseType);
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -118,6 +121,10 @@ public class DefaultDiagnoseService : IDiagnoseService
 
                 onFeedback?.Invoke($"脚本诊断完成，共检出 {items.Count} 处对象异常。");
                 return (IReadOnlyList<ScriptDiagnoseResultItem>)items;
+            }
+            finally
+            {
+                DbDiagnosisLock.Release();
             }
         }, cancellationToken);
     }

@@ -4,7 +4,7 @@
         xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
         x:Class="DatabaseManager.Avalonia.Views.BackupWindow"
         x:DataType="vm:BackupViewModel"
-        Title="数据库备份 (Backup)"
+        Title="数据库备份与恢复"
         Width="920" Height="600"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
@@ -15,14 +15,14 @@
         <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
             <StackPanel Spacing="2">
-                <TextBlock Text="数据库备份" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <TextBlock Text="创建数据库备份文件，支持压缩" FontSize="11"
+                <TextBlock x:Name="TitleText" Text="数据库备份与恢复" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="创建数据库备份文件或从已有备份恢复；恢复将修改目标数据库" FontSize="11"
                            Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
         </Border>
         <!-- 底部状态条 -->
         <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppStatusBarBrush}" Padding="14,4">
-            <TextBlock Text="数据库备份" Foreground="{DynamicResource AppStatusBarTextBrush}"
+            <TextBlock Text="数据库备份与恢复" Foreground="{DynamicResource AppStatusBarTextBrush}"
                        FontSize="11" VerticalAlignment="Center" />
         </Border>
 
@@ -46,7 +46,7 @@
 
             <Grid ColumnDefinitions="120,*,Auto">
                 <TextBlock Grid.Column="0" Text="恢复文件" VerticalAlignment="Center" />
-                <atom:TextBox Grid.Column="1" Text="{Binding RestoreFilePath}" PlaceholderText="选择要恢复的备份文件"
+                <atom:TextBox x:Name="RestoreFileBox" Grid.Column="1" Text="{Binding RestoreFilePath}" PlaceholderText="选择要恢复的备份文件"
                               HorizontalAlignment="Stretch" />
                 <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseRestoreFile_Click" />
             </Grid>
@@ -54,7 +54,7 @@
             <Grid ColumnDefinitions="120,*,Auto">
                 <TextBlock Grid.Column="0" Text="客户端工具" VerticalAlignment="Center" />
                 <atom:TextBox Grid.Column="1" Text="{Binding ClientToolFilePath}"
-                              PlaceholderText="MySql 需 mysqldump.exe / Postgres 需 pg_dump.exe / Oracle 需 exp.exe（SQL Server 无需）"
+                    PlaceholderText="备份：mysqldump / pg_dump / exp；恢复：mysql / psql 或 pg_restore / imp（SQL Server 无需）"
                               HorizontalAlignment="Stretch" />
                 <atom:Button Grid.Column="2" Content="..." Margin="6,0,0,0" Click="BtnBrowseTool_Click" />
             </Grid>
@@ -64,10 +64,10 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-                <atom:Button Content="开始备份" ButtonType="Primary" Command="{Binding BackupCommand}"
-                             IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="恢复备份" Click="BtnRestore_Click" IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button x:Name="BackupButton" Content="开始备份" ButtonType="Primary" Command="{Binding BackupCommand}"
+                             IsEnabled="{Binding CanBackup}" />
+                <atom:Button x:Name="RestoreButton" Content="恢复备份" Click="BtnRestore_Click" IsEnabled="{Binding CanRestore}" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>

@@ -16,16 +16,24 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class BackupWindow : Window
 {
     private readonly BackupViewModel? _vm;
+    private readonly bool _restoreMode;
 
     public BackupWindow()
     {
         InitializeComponent();
     }
 
-    public BackupWindow(BackupViewModel vm) : this()
+    public BackupWindow(BackupViewModel vm, ConnectionItem? targetConnection = null, bool restoreMode = false) : this()
     {
         DataContext = vm;
         _vm = vm;
+        _restoreMode = restoreMode;
+        if (targetConnection is not null) vm.SetTargetConnection(targetConnection);
+        if (restoreMode)
+        {
+            TitleText.Text = Title = "数据库恢复";
+            (BackupButton.ButtonType, RestoreButton.ButtonType) = (RestoreButton.ButtonType, BackupButton.ButtonType);
+        }
     }
 
     protected override void OnOpened(EventArgs e)
@@ -34,6 +42,11 @@ public partial class BackupWindow : Window
         base.OnOpened(e);
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         Refresh();
+        if (_restoreMode)
+        {
+            _vm.StatusMessage = $"恢复目标：{_vm.SelectedConnection?.Description}。请选择备份文件并确认目标。";
+            RestoreFileBox.Focus();
+        }
     }
 
     protected override void OnClosed(EventArgs e)

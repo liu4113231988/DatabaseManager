@@ -52,7 +52,7 @@ DatabaseManager.Avalonia/
 - **性能优化（2026-09-18）**：对象树类型文件夹一次全量加载并并行预取同层其余文件夹、连接时多库 Schema 枚举并发 8、`GetDbVersion()` 解释器实例级缓存、PostgreSQL / KingbaseES 对象树路径改 `pg_class` 直查。
 - **新数据库类型**：DuckDB（文件 / 内存 / 只读）、达梦 DM8（Oracle 兼容方言）已接入；两者均**未经真实实例回归验收**，跨库转换已拦截。
 - **KingbaseES**：以 PG 兼容模式为当前边界，支持独立连接类型、对象浏览、查询与数据工具；会话 / 锁监控和终止会话已接入。真实 KingbaseES 实例验证及其他兼容模式仍按支持计划推进。
-- **模板外部化（T1）**：统一 `{name}` 占位符契约（兼容 `$TOKEN$`）、`ITemplateEngine`/`ITemplateStore`、`Profiles/Templates/` 用户覆盖目录，SqlSnippets 已桥接为首批内置模板。
+- **模板外部化（T1 / T2 最小入口）**：统一 `{name}` 占位符契约（兼容 `$TOKEN$`）、`ITemplateEngine`/`ITemplateStore`、`Profiles/Templates/` 用户覆盖目录，SqlSnippets 已桥接为首批内置模板；「SQL 片段模板...」支持列表、内容编辑、示例预览和恢复默认，脚本库读取用户覆盖模板。
 
 当前版本已具备日常数据库浏览、查询、编辑、建表、跨库处理和运维监控的主链路。功能决策、优先级与明确不做清单见根目录 [Roadmap.md](../Roadmap.md)，**未完成事项与待验收清单**见 [docs/backlog.md](./docs/backlog.md)。KingbaseES 的支持边界与验证状态见 [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)。
 

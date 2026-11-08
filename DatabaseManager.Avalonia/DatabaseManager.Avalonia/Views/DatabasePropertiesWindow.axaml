@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DatabaseManager.Avalonia.Views.DatabasePropertiesWindow"
+        Title="数据库属性" Width="760" Height="540" MinWidth="540" MinHeight="360"
+        Icon="/Assets/database-manager.ico" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16" Background="{DynamicResource AppWindowBgBrush}">
+        <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
+            <TextBlock Text="数据库属性" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock x:Name="TargetText" TextWrapping="Wrap" />
+        </StackPanel>
+        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,10,0" />
+            <Button x:Name="RefreshButton" Grid.Column="1" Content="刷新" Click="Refresh_Click" MinWidth="80" />
+            <Button Grid.Column="2" Content="关闭" Click="Close_Click" MinWidth="80" Margin="8,0,0,0" />
+        </Grid>
+        <DataGrid x:Name="PropertyGrid" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
+                  x:CompileBindings="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="属性" Binding="{Binding Name}" Width="230" />
+                <DataGridTemplateColumn Header="值" Width="*" ClipboardContentBinding="{Binding Value}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Value}" TextWrapping="Wrap" ToolTip.Tip="{Binding Value}" Margin="8,4" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

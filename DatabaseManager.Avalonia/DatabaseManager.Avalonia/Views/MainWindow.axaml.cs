@@ -1819,6 +1819,19 @@ public partial class MainWindow : Window
     }
 
     /// <summary>打开脚本库窗口。</summary>
+    private async void MenuTemplates_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_services is null) return;
+        try
+        {
+            var vm = new TemplateManagerViewModel(
+                _services.GetRequiredService<DatabaseManager.AppCore.Templating.ITemplateStore>(),
+                _services.GetRequiredService<DatabaseManager.AppCore.Templating.ITemplateEngine>());
+            await new TemplateManagerWindow(vm).ShowDialog(this);
+        }
+        catch (Exception ex) { await MessageBoxManager.GetMessageBoxStandard("模板加载失败", ex.Message).ShowAsync(); }
+    }
+
     private void MenuScriptLibrary_Click(object? sender, RoutedEventArgs e)
     {
         if (_services is null)
@@ -2560,6 +2573,7 @@ public partial class MainWindow : Window
             case Key.Delete:
                 // 删除（对应菜单「删除\tDelete」）
                 if (node.NodeType is DbObjectTreeNodeType.Connection
+                    or DbObjectTreeNodeType.Database
                     or DbObjectTreeNodeType.DbObject
                     or DbObjectTreeNodeType.ChildObject)
                 {
@@ -2595,7 +2609,32 @@ public partial class MainWindow : Window
             openImportWindow: n => AppExceptionHandler.Run(() => OpenImportWindowForTableAsync(n), "打开导入窗口"),
             openSchemaCompare: n => AppExceptionHandler.Run(() => OpenSchemaCompareForNodeAsync(n), "打开结构对比"),
             openDataCompare: n => AppExceptionHandler.Run(() => OpenDataCompareForNodeAsync(n), "打开数据对比"),
-            openConvert: n => AppExceptionHandler.Run(() => OpenConvertForNodeAsync(n), "打开数据库转换"));
+            openConvert: n => AppExceptionHandler.Run(() => OpenConvertForNodeAsync(n), "打开数据库转换"),
+            openBackup: (n, restore) => AppExceptionHandler.Run(() => OpenBackupForNodeAsync(n, restore), "打开备份/恢复"),
+            openDatabaseProperties: n => AppExceptionHandler.Run(() => OpenDatabasePropertiesAsync(n), "查看数据库属性"));
+    }
+
+    private async Task OpenBackupForNodeAsync(DbObjectTreeNode node, bool restore)
+    {
+        if (_services is null || node.GetConnectionSnapshot() is not { } connection) return;
+        if (restore && DataContext is MainWindowViewModel vm
+            && (_services.GetRequiredService<IQueryService>().IsTransactionActive(connection.Name)
+                || vm.QueryTabs.Any(t => string.Equals(t.ConnectionName, connection.Name, StringComparison.OrdinalIgnoreCase)
+                    && (t.IsExecuting || t.IsSavingChanges || t.HasPendingChanges))))
+        {
+            vm.QueryEditor.StatusMessage = "请先结束查询、保存或还原数据修改，并提交或回滚事务后再恢复数据库。";
+            return;
+        }
+        var window = new BackupWindow(_services.GetRequiredService<BackupViewModel>(), connection, restore);
+        await window.ShowDialog<object?>(this);
+    }
+
+    private async Task OpenDatabasePropertiesAsync(DbObjectTreeNode node)
+    {
+        if (_services is null || node.GetConnectionSnapshot() is not { } connection) return;
+        var window = new DatabasePropertiesWindow(connection, node.Name,
+            _services.GetRequiredService<DatabasePropertiesService>());
+        await window.ShowDialog<object?>(this);
     }
 
     /// <summary>P2: 为节点打开结构对比窗口。</summary>

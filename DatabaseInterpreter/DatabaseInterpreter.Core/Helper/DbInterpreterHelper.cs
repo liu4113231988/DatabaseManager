@@ -14,42 +14,18 @@ namespace DatabaseInterpreter.Core
                 option = new DbInterpreterOption();
             }
 
-            DbInterpreter dbInterpreter = null;
-
-            if (dbType == DatabaseType.SqlServer)
+            return dbType switch
             {
-                dbInterpreter = new SqlServerInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.MySql)
-            {
-                dbInterpreter = new MySqlInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.Oracle)
-            {
-                dbInterpreter = new OracleInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.Postgres)
-            {
-                dbInterpreter = new PostgresInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.Sqlite)
-            {
-                dbInterpreter = new SqliteInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.KingbaseES)
-            {
-                dbInterpreter = new KingbaseInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.DuckDB)
-            {
-                dbInterpreter = new DuckDbInterpreter(connectionInfo, option);
-            }
-            else if (dbType == DatabaseType.DM)
-            {
-                dbInterpreter = new DmInterpreter(connectionInfo, option);
-            }
-
-            return dbInterpreter;
+                DatabaseType.SqlServer => new SqlServerInterpreter(connectionInfo, option),
+                DatabaseType.MySql => new MySqlInterpreter(connectionInfo, option),
+                DatabaseType.Oracle => new OracleInterpreter(connectionInfo, option),
+                DatabaseType.Postgres => new PostgresInterpreter(connectionInfo, option),
+                DatabaseType.Sqlite => new SqliteInterpreter(connectionInfo, option),
+                DatabaseType.KingbaseES => new KingbaseInterpreter(connectionInfo, option),
+                DatabaseType.DuckDB => new DuckDbInterpreter(connectionInfo, option),
+                DatabaseType.DM => new DmInterpreter(connectionInfo, option),
+                _ => throw new NotSupportedException($"Database type '{dbType}' is not supported.")
+            };
         }
 
         public static IEnumerable<DatabaseType> GetDisplayDatabaseTypes()

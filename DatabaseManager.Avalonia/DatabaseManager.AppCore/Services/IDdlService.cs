@@ -11,6 +11,17 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public interface IDdlService
 {
+    /// <summary>预览新建数据库，使用服务器默认编码、排序规则及文件设置。</summary>
+    DdlScriptResult PreviewCreateDatabase(string connectionName, string databaseName);
+
+    Task<DdlExecuteResult> CreateDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default);
+
+    /// <summary>预览整库删除；不支持的方言、系统库和无效名称返回失败。</summary>
+    DdlScriptResult PreviewDropDatabase(string connectionName, string databaseName);
+
+    /// <summary>从维护库以自动提交方式删除数据库，不强制断开其他会话。</summary>
+    Task<DdlExecuteResult> DropDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default);
+
     /// <summary>生成对象删除脚本（仅预览，不执行）。</summary>
     DdlScriptResult PreviewDrop(string connectionName, string databaseName, DatabaseObject dbObject);
 

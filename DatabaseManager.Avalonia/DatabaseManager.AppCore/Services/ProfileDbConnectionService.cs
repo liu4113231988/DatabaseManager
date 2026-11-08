@@ -21,11 +21,17 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
 
     public IReadOnlyList<ConnectionItem> GetConnections()
     {
+        return Task.Run(() => GetConnectionsAsync()).GetAwaiter().GetResult();
+    }
+
+    public async Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+    {
         var result = new List<ConnectionItem>();
 
         foreach (var dbType in DbInterpreterHelper.GetDisplayDatabaseTypes())
         {
-            result.AddRange(GetConnections(dbType.ToString()));
+            cancellationToken.ThrowIfCancellationRequested();
+            result.AddRange(await GetConnectionsByTypeAsync(dbType.ToString()));
         }
 
         return result;
@@ -33,9 +39,14 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
 
     public IReadOnlyList<ConnectionItem> GetConnections(string databaseType)
     {
+        return Task.Run(() => GetConnectionsByTypeAsync(databaseType)).GetAwaiter().GetResult();
+    }
+
+    private async Task<IReadOnlyList<ConnectionItem>> GetConnectionsByTypeAsync(string databaseType)
+    {
         var result = new List<ConnectionItem>();
 
-        var profiles = ConnectionProfileManager.GetProfiles(databaseType).Result;
+        var profiles = await ConnectionProfileManager.GetProfiles(databaseType);
         if (profiles is null)
             return result;
 
@@ -49,10 +60,15 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
 
     public ConnectionItem? GetConnectionById(string id)
     {
+        return Task.Run(() => GetConnectionByIdAsync(id)).GetAwaiter().GetResult();
+    }
+
+    public async Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrEmpty(id))
             return null;
 
-        var profile = ConnectionProfileManager.GetProfileById(id).Result;
+        var profile = await ConnectionProfileManager.GetProfileById(id);
         if (profile is null)
             return null;
 

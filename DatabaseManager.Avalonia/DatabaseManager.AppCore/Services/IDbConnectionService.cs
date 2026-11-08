@@ -11,11 +11,17 @@ public interface IDbConnectionService
     /// <summary>获取当前已保存的全部连接配置。</summary>
     IReadOnlyList<ConnectionItem> GetConnections();
 
+    /// <summary>异步获取当前已保存的全部连接配置。</summary>
+    Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default);
+
     /// <summary>按数据库类型获取已保存的全部连接配置。</summary>
     IReadOnlyList<ConnectionItem> GetConnections(string databaseType);
 
     /// <summary>根据 Id 获取单个连接配置。</summary>
     ConnectionItem? GetConnectionById(string id);
+
+    /// <summary>异步根据 Id 获取单个连接配置。</summary>
+    Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default);
 
     /// <summary>测试连接是否可用，并返回可用的数据库列表。</summary>
     Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem connection, CancellationToken cancellationToken = default);

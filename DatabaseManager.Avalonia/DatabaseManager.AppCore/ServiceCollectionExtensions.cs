@@ -32,6 +32,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICodeGenerateService, DefaultCodeGenerateService>();
         services.AddSingleton<IColumnDocumentationService, DefaultColumnDocumentationService>();
         services.AddSingleton<IDdlService, DefaultDdlService>();
+        services.AddSingleton<DatabasePropertiesService>();
         services.AddSingleton<IQueryHistoryService, DefaultQueryHistoryService>();
         services.AddSingleton<IScriptLibraryService, DefaultScriptLibraryService>();
         services.AddSingleton<IExecutionPlanService, DefaultExecutionPlanService>();

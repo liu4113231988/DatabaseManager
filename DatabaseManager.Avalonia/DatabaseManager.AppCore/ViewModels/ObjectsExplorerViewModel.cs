@@ -129,6 +129,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         foreach (var kv in existingMap)
         {
             _activeConnections.Remove(kv.Key);
+            ClearPrefetchCache(kv.Key);
         }
     }
 
@@ -158,6 +159,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         if (connection is null)
             return;
 
+        ClearPrefetchCache(connection.Name);
         IsLoading = true;
         connectionNode.IsLoading = true;
         StatusMessage = $"正在连接 {connection.Name}...";
@@ -299,8 +301,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         }
     }
 
-    /// <summary>兄弟类型文件夹的预取缓存：key = 连接|库|schema|类型。值可为空列表（表示已取回且为空）。</summary>
-    private readonly ConcurrentDictionary<string, IReadOnlyList<DbObjectTreeNode>> _prefetchCache =
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<(string Database, string? Schema, DatabaseObjectType Type), Lazy<Task<IReadOnlyList<DbObjectTreeNode>>>>> _prefetchRequests =
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>预取查询的并发上限（避免展开文件夹时对服务器形成连接风暴）。</summary>
@@ -355,7 +356,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
     /// 加载完成后并行预取同 Schema 下其余类型文件夹（放入缓存，展开时零等待）。加载中再次双击可取消。</summary>
     public async Task LoadFolderChildrenAsync(DbObjectTreeNode folderNode, string connectionName)
     {
-        if (folderNode is null || folderNode.IsLoaded)
+        if (folderNode is null || folderNode.IsLoaded || folderNode.IsLoading)
             return;
 
         if (folderNode.NodeType != DbObjectTreeNodeType.Folder)
@@ -366,32 +367,25 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         string databaseName = databaseNode?.Name ?? folderNode.DatabaseName ?? string.Empty;
         string? schema = schemaNode?.Name ?? folderNode.Schema;
 
-        // 命中预取缓存：立即填充，不发起查询。
-        var cacheKey = BuildPrefetchKey(connectionName, databaseName, schema, folderNode.DatabaseObjectType);
-        if (_prefetchCache.TryRemove(cacheKey, out var cached))
-        {
-            FillFolder(folderNode, cached);
-            PrefetchSiblingFoldersAsync(folderNode, connectionName, databaseName, schema);
-            return;
-        }
-
         folderNode.IsLoading = true;
         folderNode.LoadCts = new CancellationTokenSource();
 
         try
         {
-            var nodes = await _schemaService.GetDbObjectNodesAsync(
-                connectionName,
-                databaseName,
-                folderNode.DatabaseObjectType,
-                schema,
-                folderNode.LoadCts.Token);
+            var requests = _prefetchRequests.GetOrAdd(connectionName, _ => new());
+            var key = (databaseName, schema, folderNode.DatabaseObjectType);
+            var request = requests.GetOrAdd(key, _ => CreateObjectRequest(connectionName, databaseName, schema, folderNode.DatabaseObjectType, folderNode.LoadCts.Token));
+            var nodes = await request.Value.WaitAsync(folderNode.LoadCts.Token);
+            requests.TryRemove(key, out _);
+            if (!_prefetchRequests.TryGetValue(connectionName, out var current) || !ReferenceEquals(current, requests))
+                return;
 
             FillFolder(folderNode, nodes);
             ReapplyFilterIfActive(folderNode);
         }
         catch (OperationCanceledException)
         {
+            ClearPrefetchCache(connectionName);
             folderNode.ClearChildren();
             folderNode.AddChild(new DbObjectTreeNode
             {
@@ -405,6 +399,11 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             StatusMessage = $"加载 {folderNode.Name} 已取消。";
             return;
         }
+        catch
+        {
+            ClearPrefetchCache(connectionName);
+            throw;
+        }
         finally
         {
             folderNode.IsLoading = false;
@@ -412,7 +411,7 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             folderNode.LoadCts = null;
         }
 
-        // 主文件夹就绪后，后台并行预取同层其余类型文件夹（对齐 SSMS 展开即可见全部类型的体验）。
+        // 主文件夹就绪后，后台并行预取同层其余类型文件夹。
         PrefetchSiblingFoldersAsync(folderNode, connectionName, databaseName, schema);
     }
 
@@ -461,53 +460,34 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
                 continue;
             }
 
-            var siblingType = sibling.DatabaseObjectType;
-            var key = BuildPrefetchKey(connectionName, databaseName, schema, siblingType);
-            if (_prefetchCache.ContainsKey(key))
-            {
-                continue;
-            }
+            var requests = _prefetchRequests.GetOrAdd(connectionName, _ => new());
+            var key = (databaseName, schema, sibling.DatabaseObjectType);
+            var request = requests.GetOrAdd(key, _ => CreateObjectRequest(connectionName, databaseName, schema, sibling.DatabaseObjectType));
+            _ = ObservePrefetchAsync();
 
-            _ = Task.Run(async () =>
+            async Task ObservePrefetchAsync()
             {
-                await PrefetchGate.WaitAsync();
-                try
-                {
-                    if (_prefetchCache.ContainsKey(key))
-                    {
-                        return;
-                    }
-
-                    var nodes = await _schemaService.GetDbObjectNodesAsync(connectionName, databaseName, siblingType, schema);
-                    _prefetchCache[key] = nodes;
-                }
+                try { await request.Value; }
                 catch
                 {
-                    // 预取失败静默：用户展开该文件夹时走正常加载路径并能看到错误。
+                    // 失败后允许正常展开重试。
+                    requests.TryRemove(key, out _);
                 }
-                finally
-                {
-                    PrefetchGate.Release();
-                }
-            });
-        }
-    }
-
-    private static string BuildPrefetchKey(string connectionName, string databaseName, string? schema, DatabaseObjectType type)
-        => $"{connectionName}|{databaseName}|{schema ?? string.Empty}|{type}";
-
-    /// <summary>清理指定连接的预取缓存（断开/重连后避免陈旧数据）。</summary>
-    private void ClearPrefetchCache(string connectionName)
-    {
-        var prefix = connectionName + "|";
-        foreach (var key in _prefetchCache.Keys)
-        {
-            if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                _prefetchCache.TryRemove(key, out _);
             }
         }
     }
+
+    private Lazy<Task<IReadOnlyList<DbObjectTreeNode>>> CreateObjectRequest(
+        string connectionName, string databaseName, string? schema, DatabaseObjectType type, CancellationToken ct = default)
+        => new(async () =>
+        {
+            await PrefetchGate.WaitAsync(ct);
+            try { return await _schemaService.GetDbObjectNodesAsync(connectionName, databaseName, type, schema, ct); }
+            finally { PrefetchGate.Release(); }
+        });
+
+    // 丢弃整个请求集合，旧请求即使完成也无法回写到新会话。
+    public void ClearPrefetchCache(string connectionName) => _prefetchRequests.TryRemove(connectionName, out _);
 
     #region 就地过滤
 

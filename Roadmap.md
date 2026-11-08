@@ -51,7 +51,7 @@ P0 各项的实现要点与限制见 [README 已完成能力](DatabaseManager.Av
 | [-] | 企业认证与 HTTP 隧道 | 仅有部分集成认证。 | 本轮明确不做：LDAP、Kerberos、MFA/SSO 与 HTTP 隧道均依赖客户目录服务与部署形态，保留现有集成认证。 |
 | [~] | 查询结果与工作区增强 | 已有脚本库、历史和结果浮动；**收藏查询、专注模式（F11/视图菜单，状态持久化）、应用内 URI 直达（搜索框解析 `dbm://`）已实现**。 | 收藏查询（扩展脚本库与历史模型，收藏项不参与历史裁剪）、专注模式（折叠对象浏览器/菜单/工具栏，状态持久化）、应用内 URI 直达（对象浏览器搜索框解析 `dbm://<连接>/<库>/<schema>/<类型>/<名>`，解析失败明确提示）。OS 协议注册、单实例与冷启动参数解析不做。 |
 | [-] | 完整可拖拽停靠布局 | 已有结果区浮动/停靠；`Dock.Avalonia` 已引用但未使用，主窗口为手写 Grid + DockPanel。 | 暂不实施：主窗口布局与 code-behind 需整体迁移到 Dock 模型，回归面覆盖 P0/P2 全部功能；保留现有结果浮动即可满足当前诉求。 |
-| [~] | 代码与文档模板外部化 | 模板主要内置，且存在 4 套互不兼容的占位符语法；**T1 已落地**：`TemplateManifest` 契约（`{name}` 统一语法 + `$TOKEN$` 兼容别名）、`ITemplateEngine`/`ITemplateStore`、`Profiles/Templates/` 目录（内置同名可覆盖），SqlSnippets 已桥接为首批内置模板。 | 先统一模板变量契约与目录（`Profiles/Templates/`），再配渲染、预览与带版本信封的导入导出（T2），最后按 SQL 片段、数据字典、DDL、文档导出、代码生成的顺序分批迁移内置模板（T3）。 |
+| [~] | 代码与文档模板外部化 | 模板主要内置，且存在 4 套互不兼容的占位符语法；**T1 已落地**：`TemplateManifest` 契约（`{name}` 统一语法 + `$TOKEN$` 兼容别名）、`ITemplateEngine`/`ITemplateStore`、`Profiles/Templates/` 目录（内置同名可覆盖），SqlSnippets 已桥接为首批内置模板；T2 最小管理入口已接入（列表、内容编辑、示例预览、恢复默认，脚本库读取用户覆盖）。 | 先统一模板变量契约与目录（`Profiles/Templates/`），再配渲染、预览与带版本信封的导入导出（T2），最后按 SQL 片段、数据字典、DDL、文档导出、代码生成的顺序分批迁移内置模板（T3）。 |
 
 DuckDB / 达梦的待验收边界、查询结果增强与模板外部化的后续分期方案见 [docs/backlog.md](DatabaseManager.Avalonia/docs/backlog.md)。
 

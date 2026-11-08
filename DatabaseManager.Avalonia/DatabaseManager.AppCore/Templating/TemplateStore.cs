@@ -75,6 +75,8 @@ public class DefaultTemplateStore : ITemplateStore
             throw new ArgumentException("模板 Kind 与 Id 不能为空。");
         }
 
+        ValidateSegment(manifest.Kind);
+        ValidateSegment(manifest.Id);
         var folder = Path.Combine(RootFolder, manifest.Kind);
         lock (FileLock)
         {
@@ -94,6 +96,8 @@ public class DefaultTemplateStore : ITemplateStore
             return false;
         }
 
+        ValidateSegment(kind);
+        ValidateSegment(id);
         // 内置模板不可删除（用户覆盖文件删除后自动回退内置）。
         var path = Path.Combine(RootFolder, kind, $"{id}.tpl");
         lock (FileLock)
@@ -143,6 +147,7 @@ public class DefaultTemplateStore : ITemplateStore
 
     private static List<TemplateManifest> LoadUserTemplates(string? kind = null)
     {
+        if (!string.IsNullOrEmpty(kind)) ValidateSegment(kind);
         var result = new List<TemplateManifest>();
         var root = RootFolder;
         if (!Directory.Exists(root))
@@ -171,6 +176,10 @@ public class DefaultTemplateStore : ITemplateStore
                         continue; // 契约不完整：跳过，不中断整目录加载。
                     }
 
+                    ValidateSegment(manifest.Kind);
+                    ValidateSegment(manifest.Id);
+                    if (!string.Equals(Path.GetFileName(folder), manifest.Kind, StringComparison.Ordinal)
+                        || !string.Equals(Path.GetFileNameWithoutExtension(file), manifest.Id, StringComparison.Ordinal)) continue;
                     manifest.Source = "user";
                     result.Add(manifest);
                 }
@@ -182,5 +191,12 @@ public class DefaultTemplateStore : ITemplateStore
         }
 
         return result;
+    }
+
+    private static void ValidateSegment(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value is "." or ".."
+            || value.Any(c => !char.IsLetterOrDigit(c) && c is not ('_' or '-' or '.')))
+            throw new ArgumentException("模板 Kind 与 Id 只能包含字母、数字、点、下划线或连字符。");
     }
 }

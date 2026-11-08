@@ -11,7 +11,7 @@ namespace DatabaseManager.AppCore.Services;
 
 /// <summary>
 /// 基于 <see cref="DbInterpreter"/> / <see cref="DbScriptGenerator"/> 的 DDL 执行服务实现。
-/// 在事务内执行单条 Drop/Rename，失败自动回滚。
+/// 对象 Drop/Rename 使用事务；整库删除通过维护库自动提交。
 /// </summary>
 public class DefaultDdlService : IDdlService
 {
@@ -20,6 +20,103 @@ public class DefaultDdlService : IDdlService
     public DefaultDdlService(IDbConnectionService connectionService)
     {
         _connectionService = connectionService;
+    }
+
+    public DdlScriptResult PreviewDropDatabase(string connectionName, string databaseName)
+        => PreviewDatabaseCommand(connectionName, databaseName, create: false);
+
+    public DdlScriptResult PreviewCreateDatabase(string connectionName, string databaseName)
+        => PreviewDatabaseCommand(connectionName, databaseName, create: true);
+
+    private DdlScriptResult PreviewDatabaseCommand(string connectionName, string databaseName, bool create)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
+        var type = ParseDatabaseType(connection.DatabaseType);
+        if (type is not (DatabaseType.Postgres or DatabaseType.MySql or DatabaseType.SqlServer))
+            return Error<DdlScriptResult>(create ? "当前数据库类型不支持新建数据库。" : "当前数据库类型不支持整库删除。");
+        if (string.IsNullOrWhiteSpace(databaseName) || databaseName.Any(char.IsControl))
+            return Error<DdlScriptResult>("数据库名称不能为空或包含控制字符。");
+        if (create && (databaseName != databaseName.Trim()
+            || (type == DatabaseType.Postgres ? System.Text.Encoding.UTF8.GetByteCount(databaseName) > 63
+                : databaseName.Length > (type == DatabaseType.MySql ? 64 : 128))))
+            return Error<DdlScriptResult>("数据库名称首尾不能有空白，长度上限为 PostgreSQL 63 个 UTF-8 字节、MySQL 64 个字符、SQL Server 128 个字符。");
+        string[] systemDatabases = type switch
+        {
+            DatabaseType.Postgres => ["postgres", "template0", "template1"],
+            DatabaseType.MySql => ["mysql", "sys", "information_schema", "performance_schema"],
+            _ => ["master", "model", "msdb", "tempdb"],
+        };
+        if (systemDatabases.Contains(databaseName, StringComparer.OrdinalIgnoreCase))
+            return Error<DdlScriptResult>(create ? "不能使用系统数据库名称。" : "不允许删除系统数据库。");
+        return new DdlScriptResult
+        {
+            IsSuccess = true,
+            Script = $"{(create ? "CREATE" : "DROP")} DATABASE {SqlDialectHelper.QuoteIdentifier(type, databaseName)};",
+        };
+    }
+
+    internal static string GetMaintenanceDatabase(string databaseType) => ParseDatabaseType(databaseType) switch
+    {
+        DatabaseType.Postgres => "postgres",
+        DatabaseType.MySql => "information_schema",
+        DatabaseType.SqlServer => "master",
+        _ => throw new NotSupportedException("当前数据库类型不支持整库删除。"),
+    };
+
+    public async Task<DdlExecuteResult> CreateDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+    {
+        var preview = PreviewCreateDatabase(connectionName, databaseName);
+        if (!preview.IsSuccess) return ErrorExecute(preview.ErrorMessage!);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            return await ExecuteDatabaseCommandAsync(FindConnection(connectionName)!, preview.Script!, ct);
+        }
+        catch (Exception ex)
+        {
+            return ErrorExecute(ex.Message);
+        }
+    }
+
+    public async Task<DdlExecuteResult> DropDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+    {
+        var preview = PreviewDropDatabase(connectionName, databaseName);
+        if (!preview.IsSuccess) return ErrorExecute(preview.ErrorMessage!);
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            var connection = FindConnection(connectionName)!;
+            // 只清理目标库的空闲池连接；活动会话由服务器拒绝删除，不强制终止或回滚。
+            using (var target = CreateInterpreter(connection, databaseName).CreateConnection())
+            {
+                if (target is Npgsql.NpgsqlConnection pg) Npgsql.NpgsqlConnection.ClearPool(pg);
+                else if (target is Microsoft.Data.SqlClient.SqlConnection sql) Microsoft.Data.SqlClient.SqlConnection.ClearPool(sql);
+                else if (target is MySqlConnector.MySqlConnection mysql) await MySqlConnector.MySqlConnection.ClearPoolAsync(mysql, ct);
+            }
+            return await ExecuteDatabaseCommandAsync(connection, preview.Script!, ct);
+        }
+        catch (Exception ex)
+        {
+            return ErrorExecute(ex.Message);
+        }
+    }
+
+    private static async Task<DdlExecuteResult> ExecuteDatabaseCommandAsync(ConnectionItem connection, string script, CancellationToken ct)
+    {
+        var interpreter = CreateInterpreter(connection, GetMaintenanceDatabase(connection.DatabaseType));
+        using var dbConnection = interpreter.CreateConnection();
+        await dbConnection.OpenAsync(ct);
+        // CREATE/DROP DATABASE 不能复用 ExecuteSingleAsync 的事务。
+        var result = await interpreter.ExecuteNonQueryAsync(dbConnection, new CommandInfo
+        {
+            CommandText = script,
+            CancellationToken = ct,
+            CommandTimeoutSeconds = 30,
+        });
+        return result?.HasError == true
+            ? ErrorExecute(result.Message)
+            : new DdlExecuteResult { IsSuccess = true, Script = script };
     }
 
     public DdlScriptResult PreviewDrop(string connectionName, string databaseName, DatabaseObject dbObject)

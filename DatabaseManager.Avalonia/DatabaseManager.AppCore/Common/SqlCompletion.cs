@@ -104,6 +104,30 @@ public static class SqlCompletion
         bool expectsColumn = clause is "SELECT" or "WHERE" or "ON" or "GROUP" or "ORDER" or "HAVING" or "SET" or "RETURNING";
         if (before >= 0 && tokens[before].Text == "," && clause == "FROM") expectsTable = true;
 
+        var cteNames = new List<string>();
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (!tokens[i].Text.Equals("WITH", StringComparison.OrdinalIgnoreCase)) continue;
+            int cteDepth = tokens[i].Depth;
+            if (cteDepth > scopeDepth || tokens[i].Start > scopeStart
+                || tokens.Skip(i + 1).Any(t => t.Start < scopeStart && t.Depth < cteDepth)) continue;
+            int next = i + 1;
+            if (next < tokens.Count && tokens[next].Text.Equals("RECURSIVE", StringComparison.OrdinalIgnoreCase)) next++;
+            while (next < tokens.Count && tokens[next].Identifier)
+            {
+                cteNames.Add(tokens[next++].Text);
+                // 跳过可选列名与 CTE 定义；逗号表示后续 CTE。
+                while (next < tokens.Count && !(tokens[next].Text == ")" && tokens[next].Depth == cteDepth)) next++;
+                if (next < tokens.Count) next++;
+                if (next < tokens.Count && tokens[next].Text.Equals("AS", StringComparison.OrdinalIgnoreCase))
+                {
+                    while (next < tokens.Count && !(tokens[next].Text == ")" && tokens[next].Depth == cteDepth)) next++;
+                    if (next < tokens.Count) next++;
+                }
+                if (next >= tokens.Count || tokens[next].Text != ",") break;
+                next++;
+            }
+        }
         var tables = new List<SqlCompletionTable>();
         string? sourceClause = null;
         for (int i = 0; i < scope.Count - 1; i++)
@@ -131,7 +155,8 @@ public static class SqlCompletion
             string? alias = next < scope.Count && scope[next].Identifier && !AliasStops.Contains(scope[next].Text) ? scope[next].Text : null;
             if (parts.Count > 3) continue;
             // shortcut: 不推断 CTE/派生表的输出列，接入完整语义分析后再支持。
-            bool cte = tokens.FirstOrDefault()?.Text.Equals("WITH", StringComparison.OrdinalIgnoreCase) == true;
+            bool cte = parts.Count == 1 && cteNames.Any(name =>
+                string.Equals(Unquote(name), Unquote(parts[0]), StringComparison.OrdinalIgnoreCase));
             tables.Add(new(cte ? string.Empty : parts.LastOrDefault() ?? string.Empty,
                 parts.Count >= 2 ? parts[^2] : null, parts.Count == 3 ? parts[0] : null,
                 alias ?? (cte ? parts.LastOrDefault() : null)));

@@ -34,6 +34,8 @@ public class ObjectTreeContextMenuBuilder
     private readonly Action<DbObjectTreeNode>? _openSchemaCompare;
     private readonly Action<DbObjectTreeNode>? _openDataCompare;
     private readonly Action<DbObjectTreeNode>? _openConvert;
+    private readonly Action<DbObjectTreeNode, bool>? _openBackup;
+    private readonly Action<DbObjectTreeNode>? _openDatabaseProperties;
 
     private readonly IDbConnectionService _connectionService;
     private readonly IDdlService? _ddlService;
@@ -51,7 +53,9 @@ public class ObjectTreeContextMenuBuilder
         Action<DbObjectTreeNode>? openImportWindow = null,
         Action<DbObjectTreeNode>? openSchemaCompare = null,
         Action<DbObjectTreeNode>? openDataCompare = null,
-        Action<DbObjectTreeNode>? openConvert = null)
+        Action<DbObjectTreeNode>? openConvert = null,
+        Action<DbObjectTreeNode, bool>? openBackup = null,
+        Action<DbObjectTreeNode>? openDatabaseProperties = null)
     {
         _viewModel = viewModel;
         _treeView = treeView;
@@ -65,6 +69,8 @@ public class ObjectTreeContextMenuBuilder
         _openSchemaCompare = openSchemaCompare;
         _openDataCompare = openDataCompare;
         _openConvert = openConvert;
+        _openBackup = openBackup;
+        _openDatabaseProperties = openDatabaseProperties;
     }
 
     /// <summary>根据节点类型构建并显示右键菜单。</summary>
@@ -169,6 +175,7 @@ public class ObjectTreeContextMenuBuilder
         => node.NodeType switch
         {
             DbObjectTreeNodeType.Connection => DeleteConnectionAsync(node),
+            DbObjectTreeNodeType.Database => DeleteDatabaseAsync(node),
             DbObjectTreeNodeType.DbObject or DbObjectTreeNodeType.ChildObject => DeleteDbObjectAsync(node),
             _ => NotSupportedAsync("删除"),
         };
@@ -242,6 +249,8 @@ public class ObjectTreeContextMenuBuilder
         deleteConn.Click += async (_, _) => await DeleteConnectionAsync(node);
         menu.Items.Add(deleteConn);
 
+        AddCreateDatabaseMenuItem(menu, node);
+
         menu.Items.Add(new Separator());
 
         // ==== Compare/Migrate 组 ====
@@ -273,6 +282,21 @@ public class ObjectTreeContextMenuBuilder
 
         menu.Items.Add(new Separator());
 
+        AddCreateDatabaseMenuItem(menu, node);
+        var backup = CreateMenuItem("备份数据库...", "备份当前选中的数据库");
+        backup.IsEnabled = _openBackup is not null && DefaultBackupService.SupportsBackup(GetConnectionDatabaseType(node) ?? string.Empty);
+        backup.Click += (_, _) => _openBackup?.Invoke(node, false);
+        menu.Items.Add(backup);
+        var restore = CreateMenuItem("恢复数据库...", "从备份文件恢复到当前选中的数据库");
+        restore.IsEnabled = _openBackup is not null && DefaultBackupService.SupportsRestore(GetConnectionDatabaseType(node) ?? string.Empty);
+        restore.Click += (_, _) => _openBackup?.Invoke(node, true);
+        menu.Items.Add(restore);
+        var properties = CreateMenuItem(node.GetDatabaseType() is DatabaseType.Oracle or DatabaseType.DM ? "Schema 属性..." : "数据库属性...", "查看所选数据库的信息");
+        properties.IsEnabled = _openDatabaseProperties is not null;
+        properties.Click += (_, _) => _openDatabaseProperties?.Invoke(node);
+        menu.Items.Add(properties);
+        menu.Items.Add(new Separator());
+
         // ==== Compare/Migrate 组 ====
         AddCompareMigrateMenuItems(menu, node);
 
@@ -285,6 +309,14 @@ public class ObjectTreeContextMenuBuilder
 
         // ==== 刷新组 ====
         AddRefreshMenuItem(menu, node);
+
+        menu.Items.Add(new Separator());
+        var preview = _ddlService?.PreviewDropDatabase(_viewModel.FindNodeConnectionName(node) ?? string.Empty, node.Name);
+        var delete = CreateMenuItem("删除数据库...\tDelete", preview?.IsSuccess == true
+            ? "永久删除数据库及其中全部对象和数据" : preview?.ErrorMessage ?? "DDL 服务未初始化。");
+        delete.IsEnabled = preview?.IsSuccess == true;
+        delete.Click += (_, _) => _asyncAction(() => DeleteDatabaseAsync(node));
+        menu.Items.Add(delete);
     }
 
     #endregion
@@ -344,6 +376,50 @@ public class ObjectTreeContextMenuBuilder
             _viewModel.SchemaSelectorVisible = false;
             _viewModel.QueryEditor.StatusMessage = $"已设为当前数据库：{node.Name}";
         }
+    }
+
+    private async Task DeleteDatabaseAsync(DbObjectTreeNode node)
+    {
+        var connectionName = _viewModel.FindNodeConnectionName(node) ?? string.Empty;
+        var preview = _ddlService?.PreviewDropDatabase(connectionName, node.Name);
+        if (preview?.IsSuccess != true)
+        {
+            _viewModel.QueryEditor.StatusMessage = preview?.ErrorMessage ?? "DDL 服务未初始化。";
+            return;
+        }
+        var input = await ShowInputDialog(
+            $"连接：{connectionName}\n数据库：{node.Name}\n\n将永久删除该库的全部对象和数据，此操作不可撤销！请先确认已有备份。\n不会强制终止其他会话；存在占用时可能删除失败。\n\n{preview.Script}\n\n请输入完整数据库名称以确认删除：",
+            "删除数据库");
+        if (input is null) return;
+        if (!string.Equals(input, node.Name, StringComparison.Ordinal))
+        {
+            _viewModel.QueryEditor.StatusMessage = "数据库名称不匹配，已取消删除。";
+            return;
+        }
+        await _viewModel.DeleteDatabaseAsync(node, _ddlService!);
+    }
+
+    private void AddCreateDatabaseMenuItem(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var connectionName = node.FindConnectionNode()?.Name ?? string.Empty;
+        var preview = _ddlService?.PreviewCreateDatabase(connectionName, "NewDatabase");
+        var create = CreateMenuItem("新建数据库...", preview?.IsSuccess == true
+            ? "使用服务器默认设置创建数据库" : preview?.ErrorMessage ?? "DDL 服务未初始化。");
+        create.IsEnabled = preview?.IsSuccess == true;
+        create.Click += (_, _) => _asyncAction(async () =>
+        {
+            var name = await ShowInputDialog($"连接：{connectionName}\n请输入新数据库名称（编码、排序规则及文件设置使用服务器默认值）：", "新建数据库");
+            if (name is null) return;
+            var script = _ddlService!.PreviewCreateDatabase(connectionName, name);
+            if (!script.IsSuccess)
+            {
+                _viewModel.QueryEditor.StatusMessage = script.ErrorMessage ?? "无法生成新建数据库脚本。";
+                return;
+            }
+            if (await ShowConfirmDialog($"连接：{connectionName}\n\n{script.Script}\n\n确定创建此数据库？", "新建数据库") != true) return;
+            await _viewModel.CreateDatabaseAsync(node, name, _ddlService);
+        });
+        menu.Items.Add(create);
     }
 
     private void SetCurrentSchema(DbObjectTreeNode node)

@@ -1,0 +1,34 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        xmlns:vm="using:DatabaseManager.AppCore.ViewModels"
+        xmlns:tpl="using:DatabaseManager.AppCore.Templating"
+        x:Class="DatabaseManager.Avalonia.Views.TemplateManagerWindow"
+        x:DataType="vm:TemplateManagerViewModel"
+        Title="SQL 片段模板" Width="960" Height="640" MinWidth="700" MinHeight="480"
+        Icon="/Assets/database-manager.ico" WindowStartupLocation="CenterOwner">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+            <TextBlock Text="SQL 片段模板" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="保存后覆盖内置片段；示例预览仅生成文本。" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <atom:Button Content="示例预览" Command="{Binding PreviewCommand}" />
+                <atom:Button Content="保存" ButtonType="Primary" Command="{Binding SaveCommand}" />
+                <atom:Button Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
+            </StackPanel>
+        </StackPanel>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,10,0,0" />
+        <Grid ColumnDefinitions="240,8,*">
+            <ListBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
+                <ListBox.ItemTemplate><DataTemplate x:DataType="tpl:TemplateManifest"><TextBlock Text="{Binding Name}" /></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+            <GridSplitter Grid.Column="1" Width="8" />
+            <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,*">
+                <TextBlock Text="模板内容" Margin="0,0,0,6" />
+                <atom:TextBox Grid.Row="1" Text="{Binding EditingContent}" AcceptsReturn="True" Classes="multiline" MinHeight="160" VerticalAlignment="Stretch" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                <TextBlock Grid.Row="2" Text="示例预览" Margin="0,8,0,6" />
+                <atom:TextBox Grid.Row="3" Text="{Binding PreviewText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" Classes="multiline" MinHeight="160" VerticalAlignment="Stretch" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Grid>
+        </Grid>
+    </DockPanel>
+</Window>

@@ -119,6 +119,7 @@
                 <MenuItem Header="任务定时调度..." Click="MenuSchedule_Click" />
                 <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
                 <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
+                <MenuItem Header="SQL 片段模板..." Click="MenuTemplates_Click" />
                 <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
                 <Separator />
                 <MenuItem Header="会话与锁监控..." Click="MenuSessionMonitor_Click" />
@@ -157,9 +158,9 @@
         </Border>
 
         <!-- 图标仅限制最大尺寸，让 Path 按等比缩放后的实际宽高参与居中；执行三角形另向右补偿 1px 视觉重心。 -->
-        <!-- 主工具栏：位于菜单栏下方，按功能分组（对齐 SSMS 工具栏布局：文件 / 连接 / SQL / 事务 / 工具） -->
+        <!-- 主工具栏按组换行，保持当前查询上下文与执行操作相邻。 -->
         <Border x:Name="MainToolbarPanel" DockPanel.Dock="Top" Background="{DynamicResource AppSubtleBrush}" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="8,4">
-            <StackPanel Orientation="Horizontal" Spacing="6">
+            <WrapPanel Orientation="Horizontal" ItemSpacing="6" LineSpacing="4">
 
                 <!-- 文件组 -->
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
@@ -175,9 +176,6 @@
                         </Button>
                     </StackPanel>
                 </Border>
-
-                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
-
                 <!-- 连接组 -->
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
                     <StackPanel Orientation="Horizontal" Spacing="1">
@@ -198,8 +196,31 @@
                         </Button>
                     </StackPanel>
                 </Border>
-
-                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
+                <!-- 当前查询上下文：绑定标签，避免跟随对象树的连接选择。 -->
+                <Border Classes="toolbar-group" Padding="8,0"
+                        DataContext="{Binding SelectedQueryTab}" x:DataType="vm:QueryTabViewModel">
+                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="连接" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                        <TextBlock Text="{Binding ConnectionName}" MaxWidth="110" FontSize="11"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                                   ToolTip.Tip="{Binding ConnectionName}" />
+                        <Border Width="1" Height="16" Background="{DynamicResource AppDividerBrush}"
+                                IsVisible="{Binding AvailableDatabases.Count}" />
+                        <TextBlock Text="数据库" FontSize="11" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"
+                                   IsVisible="{Binding AvailableDatabases.Count}" />
+                        <atom:ComboBox ItemsSource="{Binding AvailableDatabases}"
+                                       SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
+                                       DropDownOpened="QueryDatabase_DropDownOpened"
+                                       SelectionChanged="QueryDatabase_SelectionChanged"
+                                       Width="200" MinHeight="0" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{Binding AvailableDatabases.Count}"
+                                       AutomationProperties.Name="当前查询数据库"
+                                       ToolTip.Tip="{Binding DatabaseName}" />
+                    </StackPanel>
+                </Border>
 
                 <!-- SQL 执行组（绑定到当前选中的查询标签） -->
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
@@ -244,9 +265,6 @@
                         </Button>
                     </StackPanel>
                 </Border>
-
-                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
-
                 <!-- Schema 选择组（多 Schema 数据库时显示） -->
                 <Border Classes="toolbar-group" Padding="6,0,4,0"
                         IsVisible="{Binding SchemaSelectorVisible}">
@@ -256,9 +274,6 @@
                                  VerticalContentAlignment="Center" MinHeight="24" />
                     </StackPanel>
                 </Border>
-
-                <Border Width="1" Background="{DynamicResource AppDividerBrush}" VerticalAlignment="Stretch" Margin="2,2" />
-
                 <!-- 工具组 -->
                 <Border Classes="toolbar-group" Padding="3,0,3,0">
                     <StackPanel Orientation="Horizontal" Spacing="1">
@@ -280,7 +295,7 @@
                     </StackPanel>
                 </Border>
 
-            </StackPanel>
+            </WrapPanel>
         </Border>
 
         <!-- 状态栏：SSMS 风格底部蓝条，承载连接摘要 / 任务数 / 外观缩放 -->
@@ -467,31 +482,22 @@
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
 
-                                <!-- SQL 状态条：蓝条窄状态条，连接名/超时/消息/参数开关 -->
+                                <!-- SQL 状态条：超时/消息/参数开关；连接与数据库位于主工具栏。 -->
                                 <Border Grid.Row="0" Background="{DynamicResource AppStatusBarBrush}" Padding="10,3">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
                                         <TextBlock Text="SQL" FontWeight="SemiBold" FontSize="11"
                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding ConnectionName}"
-                                                   VerticalAlignment="Center" FontSize="11"
-                                                   Foreground="{DynamicResource AppStatusBarTextBrush}" />
-                                        <atom:ComboBox ItemsSource="{Binding AvailableDatabases}"
-                                                       SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
-                                                       DropDownOpened="QueryDatabase_DropDownOpened"
-                                                       SelectionChanged="QueryDatabase_SelectionChanged"
-                                                       MinWidth="150" MaxWidth="240" MinHeight="0" FontSize="11"
-                                                       IsVisible="{Binding AvailableDatabases.Count}"
-                                                       ToolTip.Tip="选择当前查询标签执行 SQL 的数据库" />
-                                        <TextBlock Text="{Binding CommandTimeoutSeconds, StringFormat='超时 {0}s'}"
+                                        <TextBlock Grid.Column="1" Text="{Binding CommandTimeoutSeconds, StringFormat='超时 {0}s'}"
                                                    VerticalAlignment="Center" FontSize="11"
                                                    Foreground="{DynamicResource AppStatusBarSecondaryTextBrush}" />
-                                        <TextBlock Text="{Binding StatusMessage}"
+                                        <TextBlock Grid.Column="2" Text="{Binding StatusMessage}"
+                                                   TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusMessage}"
                                                    VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
                                                    Foreground="{DynamicResource AppStatusBarTextBrush}" />
-                                        <ToggleButton IsChecked="{Binding ParametersEnabled}" Content="参数"
+                                        <ToggleButton Grid.Column="3" IsChecked="{Binding ParametersEnabled}" Content="参数"
                                                       Padding="6,0" FontSize="11" MinWidth="0" MinHeight="0"
                                                       ToolTip.Tip="启用参数化执行：执行前按参数值替换 SQL 中的 @name / :name 占位符" />
-                                    </StackPanel>
+                                    </Grid>
                                 </Border>
 
                                 <!-- SQL 编辑器（带语法高亮） -->

@@ -23,6 +23,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IQueryHistoryService? _historyService;
     private readonly IScriptLibraryService? _scriptLibraryService;
     private readonly IAppSettingsService? _appSettingsService;
+    private bool _isDeletingDatabase;
+    private bool _isCreatingDatabase;
 
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -693,6 +695,95 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
 
+    public async Task<bool> CreateDatabaseAsync(DbObjectTreeNode node, string databaseName, IDdlService ddlService)
+    {
+        var connectionNode = node.FindConnectionNode();
+        if (_isCreatingDatabase || connectionNode?.Connection is not { } connection) return false;
+        _isCreatingDatabase = true;
+        try
+        {
+            var result = await ddlService.CreateDatabaseAsync(connection.Name, databaseName);
+            if (!result.IsSuccess)
+            {
+                QueryEditor.StatusMessage = $"新建数据库失败：{result.ErrorMessage}";
+                return false;
+            }
+            bool wasActive = connectionNode.IsConnectionActive;
+            try
+            {
+                // 仅刷新元数据，不通过重连回滚现有查询事务。
+                await ObjectsExplorer.LoadAsync(connection.Name);
+                _queryService.NotifyConnected(connection.Name);
+                connectionNode.IsExpanded = true;
+                if (SelectedConnectionNode == connectionNode) IsConnected = connectionNode.IsConnectionActive;
+                foreach (var tab in QueryTabs.Where(t => string.Equals(t.ConnectionName, connection.Name, StringComparison.OrdinalIgnoreCase)))
+                    RefreshQueryDatabases(tab);
+                QueryEditor.StatusMessage = $"已创建数据库：{databaseName}。";
+            }
+            catch (Exception ex)
+            {
+                connectionNode.IsConnectionActive = wasActive;
+                QueryEditor.StatusMessage = $"数据库 {databaseName} 已创建，但刷新对象树失败：{ex.Message}。请刷新连接。";
+            }
+            return true;
+        }
+        finally { _isCreatingDatabase = false; }
+    }
+
+    /// <summary>删除数据库并清理浏览器/查询上下文；调用前由界面完成名称确认。</summary>
+    public async Task<bool> DeleteDatabaseAsync(DbObjectTreeNode node, IDdlService ddlService)
+    {
+        var parent = node.Parent;
+        if (_isDeletingDatabase || node.NodeType != DbObjectTreeNodeType.Database
+            || parent?.Connection is not { } connection || !parent.Children.Contains(node))
+            return false;
+        var tabs = QueryTabs.Where(t => string.Equals(t.ConnectionName, connection.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (tabs.Any(t => t.IsExecuting || t.IsSavingChanges || t.HasPendingChanges)
+            || _queryService.IsTransactionActive(connection.Name) || QueryEditor.IsTransactionBusy)
+        {
+            QueryEditor.StatusMessage = "请先结束查询、保存或还原数据修改，并提交或回滚当前事务后再删除数据库。";
+            return false;
+        }
+        DdlExecuteResult result;
+        _isDeletingDatabase = true;
+        try
+        {
+            result = await ddlService.DropDatabaseAsync(connection.Name, node.Name);
+        }
+        finally { _isDeletingDatabase = false; }
+        if (!result.IsSuccess)
+        {
+            QueryEditor.StatusMessage = $"删除数据库失败：{result.ErrorMessage}";
+            return false;
+        }
+
+        tabs = QueryTabs.Where(t => string.Equals(t.ConnectionName, connection.Name, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var affectedTabs = tabs.Where(t => string.Equals(
+            string.IsNullOrEmpty(t.DatabaseName) ? connection.Database : t.DatabaseName, node.Name, StringComparison.Ordinal)).ToArray();
+        var maintenance = DefaultDdlService.GetMaintenanceDatabase(connection.DatabaseType);
+        bool wasDefault = string.Equals(connection.Database, node.Name, StringComparison.Ordinal);
+        // 已保存配置不在此处重写；对象浏览器本次会话的默认查询目标改用维护库。
+        if (wasDefault) connection.Database = maintenance;
+        parent.Children.Remove(node);
+        if (SelectedConnection == connection && CurrentDatabase == node.Name)
+        {
+            CurrentDatabase = maintenance;
+            CurrentSchema = string.Empty;
+            SchemaSelectorVisible = false;
+        }
+        foreach (var tab in affectedTabs)
+        {
+            // 保留 SQL/结果，但解除执行绑定，避免把原 SQL 自动改投到维护库。
+            tab.ConnectionName = string.Empty;
+            tab.DatabaseName = string.Empty;
+            tab.StatusMessage = $"数据库 '{node.Name}' 已删除，请重新选择连接和数据库。";
+        }
+        foreach (var tab in tabs) RefreshQueryDatabases(tab);
+        QueryEditor.StatusMessage = $"已删除数据库：{node.Name}。"
+            + (wasDefault ? "当前会话已切换至维护库；请编辑已保存连接的默认数据库。" : string.Empty);
+        return true;
+    }
+
     /// <summary>刷新指定节点（重新懒加载其子节点）。</summary>
     public async Task RefreshNodeAsync(DbObjectTreeNode node)
     {
@@ -715,6 +806,8 @@ public partial class MainWindowViewModel : ViewModelBase
         if (string.IsNullOrEmpty(connectionName))
             return;
 
+        ObjectsExplorer.ClearPrefetchCache(connectionName);
+        node.IsLoaded = false;
         if (node.NodeType == DbObjectTreeNodeType.Folder)
         {
             await ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);

@@ -363,6 +363,16 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
         return DatabaseType.Unknown;
     }
 
+    /// <summary>取得节点对应的独立连接快照，文件路径和 Oracle/DM 的连接服务名保持原值。</summary>
+    public ConnectionItem? GetConnectionSnapshot()
+    {
+        var connection = FindConnectionNode()?.Connection?.Clone();
+        if (connection is not null && NodeType == DbObjectTreeNodeType.Database
+            && GetDatabaseType() is DatabaseType.Postgres or DatabaseType.MySql or DatabaseType.SqlServer or DatabaseType.KingbaseES)
+            connection.Database = Name;
+        return connection;
+    }
+
     /// <summary>
     /// 按数据库方言给标识符加引号。
     /// 未知方言或包含特殊字符时保守处理：仅当标识符不是纯字母数字下划线时才添加引号。

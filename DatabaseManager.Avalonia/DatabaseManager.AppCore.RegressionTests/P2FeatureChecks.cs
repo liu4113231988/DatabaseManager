@@ -145,6 +145,8 @@ internal static class P2FeatureChecks
         public IReadOnlyList<ConnectionItem> GetConnections() => Items;
         public IReadOnlyList<ConnectionItem> GetConnections(string type) => Items;
         public ConnectionItem? GetConnectionById(string id) => Items.FirstOrDefault(c => c.Id == id);
+        public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());
+        public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(GetConnectionById(id));
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem item, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<string?> SaveAsync(ConnectionItem item, CancellationToken ct = default) { if (Items.Count >= FailAfter) throw new InvalidOperationException("Simulated persistence failure."); item.Id = Guid.NewGuid().ToString(); Items.Add(item); if (FailAfterWriting) throw new InvalidOperationException("Simulated sidecar failure."); return Task.FromResult<string?>(item.Id); }
         public Task<bool> DeleteAsync(IEnumerable<string> ids, CancellationToken ct = default) { Items.RemoveAll(c => ids.Contains(c.Id)); return Task.FromResult(true); }

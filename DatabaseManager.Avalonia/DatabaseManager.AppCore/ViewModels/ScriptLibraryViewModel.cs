@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Services;
+using DatabaseManager.AppCore.Templating;
 
 namespace DatabaseManager.AppCore.ViewModels;
 
@@ -46,13 +47,16 @@ public partial class ScriptLibraryViewModel : ViewModelBase
     /// <summary>由窗口注入：把 SQL 插入到当前编辑器。</summary>
     public Action<string>? InsertToEditorRequested { get; set; }
 
-    public ScriptLibraryViewModel(IScriptLibraryService libraryService)
+    public ScriptLibraryViewModel(IScriptLibraryService libraryService, ITemplateStore? templateStore = null)
     {
         _libraryService = libraryService;
 
-        foreach (var snippet in SqlSnippets.BuiltIn)
+        foreach (var template in (templateStore ?? new DefaultTemplateStore()).GetAll("sql-snippet"))
         {
-            BuiltInScripts.Add(snippet);
+            BuiltInScripts.Add(new ScriptLibraryItem
+            {
+                Id = template.Id, Name = template.Name, Category = "内置片段", SqlText = template.Content,
+            });
         }
     }
 
@@ -173,7 +177,7 @@ public partial class ScriptLibraryViewModel : ViewModelBase
         if (EditingSqlText.Length > 0 && InsertToEditorRequested is not null)
         {
             // 记录最近使用时间与来源脚本，便于"最近使用"排序。
-            if (SelectedScript is not null)
+            if (SelectedScript is not null && !IsBuiltInSelected)
             {
                 SelectedScript.LastUsedAt = DateTime.Now;
                 _libraryService.Save(SelectedScript);

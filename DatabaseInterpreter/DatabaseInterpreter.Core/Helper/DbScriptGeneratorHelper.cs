@@ -1,4 +1,5 @@
-﻿using DatabaseInterpreter.Model;
+﻿using System;
+using DatabaseInterpreter.Model;
 
 namespace DatabaseInterpreter.Core
 {
@@ -6,32 +7,15 @@ namespace DatabaseInterpreter.Core
     {
         public static DbScriptGenerator GetDbScriptGenerator(DbInterpreter dbInterpreter)
         {
-            DbScriptGenerator dbScriptGenerator = null;
-
-            switch(dbInterpreter.DatabaseType)
+            return dbInterpreter.DatabaseType switch
             {
-                case DatabaseType.SqlServer:
-                    dbScriptGenerator = new SqlServerScriptGenerator(dbInterpreter);
-                    break;
-                case DatabaseType.MySql:
-                    dbScriptGenerator = new MySqlScriptGenerator(dbInterpreter);
-                    break;
-                case DatabaseType.Oracle:
-                case DatabaseType.DM:
-                    dbScriptGenerator = new OracleScriptGenerator(dbInterpreter);
-                    break;
-                case DatabaseType.Postgres:
-                case DatabaseType.KingbaseES:
-                case DatabaseType.DuckDB:
-                    dbScriptGenerator = new PostgresScriptGenerator(dbInterpreter);
-                    break;
-                case DatabaseType.Sqlite:
-                    dbScriptGenerator = new SqliteScriptGenerator(dbInterpreter);
-                    break;
-
-            }
-
-            return dbScriptGenerator;
+                DatabaseType.SqlServer => new SqlServerScriptGenerator(dbInterpreter),
+                DatabaseType.MySql => new MySqlScriptGenerator(dbInterpreter),
+                DatabaseType.Oracle or DatabaseType.DM => new OracleScriptGenerator(dbInterpreter),
+                DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.DuckDB => new PostgresScriptGenerator(dbInterpreter),
+                DatabaseType.Sqlite => new SqliteScriptGenerator(dbInterpreter),
+                _ => throw new NotSupportedException($"Script generation for database type '{dbInterpreter.DatabaseType}' is not supported.")
+            };
         }
     }
 }

@@ -91,6 +91,8 @@ internal static class QueryExecutionChecks
         }
         public IReadOnlyList<ConnectionItem> GetConnections(string databaseType) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => connections.FirstOrDefault(c => c.Id == id);
+        public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());
+        public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(GetConnectionById(id));
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<string?> SaveAsync(ConnectionItem item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default) => throw new NotSupportedException();

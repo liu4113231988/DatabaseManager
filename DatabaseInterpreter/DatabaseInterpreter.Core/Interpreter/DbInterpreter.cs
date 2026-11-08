@@ -237,7 +237,7 @@ namespace DatabaseInterpreter.Core
 
                     if (this.Option.ThrowExceptionWhenErrorOccurs)
                     {
-                        throw ex;
+                        throw;
                     }
                 }
             }
@@ -424,7 +424,7 @@ namespace DatabaseInterpreter.Core
 
                     if (this.Option.ThrowExceptionWhenErrorOccurs)
                     {
-                        throw ex;
+                        throw;
                     }
                 }
             }

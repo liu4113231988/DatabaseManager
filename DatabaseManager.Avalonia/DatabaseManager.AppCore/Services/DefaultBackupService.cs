@@ -13,6 +13,12 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class DefaultBackupService : IBackupService
 {
+    public static bool SupportsBackup(string databaseType) => ConnectionHelper.ParseDatabaseType(databaseType)
+        is DatabaseType.SqlServer or DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.Oracle;
+
+    public static bool SupportsRestore(string databaseType) => SupportsBackup(databaseType)
+        || ConnectionHelper.ParseDatabaseType(databaseType) == DatabaseType.Sqlite;
+
     public Task<BackupResultItem> BackupAsync(
         ConnectionItem connection,
         string saveFolder,

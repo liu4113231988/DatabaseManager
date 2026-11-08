@@ -67,6 +67,13 @@ internal static class SqlCompletionChecks
         Resolve("SELECT u.| FROM (SELECT id FROM public.orders) u", null);
         Resolve("WITH users AS (SELECT id FROM public.orders) SELECT u.| FROM users u", null);
 
+        Resolve("WITH recent AS (SELECT id FROM public.orders) SELECT u.| FROM recent r JOIN public.users u ON true", users);
+        Resolve("WITH users AS (SELECT id FROM public.orders) SELECT u.| FROM public.users u", users);
+        Resolve("WITH recent(id) AS (SELECT id FROM public.orders), users AS (SELECT id FROM recent) SELECT u.| FROM users u", null);
+        Resolve("WITH RECURSIVE recent AS (SELECT id FROM public.orders) SELECT o.| FROM public.orders o", orders);
+        Resolve("SELECT (WITH users AS (SELECT id FROM public.orders) SELECT id FROM users), u.| FROM public.users u", users);
+        Resolve("WITH recent AS (SELECT u.| FROM public.users u) SELECT * FROM recent", users);
+
         foreach (string text in new[] { "SELECT 'FROM fake f|", "SELECT 'it''s a literal|", "-- SELECT u.|",
                      "SELECT /* outer /* inner */ u.|", "SELECT $tag$ FROM users u; u.|$tag$", "SELECT @va|" })
             Check(Parse(text) is null, "Comments, strings and parameters must not trigger completion: " + text);

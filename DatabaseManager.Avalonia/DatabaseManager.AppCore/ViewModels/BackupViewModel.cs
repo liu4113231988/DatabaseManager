@@ -18,6 +18,7 @@ public partial class BackupViewModel : ToolViewModelBase
     private readonly IBackupService _backupService;
     private readonly ITaskCenterService _taskCenter;
     private TaskRun? _currentRun;
+    private ConnectionItem? _targetConnection;
 
     /// <summary>全部已保存连接。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
@@ -49,11 +50,31 @@ public partial class BackupViewModel : ToolViewModelBase
         BackupCommand.NotifyCanExecuteChanged();
         RestoreCommand.NotifyCanExecuteChanged();
         CancelBackupCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanBackup));
+        OnPropertyChanged(nameof(CanRestore));
+    }
+
+    partial void OnSelectedConnectionChanged(ConnectionItem? value) => OnBusyChanged();
+
+    public bool CanBackup => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsBackup(c.DatabaseType);
+    public bool CanRestore => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsRestore(c.DatabaseType);
+
+    public void SetTargetConnection(ConnectionItem connection)
+    {
+        _targetConnection = connection.Clone();
+        RefreshConnections();
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
     public void RefreshConnections()
     {
+        if (_targetConnection is not null)
+        {
+            Connections.Clear();
+            Connections.Add(_targetConnection.Clone());
+            SelectedConnection = Connections[0];
+            return;
+        }
         var previousId = SelectedConnection?.Id;
 
         Connections.Clear();
@@ -65,7 +86,7 @@ public partial class BackupViewModel : ToolViewModelBase
         SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
     }
 
-    [RelayCommand(CanExecute = nameof(CanRunBackup))]
+    [RelayCommand(CanExecute = nameof(CanBackup))]
     private async Task BackupAsync()
     {
         if (SelectedConnection is null)
@@ -136,9 +157,7 @@ public partial class BackupViewModel : ToolViewModelBase
         });
     }
 
-    private bool CanRunBackup() => !IsBusy;
-
-    [RelayCommand(CanExecute = nameof(CanRunBackup))]
+    [RelayCommand(CanExecute = nameof(CanRestore))]
     private async Task RestoreAsync()
     {
         if (SelectedConnection is null)

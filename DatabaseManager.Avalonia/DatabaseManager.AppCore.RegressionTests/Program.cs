@@ -124,11 +124,15 @@ static class Program
             && File.Exists(Path.Combine(PathHelper.GetAssemblyFolder(), "Config", "FunctionMapping.xml")),
             "Shared configuration must resolve from an absolute assembly path on every platform.");
         SqlCompletionChecks.Run();
+        TemplateManagerChecks.Run();
+        ObjectPrefetchChecks.RunAsync().GetAwaiter().GetResult();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();
         ExcelMigrationChecks.Run();
         WordExportChecks.Run();
         QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();
+        DatabaseDeletionChecks.RunAsync().GetAwaiter().GetResult();
+        DatabaseManagementChecks.RunAsync().GetAwaiter().GetResult();
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         SqliteEncryptionChecks.RunAsync().GetAwaiter().GetResult();
