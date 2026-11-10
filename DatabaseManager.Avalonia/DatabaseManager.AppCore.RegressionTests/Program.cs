@@ -128,6 +128,7 @@ static class Program
         ObjectPrefetchChecks.RunAsync().GetAwaiter().GetResult();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();
+        GeometryConversionChecks.Run();
         ExcelMigrationChecks.Run();
         WordExportChecks.Run();
         QueryConnectionContextChecks.RunAsync().GetAwaiter().GetResult();

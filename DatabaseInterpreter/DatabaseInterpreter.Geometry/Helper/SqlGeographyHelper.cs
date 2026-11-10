@@ -388,7 +388,7 @@ namespace DatabaseInterpreter.Geometry
 
                 if (geom == null)
                 {
-                    continue;
+                    throw new NotSupportedException("集合包含不支持的空间类型，无法完整转换为 Oracle SDO_GEOMETRY。");
                 }
 
                 geom.ElemInfo[0] = count + 1;

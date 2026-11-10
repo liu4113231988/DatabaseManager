@@ -25,6 +25,8 @@ static class StartupProbe
             var desktop = (IClassicDesktopStyleApplicationLifetime)app.ApplicationLifetime!;
             if (desktop.MainWindow is not MainWindow { DataContext: MainWindowViewModel vm })
                 throw new InvalidOperationException("主窗口未能完成初始化。");
+            if (!desktop.MainWindow.IsVisible || !listener.Marks.ContainsKey("opened-end"))
+                throw new InvalidOperationException("异步初始化后必须显示并打开主窗口。");
 
             listener.WriteLine("startup|ui-idle");
             var savedTabs = app.Services!.GetRequiredService<IAppSettingsService>().Settings.Workspace.Tabs
