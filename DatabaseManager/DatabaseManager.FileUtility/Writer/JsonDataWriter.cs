@@ -17,7 +17,7 @@ namespace DatabaseManager.FileUtility
             this.option = option ?? new ExportDataOption();
         }
 
-        public string Write(DataTable dataTable, string tableName = null)
+        public string Write(DataTable dataTable, string? tableName = null)
         {
             string filePath = this.option.FilePath;
 

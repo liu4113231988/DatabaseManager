@@ -24,11 +24,11 @@ namespace DatabaseManager.FileUtility
             _option = option ?? new ExportDataOption();
         }
 
-        public string Write(DataTable dataTable, string tableName = null)
+        public string Write(DataTable dataTable, string? tableName = null)
             => WriteFile(dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToArray(),
                 dataTable.Rows.Count, index => dataTable.Rows[index].ItemArray, tableName);
 
-        public string Write(GridData gridData, string tableName = null)
+        public string? Write(GridData gridData, string? tableName = null)
         {
             if (gridData.Rows is null) return null;
             bool annotated = gridData.Rows.Any(row => row.Cells?.Any(cell => cell.Comment is not null
@@ -38,8 +38,8 @@ namespace DatabaseManager.FileUtility
                 tableName, annotated ? path => ApplyAnnotations(path, gridData) : null);
         }
 
-        private string WriteFile(string[] names, int rowCount, Func<int, object[]> readRow, string tableName,
-            Action<string> annotate = null)
+        private string WriteFile(string[] names, int rowCount, Func<int, object?[]> readRow, string? tableName,
+            Action<string>? annotate = null)
         {
             if (names.Length == 0 || names.Length > 16384)
                 throw new ArgumentException("Excel 导出需要 1 到 16384 列。");
@@ -53,7 +53,7 @@ namespace DatabaseManager.FileUtility
             if (!string.Equals(Path.GetExtension(path), ".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new NotSupportedException("Excel 导出仅支持 .xlsx 文件。");
 
-            string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path)), $".{Guid.NewGuid():N}.xlsx");
+            string temporary = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, $".{Guid.NewGuid():N}.xlsx");
             try
             {
                 var columns = names.Select((name, index) => new DynamicExcelColumn("C" + index)
@@ -87,16 +87,16 @@ namespace DatabaseManager.FileUtility
             }
             finally { if (File.Exists(temporary)) File.Delete(temporary); }
 
-            IEnumerable<IDictionary<string, object>> ReadRows(int start, int count)
+            IEnumerable<IDictionary<string, object?>> ReadRows(int start, int count)
             {
                 for (int row = start; row < start + count; row++)
                 {
                     var values = readRow(row);
                     if (values.Length > names.Length) throw new InvalidDataException("数据行的列数超过导出列数。");
-                    var output = new Dictionary<string, object>();
+                    var output = new Dictionary<string, object?>();
                     for (int column = 0; column < names.Length; column++)
                     {
-                        object value = column < values.Length ? values[column] : null;
+                        object? value = column < values.Length ? values[column] : null;
                         output.Add("C" + column, value switch
                         {
                             null or DBNull => null,
@@ -104,7 +104,7 @@ namespace DatabaseManager.FileUtility
                             long number when number > 999999999999999L || number < -999999999999999L
                                 => number.ToString(System.Globalization.CultureInfo.InvariantCulture),
                             int or long or float or double or decimal => value,
-                            _ => value.ToString(),
+                            _ => value!.ToString(),
                         });
                     }
                     yield return output;
@@ -134,11 +134,11 @@ namespace DatabaseManager.FileUtility
             formats.Append(new S.CellFormat { FontId = boldFont, FillId = 0U, BorderId = 0U, ApplyFont = true });
             formats.Count = (uint)formats.ChildElements.Count;
 
-            var sheets = book.Workbook.Sheets!.Elements<S.Sheet>().ToArray();
+            var sheets = book.Workbook!.Sheets!.Elements<S.Sheet>().ToArray();
             for (int sheetIndex = 0; sheetIndex < sheets.Length; sheetIndex++)
             {
                 var part = (WorksheetPart)book.GetPartById(sheets[sheetIndex].Id!);
-                var sheetData = part.Worksheet.GetFirstChild<S.SheetData>()!;
+                var sheetData = part.Worksheet!.GetFirstChild<S.SheetData>()!;
                 var rows = sheetData.Elements<S.Row>().ToDictionary(row => row.RowIndex!.Value);
                 var comments = new S.CommentList();
                 var anchors = new List<(int Row, int Column)>();

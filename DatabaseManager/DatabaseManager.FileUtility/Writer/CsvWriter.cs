@@ -21,7 +21,7 @@ namespace DatabaseManager.FileUtility
             this.option = option;
         }
 
-        public string Write(DataTable dataTable, string tableName = null)
+        public string Write(DataTable dataTable, string? tableName = null)
         {
             string filePath = this.option.FilePath;
 

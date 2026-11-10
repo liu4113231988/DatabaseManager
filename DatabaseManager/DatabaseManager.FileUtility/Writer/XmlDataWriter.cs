@@ -18,7 +18,7 @@ namespace DatabaseManager.FileUtility
             this.option = option ?? new ExportDataOption();
         }
 
-        public string Write(DataTable dataTable, string tableName = null)
+        public string Write(DataTable dataTable, string? tableName = null)
         {
             string filePath = this.option.FilePath;
 
@@ -46,7 +46,7 @@ namespace DatabaseManager.FileUtility
 
                     if (value == null || value == DBNull.Value)
                     {
-                        record.Add(new XElement(SanitizeName(column.ColumnName), null));
+                        record.Add(new XElement(SanitizeName(column.ColumnName)));
                     }
                     else if (value is byte[] bytes)
                     {
