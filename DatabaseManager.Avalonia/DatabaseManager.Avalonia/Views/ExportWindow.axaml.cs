@@ -80,16 +80,26 @@ public partial class ExportWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void ComboTable_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
+    }
 
     private void ComboFormat_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedFormat = ComboFormat.SelectedItem as string ?? "Excel";
+    {
+        if (_vm is null) return;
+        _vm.SelectedFormat = ComboFormat.SelectedItem as string ?? "Excel";
+    }
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var extension = _vm.SelectedFormat?.Trim().ToUpperInvariant() switch
         {
             "CSV" => "csv",

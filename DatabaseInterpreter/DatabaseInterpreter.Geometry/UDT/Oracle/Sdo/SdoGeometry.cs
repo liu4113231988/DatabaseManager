@@ -41,9 +41,24 @@ namespace DatabaseInterpreter.Geometry
         {
             this.Type = this.GetValue<int>((int)OracleSdoGeometryColumns.SDO_GTYPE);
             this.Srid = this.GetValue<int>((int)OracleSdoGeometryColumns.SDO_SRID);
-            this.Point = this.GetValue<SdoPoint>((int)OracleSdoGeometryColumns.SDO_POINT);
-            this.ElemInfo = this.GetValue<decimal[]>((int)OracleSdoGeometryColumns.SDO_ELEM_INFO);
-            this.Ordinates = this.GetValue<decimal[]>((int)OracleSdoGeometryColumns.SDO_ORDINATES);
+
+            var point = this.GetValue<SdoPoint>((int)OracleSdoGeometryColumns.SDO_POINT);
+            if (point != null)
+            {
+                this.Point = point;
+            }
+
+            var elemInfo = this.GetValue<decimal[]>((int)OracleSdoGeometryColumns.SDO_ELEM_INFO);
+            if (elemInfo != null)
+            {
+                this.ElemInfo = elemInfo;
+            }
+
+            var ordinates = this.GetValue<decimal[]>((int)OracleSdoGeometryColumns.SDO_ORDINATES);
+            if (ordinates != null)
+            {
+                this.Ordinates = ordinates;
+            }
 
             this.SetElemInfoItems();
         }

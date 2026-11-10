@@ -11,8 +11,8 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class FullDataSearchWindow : Window
 {
-    private readonly IFullDataSearchService _searchService;
-    private readonly IDbConnectionService _connectionService;
+    private readonly IFullDataSearchService _searchService = null!;
+    private readonly IDbConnectionService _connectionService = null!;
 
     /// <summary>打开 SQL 到新查询标签的回调（connectionName, databaseName, sql）。</summary>
     private readonly Action<string, string?, string>? _openSqlCallback;

@@ -32,7 +32,7 @@ namespace DatabaseInterpreter.Geometry
         #endregion
 
         #region SqlServer
-        public static SqlGeography ToSqlGeography(PgGeom.Geometry geometry)
+        public static SqlGeography? ToSqlGeography(PgGeom.Geometry geometry)
         {
             string geometryType = geometry.GeometryType;
 
@@ -77,7 +77,7 @@ namespace DatabaseInterpreter.Geometry
             return null;
         }
 
-        public static SqlGeometry ToSqlGeometry(PgGeom.Geometry geometry)
+        public static SqlGeometry? ToSqlGeometry(PgGeom.Geometry geometry)
         {
             string geometryType = geometry.GeometryType;
 
@@ -124,25 +124,40 @@ namespace DatabaseInterpreter.Geometry
         #endregion
 
         #region MySql
-        public static MySqlGeometry ToMySqlGeometry(PgGeom.Geometry geometry)
+        public static MySqlGeometry? ToMySqlGeometry(PgGeom.Geometry geometry)
         {
-            SqlGeometry sqlGeometry = ToSqlGeometry(geometry);
+            SqlGeometry? sqlGeometry = ToSqlGeometry(geometry);
+
+            if (sqlGeometry == null)
+            {
+                return null;
+            }
 
             return SqlGeometryHelper.ToMySqlGeometry(sqlGeometry);
         }
         #endregion
 
         #region Oracle
-        public static SdoGeometry ToOracleSdoGeometry(PgGeom.Geometry geometry)
+        public static SdoGeometry? ToOracleSdoGeometry(PgGeom.Geometry geometry)
         {
-            SqlGeometry sqlGeometry = ToSqlGeometry(geometry);
+            SqlGeometry? sqlGeometry = ToSqlGeometry(geometry);
+
+            if (sqlGeometry == null)
+            {
+                return null;
+            }
 
             return SqlGeometryHelper.ToOracleSdoGeometry(sqlGeometry);
         }
 
-        public static StGeometry ToOracleStGeometry(PgGeom.Geometry geometry)
+        public static StGeometry? ToOracleStGeometry(PgGeom.Geometry geometry)
         {
-            SqlGeometry sqlGeometry = ToSqlGeometry(geometry);
+            SqlGeometry? sqlGeometry = ToSqlGeometry(geometry);
+
+            if (sqlGeometry == null)
+            {
+                return null;
+            }
 
             return SqlGeometryHelper.ToOracleStGeometry(sqlGeometry);
         }

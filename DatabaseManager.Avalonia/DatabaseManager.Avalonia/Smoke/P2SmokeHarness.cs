@@ -78,7 +78,7 @@ public static class P2SmokeHarness
         finally { await query.CloseConnectionAsync(item.Name); Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools(); }
         async Task Capture(Window window, string name)
         {
-            await Task.Delay(150); using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96, 96)); bitmap.Render(window); bitmap.Save(Path.Combine(output, name + ".png"));
+            await Task.Delay(150); using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96, 96)); bitmap.Render(window); bitmap.Save(Path.Combine(output, name + ".png"), new PngBitmapEncoderOptions());
         }
     }
     private sealed class FixtureConnections(ConnectionItem item) : IDbConnectionService

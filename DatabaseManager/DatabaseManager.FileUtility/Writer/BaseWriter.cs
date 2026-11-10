@@ -5,7 +5,7 @@ namespace DatabaseManager.FileUtility
 {
     public class BaseWriter
     {
-        public readonly string AssemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        public readonly string? AssemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
         public readonly string DefaultSaveFolder = "export";
         public readonly string TemporaryFolder = "temp";
 

@@ -14,8 +14,8 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class UserManagementWindow : Window
 {
-    private readonly IDbUserService _userService;
-    private readonly IDbConnectionService _connectionService;
+    private readonly IDbUserService _userService = null!;
+    private readonly IDbConnectionService _connectionService = null!;
 
     private enum FormMode { None, CreateUser, Grant }
 

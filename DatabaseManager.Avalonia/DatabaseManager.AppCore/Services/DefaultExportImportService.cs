@@ -95,7 +95,7 @@ public class DefaultExportImportService : IExportImportService
                 FilePath = filePath,
                 ExportAllThatMeetCondition = true,
                 PageSize = 1000,
-                EncodingName = encodingName,
+                EncodingName = encodingName ?? string.Empty,
                 StartPageNumber = Math.Max(1, startPageNumber),
             };
 
@@ -181,7 +181,7 @@ public class DefaultExportImportService : IExportImportService
             {
                 FilePath = filePath,
                 FirstRowIsColumnName = firstRowIsColumnName,
-                EncodingName = encodingName,
+                EncodingName = encodingName ?? string.Empty,
             };
 
             // 将 UI 友好的列映射转换为核心库模型。
@@ -265,7 +265,7 @@ public class DefaultExportImportService : IExportImportService
             {
                 FilePath = filePath,
                 FirstRowIsColumnName = firstRowIsColumnName,
-                EncodingName = encodingName,
+                EncodingName = encodingName ?? string.Empty,
             };
 
             BaseReader reader = extension switch

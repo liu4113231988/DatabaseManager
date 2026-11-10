@@ -93,13 +93,20 @@ public partial class ImportWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void ComboTable_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedTable = ComboTable.SelectedItem as ExportTableItem;
+    }
 
     private void UseColumnMapping_CheckedChanged(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         if (_vm.UseColumnMapping)
         {
             _vm.RefreshColumnMappings();
@@ -112,6 +119,7 @@ public partial class ImportWindow : Window
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var files = await StorageProvider.OpenFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerOpenOptions
         {
             Title = "选择要导入的数据文件",
@@ -134,6 +142,7 @@ public partial class ImportWindow : Window
 
     private void BtnRemoveMapping_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         if (MappingGrid.SelectedItem is ColumnMappingItem item)
         {
             _vm.RemoveColumnMappingCommand.Execute(item);

@@ -9,8 +9,8 @@ namespace DatabaseManager.FileUtility.Model
 
     public class DocumentPart
     {
-        public string Title { get; set; }
-        public string Comment { get; set; }
-        public GridData Data { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Comment { get; set; }
+        public GridData Data { get; set; } = new GridData();
     }
 }

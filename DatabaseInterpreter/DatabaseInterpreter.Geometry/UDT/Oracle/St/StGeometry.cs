@@ -17,7 +17,11 @@ namespace DatabaseInterpreter.Geometry
 
         public override void MapToCustomObject()
         {
-            this.Geom = this.GetValue<SdoGeometry>(0);
+            var geom = this.GetValue<SdoGeometry>(0);
+            if (geom != null)
+            {
+                this.Geom = geom;
+            }
         }
 
         public override string ToString()

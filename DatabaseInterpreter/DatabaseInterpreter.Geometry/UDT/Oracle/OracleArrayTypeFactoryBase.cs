@@ -10,7 +10,7 @@ namespace DatabaseInterpreter.Geometry
             return new T[numElems];
         }
 
-        public Array CreateStatusArray(int numElems)
+        public Array? CreateStatusArray(int numElems)
         {
             return null;
         }

@@ -185,9 +185,6 @@ public partial class ConvertViewModel : ToolViewModelBase
         }
     }
 
-    /// <summary>预览后编辑过的目标 Schema（从 PreviewTables 重建），供执行转换时直接使用。</summary>
-    private SchemaInfo? _editedTargetSchema;
-
     /// <summary>防止重复预览的守卫（已成功执行过预览，即使 0 表也不再重复触发）。</summary>
     private bool _previewCompleted;
 
@@ -209,7 +206,6 @@ public partial class ConvertViewModel : ToolViewModelBase
 
         IsPreviewing = true;
         StatusMessage = string.Empty;
-        _editedTargetSchema = null;
         _previewCompleted = false;
 
         var feedbackBuffer = new List<string>();

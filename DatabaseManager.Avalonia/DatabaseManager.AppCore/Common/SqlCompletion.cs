@@ -233,7 +233,7 @@ public static class SqlCompletion
         var connection = Connection(roots, connectionName);
         if (connection is null) return Enumerable.Empty<DbObjectTreeNode>();
         string? database = string.IsNullOrWhiteSpace(databaseName) ? connection.Connection?.Database : databaseName;
-        var comparison = connection.Connection?.DatabaseType is "Postgres" or "KingbaseES" ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        var comparison = connection.Connection?.DatabaseType is DatabaseTypeNames.Postgres or DatabaseTypeNames.KingbaseES ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
         return Descendants(connection).Where(n => n.NodeType == DbObjectTreeNodeType.DbObject && !n.IsPlaceholder
             && (string.IsNullOrWhiteSpace(database) || string.Equals(n.DatabaseName, database, comparison)));
     }

@@ -263,7 +263,6 @@ public class ChartRenderControl : Control
             return;
 
         double x = bounds.Right - 10;
-        const double itemHeight = 14;
 
         for (int i = model.Series.Count - 1; i >= 0; i--)
         {

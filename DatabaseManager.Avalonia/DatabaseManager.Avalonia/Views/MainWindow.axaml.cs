@@ -31,16 +31,8 @@ public partial class MainWindow : Window
     private QueryTabViewModel? _currentQueryTab;
     private DispatcherTimer? _scheduleTimer;
     private bool _restoreMaximizedAfterFirstRender;
-
-    // 拖拽源状态（对象树 → SQL 编辑器）
-    private DbObjectTreeNode? _dragStartNode;
-    private Point _dragStartPoint;
-    private bool _isDragging;
-    private PointerPressedEventArgs? _dragPressArgs;
-
-    // 拖拽悬停自动展开状态（500ms 停顿自动展开下一层节点）
-    private DispatcherTimer? _autoExpandTimer;
-    private DbObjectTreeNode? _autoExpandTarget;
+    private readonly ObjectTreeDragDropHelper _objectTreeDragDrop;
+    private WindowLayoutHelper? _layoutHelper;
 
     public MainWindow()
     {
@@ -53,18 +45,8 @@ public partial class MainWindow : Window
         // 有约 36px 的死空隙。这里在容器就绪后用本地值将其收紧（层级缩进来自模板嵌套，不受影响）。
         ObjectsTree.ContainerPrepared += ObjectsTree_ContainerPrepared;
 
-        // 注册对象树拖拽源事件
-        // 注意：Avalonia 12 中 TreeViewItem 在容器内直接处理 PointerPressed 用于选中，
-        // 并标记 e.Handled=true，事件不再冒泡到 TreeView。因此必须用 handledEventsToo:true
-        // 才能收到按下事件，否则拖拽源逻辑完全不会触发。
-        ObjectsTree.AddHandler(PointerPressedEvent, ObjectsTree_PointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
-        ObjectsTree.PointerMoved += ObjectsTree_PointerMoved;
-        ObjectsTree.AddHandler(PointerReleasedEvent, ObjectsTree_PointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
-        ObjectsTree.PointerCaptureLost += ObjectsTree_PointerCaptureLost;
-
-        // 拖拽中悬停自动展开（只在拖拽进行期间触发，不影响普通交互）
-        ObjectsTree.AddHandler(DragDrop.DragOverEvent, ObjectsTree_DragOver);
-        ObjectsTree.AddHandler(DragDrop.DragLeaveEvent, ObjectsTree_DragLeave);
+        // 对象树拖拽源 + 悬停自动展开行为（内部用 handledEventsToo:true 接收被 TreeViewItem 处理的按下事件）。
+        _objectTreeDragDrop = new ObjectTreeDragDropHelper(ObjectsTree);
     }
 
     private void ObjectsTree_ContainerPrepared(object? sender, ContainerPreparedEventArgs e)
@@ -455,40 +437,24 @@ public partial class MainWindow : Window
     /// <summary>恢复窗口布局：大小/位置/最大化状态与左栏宽度（位置钳制到可见屏幕，多显示器安全）。</summary>
     private void RestoreWindowLayout()
     {
-        if (_services?.GetService<IAppSettingsService>() is not { } settings)
+        var settings = _services?.GetService<IAppSettingsService>();
+        _layoutHelper = new WindowLayoutHelper(this, MainContentGrid, settings)
         {
-            return;
-        }
+            MenuPanel = MainMenuPanel,
+            ToolbarPanel = MainToolbarPanel,
+            StatusBarPanel = MainStatusBarPanel,
+            Splitter = MainSplitter,
+            ExplorerPanel = ObjectsExplorerPanel,
+        };
 
-        var ws = settings.Settings.Workspace;
-
-        if (ws.WindowWidth >= 400 && ws.WindowHeight >= 300)
-        {
-            Width = ws.WindowWidth;
-            Height = ws.WindowHeight;
-        }
-
-        if (ws.LeftPanelWidth is > 260 and < 800)
-        {
-            MainContentGrid.ColumnDefinitions[0].Width = new GridLength(ws.LeftPanelWidth);
-        }
-
-        if (ws.WindowX >= 0 && ws.WindowY >= 0)
-        {
-            Position = new PixelPoint((int)ws.WindowX, (int)ws.WindowY);
-            ClampWindowToVisibleScreen();
-        }
-
-        if (string.Equals(ws.WindowState, "Maximized", StringComparison.OrdinalIgnoreCase))
-        {
-            _restoreMaximizedAfterFirstRender = true;
-        }
+        _layoutHelper.Restore();
+        _restoreMaximizedAfterFirstRender = _layoutHelper.ShouldRestoreMaximized();
 
         // 恢复专注模式状态（不再次持久化）。
-        if (DataContext is MainWindowViewModel focusVm)
+        if (settings is not null && DataContext is MainWindowViewModel focusVm)
         {
-            focusVm.FocusMode = ws.FocusMode;
-            ApplyFocusMode(ws.FocusMode);
+            focusVm.FocusMode = settings.Settings.Workspace.FocusMode;
+            _layoutHelper.ApplyFocusMode(settings.Settings.Workspace.FocusMode);
         }
     }
 
@@ -498,116 +464,18 @@ public partial class MainWindow : Window
     /// <summary>切换专注模式：折叠菜单/工具栏/状态栏与对象浏览器，仅保留查询编辑区（F11）。</summary>
     private void ToggleFocusMode()
     {
-        if (DataContext is not MainWindowViewModel vm)
+        if (DataContext is not MainWindowViewModel vm || _layoutHelper is null)
         {
             return;
         }
 
         vm.FocusMode = !vm.FocusMode;
-        ApplyFocusMode(vm.FocusMode);
-        PersistFocusMode(vm.FocusMode);
-    }
-
-    /// <summary>进入专注模式前记录的对象浏览器列宽，用于退出时恢复。</summary>
-    private double _preFocusPanelWidth = 400;
-
-    /// <summary>应用专注模式的显隐与列宽。</summary>
-    private void ApplyFocusMode(bool focus)
-    {
-        var leftColumn = MainContentGrid.ColumnDefinitions[0];
-
-        if (focus)
-        {
-            if (leftColumn.Width.IsAbsolute && leftColumn.Width.Value > 0)
-            {
-                _preFocusPanelWidth = leftColumn.Width.Value;
-            }
-
-            MainMenuPanel.IsVisible = false;
-            MainToolbarPanel.IsVisible = false;
-            MainStatusBarPanel.IsVisible = false;
-            MainSplitter.IsVisible = false;
-            ObjectsExplorerPanel.IsVisible = false;
-            leftColumn.MinWidth = 0;
-            leftColumn.Width = new GridLength(0);
-        }
-        else
-        {
-            MainMenuPanel.IsVisible = true;
-            MainToolbarPanel.IsVisible = true;
-            MainStatusBarPanel.IsVisible = true;
-            MainSplitter.IsVisible = true;
-            ObjectsExplorerPanel.IsVisible = true;
-            leftColumn.MinWidth = 260;
-            leftColumn.Width = new GridLength(_preFocusPanelWidth);
-        }
-    }
-
-    /// <summary>把专注模式状态写入 app-settings.json。</summary>
-    private void PersistFocusMode(bool focus)
-    {
-        if (_services?.GetService<IAppSettingsService>() is not { } settings)
-        {
-            return;
-        }
-
-        settings.Settings.Workspace.FocusMode = focus;
-        settings.Save();
-    }
-
-    /// <summary>把窗口位置钳制到所在屏幕的工作区内。</summary>
-    private void ClampWindowToVisibleScreen()
-    {
-        try
-        {
-            var screen = Screens.ScreenFromPoint(Position) ?? Screens.Primary;
-            if (screen is null)
-            {
-                return;
-            }
-
-            var area = screen.WorkingArea;
-            int w = (int)(Width * RenderScaling);
-            int h = (int)(Height * RenderScaling);
-            int x = Math.Clamp(Position.X, area.X, Math.Max(area.X, area.X + area.Width - w));
-            int y = Math.Clamp(Position.Y, area.Y, Math.Max(area.Y, area.Y + area.Height - h));
-            Position = new PixelPoint(x, y);
-        }
-        catch
-        {
-            // 屏幕信息不可用时跳过钳制。
-        }
+        _layoutHelper.ApplyFocusMode(vm.FocusMode);
+        _layoutHelper.PersistFocusMode(vm.FocusMode);
     }
 
     /// <summary>保存窗口布局与左栏宽度。</summary>
-    private void SaveWindowLayout()
-    {
-        if (_services?.GetService<IAppSettingsService>() is not { } settings)
-        {
-            return;
-        }
-
-        var ws = settings.Settings.Workspace;
-
-        if (WindowState == global::Avalonia.Controls.WindowState.Normal)
-        {
-            ws.WindowX = Position.X;
-            ws.WindowY = Position.Y;
-            ws.WindowWidth = Width;
-            ws.WindowHeight = Height;
-        }
-
-        ws.WindowState = WindowState == global::Avalonia.Controls.WindowState.Maximized ? "Maximized" : "Normal";
-
-        // 专注模式下列宽被置 0，不覆盖已保存的宽度。
-        if (!ws.FocusMode)
-        {
-            var leftColumn = MainContentGrid.ColumnDefinitions[0].Width;
-            ws.LeftPanelWidth = leftColumn.IsAbsolute ? leftColumn.Value : 400;
-        }
-
-        settings.Save();
-    }
+    private void SaveWindowLayout() => _layoutHelper?.Save();
 
     /// <summary>窗口真实关闭后：捕获查询标签会话（SQL 草稿）与窗口布局。</summary>
     protected override void OnClosed(EventArgs e)
@@ -2150,219 +2018,6 @@ public partial class MainWindow : Window
         }
     }
 
-    #region 对象树拖拽源（拖到 SQL 编辑器插入对象名）
-
-    private static readonly Point DragThreshold = new(4, 4);
-
-    private void ObjectsTree_PointerPressed(object? sender, PointerPressedEventArgs e)
-    {
-        // 仅左键按下记录拖拽起点；右键/中键不作拖拽
-        if (!e.GetCurrentPoint(ObjectsTree).Properties.IsLeftButtonPressed)
-            return;
-
-        var point = e.GetPosition(ObjectsTree);
-        var hitNode = FindNodeAtPosition(point);
-        if (hitNode is null || !IsDraggableNode(hitNode))
-            return;
-
-        _dragStartNode = hitNode;
-        _dragStartPoint = point;
-        _dragPressArgs = e;
-        _isDragging = false;
-
-        // 按下时保留节点自己的指针捕获，否则会打断双击展开手势。
-        // 超过移动阈值后由 DoDragDropAsync 接管拖放。
-    }
-
-    private async void ObjectsTree_PointerMoved(object? sender, PointerEventArgs e)
-    {
-        if (_dragStartNode is null || _isDragging || _dragPressArgs is null)
-            return;
-
-        var point = e.GetPosition(ObjectsTree);
-        var delta = _dragStartPoint - point;
-        if (Math.Abs(delta.X) < DragThreshold.X && Math.Abs(delta.Y) < DragThreshold.Y)
-            return;
-
-        // 超过拖拽阈值，启动拖拽（Avalonia 12 使用 DoDragDropAsync + DataTransfer）
-        _isDragging = true;
-
-        // 读取当前修饰键，决定生成什么文本模板
-        var mode = ResolveDragTextMode(e.KeyModifiers);
-        var text = _dragStartNode.GetDragDropSqlText(mode);
-        if (string.IsNullOrEmpty(text))
-        {
-            ResetDragState();
-            return;
-        }
-
-        var data = new DataTransfer();
-        data.Add(DataTransferItem.CreateText(text));
-
-        // 用保存的 PointerPressedEventArgs 调用 DoDragDropAsync
-        e.Handled = true;
-        await DragDrop.DoDragDropAsync(_dragPressArgs, data, DragDropEffects.Copy);
-
-        ResetDragState();
-    }
-
-    /// <summary>把 Avalonia KeyModifiers 映射到 UI 无关的 DragTextMode 枚举。</summary>
-    private static DragTextMode ResolveDragTextMode(KeyModifiers modifiers)
-    {
-        bool ctrl = modifiers.HasFlag(KeyModifiers.Control);
-        bool shift = modifiers.HasFlag(KeyModifiers.Shift);
-        bool alt = modifiers.HasFlag(KeyModifiers.Alt);
-
-        // 优先级：Ctrl 最高（显式要求纯名称），其次 Shift 特殊模板
-        if (ctrl) return DragTextMode.PlainName;
-        if (shift && !alt) return DragTextMode.SelectTemplate; // 表→SELECT 模板；列→自动降级
-        if (alt) return DragTextMode.ColumnAlias;             // 列→column AS alias；其他→默认
-        return DragTextMode.Default;
-    }
-
-    private void ObjectsTree_PointerReleased(object? sender, PointerReleasedEventArgs e)
-    {
-        ResetDragState();
-    }
-
-    private void ObjectsTree_PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        ResetDragState();
-    }
-
-    private void ResetDragState()
-    {
-        _dragStartNode = null;
-        _dragPressArgs = null;
-        _isDragging = false;
-        CancelAutoExpand();
-    }
-
-    /// <summary>停止拖拽悬停自动展开计时器并清空目标。</summary>
-    private void CancelAutoExpand()
-    {
-        _autoExpandTimer?.Stop();
-        _autoExpandTarget = null;
-    }
-
-    /// <summary>判断节点是否可拖拽到 SQL 编辑器。仅 DbObject（表/视图/存储过程/函数）和 ChildObject（列/索引等）可拖。</summary>
-    private static bool IsDraggableNode(DbObjectTreeNode node)
-    {
-        if (node.IsPlaceholder || string.IsNullOrWhiteSpace(node.Name))
-            return false;
-        return node.NodeType == DbObjectTreeNodeType.DbObject
-               || node.NodeType == DbObjectTreeNodeType.ChildObject;
-    }
-
-    /// <summary>从对象树给定坐标向上命中 TreeViewItem 并取其 DataContext 节点。</summary>
-    private DbObjectTreeNode? FindNodeAtPosition(Point point)
-    {
-        var hit = ObjectsTree.InputHitTest(point);
-        if (hit is null) return null;
-
-        // 先尝试直接命中 TreeViewItem
-        if (hit is TreeViewItem directItem && directItem.DataContext is DbObjectTreeNode directNode)
-            return directNode;
-
-        // 通过 Visual 树向上查找
-        var visual = hit as Visual;
-        while (visual is not null)
-        {
-            if (visual is TreeViewItem tvi && tvi.DataContext is DbObjectTreeNode node)
-                return node;
-            visual = visual.GetVisualParent();
-        }
-        return null;
-    }
-
-    #endregion
-
-    #region 对象树拖拽悬停自动展开（500ms 停顿 → 下一层）
-
-    private const int AutoExpandHoverMs = 500;
-
-    /// <summary>
-    /// 拖拽过程中持续触发的悬停事件：
-    /// 命中新的「可展开但未展开」节点时启动 500ms 计时器；
-    /// 命中已展开/不可展开/空白区时取消计时器。
-    /// </summary>
-    private void ObjectsTree_DragOver(object? sender, DragEventArgs e)
-    {
-        // 没有有效的拖拽源（不是从本应用对象树拖出）时忽略
-        if (_dragStartNode is null) return;
-
-        var point = e.GetPosition(ObjectsTree);
-        var target = FindNodeAtPosition(point);
-
-        if (target is null || !CanAutoExpand(target))
-        {
-            CancelAutoExpand();
-            return;
-        }
-
-        // 切换了目标节点 → 重新计时
-        if (_autoExpandTarget != target)
-        {
-            _autoExpandTarget = target;
-            StartAutoExpandTimer(target);
-        }
-    }
-
-    private void ObjectsTree_DragLeave(object? sender, DragEventArgs e)
-    {
-        // 鼠标离开对象树区域 → 取消悬停计时
-        CancelAutoExpand();
-    }
-
-    /// <summary>可被悬停自动展开的节点类型 + 未展开 + 非加载中。</summary>
-    private static bool CanAutoExpand(DbObjectTreeNode node)
-    {
-        // 跳过正在加载的节点，避免与用户手动操作冲突
-        if (node.IsLoading || node.IsPlaceholder) return false;
-
-        // 已经展开或无子节点也没必要
-        if (node.IsExpanded || node.Children.Count == 0) return false;
-
-        // 只对容器类型生效（Connection 特殊：还需判断已建立连接才设 IsExpanded，
-        // 未连接时 ConnectConnectionNodeAsync 会被 ExpandedEvent 自动触发）
-        return node.NodeType is DbObjectTreeNodeType.Connection
-            or DbObjectTreeNodeType.Database
-            or DbObjectTreeNodeType.Schema
-            or DbObjectTreeNodeType.Folder
-            or DbObjectTreeNodeType.DbObject
-            or DbObjectTreeNodeType.ChildFolder;
-    }
-
-    private void StartAutoExpandTimer(DbObjectTreeNode target)
-    {
-        _autoExpandTimer?.Stop();
-
-        var timer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(AutoExpandHoverMs),
-        };
-        timer.Tick += (_, _) =>
-        {
-            timer.Stop();
-
-            // 只有悬停目标仍然存在且有效，才执行展开
-            if (_autoExpandTarget == target && CanAutoExpand(target))
-            {
-                // 模型层设 IsExpanded → TwoWay 绑定推到 TreeViewItem → 自动触发
-                // TreeViewItem.ExpandedEvent → ObjectsTree_Item_Expanded → 懒加载子节点
-                target.IsExpanded = true;
-            }
-
-            _autoExpandTarget = null;
-            _autoExpandTimer = null;
-        };
-
-        _autoExpandTimer = timer;
-        timer.Start();
-    }
-
-    #endregion
-
     #region 多目标控件拖放（搜索框 / 过滤器值 / 过滤器列选择）
 
     // 跟踪已注册过拖放的控件，避免 TabControl SelectionChanged 时重复注册。
@@ -2485,6 +2140,7 @@ public partial class MainWindow : Window
 
         // 使用构建器模式按节点类型分发右键菜单（P2增强：含Compare/Migrate回调）
         var builder = CreateTreeMenuBuilder(vm);
+        if (builder is null) return;
         builder.BuildAndShow(node, e);
     }
 
@@ -2530,6 +2186,7 @@ public partial class MainWindow : Window
             return;
 
         var builder = CreateTreeMenuBuilder(vm);
+        if (builder is null) return;
 
         switch (e.Key)
         {
@@ -2591,9 +2248,10 @@ public partial class MainWindow : Window
     }
 
     /// <summary>创建对象树菜单构建器（右键菜单与键盘快捷键共用同一组动作入口，保证行为一致）。</summary>
-    private ObjectTreeContextMenuBuilder CreateTreeMenuBuilder(MainWindowViewModel vm)
+    private ObjectTreeContextMenuBuilder? CreateTreeMenuBuilder(MainWindowViewModel vm)
     {
         var connectionService = _services?.GetService<IDbConnectionService>();
+        if (connectionService is null) return null;
         var ddlService = _services?.GetService<IDdlService>();
 
         return new ObjectTreeContextMenuBuilder(
@@ -3054,9 +2712,9 @@ public partial class MainWindow : Window
     /// <summary>复制标签标题到剪贴板。</summary>
     private async void CopyTabTitle_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: QueryTabViewModel tab })
+        if (sender is MenuItem { Tag: QueryTabViewModel tab } && Clipboard is { } clipboard)
         {
-            await Clipboard.SetTextAsync(tab.Title);
+            await clipboard.SetTextAsync(tab.Title);
         }
     }
 

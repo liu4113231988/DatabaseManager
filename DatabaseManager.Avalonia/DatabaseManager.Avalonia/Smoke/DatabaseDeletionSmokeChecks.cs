@@ -87,7 +87,7 @@ internal static class DatabaseDeletionSmokeChecks
         {
             using var bitmap = new RenderTargetBitmap(new PixelSize((int)control.Bounds.Width, (int)control.Bounds.Height), new Vector(96, 96));
             bitmap.Render(control);
-            bitmap.Save(Path.Combine(output, name + ".png"));
+            bitmap.Save(Path.Combine(output, name + ".png"), new PngBitmapEncoderOptions());
         }
     }
 }

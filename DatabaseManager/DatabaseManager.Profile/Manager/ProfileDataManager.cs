@@ -84,7 +84,7 @@ namespace DatabaseManager.Profile.Manager
             {
                 LogHelper.LogError(ExceptionHelper.GetExceptionDetails(ex));
 
-                throw ex;
+                throw;
             }
             finally
             {

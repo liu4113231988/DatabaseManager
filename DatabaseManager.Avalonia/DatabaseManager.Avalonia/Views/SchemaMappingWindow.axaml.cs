@@ -25,6 +25,8 @@ public partial class SchemaMappingWindow : Window
 
     private void BtnRemoveMapping_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
+
         // 通过 DataGrid 选中项删除（从可视化树查找绑定了 SchemaMappings 的网格）。
         if (FindMappingGrid() is { SelectedItem: not null } grid &&
             grid.SelectedItem is DatabaseManager.AppCore.ViewModels.SchemaMappingItem item)

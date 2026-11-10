@@ -461,9 +461,9 @@ namespace DatabaseInterpreter.Core
 
                     dbConnection.Close();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                                        
+
                 }
             }
 
@@ -1190,7 +1190,7 @@ namespace DatabaseInterpreter.Core
                 {
                     serverVersion = this.GetDbVersion(connection);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     return false;
                 }

@@ -9,7 +9,7 @@ namespace DatabaseInterpreter.Geometry
     {
         #region SqlServer   
 
-        public static SqlGeography ToSqlGeography(StGeometry geometry)
+        public static SqlGeography? ToSqlGeography(StGeometry geometry)
         {
             return OracleSdoGeometryHelper.ToSqlGeography(geometry.Geom);
         }
@@ -30,12 +30,12 @@ namespace DatabaseInterpreter.Geometry
         #endregion      
 
         #region Postgres
-        public static PgGeom.Geometry ToPostgresGeometry(StGeometry geometry)
+        public static PgGeom.Geometry? ToPostgresGeometry(StGeometry geometry)
         {
             return OracleSdoGeometryHelper.ToPostgresGeometry(geometry.Geom);
         }
 
-        public static PgGeom.Geometry ToPostgresGeography(StGeometry geometry)
+        public static PgGeom.Geometry? ToPostgresGeography(StGeometry geometry)
         {
             return OracleSdoGeometryHelper.ToPostgresGeography(geometry.Geom);
         }

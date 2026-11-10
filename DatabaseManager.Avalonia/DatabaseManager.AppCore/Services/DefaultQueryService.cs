@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Text.RegularExpressions;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -98,7 +99,7 @@ public class DefaultQueryService : IQueryService
         if (_transactions.TryGetValue(connectionName, out var ctx) && ctx is not null)
         {
             var targetDatabase = string.IsNullOrWhiteSpace(databaseName) ? connection.Database : databaseName;
-            if (connection.DatabaseType is "SqlServer" or "MySql" or "Postgres" or "KingbaseES"
+            if (connection.DatabaseType is DatabaseTypeNames.SqlServer or DatabaseTypeNames.MySql or DatabaseTypeNames.Postgres or DatabaseTypeNames.KingbaseES
                 && !string.IsNullOrWhiteSpace(targetDatabase)
                 && !string.Equals(ctx.Connection.Database, targetDatabase, StringComparison.Ordinal))
                 return new QueryResult { ErrorMessage = "当前事务属于其他数据库，请先提交或回滚事务后再执行。" };

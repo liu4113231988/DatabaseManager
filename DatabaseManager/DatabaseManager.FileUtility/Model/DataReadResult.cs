@@ -4,8 +4,8 @@ namespace DatabaseManager.FileUtility.Model
 {
     public class DataReadResult
     {
-        public string[] HeaderColumns { get; set; }
+        public string[]? HeaderColumns { get; set; }
 
-        public Dictionary<int, Dictionary<int, object>> Data { get;  set; }
+        public Dictionary<int, Dictionary<int, object?>> Data { get;  set; } = new Dictionary<int, Dictionary<int, object?>>();
     }
 }

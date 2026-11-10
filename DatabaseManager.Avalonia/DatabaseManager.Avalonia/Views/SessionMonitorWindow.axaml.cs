@@ -15,9 +15,9 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class SessionMonitorWindow : Window
 {
-    private readonly IDbSessionService _sessionService;
-    private readonly IDbConnectionService _connectionService;
-    private readonly DispatcherTimer _autoRefreshTimer;
+    private readonly IDbSessionService _sessionService = null!;
+    private readonly IDbConnectionService _connectionService = null!;
+    private readonly DispatcherTimer _autoRefreshTimer = null!;
 
     public SessionMonitorWindow()
     {

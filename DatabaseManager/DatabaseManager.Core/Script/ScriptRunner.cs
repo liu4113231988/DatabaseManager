@@ -23,7 +23,6 @@ namespace DatabaseManager.Core
     public class ScriptRunner
     {
         private IObserver<FeedbackInfo> observer;
-        private bool isBusy = false;
         private bool hasError = false;
         private ScriptRunOption option;        
 
@@ -51,8 +50,6 @@ namespace DatabaseManager.Core
         public async Task<QueryResult> Run(DatabaseType dbType, ConnectionInfo connectionInfo, string script,
             CancellationToken cancellationToken, ScriptAction action = ScriptAction.NONE, List<RoutineParameter> parameters = null, PaginationInfo paginationInfo = null)
         {
-
-            this.isBusy = false;
 
             QueryResult result = new QueryResult();
 
@@ -88,8 +85,6 @@ namespace DatabaseManager.Core
 
                 using (dbConnection)
                 {
-                    this.isBusy = true;
-
                     if (isSelect)
                     {
                         result.ResultType = QueryResultType.Grid;
@@ -321,7 +316,7 @@ namespace DatabaseManager.Core
                                 }));
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                         }
                     }
@@ -458,8 +453,6 @@ namespace DatabaseManager.Core
 
         private void HandleError(Exception ex)
         {
-            this.isBusy = false;
-
             string errMsg = ExceptionHelper.GetExceptionDetails(ex);
             this.Feedback(this, errMsg, FeedbackInfoType.Error, true, true);
         }
@@ -674,7 +667,7 @@ namespace DatabaseManager.Core
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
 
             }

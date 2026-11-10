@@ -47,6 +47,7 @@ public partial class ConvertWindow : Window
 
     private void Refresh()
     {
+        if (_vm is null) return;
         _vm.RefreshConnections();
         LoadConnections();
         LoadModes();
@@ -70,6 +71,7 @@ public partial class ConvertWindow : Window
 
     private void LoadModes()
     {
+        if (_vm is null) return;
         ComboMode.ItemsSource = _vm.Modes;
         ComboMode.ItemTemplate = new FuncDataTemplate<ConvertModeOption>((item, _) =>
             new TextBlock { Text = item?.DisplayName ?? string.Empty });
@@ -78,17 +80,27 @@ public partial class ConvertWindow : Window
     }
 
     private void ComboSource_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    }
 
     private void ComboTarget_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    }
 
     private void ComboMode_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedMode = ComboMode.SelectedItem as ConvertModeOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedMode = ComboMode.SelectedItem as ConvertModeOption;
+    }
 
     /// <summary>打开 Schema 映射窗口（对应原 frmSchemaMapping）。</summary>
     private async void BtnSchemaMapping_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         if (_vm.SourceConnection is null || _vm.TargetConnection is null)
         {
             _vm.StatusMessage = "请先选择源连接和目标连接。";

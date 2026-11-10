@@ -246,7 +246,7 @@ public partial class TableDesignerWindow : Window
 
         okButton.Click += (_, _) =>
         {
-            result = listBox.SelectedItems.Cast<object>().Select(o => o.ToString() ?? string.Empty).ToArray();
+            result = (listBox.SelectedItems ?? Array.Empty<object>()).Cast<object>().Select(o => o.ToString() ?? string.Empty).ToArray();
             dialog.Close(result);
         };
 

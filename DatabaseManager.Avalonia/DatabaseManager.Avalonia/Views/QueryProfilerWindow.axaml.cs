@@ -10,8 +10,8 @@ namespace DatabaseManager.Avalonia.Views;
 /// </summary>
 public partial class QueryProfilerWindow : Window
 {
-    private readonly IQueryProfilerService _profilerService;
-    private readonly IDbConnectionService _connectionService;
+    private readonly IQueryProfilerService _profilerService = null!;
+    private readonly IDbConnectionService _connectionService = null!;
 
     public QueryProfilerWindow()
     {

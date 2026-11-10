@@ -58,10 +58,14 @@ public partial class ColumnDocumentationWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var file = await StorageProvider.SaveFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerSaveOptions
         {
             Title = "选择文档输出文件",

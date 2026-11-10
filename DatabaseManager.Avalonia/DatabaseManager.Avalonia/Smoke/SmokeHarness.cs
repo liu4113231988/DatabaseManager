@@ -454,7 +454,7 @@ public static class SmokeHarness
                 using var rt = new RenderTargetBitmap(pixelSize, new global::Avalonia.Vector(96, 96));
                 rt.Render(w);
                 using var stream = File.Create(file);
-                rt.Save(stream);
+                rt.Save(stream, new PngBitmapEncoderOptions());
                 AppendLog(_logFile, $"[smoke] {Path.GetFileName(file)} ({width}x{height})");
             }
             catch (Exception ex)

@@ -147,7 +147,7 @@ internal class InputDialog : Window
         Content = panel;
     }
 
-    public new async Task<string?> ShowAsync(Window parent)
+    public async Task<string?> ShowAsync(Window parent)
     {
         Icon = parent.Icon;
         await ShowDialog(parent);

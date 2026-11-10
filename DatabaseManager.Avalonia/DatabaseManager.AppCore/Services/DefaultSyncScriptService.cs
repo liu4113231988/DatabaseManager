@@ -350,7 +350,7 @@ public class DefaultSyncScriptService : ISyncScriptService
                     else
                     {
                         var tableColumn = tableColumns.FirstOrDefault(item => item.Name == column.Name);
-                        strValue = scriptGenerator.ParseValue(tableColumn, value, true)?.ToString();
+                        strValue = scriptGenerator.ParseValue(tableColumn, value, true)?.ToString() ?? string.Empty;
                     }
 
                     updateItems.Add($"{interpreter.GetQuotedString(column.Name)}={strValue}");

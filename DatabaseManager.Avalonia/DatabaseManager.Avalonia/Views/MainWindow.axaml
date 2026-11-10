@@ -79,7 +79,7 @@
                 <Separator />
                 <MenuItem Header="断开全部" Command="{Binding DisconnectAllCommand}" IsEnabled="{Binding CanDisconnectAll}" />
             </MenuItem>
-            <MenuItem Header="数据库">
+            <MenuItem Header="查询">
                 <MenuItem Header="危险 SQL 执行前确认" ToggleType="CheckBox"
                           IsChecked="{Binding SelectedQueryTab.DangerousSqlConfirmationEnabled}" />
                 <MenuItem Header="自动提交" ToggleType="CheckBox"
@@ -88,6 +88,11 @@
                 <MenuItem Header="开始事务" Command="{Binding QueryEditor.BeginTransactionCommand}" />
                 <MenuItem Header="提交" Command="{Binding QueryEditor.CommitTransactionCommand}" />
                 <MenuItem Header="回滚" Command="{Binding QueryEditor.RollbackTransactionCommand}" />
+                <Separator />
+                <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
+                <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
+                <MenuItem Header="SQL 片段模板..." Click="MenuTemplates_Click" />
+                <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
             </MenuItem>
             <MenuItem Header="搜索">
                 <MenuItem Header="元数据搜索..." Click="MenuSearch_Click"
@@ -96,60 +101,51 @@
                 <MenuItem Header="全库数据搜索..." Click="MenuFullDataSearch_Click"
                           ToolTip.Tip="跨表/视图搜索数据内容，结果可生成 SELECT 打开到新查询标签" />
             </MenuItem>
-            <MenuItem Header="视图">
-                <MenuItem Header="刷新" Click="MenuRefresh_Click" />
-                <Separator />
-                <MenuItem Header="专注模式 (F11)" Click="MenuFocusMode_Click" />
-            </MenuItem>
-            <!-- 数据工作台：P2 数据工具集（原"工具"菜单下的子菜单提升为顶级菜单） -->
-            <MenuItem Header="工作台">
-                <MenuItem Header="查询 / 视图构建..." Tag="0" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="测试数据生成..." Tag="1" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="数据质量剖析..." Tag="2" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="数据字典与 PDF 文档..." Tag="3" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="AI SQL 助手..." Tag="4" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="连接配置导入 / 导出..." Tag="5" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="ODBC / Access / DBF 导入..." Tag="6" Click="MenuP2Workbench_Click" />
-                <MenuItem Header="查询结果与导出脱敏..." Tag="7" Click="MenuP2Workbench_Click" />
-            </MenuItem>
-
-            <!-- 工具：任务与运维相关 -->
-            <MenuItem Header="工具">
-                <MenuItem Header="任务中心..." Click="MenuTaskCenter_Click" />
-                <MenuItem Header="任务定时调度..." Click="MenuSchedule_Click" />
-                <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
-                <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
-                <MenuItem Header="SQL 片段模板..." Click="MenuTemplates_Click" />
-                <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
-                <Separator />
-                <MenuItem Header="会话与锁监控..." Click="MenuSessionMonitor_Click" />
-                <MenuItem Header="用户与权限管理..." Click="MenuUserManagement_Click" />
-                <MenuItem Header="查询性能剖析..." Click="MenuQueryProfiler_Click" />
-            </MenuItem>
-
-            <!-- 数据库工具：对比 / 迁移 / 优化 / 依赖 -->
-            <MenuItem Header="数据库工具">
+            <!-- 数据库：结构对比 / 迁移 / 诊断优化与数据维护 -->
+            <MenuItem Header="数据库">
                 <MenuItem Header="数据库转换..." Click="MenuConvert_Click" />
                 <MenuItem Header="结构对比..." Click="MenuSchemaCompare_Click" />
                 <MenuItem Header="数据对比..." Click="MenuDataCompare_Click" />
                 <MenuItem Header="数据库诊断..." Click="MenuDiagnose_Click" />
                 <MenuItem Header="数据库优化..." Click="MenuOptimize_Click" />
                 <MenuItem Header="依赖分析..." Click="MenuDependency_Click" />
-            </MenuItem>
-
-            <!-- 数据维护：统计 / 备份 / 代码生成 / 导入导出 / 可视化 -->
-            <MenuItem Header="数据维护">
+                <Separator />
                 <MenuItem Header="统计..." Click="MenuStatistic_Click" />
                 <MenuItem Header="索引碎片..." Click="MenuIndexFragmentation_Click" />
                 <MenuItem Header="数据库备份..." Click="MenuBackup_Click" />
-                <MenuItem Header="代码生成..." Click="MenuCodeGenerate_Click" />
-                <MenuItem Header="文档生成..." Click="MenuColumnDocumentation_Click" />
                 <Separator />
                 <MenuItem Header="数据导出..." Click="MenuExport_Click" />
                 <MenuItem Header="数据导入..." Click="MenuImport_Click" />
+            </MenuItem>
+            <!-- 工具：任务运维 / 开发辅助 / 数据工作台 -->
+            <MenuItem Header="工具">
+                <MenuItem Header="任务中心..." Click="MenuTaskCenter_Click" />
+                <MenuItem Header="任务定时调度..." Click="MenuSchedule_Click" />
                 <Separator />
+                <MenuItem Header="会话与锁监控..." Click="MenuSessionMonitor_Click" />
+                <MenuItem Header="用户与权限管理..." Click="MenuUserManagement_Click" />
+                <MenuItem Header="查询性能剖析..." Click="MenuQueryProfiler_Click" />
+                <Separator />
+                <MenuItem Header="代码生成..." Click="MenuCodeGenerate_Click" />
+                <MenuItem Header="文档生成..." Click="MenuColumnDocumentation_Click" />
                 <MenuItem Header="仪表盘..." Click="MenuDashboard_Click" />
                 <MenuItem Header="JSON 查看器..." Click="MenuJsonViewer_Click" />
+                <Separator />
+                <MenuItem Header="数据工作台">
+                    <MenuItem Header="查询 / 视图构建..." Tag="0" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="测试数据生成..." Tag="1" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="数据质量剖析..." Tag="2" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="数据字典与 PDF 文档..." Tag="3" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="AI SQL 助手..." Tag="4" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="连接配置导入 / 导出..." Tag="5" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="ODBC / Access / DBF 导入..." Tag="6" Click="MenuP2Workbench_Click" />
+                    <MenuItem Header="查询结果与导出脱敏..." Tag="7" Click="MenuP2Workbench_Click" />
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="视图">
+                <MenuItem Header="刷新" Click="MenuRefresh_Click" />
+                <Separator />
+                <MenuItem Header="专注模式 (F11)" Click="MenuFocusMode_Click" />
             </MenuItem>
             <MenuItem Header="帮助">
                 <MenuItem Header="关于" Click="MenuAbout_Click" />
@@ -196,29 +192,43 @@
                         </Button>
                     </StackPanel>
                 </Border>
-                <!-- 当前查询上下文：绑定标签，避免跟随对象树的连接选择。 -->
-                <Border Classes="toolbar-group" Padding="8,0"
-                        DataContext="{Binding SelectedQueryTab}" x:DataType="vm:QueryTabViewModel">
+                <!-- 当前查询上下文：连接 / 数据库 / Schema 相邻成组；数据库绑定标签，避免跟随对象树的连接选择。 -->
+                <Border Classes="toolbar-group" Padding="8,0">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="连接" FontSize="11" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
-                        <TextBlock Text="{Binding ConnectionName}" MaxWidth="110" FontSize="11"
-                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
-                                   ToolTip.Tip="{Binding ConnectionName}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                    DataContext="{Binding SelectedQueryTab}" x:DataType="vm:QueryTabViewModel">
+                            <TextBlock Text="连接" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                            <TextBlock Text="{Binding ConnectionName}" MaxWidth="110" FontSize="11"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                                       ToolTip.Tip="{Binding ConnectionName}" />
+                            <Border Width="1" Height="16" Background="{DynamicResource AppDividerBrush}"
+                                    IsVisible="{Binding AvailableDatabases.Count}" />
+                            <TextBlock Text="数据库" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}"
+                                       IsVisible="{Binding AvailableDatabases.Count}" />
+                            <atom:ComboBox ItemsSource="{Binding AvailableDatabases}"
+                                           SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
+                                           DropDownOpened="QueryDatabase_DropDownOpened"
+                                           SelectionChanged="QueryDatabase_SelectionChanged"
+                                           Width="200" MinHeight="0" FontSize="11"
+                                           VerticalAlignment="Center"
+                                           IsVisible="{Binding AvailableDatabases.Count}"
+                                           AutomationProperties.Name="当前查询数据库"
+                                           ToolTip.Tip="{Binding DatabaseName}" />
+                        </StackPanel>
+                        <!-- Schema 选择（多 Schema 数据库时显示，绑定主视图模型） -->
                         <Border Width="1" Height="16" Background="{DynamicResource AppDividerBrush}"
-                                IsVisible="{Binding AvailableDatabases.Count}" />
-                        <TextBlock Text="数据库" FontSize="11" VerticalAlignment="Center"
+                                IsVisible="{Binding SchemaSelectorVisible}" />
+                        <TextBlock Text="Schema" FontSize="11" VerticalAlignment="Center"
                                    Foreground="{DynamicResource AppTextSecondaryBrush}"
-                                   IsVisible="{Binding AvailableDatabases.Count}" />
-                        <atom:ComboBox ItemsSource="{Binding AvailableDatabases}"
-                                       SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
-                                       DropDownOpened="QueryDatabase_DropDownOpened"
-                                       SelectionChanged="QueryDatabase_SelectionChanged"
-                                       Width="200" MinHeight="0" FontSize="11"
-                                       VerticalAlignment="Center"
-                                       IsVisible="{Binding AvailableDatabases.Count}"
-                                       AutomationProperties.Name="当前查询数据库"
-                                       ToolTip.Tip="{Binding DatabaseName}" />
+                                   IsVisible="{Binding SchemaSelectorVisible}" />
+                        <atom:TextBox Text="{Binding CurrentSchema}" Width="120"
+                                      VerticalContentAlignment="Center" MinHeight="24" FontSize="11"
+                                      VerticalAlignment="Center"
+                                      IsVisible="{Binding SchemaSelectorVisible}"
+                                      AutomationProperties.Name="当前查询 Schema"
+                                      ToolTip.Tip="当前查询的 Schema（架构）" />
                     </StackPanel>
                 </Border>
 
@@ -263,15 +273,6 @@
                         <Button Classes="toolbar danger" Command="{Binding QueryEditor.RollbackTransactionCommand}" AutomationProperties.Name="回滚" ToolTip.Tip="回滚事务">
                             <Grid Width="16" Height="16"><Path Data="M9 7L5 11L9 15M5 11H14C17 11 19 13 19 16V17" MaxWidth="14" MaxHeight="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFFFFF" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" /></Grid>
                         </Button>
-                    </StackPanel>
-                </Border>
-                <!-- Schema 选择组（多 Schema 数据库时显示） -->
-                <Border Classes="toolbar-group" Padding="6,0,4,0"
-                        IsVisible="{Binding SchemaSelectorVisible}">
-                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="Schema:" VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource AppTextSecondaryBrush}" />
-                        <atom:TextBox Text="{Binding CurrentSchema}" Width="120"
-                                 VerticalContentAlignment="Center" MinHeight="24" />
                     </StackPanel>
                 </Border>
                 <!-- 工具组 -->
@@ -445,9 +446,9 @@
                                                        MaxWidth="220" />
                                             <TextBlock Text="加载中…（双击取消）" FontSize="10" Foreground="#D97706"
                                                        VerticalAlignment="Center" IsVisible="{Binding IsLoading}" Margin="2,0,0,0" />
-                                            <Border Background="#EEF3F8" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
+                                            <Border Background="{DynamicResource AppHoverBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
                                                     IsVisible="{Binding HasBadge}" Margin="4,0,0,0">
-                                                <TextBlock Text="{Binding BadgeText}" FontSize="10" Foreground="#5B6B7A" VerticalAlignment="Center" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding BadgeText}" FontSize="10" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center" FontWeight="SemiBold" />
                                             </Border>
                                         </StackPanel>
                                     </Border>
@@ -712,11 +713,16 @@
                                    Background="Transparent"
                                    ContextRequested="TabHeader_ContextRequested"
                                    Tag="{Binding}">
-                                <Grid ColumnDefinitions="*,Auto">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
                                     <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="12"
                                                TextTrimming="CharacterEllipsis" Margin="0,0,4,0"
                                                ToolTip.Tip="{Binding ConnectionName}" />
-                                    <Button Grid.Column="1" Click="CloseTab_Click" Tag="{Binding}"
+                                    <TextBlock Grid.Column="1" Text="⚠" FontSize="11" VerticalAlignment="Center"
+                                               Margin="0,0,2,0"
+                                               Foreground="{DynamicResource AppWarningBrush}"
+                                               IsVisible="{Binding IsSharedTransaction}"
+                                               ToolTip.Tip="多个标签共享同一连接的事务：提交/回滚将影响所有关联标签" />
+                                    <Button Grid.Column="2" Click="CloseTab_Click" Tag="{Binding}"
                                             Width="20" Height="20" MinWidth="0" MinHeight="0" Padding="0"
                                             Margin="0"
                                             BorderThickness="0"
@@ -724,7 +730,7 @@
                                             VerticalAlignment="Center"
                                             ToolTip.Tip="关闭标签">
                                         <TextBlock Text="×" FontSize="14" VerticalAlignment="Center"
-                                                   HorizontalAlignment="Center" Foreground="#666" />
+                                                   HorizontalAlignment="Center" Foreground="{DynamicResource AppTextSecondaryBrush}" />
                                     </Button>
                                 </Grid>
                             </Border>

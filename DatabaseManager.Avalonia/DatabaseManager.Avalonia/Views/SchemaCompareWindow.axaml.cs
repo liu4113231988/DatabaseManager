@@ -88,13 +88,22 @@ public partial class SchemaCompareWindow : Window
     }
 
     private void ComboSource_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    }
 
     private void ComboTarget_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    }
 
     private void ComboObjectType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedObjectType = ComboObjectType.SelectedItem as ObjectTypeOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedObjectType = ComboObjectType.SelectedItem as ObjectTypeOption;
+    }
 
     private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {

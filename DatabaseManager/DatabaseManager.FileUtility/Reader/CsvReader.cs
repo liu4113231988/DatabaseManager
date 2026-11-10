@@ -36,11 +36,11 @@ namespace DatabaseManager.FileUtility
                 {
                     int index = 0;
 
-                    Dictionary<int, Dictionary<int, object>> dict = new Dictionary<int, Dictionary<int, object>>();
+                    Dictionary<int, Dictionary<int, object?>> dict = new Dictionary<int, Dictionary<int, object?>>();
 
                     while (reader.Read())
                     {
-                        Dictionary<int, object> dictRow = new Dictionary<int, object>();
+                        Dictionary<int, object?> dictRow = new Dictionary<int, object?>();
 
                         for (int i = 0; i < reader.FieldCount; i++)
                         {

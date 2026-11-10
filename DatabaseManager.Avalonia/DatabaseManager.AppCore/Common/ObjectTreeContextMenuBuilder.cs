@@ -270,7 +270,7 @@ public class ObjectTreeContextMenuBuilder
     {
         // ==== Open/View 组 ====
         // Oracle 的"数据库"节点实为当前用户/Schema，文案按方言调整以免误解。
-        bool isOracle = string.Equals(GetConnectionDatabaseType(node), "Oracle", StringComparison.OrdinalIgnoreCase);
+        bool isOracle = string.Equals(GetConnectionDatabaseType(node), DatabaseTypeNames.Oracle, StringComparison.OrdinalIgnoreCase);
         var setCurrent = CreateMenuItem(isOracle ? "设为当前 Schema" : "设为当前数据库",
             isOracle ? "将此用户/Schema 设为默认查询目标" : "将此数据库设为默认查询目标");
         setCurrent.Click += (_, _) => SetCurrentDatabase(node);
@@ -457,7 +457,7 @@ public class ObjectTreeContextMenuBuilder
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else
-                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
                 };
                 menu.Items.Add(newView);
                 break;
@@ -471,7 +471,7 @@ public class ObjectTreeContextMenuBuilder
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else
-                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
                 };
                 menu.Items.Add(newProc);
                 break;
@@ -485,7 +485,7 @@ public class ObjectTreeContextMenuBuilder
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else
-                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+                        _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
                 };
                 menu.Items.Add(newFunc);
                 break;
@@ -709,7 +709,7 @@ public class ObjectTreeContextMenuBuilder
         var result = await ddl.GetObjectDefinitionAsync(connectionName, node.DatabaseName ?? string.Empty, node.DbObject);
         if (!result.IsSuccess)
         {
-            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
             return;
         }
 
@@ -808,7 +808,7 @@ public class ObjectTreeContextMenuBuilder
         var result = ddl.GetAddColumnTemplate(connectionItem?.DatabaseType ?? string.Empty, table);
         if (!result.IsSuccess)
         {
-            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
             return;
         }
 
@@ -1259,7 +1259,7 @@ public class ObjectTreeContextMenuBuilder
 
         if (!result.IsSuccess)
         {
-            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage;
+            _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
             return;
         }
 

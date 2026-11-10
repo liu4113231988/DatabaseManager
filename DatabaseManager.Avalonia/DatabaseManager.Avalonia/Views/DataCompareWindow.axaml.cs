@@ -87,13 +87,22 @@ public partial class DataCompareWindow : Window
     }
 
     private void ComboSource_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SourceConnection = ComboSource.SelectedItem as ConnectionItem;
+    }
 
     private void ComboTarget_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.TargetConnection = ComboTarget.SelectedItem as ConnectionItem;
+    }
 
     private void ComboMode_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedMode = ComboMode.SelectedItem as DataCompareModeOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedMode = ComboMode.SelectedItem as DataCompareModeOption;
+    }
 
     private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -106,6 +115,7 @@ public partial class DataCompareWindow : Window
 
     private void RebuildDetailColumns()
     {
+        if (_vm is null) return;
         var grid = DetailGrid;
         if (grid is null)
             return;

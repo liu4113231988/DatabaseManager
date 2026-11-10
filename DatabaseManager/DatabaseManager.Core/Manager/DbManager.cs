@@ -91,7 +91,7 @@ namespace DatabaseManager.Core
                                 await this.ExecuteNonQueryAsync(deleteSql, dbConnection, transaction);
                             }
                         }
-                        catch (Exception ex)
+                        catch (Exception)
                         {
                             if (useTruncate)
                             {
@@ -99,7 +99,7 @@ namespace DatabaseManager.Core
                             }
                             else
                             {
-                                throw ex;
+                                throw;
                             }
                         }
                     }

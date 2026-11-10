@@ -65,6 +65,31 @@ public partial class MainWindowViewModel : ViewModelBase
             or nameof(QueryTabViewModel.IsExecuting)) RefreshQueryEditorContext();
     }
 
+    /// <summary>刷新标签头共享事务提示：≥2 个标签共用同一连接且该连接存在活动事务时标记。</summary>
+    public void RefreshSharedTransactionIndicators()
+    {
+        var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var tab in QueryTabs)
+        {
+            if (string.IsNullOrWhiteSpace(tab.ConnectionName)) continue;
+            counts[tab.ConnectionName] = counts.TryGetValue(tab.ConnectionName, out var n) ? n + 1 : 1;
+        }
+
+        foreach (var tab in QueryTabs)
+        {
+            tab.IsSharedTransaction = !string.IsNullOrWhiteSpace(tab.ConnectionName)
+                && counts.TryGetValue(tab.ConnectionName, out var count) && count >= 2
+                && _queryService.IsTransactionActive(tab.ConnectionName);
+        }
+    }
+
+    /// <summary>后台标签执行也可能开启/结束共享事务，执行完成时重新计算提示。</summary>
+    private void OnTabTransactionContextChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(QueryTabViewModel.IsExecuting) or nameof(QueryTabViewModel.ConnectionName))
+            RefreshSharedTransactionIndicators();
+    }
+
     private void RefreshQueryEditorContext()
     {
         QueryEditor.ConnectionName = SelectedQueryTab?.ConnectionName ?? string.Empty;
@@ -87,7 +112,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var connection = Connections.FirstOrDefault(c =>
             string.Equals(c.Name, tab.ConnectionName, StringComparison.OrdinalIgnoreCase));
-        if (connection?.DatabaseType is not ("SqlServer" or "MySql" or "Postgres" or "KingbaseES"))
+        if (connection?.DatabaseType is not (DatabaseTypeNames.SqlServer or DatabaseTypeNames.MySql or DatabaseTypeNames.Postgres or DatabaseTypeNames.KingbaseES))
         {
             tab.AvailableDatabases.Clear();
             return;
@@ -167,6 +192,16 @@ public partial class MainWindowViewModel : ViewModelBase
             if (e.PropertyName == nameof(QueryEditorViewModel.StatusMessage)
                 && SelectedQueryTab is { } tab && tab.ConnectionName == QueryEditor.ConnectionName)
                 tab.StatusMessage = QueryEditor.StatusMessage;
+            if (e.PropertyName == nameof(QueryEditorViewModel.IsTransactionActive))
+                RefreshSharedTransactionIndicators();
+        };
+        QueryTabs.CollectionChanged += (_, args) =>
+        {
+            if (args.OldItems is not null)
+                foreach (QueryTabViewModel tab in args.OldItems) tab.PropertyChanged -= OnTabTransactionContextChanged;
+            if (args.NewItems is not null)
+                foreach (QueryTabViewModel tab in args.NewItems) tab.PropertyChanged += OnTabTransactionContextChanged;
+            RefreshSharedTransactionIndicators();
         };
         System.Diagnostics.Trace.WriteLine("startup|viewmodel-resolved");
     }
@@ -214,6 +249,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanReconnect));
         OnPropertyChanged(nameof(CanDisconnect));
         OnPropertyChanged(nameof(CanDisconnectAll));
+        RefreshSharedTransactionIndicators();
     }
 
     /// <summary>已选中连接且该连接未建立连接时可用（用于工具栏「连接」按钮）。</summary>

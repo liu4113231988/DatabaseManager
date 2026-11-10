@@ -107,7 +107,7 @@ namespace DatabaseInterpreter.Core
                     dbSchema = defaultDbSchema;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 dbSchema = defaultDbSchema;
             }
@@ -559,7 +559,7 @@ MAXVALUE {sequence.MaxValue}
                 {
                     defaultTablespace = oracleInterpreter.GetUserDefaultTablespace();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                 }
             }

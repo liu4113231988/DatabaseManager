@@ -58,7 +58,10 @@ public partial class OptimizeWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {

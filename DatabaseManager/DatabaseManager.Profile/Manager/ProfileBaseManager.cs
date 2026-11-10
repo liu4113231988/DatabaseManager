@@ -26,7 +26,9 @@ namespace DatabaseManager.Profile.Manager
 
         public static void Init()
         {
-            InitAsync().GetAwaiter().GetResult();
+            // 在独立线程池上下文运行异步初始化，避免调用方处于 UI 同步上下文时
+            // （如版本迁移 KeepUserData 的 await 回贴）与阻塞等待互相死锁。
+            Task.Run(() => InitAsync()).GetAwaiter().GetResult();
         }
 
         public static async Task InitAsync()

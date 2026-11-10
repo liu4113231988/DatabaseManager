@@ -98,7 +98,7 @@ public static class P0SmokeHarness
                 using (var narrow = new RenderTargetBitmap(new global::Avalonia.PixelSize(760, 800), new global::Avalonia.Vector(96, 96)))
                 {
                     narrow.Render(databaseWindow);
-                    narrow.Save(Path.Combine(output, "query-toolbar-narrow.png"));
+                    narrow.Save(Path.Combine(output, "query-toolbar-narrow.png"), new PngBitmapEncoderOptions());
                 }
                 databaseWindow.Width = 1280;
                 await Task.Delay(200);
@@ -178,7 +178,7 @@ public static class P0SmokeHarness
             if (verify is not null) await verify();
             using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96,96));
             bitmap.Render(window);
-            bitmap.Save(Path.Combine(output, name + ".png"));
+            bitmap.Save(Path.Combine(output, name + ".png"), new PngBitmapEncoderOptions());
             window.Close();
         }
     }

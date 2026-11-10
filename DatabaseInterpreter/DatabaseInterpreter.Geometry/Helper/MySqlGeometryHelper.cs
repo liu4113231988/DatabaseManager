@@ -10,26 +10,37 @@ namespace DatabaseInterpreter.Geometry
     public class MySqlGeometryHelper
     {
         #region SqlServer
-        public static SqlGeometry ToSqlGeometry(byte[] bytes)
+        public static SqlGeometry? ToSqlGeometry(byte[] bytes)
         {
-            PgGeom.Geometry geometry = ToPostgresGeometry(bytes);
+            PgGeom.Geometry? geometry = ToPostgresGeometry(bytes);
+
+            if (geometry == null)
+            {
+                return null;
+            }
+
             string text = geometry.AsText();
 
             return SqlGeometry.STGeomFromText(new SqlChars(text), geometry.SRID);
         }
 
-        public static SqlGeography ToSqlGeography(byte[] bytes)
+        public static SqlGeography? ToSqlGeography(byte[] bytes)
         {
-            PgGeom.Geometry geometry = ToPostgresGeography(bytes);
+            PgGeom.Geometry? geometry = ToPostgresGeography(bytes);
+
+            if (geometry == null)
+            {
+                return null;
+            }
 
             return SqlGeography.STGeomFromText(new SqlChars(geometry.AsText()), geometry.SRID);
         }
         #endregion
 
         #region Postgres
-        public static PgGeom.Geometry ToPostgresGeography(byte[] bytes)
+        public static PgGeom.Geometry? ToPostgresGeography(byte[] bytes)
         {
-            PgGeom.Geometry geom = ToPostgresGeometry(bytes);
+            PgGeom.Geometry? geom = ToPostgresGeometry(bytes);
 
             if (geom != null)
             {
@@ -39,7 +50,7 @@ namespace DatabaseInterpreter.Geometry
             return geom;
         }
 
-        public static PgGeom.Geometry ToPostgresGeometry(byte[] bytes)
+        public static PgGeom.Geometry? ToPostgresGeometry(byte[] bytes)
         {
             using (MemoryStream ms = new MemoryStream(bytes))
             {
@@ -48,13 +59,13 @@ namespace DatabaseInterpreter.Geometry
                 byte order = r.ReadByte();
                 int type = r.ReadInt32();
 
-                PgGeom.Geometry geometry = ToPostgresGeometry(type, r, srid);
+                PgGeom.Geometry? geometry = ToPostgresGeometry(type, r, srid);
 
                 return geometry;
             }
         }
 
-        private static PgGeom.Geometry ToPostgresGeometry(int type, BinaryReader r, int srid)
+        private static PgGeom.Geometry? ToPostgresGeometry(int type, BinaryReader r, int srid)
         {
             switch ((OpenGisGeometryType)type)
             {
@@ -120,7 +131,7 @@ namespace DatabaseInterpreter.Geometry
 
             LinearRing exterior = new LinearRing(GetCoordinates(r, pointNum));
 
-            LinearRing[] interior = null;
+            LinearRing[]? interior = null;
 
             if (total > 1)
             {
@@ -221,7 +232,7 @@ namespace DatabaseInterpreter.Geometry
                 byte order = r.ReadByte();
                 int type = r.ReadInt32();
 
-                geoms[i - 1] = ToPostgresGeometry(type, r, srid);
+                geoms[i - 1] = ToPostgresGeometry(type, r, srid)!;
             }
 
             return new GeometryCollection(geoms);
@@ -229,16 +240,26 @@ namespace DatabaseInterpreter.Geometry
         #endregion
 
         #region Oracle
-        public static SdoGeometry ToOracleSdoGeometry(byte[] bytes)
+        public static SdoGeometry? ToOracleSdoGeometry(byte[] bytes)
         {
-            SqlGeometry sqlGeometry = ToSqlGeometry(bytes);
+            SqlGeometry? sqlGeometry = ToSqlGeometry(bytes);
+
+            if (sqlGeometry == null)
+            {
+                return null;
+            }
 
             return SqlGeometryHelper.ToOracleSdoGeometry(sqlGeometry);
         }
 
-        public static StGeometry ToOracleStGeometry(byte[] bytes)
+        public static StGeometry? ToOracleStGeometry(byte[] bytes)
         {
-            SqlGeometry sqlGeometry = ToSqlGeometry(bytes);
+            SqlGeometry? sqlGeometry = ToSqlGeometry(bytes);
+
+            if (sqlGeometry == null)
+            {
+                return null;
+            }
 
             return SqlGeometryHelper.ToOracleStGeometry(sqlGeometry);
         }

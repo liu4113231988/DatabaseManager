@@ -73,10 +73,16 @@ public partial class DiagnoseWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void ComboDiagnoseType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedDiagnoseType = ComboDiagnoseType.SelectedItem as DiagnoseTypeOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedDiagnoseType = ComboDiagnoseType.SelectedItem as DiagnoseTypeOption;
+    }
 
     private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {

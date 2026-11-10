@@ -19,9 +19,9 @@ namespace DatabaseInterpreter.Geometry
         #endregion
 
         #region Postgres       
-        public static PgGeom.Geometry ToPostgresGeography(SqlGeometry geometry)
+        public static PgGeom.Geometry? ToPostgresGeography(SqlGeometry geometry)
         {
-            PgGeom.Geometry geom = ToPostgresGeometry(geometry);
+            PgGeom.Geometry? geom = ToPostgresGeometry(geometry);
 
             if (geom != null)
             {
@@ -31,11 +31,11 @@ namespace DatabaseInterpreter.Geometry
             return geom;
         }
 
-        public static PgGeom.Geometry ToPostgresGeometry(SqlGeometry geometry)
+        public static PgGeom.Geometry? ToPostgresGeometry(SqlGeometry geometry)
         {
             OpenGisGeometryType geometryType = GetGeometryType(geometry);
 
-            PgGeom.Geometry geom = null;
+            PgGeom.Geometry? geom = null;
 
             switch (geometryType)
             {
@@ -99,7 +99,7 @@ namespace DatabaseInterpreter.Geometry
         {
             LinearRing exterior = new LinearRing(ToPostgresPoints(geometry.STExteriorRing()));
 
-            LinearRing[] interior = null;
+            LinearRing[]? interior = null;
 
             if (geometry.STNumInteriorRing() > 0)
             {
@@ -144,20 +144,20 @@ namespace DatabaseInterpreter.Geometry
 
             for (int i = 1; i <= geoms.Length; i++)
             {
-                geoms[i - 1] = ToPostgresGeometry(geometry.STGeometryN(i));
+                geoms[i - 1] = ToPostgresGeometry(geometry.STGeometryN(i))!;
             }
 
             return new GeometryCollection(geoms);
         }
 
-        public static PgGeom.Geometry ToPostgresGeometry(string wkt)
+        public static PgGeom.Geometry? ToPostgresGeometry(string wkt)
         {
             return ToPostgresGeometry(SqlGeometry.STGeomFromText(new System.Data.SqlTypes.SqlChars(wkt as string), 0));
         }
 
-        public static PgGeom.Geometry ToPostgresGeography(string wkt)
+        public static PgGeom.Geometry? ToPostgresGeography(string wkt)
         {
-            PgGeom.Geometry geom = ToPostgresGeometry(wkt);
+            PgGeom.Geometry? geom = ToPostgresGeometry(wkt);
 
             if (geom != null)
             {
@@ -316,11 +316,11 @@ namespace DatabaseInterpreter.Geometry
         #endregion
 
         #region Oracle
-        public static StGeometry ToOracleStGeometry(SqlGeometry geometry)
+        public static StGeometry? ToOracleStGeometry(SqlGeometry geometry)
         {
             if (!geometry.IsNull)
             {
-                SdoGeometry sg = ToOracleSdoGeometry(geometry);
+                SdoGeometry? sg = ToOracleSdoGeometry(geometry);
 
                 if (sg != null)
                 {
@@ -331,7 +331,7 @@ namespace DatabaseInterpreter.Geometry
             return null;
         }
 
-        public static SdoGeometry ToOracleSdoGeometry(SqlGeometry geometry)
+        public static SdoGeometry? ToOracleSdoGeometry(SqlGeometry geometry)
         {
             OpenGisGeometryType geometryType = GetGeometryType(geometry);
 
@@ -539,6 +539,11 @@ namespace DatabaseInterpreter.Geometry
             for (int i = 1; i <= geomNum; i++)
             {
                 var geom = ToOracleSdoGeometry(geometry.STGeometryN(i));
+
+                if (geom == null)
+                {
+                    continue;
+                }
 
                 geom.ElemInfo[0] = count + 1;
 

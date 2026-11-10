@@ -74,13 +74,20 @@ public partial class CodeGenerateWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void ComboLanguage_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedLanguage = ComboLanguage.SelectedItem as CodeGenerateLanguageOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedLanguage = ComboLanguage.SelectedItem as CodeGenerateLanguageOption;
+    }
 
     private async void BtnBrowseOutput_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var dialog = await StorageProvider.OpenFolderPickerAsync(new global::Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
             Title = "选择代码输出文件夹",

@@ -105,7 +105,7 @@ internal static class SqlCompletionSmokeChecks
             using (var bitmap = new RenderTargetBitmap(new PixelSize(Math.Max(1, (int)list.Bounds.Width), Math.Max(1, (int)list.Bounds.Height))))
             {
                 bitmap.Render(list);
-                bitmap.Save(Path.Combine(output, "sql-completion.png"));
+                bitmap.Save(Path.Combine(output, "sql-completion.png"), new PngBitmapEncoderOptions());
             }
             await Show("SELECT x.la| FROM public.lazy x");
             Check(schema.Calls == 1 && Items().Any(c => c.Text == "lazy_id"), "Reuse loaded alias metadata.");

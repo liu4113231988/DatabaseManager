@@ -74,10 +74,14 @@ public partial class BackupWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private async void BtnBrowseFolder_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var dialog = await StorageProvider.OpenFolderPickerAsync(new global::Avalonia.Platform.Storage.FolderPickerOpenOptions
         {
             Title = "选择备份保存文件夹",
@@ -92,6 +96,7 @@ public partial class BackupWindow : Window
 
     private async void BtnBrowseTool_Click(object? sender, RoutedEventArgs e)
     {
+        if (_vm is null) return;
         var files = await StorageProvider.OpenFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerOpenOptions
         {
             Title = "选择数据库客户端备份工具",

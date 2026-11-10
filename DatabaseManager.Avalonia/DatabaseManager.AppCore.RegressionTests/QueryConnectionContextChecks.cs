@@ -54,15 +54,21 @@ internal static class QueryConnectionContextChecks
             await tabA.ExecuteAsync();
             Check(query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit,
                 "The normal tab execution path must start a manual transaction without resetting its checkbox.");
+            Check(draft.IsSharedTransaction && tabA.IsSharedTransaction && !tabB.IsSharedTransaction,
+                "Shared-transaction indicator must mark every tab sharing the active manual-transaction connection.");
             Check((await query.ExecuteStandaloneAsync(a, "SELECT value FROM marker")).Rows.Single()[0] == a.Name,
                 "Uncommitted manual-mode writes must remain invisible to standalone SQL.");
             await vm.QueryEditor.RollbackTransactionAsync();
             Check(!query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit,
                 "Rollback ends the transaction but preserves manual mode.");
-            vm.OpenSqlInNewTab(a.Name, "SELECT value FROM marker", a.Database);
+            Check(!draft.IsSharedTransaction && !tabA.IsSharedTransaction,
+                "Rollback must clear the shared-transaction indicator on every associated tab.");
+            var sibling = vm.OpenSqlInNewTab(a.Name, "SELECT value FROM marker", a.Database);
             await tabA.ExecuteAsync();
+            Check(tabA.IsSharedTransaction && draft.IsSharedTransaction && sibling.IsSharedTransaction,
+                "A background tab execution must refresh the shared-transaction indicator without a tab switch.");
             await vm.QueryEditor.CommitTransactionAsync();
-            Check(!query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit
+            Check(!query.IsTransactionActive(a.Name) && !vm.QueryEditor.AutoCommit && !tabA.IsSharedTransaction && !sibling.IsSharedTransaction
                 && (await query.ExecuteStandaloneAsync(a, "SELECT value FROM marker")).Rows.Single()[0] == "manual",
                 "A background sibling tab starts a fresh transaction which the selected tab can commit without a tab switch.");
             await tabA.ExecuteAsync();

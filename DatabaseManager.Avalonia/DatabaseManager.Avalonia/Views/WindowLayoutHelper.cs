@@ -2,7 +2,6 @@ using System;
 using Avalonia;
 using Avalonia.Controls;
 using DatabaseManager.AppCore.Services;
-using DatabaseManager.AppCore.ViewModels;
 
 namespace DatabaseManager.Avalonia.Views;
 

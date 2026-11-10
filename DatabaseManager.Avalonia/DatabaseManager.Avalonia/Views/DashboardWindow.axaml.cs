@@ -67,8 +67,8 @@ public class DashboardCard : System.ComponentModel.INotifyPropertyChanged
 /// </summary>
 public partial class DashboardWindow : Window
 {
-    private readonly IDashboardService _dashboardService;
-    private readonly IQueryService _queryService;
+    private readonly IDashboardService _dashboardService = null!;
+    private readonly IQueryService _queryService = null!;
     private readonly IDbConnectionService? _connections;
     private readonly CancellationTokenSource _lifetime = new();
     private bool _refreshing;

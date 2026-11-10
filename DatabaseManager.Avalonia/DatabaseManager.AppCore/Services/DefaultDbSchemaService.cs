@@ -1,5 +1,6 @@
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -34,7 +35,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         List<Database> databases;
         List<DatabaseSchema>[] schemaLists;
 
-        if (string.Equals(connection.DatabaseType, "SqlServer", StringComparison.OrdinalIgnoreCase)
+        if (string.Equals(connection.DatabaseType, DatabaseTypeNames.SqlServer, StringComparison.OrdinalIgnoreCase)
             && interpreter is SqlServerInterpreter sqlServerInterpreter)
         {
             // SQL Server 优化：以同一条连接获取数据库列表，再通过 ChangeDatabase 枚举 schema。
@@ -52,7 +53,7 @@ public class DefaultDbSchemaService : IDbSchemaService
                 // 被当成新的数据源打开。首次连接只显示数据库节点，展开时再读取目标 Schema。
                 schemaLists = databases.Select(_ => new List<DatabaseSchema>()).ToArray();
             }
-            else if (connection.DatabaseType is "Oracle" or "DM")
+            else if (connection.DatabaseType is DatabaseTypeNames.Oracle or DatabaseTypeNames.DM)
             {
                 // Oracle/DM 的数据库节点即当前登录用户 Schema，GetDatabasesAsync 已经取得该值，
                 // 无需再次建立连接查询相同信息。
@@ -109,7 +110,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
-        var interpreter = string.Equals(connection.DatabaseType, "DuckDB", StringComparison.OrdinalIgnoreCase)
+        var interpreter = string.Equals(connection.DatabaseType, DatabaseTypeNames.DuckDB, StringComparison.OrdinalIgnoreCase)
             ? CreateInterpreter(connection)
             : CreateInterpreter(connection, databaseName);
         var schemas = await TryGetSchemasAsync(connection, interpreter, databaseName, cancellationToken);
@@ -645,17 +646,17 @@ public class DefaultDbSchemaService : IDbSchemaService
         try
         {
             // 仅对支持多 Schema 的数据库（SQL Server/Postgres/KingbaseES/DuckDB/Oracle/DM）枚举；其余返回空。
-            if (connection.DatabaseType is "SqlServer" or "Postgres" or "KingbaseES")
+            if (connection.DatabaseType is DatabaseTypeNames.SqlServer or DatabaseTypeNames.Postgres or DatabaseTypeNames.KingbaseES)
             {
                 // 调用方已为目标库创建解释器；Schema 查询必须在该库自己的连接上执行。
                 return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
             }
-            if (connection.DatabaseType == "DuckDB")
+            if (connection.DatabaseType == DatabaseTypeNames.DuckDB)
             {
                 // DuckDB 的 Database 是文件路径或 :memory: 数据源，而非 catalog 名；复用原连接配置。
                 return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
             }
-            if (connection.DatabaseType is "Oracle" or "DM")
+            if (connection.DatabaseType is DatabaseTypeNames.Oracle or DatabaseTypeNames.DM)
             {
                 return await interpreter.GetDatabaseSchemasAsync().WaitAsync(cancellationToken);
             }
@@ -673,7 +674,7 @@ public class DefaultDbSchemaService : IDbSchemaService
     }
 
     private static bool RequiresDeferredSchemaDiscovery(string databaseType)
-        => databaseType is "Postgres" or "KingbaseES" or "DuckDB";
+        => databaseType is DatabaseTypeNames.Postgres or DatabaseTypeNames.KingbaseES or DatabaseTypeNames.DuckDB;
 
     private static DbObjectTreeNode ToNode(DatabaseObject dbObject, string databaseName, string? schema)
     {

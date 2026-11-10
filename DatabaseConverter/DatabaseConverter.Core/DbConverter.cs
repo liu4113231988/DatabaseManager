@@ -892,7 +892,7 @@ namespace DatabaseConverter.Core
                         this.transaction.Rollback();
                     }
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
                     //throw;
                 }
@@ -981,7 +981,7 @@ namespace DatabaseConverter.Core
                 sourceSchemas = (await sourceInterpreter.GetDatabaseSchemasAsync()).Select(item => item.Name).ToList();
                 targetSchemas = (await targetInterpreter.GetDatabaseSchemasAsync()).Select(item => item.Name).ToList();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
             }
 

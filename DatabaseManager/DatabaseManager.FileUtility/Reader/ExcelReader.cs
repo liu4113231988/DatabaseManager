@@ -16,7 +16,7 @@ namespace DatabaseManager.FileUtility
         {
             if (!string.Equals(Path.GetExtension(info.FilePath), ".xlsx", StringComparison.OrdinalIgnoreCase))
                 throw new NotSupportedException("Excel 导入仅支持 .xlsx 文件。");
-            var result = new DataReadResult { Data = new Dictionary<int, Dictionary<int, object>>() };
+            var result = new DataReadResult { Data = new Dictionary<int, Dictionary<int, object?>>() };
             var configuration = new OpenXmlConfiguration { TrimColumnNames = false };
             foreach (string sheet in MiniExcel.GetSheetNames(info.FilePath))
             {
@@ -25,7 +25,7 @@ namespace DatabaseManager.FileUtility
                     sheetName: sheet, configuration: configuration))
                 {
                     if (first && info.FirstRowIsColumnName && row.Values.All(value => value is null)) continue;
-                    var values = new Dictionary<int, object>();
+                    var values = new Dictionary<int, object?>();
                     foreach (var entry in row)
                     {
                         int column = 0;
@@ -35,7 +35,7 @@ namespace DatabaseManager.FileUtility
                     if (first && info.FirstRowIsColumnName)
                     {
                         var headers = Enumerable.Range(0, values.Keys.Max() + 1)
-                            .Select(index => values.TryGetValue(index, out var value) ? Convert.ToString(value) : string.Empty).ToArray();
+                            .Select(index => values.TryGetValue(index, out var value) ? Convert.ToString(value) ?? string.Empty : string.Empty).ToArray();
                         if (result.HeaderColumns is not null && !result.HeaderColumns.SequenceEqual(headers))
                             throw new InvalidDataException($"工作表 {sheet} 的表头与前一工作表不一致，无法合并导入。");
                         result.HeaderColumns = headers;

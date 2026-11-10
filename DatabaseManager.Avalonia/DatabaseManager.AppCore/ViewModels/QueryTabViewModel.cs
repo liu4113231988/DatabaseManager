@@ -36,12 +36,9 @@ public partial class QueryTabViewModel : ViewModelBase
             if (SetProperty(ref _sqlText, value))
             {
                 // 当用户修改 SQL 时标记为已修改
-                if (!_isSaving)
-                {
-                    IsModified = true;
-                    // 更新标题显示修改状态
-                    UpdateTitleWithModifiedMark();
-                }
+                IsModified = true;
+                // 更新标题显示修改状态
+                UpdateTitleWithModifiedMark();
             }
         }
     }
@@ -108,11 +105,12 @@ public partial class QueryTabViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isModified;
 
+    /// <summary>多个标签共用同一连接且该连接处于手动事务中（提交/回滚会影响所有关联标签）。</summary>
+    [ObservableProperty]
+    private bool _isSharedTransaction;
+
     /// <summary>原始标题（不含修改标记）。</summary>
     private string _baseTitle = "查询";
-
-    /// <summary>是否正在保存中（防止保存时触发修改标记）。</summary>
-    private bool _isSaving;
 
     private readonly List<QueryResultRow> _allRows = new();
 

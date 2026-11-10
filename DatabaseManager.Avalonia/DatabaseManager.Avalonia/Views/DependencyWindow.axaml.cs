@@ -84,13 +84,22 @@ public partial class DependencyWindow : Window
     }
 
     private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    {
+        if (_vm is null) return;
+        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
+    }
 
     private void ComboObjectType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedObjectType = ComboObjectType.SelectedItem as string ?? "Table";
+    {
+        if (_vm is null) return;
+        _vm.SelectedObjectType = ComboObjectType.SelectedItem as string ?? "Table";
+    }
 
     private void ComboDirection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-        => _vm.SelectedDirection = ComboDirection.SelectedItem as DependencyDirectionOption;
+    {
+        if (_vm is null) return;
+        _vm.SelectedDirection = ComboDirection.SelectedItem as DependencyDirectionOption;
+    }
 
     private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {

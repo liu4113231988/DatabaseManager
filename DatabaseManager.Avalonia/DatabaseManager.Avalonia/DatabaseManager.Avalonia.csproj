@@ -17,6 +17,9 @@
     <PublishReadyToRun>false</PublishReadyToRun>
 	  <SatelliteResourceLanguages>zh-Hans;es;</SatelliteResourceLanguages>
 	  <Platforms>AnyCPU;x64</Platforms>
+    <!-- 所有窗口均经 DI/工厂以带参构造创建（ViewModel/服务为必需依赖），不会由 XAML 运行时
+         加载器按 URI 实例化；AVLN3001（缺少无参公共构造）对此设计是误报。 -->
+    <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

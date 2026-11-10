@@ -100,7 +100,7 @@ public partial class DashboardWindow
             {
                 if (chart.Bounds.Width < 1 || chart.Bounds.Height < 1) continue;
                 using var bitmap = new RenderTargetBitmap(new PixelSize((int)chart.Bounds.Width, (int)chart.Bounds.Height), new Vector(96, 96)); bitmap.Render(chart);
-                using var stream = new MemoryStream(); bitmap.Save(stream);
+                using var stream = new MemoryStream(); bitmap.Save(stream, new PngBitmapEncoderOptions());
                 html.Append("<figure><figcaption>").Append(WebUtility.HtmlEncode(chart.Chart?.Title)).Append("</figcaption><img alt=\"图表快照\" src=\"data:image/png;base64,").Append(Convert.ToBase64String(stream.ToArray())).Append("\"></figure>");
             }
             html.Append("</main></html>"); await File.WriteAllTextAsync(path, html.ToString(), _lifetime.Token);

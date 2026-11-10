@@ -51,13 +51,13 @@ namespace DatabaseManager.FileUtility
 
             if (!onlyReadHeader)
             {
-                var dict = new Dictionary<int, Dictionary<int, object>>();
+                var dict = new Dictionary<int, Dictionary<int, object?>>();
 
                 int index = 0;
 
                 foreach (var element in recordElements)
                 {
-                    var dictRow = new Dictionary<int, object>();
+                    var dictRow = new Dictionary<int, object?>();
 
                     for (int i = 0; i < result.HeaderColumns.Length; i++)
                     {

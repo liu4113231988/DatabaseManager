@@ -55,14 +55,14 @@ namespace DatabaseInterpreter.Geometry
             this.MapToCustomObject();
         }
 
-        protected void SetValue(string columnName, object value)
+        protected void SetValue(string columnName, object? value)
         {
             if (value != null)
             {
                 OracleUdt.SetValue(connection, udt, columnName, value);
             }
         }
-        protected void SetValue(int columnId, object value)
+        protected void SetValue(int columnId, object? value)
         {
             if (value != null)
             {
@@ -70,7 +70,7 @@ namespace DatabaseInterpreter.Geometry
             }
         }
 
-        protected U GetValue<U>(string columnName)
+        protected U? GetValue<U>(string columnName)
         {
 
             if (OracleUdt.IsDBNull(connection, udt, columnName))
@@ -90,7 +90,7 @@ namespace DatabaseInterpreter.Geometry
             }
         }
 
-        protected U GetValue<U>(int columnId)
+        protected U? GetValue<U>(int columnId)
         {
             if (OracleUdt.IsDBNull(connection, udt, columnId))
             {

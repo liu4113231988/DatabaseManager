@@ -1,10 +1,10 @@
 using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform;
-using Avalonia.Threading;
 using DatabaseManager.AppCore;
 using DatabaseManager.AppCore.ViewModels;
 using DatabaseManager.Avalonia.Views;
@@ -33,59 +33,61 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            try
-            {
-                // 注册代码页编码提供程序（GBK/GB18030 等在 .NET Core 后需显式注册）。
-                System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-
-                // 配置文件必须在构建服务和窗口前完成初始化，避免 async void 把失败抛到进程级。
-                System.Diagnostics.Trace.WriteLine("startup|profile-start");
-                ProfileBaseManager.Init();
-                System.Diagnostics.Trace.WriteLine("startup|profile-end");
-
-                _services = new ServiceCollection()
-                    .AddAppCore()
-                    .BuildServiceProvider();
-                System.Diagnostics.Trace.WriteLine("startup|container-end");
-
-                desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
-                {
-                    DataContext = _services.GetRequiredService<MainWindowViewModel>(),
-                    Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager/Assets/database-manager.ico"))),
-                };
-                System.Diagnostics.Trace.WriteLine("startup|main-window-ready");
-            }
-            catch (Exception ex)
-            {
-                AppExceptionHandler.Report(ex, "应用初始化", showDialog: false);
-                desktop.MainWindow = CreateStartupErrorWindow(ex);
-            }
-
-            // 冒烟测试模式：主窗口就绪后异步驱动全界面拍屏；完成后自动 Shutdown。
-            if (Program.SmokeRequested)
-            {
-                _ = Dispatcher.UIThread.InvokeAsync(async () =>
-                {
-                    try
-                    {
-                        if (Program.SmokeArgs.Contains("--p0")) await DatabaseManager.Avalonia.Smoke.P0SmokeHarness.RunAsync();
-                        else if (Program.SmokeArgs.Contains("--p2")) await DatabaseManager.Avalonia.Smoke.P2SmokeHarness.RunAsync();
-                        else await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
-                    }
-                    catch (Exception ex)
-                    {
-                        if (Program.SmokeArgs.Any(a => a is "--p0" or "--p2")) Environment.ExitCode = 1;
-                        try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
-                    }
-                    finally
-                    {
-                        try { desktop.Shutdown(Environment.ExitCode); } catch { /* ignore */ }
-                    }
-                });
-            }
+            _ = InitializeDesktopAsync(desktop);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private async Task InitializeDesktopAsync(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        try
+        {
+            // 注册代码页编码提供程序（GBK/GB18030 等在 .NET Core 后需显式注册）。
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            // 配置文件必须在构建服务和窗口前完成初始化；await 避免在 UI 线程同步阻塞异步迁移逻辑。
+            System.Diagnostics.Trace.WriteLine("startup|profile-start");
+            await ProfileBaseManager.InitAsync();
+            System.Diagnostics.Trace.WriteLine("startup|profile-end");
+
+            _services = new ServiceCollection()
+                .AddAppCore()
+                .BuildServiceProvider();
+            System.Diagnostics.Trace.WriteLine("startup|container-end");
+
+            desktop.MainWindow = Program.SmokeArgs.Any(a => a is "--p0" or "--p2") ? new global::Avalonia.Controls.Window() : new MainWindow
+            {
+                DataContext = _services.GetRequiredService<MainWindowViewModel>(),
+                Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://DatabaseManager/Assets/database-manager.ico"))),
+            };
+            System.Diagnostics.Trace.WriteLine("startup|main-window-ready");
+        }
+        catch (Exception ex)
+        {
+            AppExceptionHandler.Report(ex, "应用初始化", showDialog: false);
+            desktop.MainWindow = CreateStartupErrorWindow(ex);
+        }
+
+        // 冒烟测试模式：主窗口就绪后异步驱动全界面拍屏；完成后自动 Shutdown。
+        if (Program.SmokeRequested)
+        {
+            try
+            {
+                if (Program.SmokeArgs.Contains("--p0")) await DatabaseManager.Avalonia.Smoke.P0SmokeHarness.RunAsync();
+                else if (Program.SmokeArgs.Contains("--p2")) await DatabaseManager.Avalonia.Smoke.P2SmokeHarness.RunAsync();
+                else await DatabaseManager.Avalonia.Smoke.SmokeHarness.RunAsync(Program.SmokeArgs);
+            }
+            catch (Exception ex)
+            {
+                if (Program.SmokeArgs.Any(a => a is "--p0" or "--p2")) Environment.ExitCode = 1;
+                try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
+            }
+            finally
+            {
+                try { desktop.Shutdown(Environment.ExitCode); } catch { /* ignore */ }
+            }
+        }
     }
 
     private static global::Avalonia.Controls.Window CreateStartupErrorWindow(Exception exception)
