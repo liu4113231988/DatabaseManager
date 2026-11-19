@@ -24,7 +24,11 @@ dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager
 
 SQLite 表、视图、列、触发器和键的元数据，以及本地连接和账号配置，已改用显式 ADO.NET 映射。工作台预览改用有类型的单元格模板，工作台和仪表盘的设置逐步改用源生成 JSON。控制台回归覆盖 SQLite 元数据、连接配置往返和旧版仪表盘 JSON。
 
-2026-11-19，Windows x64 Release 构建和控制台回归通过。普通构建和 Native AOT 发布产物均通过 P0、P2 隔离冒烟，覆盖加密 SQLite 连接表单及 SQLite 查询构建、数据生成、质量剖析、数据字典、脱敏和仪表盘。AOT 发布仍有裁剪和运行时代码生成诊断，完整表设计、导入导出、其他数据库及认证方式仍待单独验收。
+2026-11-19，Windows x64 Release 构建和控制台回归通过。普通构建和 Native AOT 发布产物均通过 P0、P2 隔离冒烟，覆盖加密 SQLite 连接表单及 SQLite 查询构建、数据生成、质量剖析、数据字典、脱敏和仪表盘。
+
+扩展后的 P2 在普通 SQLite 和 SQLCipher 临时数据库中验证新建表、预览和执行加列 DDL、保留原有数据，以及 CSV、Excel、JSON、XML 的导出、预览和重新导入。CSV 覆盖视图导出，SQL 覆盖导出的 INSERT 脚本回放。验证从独立工作目录运行原生 EXE，并检查加密数据库文件头。表设计和文件操作使用发布目录的配置资源，Excel 行读取采用静态类型映射。
+
+AOT 发布仍有裁剪和运行时代码生成诊断。其他表结构变更、文件格式边界、其他数据库及认证方式仍待单独验收。
 
 ## 实施顺序
 

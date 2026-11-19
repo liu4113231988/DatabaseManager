@@ -21,8 +21,8 @@ namespace DatabaseManager.FileUtility
             foreach (string sheet in MiniExcel.GetSheetNames(info.FilePath))
             {
                 bool first = true;
-                foreach (IDictionary<string, object> row in MiniExcel.Query(info.FilePath, useHeaderRow: false,
-                    sheetName: sheet, configuration: configuration))
+                var rows = MiniExcel.Query(info.FilePath, useHeaderRow: false, sheetName: sheet, configuration: configuration);
+                foreach (var row in rows.Cast<IDictionary<string, object>>())
                 {
                     if (first && info.FirstRowIsColumnName && row.Values.All(value => value is null)) continue;
                     var values = new Dictionary<int, object?>();

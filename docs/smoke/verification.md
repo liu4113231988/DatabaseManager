@@ -38,7 +38,7 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 ```
 
 - P0：覆盖智能提示的实际键盘输入、异步字段补全、编辑器格式化的方言/选区/撤销、SQLite 密码表单、数据库下拉框、自动提交复选框绑定，以及结果/执行计划等窗口。输出到 `artifacts/p0-ui/`。
-- P2：覆盖查询构建、测试数据、质量剖析、数据字典、脱敏、仪表盘等交互。输出到 `artifacts/p2-ui/`。
+- P2：覆盖查询构建、测试数据、质量剖析、数据字典、脱敏和仪表盘，也在普通 SQLite 与 SQLCipher 文件中验证新建表、加列及 CSV/Excel/JSON/XML 往返和 SQL 脚本回放。输出到 `artifacts/p2-ui/`。
 - 成功退出码为 0，输出目录包含当次 `passed.txt`；每次运行开始会清除旧标记。失败时检查应用输出目录的 `smoke.log`。截图不代表真实服务器或其他平台验收。
 
 ## 真实数据库截图入口

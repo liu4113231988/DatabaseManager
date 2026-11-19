@@ -1,11 +1,11 @@
-﻿using System.IO;
-using System.Reflection;
+﻿using System;
+using System.IO;
 
 namespace DatabaseManager.FileUtility
 {
     public class BaseWriter
     {
-        public readonly string AssemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? string.Empty;
+        public readonly string AssemblyFolder = AppContext.BaseDirectory;
         public readonly string DefaultSaveFolder = "export";
         public readonly string TemporaryFolder = "temp";
 

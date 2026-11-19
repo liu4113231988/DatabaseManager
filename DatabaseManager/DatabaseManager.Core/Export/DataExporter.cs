@@ -38,9 +38,9 @@ namespace DatabaseManager.Core
 
             bool isForView = false;
 
-            if (dbObject is View)
+            if (dbObject is View view)
             {
-                dbObject = ObjectHelper.CloneObject<Table>(dbObject);
+                dbObject = new Table { Name = view.Name, Schema = view.Schema, Order = view.Order, Definition = view.Definition };
 
                 isForView = true;
             }

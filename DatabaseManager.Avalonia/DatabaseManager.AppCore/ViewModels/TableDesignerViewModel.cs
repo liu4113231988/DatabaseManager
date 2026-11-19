@@ -406,6 +406,7 @@ public partial class TableDesignerViewModel : ViewModelBase
                 : "结构无变化，无需保存。";
 
             // 保存成功后重载最新结构（获取真实定义）。
+            IsNew = false;
             await LoadCoreAsync();
         }
         catch (Exception ex)
