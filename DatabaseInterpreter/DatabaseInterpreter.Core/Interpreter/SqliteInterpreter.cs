@@ -5,8 +5,10 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace DatabaseInterpreter.Core
@@ -23,7 +25,7 @@ namespace DatabaseInterpreter.Core
         public override DatabaseObjectType SupportDbObjectType => DatabaseObjectType.Table | DatabaseObjectType.View;
         public override string DefaultDataType => "TEXT";
         public override string DefaultSchema => this.ConnectionInfo.Database;
-        public override bool SupportBulkCopy => false;
+        public override bool SupportBulkCopy => true;
         public override bool SupportNchar => false;
         public override bool SupportTruncateTable => false;
         public override bool CanInsertIdentityByDefault => true;
@@ -840,9 +842,100 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region BulkCopy
-        public override Task BulkCopyAsync(DbConnection connection, DataTable dataTable, BulkCopyInfo bulkCopyInfo)
+        // 以传统的 SQLite 变量上限控制分块；宽表仍可按单行写入。
+        private const int MaxBulkCopyVariables = 999;
+
+        public override async Task BulkCopyAsync(DbConnection connection, DataTable dataTable, BulkCopyInfo bulkCopyInfo)
         {
-            throw new NotImplementedException();
+            ArgumentNullException.ThrowIfNull(connection);
+            ArgumentNullException.ThrowIfNull(dataTable);
+            ArgumentNullException.ThrowIfNull(bulkCopyInfo);
+
+            if (dataTable.Rows.Count == 0)
+            {
+                return;
+            }
+
+            this.ExcludeComputedColumnsForBulkCopy(dataTable, bulkCopyInfo);
+
+            List<string> columnNames = dataTable.Columns.Cast<DataColumn>().Select(item => item.ColumnName).ToList();
+
+            if (columnNames.Count == 0)
+            {
+                return;
+            }
+
+            string tableName = QuoteSqliteIdentifier(bulkCopyInfo.DestinationTableName);
+            string columnList = string.Join(", ", columnNames.Select(QuoteSqliteIdentifier));
+            CancellationToken cancellationToken = bulkCopyInfo.CancellationToken;
+            int rowsPerBatch = Math.Max(1, Math.Min(bulkCopyInfo.BatchSize ?? this.DataBatchSize, MaxBulkCopyVariables / columnNames.Count));
+            int commandTimeout = bulkCopyInfo.Timeout ?? Setting.CommandTimeout;
+
+            if (connection.State == ConnectionState.Closed)
+            {
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            for (int offset = 0; offset < dataTable.Rows.Count; offset += rowsPerBatch)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                int rowCount = Math.Min(rowsPerBatch, dataTable.Rows.Count - offset);
+
+                using DbCommand command = connection.CreateCommand();
+                command.Transaction = bulkCopyInfo.Transaction;
+                command.CommandTimeout = commandTimeout;
+
+                var builder = new StringBuilder();
+                builder.Append("INSERT INTO ").Append(tableName).Append(" (").Append(columnList).Append(") VALUES ");
+
+                int parameterIndex = 0;
+
+                for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+                {
+                    if (rowIndex > 0)
+                    {
+                        builder.Append(", ");
+                    }
+
+                    builder.Append('(');
+
+                    for (int columnIndex = 0; columnIndex < columnNames.Count; columnIndex++)
+                    {
+                        if (columnIndex > 0)
+                        {
+                            builder.Append(", ");
+                        }
+
+                        string parameterName = "@p" + parameterIndex.ToString(CultureInfo.InvariantCulture);
+                        builder.Append(parameterName);
+
+                        DbParameter parameter = command.CreateParameter();
+                        parameter.ParameterName = parameterName;
+                        object value = dataTable.Rows[offset + rowIndex][columnIndex];
+                        parameter.Value = value ?? DBNull.Value;
+                        command.Parameters.Add(parameter);
+
+                        parameterIndex++;
+                    }
+
+                    builder.Append(')');
+                }
+
+                command.CommandText = builder.ToString();
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        private static string QuoteSqliteIdentifier(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                throw new ArgumentException("SQLite 批量导入的目标表名不能为空。", nameof(name));
+            }
+
+            // SQLite 的 schema 是数据库文件路径，不能作为对象名前缀；这里只引用目标表名。
+            return "\"" + name.Replace("\"", "\"\"") + "\"";
         }
         #endregion
 

@@ -66,7 +66,8 @@
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <atom:CheckBox Content="目标执行" IsChecked="{Binding ExecuteOnTargetServer}" />
                 <atom:CheckBox Content="使用事务" IsChecked="{Binding UseTransaction}" />
-                <atom:CheckBox Content="BulkCopy 批量" IsChecked="{Binding BulkCopy}" />
+                <atom:CheckBox Content="BulkCopy 批量" IsChecked="{Binding BulkCopy}"
+                               ToolTip.Tip="支持 SQL Server、MySQL、PostgreSQL、Oracle 及 SQLite 到 SQLite。其他组合使用普通插入。" />
                 <atom:CheckBox Content="出错继续" IsChecked="{Binding ContinueWhenErrorOccurs}" />
                 <atom:CheckBox Content="自动建 Schema" IsChecked="{Binding CreateSchemaIfNotExists}" />
                 <atom:CheckBox Content="Schema 预览" IsChecked="{Binding NeedPreview}" />

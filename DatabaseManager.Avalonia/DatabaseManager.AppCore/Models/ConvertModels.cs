@@ -13,7 +13,7 @@ public class ConvertOptions
     /// <summary>是否使用事务包裹目标端脚本执行。</summary>
     public bool UseTransaction { get; set; }
 
-    /// <summary>是否使用 BulkCopy 批量迁移数据（MySql/SqlServer/Postgres 支持）。</summary>
+    /// <summary>是否使用 BulkCopy 批量迁移数据（MySql/SqlServer/Postgres/Oracle/Sqlite 支持，其他类型自动回退逐行插入）。</summary>
     public bool BulkCopy { get; set; }
 
     /// <summary>脚本对象出错时是否继续。</summary>

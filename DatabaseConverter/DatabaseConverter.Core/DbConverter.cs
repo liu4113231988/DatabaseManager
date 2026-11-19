@@ -771,7 +771,9 @@ namespace DatabaseConverter.Core
 
             List<Dictionary<string, object>> data = sourceDbInterpreter.ConvertDataTableToDictionaryList(dataTable, sourceTableColumns);
 
-            if (useBulkCopy && targetDbInterpreter.SupportBulkCopy)
+            // Cross-engine SQLite transfers still need the script generator's value conversions.
+            if (useBulkCopy && targetDbInterpreter.SupportBulkCopy &&
+                (targetDbType != DatabaseType.Sqlite || sourceDbInterpreter.DatabaseType == DatabaseType.Sqlite))
             {
                 BulkCopyInfo bulkCopyInfo = GetBulkCopyInfo(sourceDbInterpreter, targetDbInterpreter, sourceTable, targetTableColumns, cancellationToken, schemaMappings, tableNameMappings, transaction);
 
