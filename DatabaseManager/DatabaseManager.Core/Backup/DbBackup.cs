@@ -73,6 +73,10 @@ namespace DatabaseManager.Core
             {
                 return new PostgresBackup();
             }
+            else if (databaseType == DatabaseType.KingbaseES)
+            {
+                return new KingbaseBackup();
+            }
 
             throw new NotImplementedException($"Not implemente for backup {databaseType}.");
         }

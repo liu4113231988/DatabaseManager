@@ -52,7 +52,8 @@ public class DefaultDbUserService : IDbUserService
     public bool IsSupported(string databaseType)
     {
         var dbType = ParseDatabaseType(databaseType);
-        return dbType is DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.SqlServer or DatabaseType.Oracle;
+        return dbType is DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES
+            or DatabaseType.SqlServer or DatabaseType.Oracle;
     }
 
     public async Task<(List<DbUserInfo> Users, string? Error)> GetUsersAsync(ConnectionItem connection, CancellationToken cancellationToken = default)
@@ -60,13 +61,19 @@ public class DefaultDbUserService : IDbUserService
         var dbType = ParseDatabaseType(connection.DatabaseType);
         if (!IsSupported(connection.DatabaseType))
         {
-            return (new List<DbUserInfo>(), "该数据库类型不支持用户管理（SQLite 无用户体系）。");
+            return (new List<DbUserInfo>(), "该数据库类型不支持用户管理（例如 SQLite 无用户体系）。");
+        }
+        if (dbType == DatabaseType.KingbaseES &&
+            KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } modeReason)
+        {
+            return (new List<DbUserInfo>(), modeReason);
         }
 
         string sql = dbType switch
         {
             DatabaseType.MySql => "SELECT `User`, `Host`, IFNULL(`authentication_string`,'') <> '' AS HasPassword, '' FROM mysql.user ORDER BY `User`",
             DatabaseType.Postgres => "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '' FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY rolname",
+            DatabaseType.KingbaseES => KingbaseUserSql.BuildUsersSql(useSystemCatalog: true),
             DatabaseType.SqlServer => "SELECT name, '', ISNULL(type_desc,''), ISNULL(CONVERT(varchar(10), create_date, 120),'') FROM sys.server_principals WHERE type IN ('S','U') ORDER BY name",
             DatabaseType.Oracle => "SELECT username, '', NVL(account_status,''), TO_CHAR(created,'YYYY-MM-DD') FROM all_users ORDER BY username",
             _ => string.Empty,
@@ -75,15 +82,20 @@ public class DefaultDbUserService : IDbUserService
         try
         {
             var rows = await ExecuteReaderAsync(connection, sql, cancellationToken);
-            var users = rows.Select(r => new DbUserInfo
+            return (ToUsers(rows), null);
+        }
+        catch (Exception ex) when (dbType == DatabaseType.KingbaseES)
+        {
+            try
             {
-                Name = r[0] ?? string.Empty,
-                Host = r[1] ?? string.Empty,
-                Attributes = r[2] ?? string.Empty,
-                Created = r[3] ?? string.Empty,
-            }).ToList();
-
-            return (users, null);
+                var fallbackRows = await ExecuteReaderAsync(connection, KingbaseUserSql.BuildFallbackUsersSql(), cancellationToken);
+                return (ToUsers(fallbackRows), null);
+            }
+            catch (Exception fallbackEx)
+            {
+                return (new List<DbUserInfo>(),
+                    $"sys_roles 读取失败：{ex.Message}；pg_roles 回退失败：{fallbackEx.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetUserPermissionHint(dbType)}");
+            }
         }
         catch (Exception ex)
         {
@@ -94,6 +106,12 @@ public class DefaultDbUserService : IDbUserService
     public async Task<(string Text, string? Error)> GetGrantsAsync(ConnectionItem connection, string userName, string? host, CancellationToken cancellationToken = default)
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
+        if (dbType == DatabaseType.KingbaseES &&
+            KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } modeReason)
+        {
+            return (string.Empty, modeReason);
+        }
+
         string sql;
 
         switch (dbType)
@@ -115,6 +133,9 @@ JOIN pg_roles role ON role.oid = m.roleid
 JOIN pg_roles member ON member.oid = m.member
 WHERE member.rolname = '{EscapeSingleQuote(userName)}'
 ) grants ORDER BY grant_text";
+                break;
+            case DatabaseType.KingbaseES:
+                sql = KingbaseUserSql.BuildGrantsSql(userName);
                 break;
             case DatabaseType.SqlServer:
                 sql = $@"SELECT permission_name + ' ON ' + COALESCE(OBJECT_SCHEMA_NAME(major_id) + '.', '') + COALESCE(OBJECT_NAME(major_id), 'DATABASE')
@@ -152,6 +173,11 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         {
             return (false, "SQL 为空。");
         }
+        if (ParseDatabaseType(connection.DatabaseType) == DatabaseType.KingbaseES &&
+            KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } modeReason)
+        {
+            return (false, modeReason);
+        }
 
         try
         {
@@ -173,7 +199,7 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         return dbType switch
         {
             DatabaseType.MySql => $"CREATE USER '{user}'@'{EscapeSingleQuote(host ?? "%")}' IDENTIFIED BY '{pwd}';",
-            DatabaseType.Postgres => $"CREATE USER \"{user.Replace("\"", "\"\"")}\" WITH PASSWORD '{pwd}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"CREATE USER \"{user.Replace("\"", "\"\"")}\" WITH PASSWORD '{pwd}';",
             DatabaseType.SqlServer => $"CREATE LOGIN [{userName.Replace("]", "]]")}] WITH PASSWORD = '{pwd}';",
             DatabaseType.Oracle => $"CREATE USER \"{user.Replace("\"", "\"\"")}\" IDENTIFIED BY \"{pwd}\";",
             _ => string.Empty,
@@ -188,7 +214,7 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         return dbType switch
         {
             DatabaseType.MySql => $"DROP USER '{user}'@'{EscapeSingleQuote(host ?? "%")}';",
-            DatabaseType.Postgres => $"DROP USER \"{user.Replace("\"", "\"\"")}\";",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"DROP USER \"{user.Replace("\"", "\"\"")}\";",
             DatabaseType.SqlServer => $"DROP LOGIN [{userName.Replace("]", "]]")}]",
             DatabaseType.Oracle => $"DROP USER \"{user.Replace("\"", "\"\"")}\"{(cascade ? " CASCADE" : string.Empty)};",
             _ => string.Empty,
@@ -208,7 +234,7 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         return dbType switch
         {
             DatabaseType.MySql => $"GRANT {priv} ON {target} TO '{EscapeSingleQuote(userName)}'@'{EscapeSingleQuote(host ?? "%")}';",
-            DatabaseType.Postgres => $"GRANT {priv} ON {target} TO {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"GRANT {priv} ON {target} TO {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
             DatabaseType.SqlServer => $"GRANT {priv} ON {target} TO {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
             DatabaseType.Oracle => $"GRANT {priv} ON {target} TO {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
             _ => string.Empty,
@@ -239,7 +265,7 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
 
             target = dbType switch
             {
-                DatabaseType.Postgres => $"ALL TABLES IN SCHEMA {SqlDialectHelper.QuoteIdentifier(dbType, parts[0])}",
+                DatabaseType.Postgres or DatabaseType.KingbaseES => $"ALL TABLES IN SCHEMA {SqlDialectHelper.QuoteIdentifier(dbType, parts[0])}",
                 DatabaseType.SqlServer => $"SCHEMA::{SqlDialectHelper.QuoteIdentifier(dbType, parts[0])}",
                 _ => string.Empty,
             };
@@ -248,13 +274,21 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
 
         target = dbType switch
         {
-            DatabaseType.Postgres => "TABLE " + SqlDialectHelper.QuoteQualifiedIdentifier(dbType, onObject ?? string.Empty),
+            DatabaseType.Postgres or DatabaseType.KingbaseES => "TABLE " + SqlDialectHelper.QuoteQualifiedIdentifier(dbType, onObject ?? string.Empty),
             DatabaseType.SqlServer => "OBJECT::" + SqlDialectHelper.QuoteQualifiedIdentifier(dbType, onObject ?? string.Empty),
             DatabaseType.Oracle when parts.Length == 2 => SqlDialectHelper.QuoteQualifiedIdentifier(dbType, onObject ?? string.Empty),
             _ => string.Empty,
         };
         return target.Length > 0;
     }
+
+    private static List<DbUserInfo> ToUsers(List<string?[]> rows) => rows.Select(r => new DbUserInfo
+    {
+        Name = r[0] ?? string.Empty,
+        Host = r[1] ?? string.Empty,
+        Attributes = r[2] ?? string.Empty,
+        Created = r[3] ?? string.Empty,
+    }).ToList();
 
     private static string EscapeSingleQuote(string value) => value?.Replace("'", "''") ?? string.Empty;
 

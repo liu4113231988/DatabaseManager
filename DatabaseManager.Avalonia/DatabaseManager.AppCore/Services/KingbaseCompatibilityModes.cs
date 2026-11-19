@@ -32,4 +32,20 @@ public static class KingbaseCompatibilityModes
             _ => null,
         };
     }
+
+    /// <summary>阶段 E 运维能力仅按 PG 兼容模式的代码级路径提供。</summary>
+    public static string? GetAdminFeatureBlockReason(string? mode) => Normalize(mode) switch
+    {
+        Oracle or SqlServer => "KingbaseES 运维功能当前仅提供 PG 兼容模式路径；该兼容模式尚未验证，功能不可用。",
+        _ => null,
+    };
+
+    /// <summary>发布标注：当前仅完成代码级接入，真实实例验收通过后才能改为已验证。</summary>
+    public static string GetReleaseSupportLabel(string? mode)
+    {
+        string normalized = Normalize(mode);
+        return normalized is Postgres or Auto
+            ? "PG 兼容模式：代码级已接入，真实 V8 实例验收待补"
+            : $"{normalized} 兼容模式：实验性 / 不可用，待单独验证";
+    }
 }

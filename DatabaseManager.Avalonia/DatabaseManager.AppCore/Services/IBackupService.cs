@@ -13,7 +13,7 @@ public interface IBackupService
     /// </summary>
     /// <param name="connection">目标连接。</param>
     /// <param name="saveFolder">备份保存文件夹。</param>
-    /// <param name="clientToolFilePath">客户端工具路径（MySQL 需 mysqldump.exe）。</param>
+    /// <param name="clientToolFilePath">客户端工具路径（MySQL 需 mysqldump.exe；KingbaseES 需 sys_dump，恢复用 ksql 或 sys_restore）。</param>
     /// <param name="zipFile">是否压缩备份文件。</param>
     /// <param name="onFeedback">实时反馈回调。</param>
     Task<BackupResultItem> BackupAsync(

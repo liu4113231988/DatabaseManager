@@ -260,6 +260,8 @@ public class DefaultFullDataSearchService : IFullDataSearchService
         {
             DatabaseType.SqlServer => $"SELECT TOP {limit} * FROM {SqlDialectHelper.QuoteQualifiedIdentifier(dbType, quotedTable)} WHERE {where}",
             DatabaseType.Oracle => $"SELECT * FROM {SqlDialectHelper.QuoteQualifiedIdentifier(dbType, quotedTable)} WHERE ({where}) AND ROWNUM <= {limit}",
+            // KingbaseES PG 兼容模式：双引号标识符、反斜杠 LIKE 转义与 LIMIT 分页。
+            DatabaseType.KingbaseES or DatabaseType.Postgres => $"SELECT * FROM {SqlDialectHelper.QuoteQualifiedIdentifier(dbType, quotedTable)} WHERE {where} LIMIT {limit}",
             _ => $"SELECT * FROM {SqlDialectHelper.QuoteQualifiedIdentifier(dbType, quotedTable)} WHERE {where} LIMIT {limit}",
         };
     }

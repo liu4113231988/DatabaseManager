@@ -19,6 +19,7 @@ public static class DbAdminGuidance
     {
         DatabaseType.MySql => "读取 mysql.user 与 SHOW GRANTS 通常需要管理员权限。",
         DatabaseType.Postgres => "读取所有角色与权限建议使用超级用户或授予 pg_read_all_stats；普通账号可能只能看到自身可见信息。",
+        DatabaseType.KingbaseES => "PG 兼容模式优先读取 sys_catalog.sys_roles，未暴露时回退 pg_catalog.pg_roles；读取全部角色通常需要超级用户或监控角色，创建/删除/授权需要 CREATEROLE 或超级用户，写操作必须二次确认。",
         DatabaseType.SqlServer => "读取服务器主体和角色成员建议授予 VIEW ANY DEFINITION；数据库对象权限取决于当前数据库可见性。",
         DatabaseType.Oracle => "查询 DBA_* 权限视图需要 SELECT_CATALOG_ROLE；无该权限时请改用具备 DBA 权限的连接。",
         _ => "请使用具备用户与权限管理权限的账号。",

@@ -1,8 +1,8 @@
-# KingbaseES E 阶段：会话与锁测试证据
+# KingbaseES E / F 阶段：运维能力与质量门禁测试证据
 
 ## 范围
 
-本阶段仅支持 KingbaseES 的 PG 兼容模式，覆盖只读会话/阻塞链监控与用户确认后的会话终止。
+本阶段仅支持 KingbaseES 的 PG 兼容模式，覆盖只读会话/阻塞链监控、用户/权限、查询剖析、备份恢复、全库搜索与定时任务的代码级门禁；Oracle / SQL Server 兼容模式明确拦截。
 
 ## 官方依据
 
@@ -21,6 +21,16 @@
 - 未暴露 `sys_catalog.stat_activity` 时的回退 SQL（pg_* 系列）；
 - 探测 SQL 命中 `sys_catalog` Schema；
 - 非数值 PID 被拒绝，避免将用户输入拼接为可执行 SQL。
+
+`KingbaseStageEFChecks` 覆盖：
+
+- 能力矩阵：用户、会话、剖析、备份/恢复、全库搜索方言与发布状态标注；
+- 用户/权限 SQL：`sys_catalog.sys_roles` 优先、`pg_catalog.pg_roles` 回退，`information_schema` 授权/角色成员视图，CREATE/DROP USER、GRANT 语法与字面量转义；
+- 备份恢复：工厂返回 `KingbaseBackup`，`sys_dump` / `ksql` / `sys_restore` 工具名识别，`pg_dump` 不被静默使用；
+- 兼容模式门控：Oracle / SQL Server 模式下用户管理与备份/恢复均拒绝执行；
+- 全库搜索：双引号限定标识符、LIKE 反斜杠转义与 `LIMIT` 分页；
+- 发布标注：驱动包、默认端口、代码级支持模式与 `IsInstanceVerified = false`；
+- 可选真实实例探针：`DBSMOKE_KINGBASE_CONNSTR` 与 `DBSMOKE_KINGBASE_ADMIN_CONNSTR` 未设置时明确跳过；设置时验证连接、Unicode 标量与角色/授权读取。
 
 ## 待真实 V8 实例验收
 

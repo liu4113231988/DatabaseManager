@@ -14,7 +14,8 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultBackupService : IBackupService
 {
     public static bool SupportsBackup(string databaseType) => ConnectionHelper.ParseDatabaseType(databaseType)
-        is DatabaseType.SqlServer or DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.Oracle;
+        is DatabaseType.SqlServer or DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES
+        or DatabaseType.Oracle;
 
     public static bool SupportsRestore(string databaseType) => SupportsBackup(databaseType)
         || ConnectionHelper.ParseDatabaseType(databaseType) == DatabaseType.Sqlite;
@@ -33,6 +34,11 @@ public class DefaultBackupService : IBackupService
             if (dbType == DatabaseType.Unknown || string.IsNullOrEmpty(connection.Database))
             {
                 throw new InvalidOperationException("连接或数据库无效。");
+            }
+            if (dbType == DatabaseType.KingbaseES &&
+                KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } backupModeReason)
+            {
+                return new BackupResultItem(false, backupModeReason, string.Empty);
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -118,6 +124,9 @@ public class DefaultBackupService : IBackupService
             var dbType = ConnectionHelper.ParseDatabaseType(connection.DatabaseType);
             if (dbType == DatabaseType.Unknown || string.IsNullOrWhiteSpace(connection.Database))
                 return new BackupResultItem(false, "连接或目标数据库无效。", string.Empty);
+            if (dbType == DatabaseType.KingbaseES &&
+                KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } restoreModeReason)
+                return new BackupResultItem(false, restoreModeReason, string.Empty);
             if (Path.GetExtension(backupFilePath).Equals(".zip", StringComparison.OrdinalIgnoreCase))
                 return new BackupResultItem(false, "请先解压 ZIP 备份文件后再恢复。", string.Empty);
 
@@ -129,6 +138,7 @@ public class DefaultBackupService : IBackupService
                 DatabaseType.SqlServer => await RestoreSqlServerAsync(connection, backupFilePath, onFeedback, cancellationToken),
                 DatabaseType.MySql => await RestoreMySqlAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 DatabaseType.Postgres => await RestorePostgresAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
+                DatabaseType.KingbaseES => await RestoreKingbaseAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 DatabaseType.Oracle => await RestoreOracleAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 DatabaseType.Sqlite => await RestoreSqliteAsync(connection, backupFilePath, onFeedback, cancellationToken),
                 _ => new BackupResultItem(false, $"暂不支持 {connection.DatabaseType} 的恢复。", string.Empty),
@@ -203,6 +213,40 @@ public class DefaultBackupService : IBackupService
             args.Add(backupFilePath);
         }
         return await RunToolAsync(toolPath!, args, connection.Password, null, "PGPASSWORD", feedback, ct);
+    }
+
+    private static async Task<BackupResultItem> RestoreKingbaseAsync(
+        ConnectionItem connection, string backupFilePath, string? toolPath, Action<string>? feedback, CancellationToken ct)
+    {
+        if (!EnsureTool(toolPath, "KingbaseES 恢复需要选择 ksql 或 sys_restore 客户端程序", out var error))
+            return new BackupResultItem(false, error, string.Empty);
+
+        bool plainSql = Path.GetExtension(backupFilePath).Equals(".sql", StringComparison.OrdinalIgnoreCase);
+        if (plainSql && !KingbaseBackup.IsTool(toolPath!, KingbaseBackup.SqlRestoreToolName))
+            return new BackupResultItem(false, ".sql 备份请使用 ksql；归档格式请使用 sys_restore。", string.Empty);
+        if (!plainSql && !KingbaseBackup.IsTool(toolPath!, KingbaseBackup.ArchiveRestoreToolName))
+            return new BackupResultItem(false, "归档格式备份请使用 sys_restore；.sql 备份请使用 ksql。", string.Empty);
+
+        var args = BuildConnectionArgs(connection, "--host", "--port", "--username");
+        args.Add($"--dbname={connection.Database}");
+        args.Add("--no-password");
+        if (plainSql)
+        {
+            args.Add("-X");
+            args.Add("--set=ON_ERROR_STOP=on");
+            args.Add($"--file={backupFilePath}");
+        }
+        else
+        {
+            args.Add("--clean");
+            args.Add("--if-exists");
+            args.Add("--no-owner");
+            args.Add(backupFilePath);
+        }
+
+        return await RunToolAsync(
+            toolPath!, args, connection.Password, null, "KBPASSWORD", feedback, ct,
+            additionalPasswordVariables: new[] { "PGPASSWORD" });
     }
 
     private static async Task<BackupResultItem> RestoreOracleAsync(
@@ -298,11 +342,22 @@ public class DefaultBackupService : IBackupService
         string passwordVariable,
         Action<string>? feedback,
         CancellationToken ct,
-        string? standardInputText = null)
+        string? standardInputText = null,
+        IEnumerable<string>? additionalPasswordVariables = null)
     {
         using var process = new Process { StartInfo = new ProcessStartInfo(toolPath) { RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = standardInputFile is not null || standardInputText is not null, UseShellExecute = false, CreateNoWindow = true } };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
-        if (!string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(passwordVariable)) process.StartInfo.Environment[passwordVariable] = password;
+        if (!string.IsNullOrEmpty(password))
+        {
+            if (!string.IsNullOrEmpty(passwordVariable)) process.StartInfo.Environment[passwordVariable] = password;
+            if (additionalPasswordVariables is not null)
+            {
+                foreach (string variable in additionalPasswordVariables)
+                {
+                    if (!string.IsNullOrWhiteSpace(variable)) process.StartInfo.Environment[variable] = password;
+                }
+            }
+        }
         process.Start();
 
         var output = new StringBuilder();
