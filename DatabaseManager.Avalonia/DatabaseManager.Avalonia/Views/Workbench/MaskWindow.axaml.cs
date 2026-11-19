@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
-using Newtonsoft.Json;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
 
@@ -12,7 +11,6 @@ public sealed partial class MaskWindow : Window
     private readonly List<MaskRule> _rules = new();
     private QueryResult? _sourceResult;
     private QueryResult? _masked;
-    private string? _signature;
 
     public MaskWindow(IServiceProvider services, string? connectionName = null, string? database = null, QueryResult? result = null)
     {
@@ -53,20 +51,20 @@ public sealed partial class MaskWindow : Window
         _shell.Bind(PreviewButton, _ =>
         {
             if (_sourceResult is null || _rules.Count == 0) throw new InvalidOperationException("请读取结果并添加规则。");
-            _masked = DataMasker.Apply(_sourceResult, _rules); _signature = JsonConvert.SerializeObject(_rules);
+            _masked = DataMasker.Apply(_sourceResult, _rules);
             _shell.ShowData(_masked); _shell.SetOutput("脱敏副本已生成；源结果和数据库保持原值。");
             return Task.CompletedTask;
         });
         _shell.Bind(ExportCsvButton, async ct =>
         {
-            if (_masked is null || _signature != JsonConvert.SerializeObject(_rules)) throw new InvalidOperationException("请先重新生成脱敏预览。");
+            if (_masked is null) throw new InvalidOperationException("请先重新生成脱敏预览。");
             var path = await _shell.SavePath("masked-result.csv"); if (path is null) return;
             await File.WriteAllLinesAsync(path, new[] { ExternalImportSource.Csv(_masked.Columns) }.Concat(_masked.Rows.Select(ExternalImportSource.Csv)), new System.Text.UTF8Encoding(true), ct);
         });
-        _shell.Bind(SaveRulesButton, _ => { WorkbenchSupport.SaveSettings("mask-rules.json", _rules); return Task.CompletedTask; });
+        _shell.Bind(SaveRulesButton, _ => { WorkbenchSupport.SaveSettings("mask-rules.json", _rules, WorkbenchJsonContext.Default.ListMaskRule); return Task.CompletedTask; });
         _shell.Bind(LoadRulesButton, _ =>
         {
-            _rules.Clear(); _rules.AddRange(WorkbenchSupport.LoadSettings<List<MaskRule>>("mask-rules.json")); Refresh();
+            _rules.Clear(); _rules.AddRange(WorkbenchSupport.LoadSettings("mask-rules.json", WorkbenchJsonContext.Default.ListMaskRule)); Refresh();
             return Task.CompletedTask;
         });
         _shell.Bind(ClearRulesButton, _ => { _rules.Clear(); Refresh(); return Task.CompletedTask; });

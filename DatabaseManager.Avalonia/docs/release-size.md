@@ -37,6 +37,8 @@ Linux 将 RID 改为 `linux-x64`。发布工作流检查随包 CoreCLR、hostfxr
 
 依据：[Microsoft 裁剪选项](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trimming-options)、[已知不兼容模式](https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/incompatibilities)。微软明确列出反射序列化、动态程序集加载等限制，不能将构建成功视作兼容证明。
 
+后续 Native AOT 改造仅面向 Windows x64，见 [Windows Native AOT 发布](native-aot.md)。
+
 ## 继续减小体积的可选方向
 
 优先评估重复的 SQL 解析链路及大型数据库驱动的实际用途。DuckDB、SqlParserSharp、Open XML、Oracle 等占用明显，但当前均有功能调用，删除会减少功能；按数据库拆分下载组件需要额外的分发、加载和兼容性设计，不在本次范围。ZIP/TAR.GZ 已降低下载体积，单文件打包主要改善分发形式，不能当作代码裁剪收益。

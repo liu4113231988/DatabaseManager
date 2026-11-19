@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
 
@@ -28,7 +28,7 @@ public sealed partial class QualityWindow : Window
         {
             if (_report is null) throw new InvalidOperationException("请先剖析。");
             var path = await _shell.SavePath("quality-report.json");
-            if (path is not null) await File.WriteAllTextAsync(path, JsonConvert.SerializeObject(_report, Formatting.Indented), ct);
+            if (path is not null) await File.WriteAllTextAsync(path, JsonSerializer.Serialize(_report, WorkbenchJsonContext.Default.QualityReport), ct);
         });
         _shell.Initialize();
     }

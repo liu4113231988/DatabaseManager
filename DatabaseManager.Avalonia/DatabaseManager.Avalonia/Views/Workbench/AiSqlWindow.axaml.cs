@@ -31,10 +31,10 @@ public sealed partial class AiSqlWindow : Window
             ConsentBox.IsChecked = false;
         });
         _shell.Bind(ClearMetadataButton, _ => { _selectedMetadata.Clear(); SchemaTextBox.Text = ""; ConsentBox.IsChecked = false; return Task.CompletedTask; });
-        _shell.Bind(SaveSettingsButton, _ => { WorkbenchSupport.SaveSettings("ai-sql.json", Settings()); return Task.CompletedTask; });
+        _shell.Bind(SaveSettingsButton, _ => { WorkbenchSupport.SaveSettings("ai-sql.json", Settings(), WorkbenchJsonContext.Default.AiSqlSettings); return Task.CompletedTask; });
         _shell.Bind(LoadSettingsButton, _ =>
         {
-            var settings = WorkbenchSupport.LoadSettings<AiSqlSettings>("ai-sql.json");
+            var settings = WorkbenchSupport.LoadSettings("ai-sql.json", WorkbenchJsonContext.Default.AiSqlSettings);
             EndpointBox.Text = settings.Endpoint; ModelBox.Text = settings.Model;
             KeyEnvBox.Text = settings.ApiKeyEnvironmentVariable; ConsentBox.IsChecked = false;
             return Task.CompletedTask;

@@ -1,4 +1,5 @@
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -35,6 +36,17 @@ public class DashboardChart
     public int SampleLimit { get; set; } = ChartSampling.DefaultLimit;
 
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public DashboardChart Clone() => JsonSerializer.Deserialize(
+        JsonSerializer.SerializeToUtf8Bytes(this, DashboardJsonContext.Default.DashboardChart),
+        DashboardJsonContext.Default.DashboardChart)!;
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(DashboardChart))]
+[JsonSerializable(typeof(List<DashboardChart>))]
+internal partial class DashboardJsonContext : JsonSerializerContext
+{
 }
 
 /// <summary>
@@ -68,7 +80,9 @@ public class DefaultDashboardService : IDashboardService
         _items = Load();
     }
 
-    private static List<DashboardChart> Copy(List<DashboardChart> items) => JsonConvert.DeserializeObject<List<DashboardChart>>(JsonConvert.SerializeObject(items))!;
+    private static List<DashboardChart> Copy(List<DashboardChart> items) => JsonSerializer.Deserialize(
+        JsonSerializer.SerializeToUtf8Bytes(items, DashboardJsonContext.Default.ListDashboardChart),
+        DashboardJsonContext.Default.ListDashboardChart)!;
     public IReadOnlyList<DashboardChart> GetAll() { lock (FileLock) return Copy(_items); }
 
     public void Save(DashboardChart chart)
@@ -101,7 +115,7 @@ public class DefaultDashboardService : IDashboardService
         {
             if (File.Exists(_filePath))
             {
-                return JsonConvert.DeserializeObject<List<DashboardChart>>(File.ReadAllText(_filePath))
+                return JsonSerializer.Deserialize(File.ReadAllText(_filePath), DashboardJsonContext.Default.ListDashboardChart)
                        ?? new List<DashboardChart>();
             }
         }
@@ -117,7 +131,7 @@ public class DefaultDashboardService : IDashboardService
     {
         lock (FileLock)
         {
-            File.WriteAllText(_filePath + ".tmp", JsonConvert.SerializeObject(items, Formatting.Indented));
+            File.WriteAllText(_filePath + ".tmp", JsonSerializer.Serialize(items, DashboardJsonContext.Default.ListDashboardChart));
             File.Move(_filePath + ".tmp", _filePath, true);
         }
     }

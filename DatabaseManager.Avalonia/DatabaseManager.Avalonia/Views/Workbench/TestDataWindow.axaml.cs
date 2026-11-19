@@ -1,7 +1,7 @@
 using Avalonia.Controls;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
-using Newtonsoft.Json;
+using System.Text.Json;
 using static DatabaseManager.Avalonia.Views.Workbench.WorkbenchBuilders;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
@@ -35,7 +35,7 @@ public sealed partial class TestDataWindow : Window
         _shell.Initialize();
     }
 
-    private string Signature() => JsonConvert.SerializeObject(_rules) + RowCountBox.Text + ":" + SeedBox.Text;
+    private string Signature() => JsonSerializer.Serialize(_rules, WorkbenchJsonContext.Default.ListGenerationRule) + RowCountBox.Text + ":" + SeedBox.Text;
 
     private async Task ReadColumnsAsync(CancellationToken ct)
     {

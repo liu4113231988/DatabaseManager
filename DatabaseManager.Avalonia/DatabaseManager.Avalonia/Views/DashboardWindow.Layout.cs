@@ -7,7 +7,6 @@ using Avalonia.VisualTree;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.Avalonia.Controls;
-using Newtonsoft.Json;
 using System.Net;
 
 namespace DatabaseManager.Avalonia.Views;
@@ -27,7 +26,7 @@ public partial class DashboardWindow
         var invalid = SqlSafety.ValidateProfilerStatement(chart.Sql); if (invalid is not null) throw new InvalidOperationException("仪表盘只允许单条 SELECT 查询。");
         if (_connections is null) return await _queryService.ExecuteAsync(chart.ConnectionName, chart.Sql, _lifetime.Token, 120);
         var saved = _connections.GetConnections().FirstOrDefault(c => c.Name == chart.ConnectionName) ?? throw new InvalidOperationException("找不到图表连接。");
-        var connection = JsonConvert.DeserializeObject<ConnectionItem>(JsonConvert.SerializeObject(saved))!; connection.Ssh = saved.Ssh;
+        var connection = saved.Clone();
         if (!string.IsNullOrWhiteSpace(chart.Database)) connection.Database = chart.Database;
         return await _queryService.ExecuteStandaloneAsync(connection, chart.Sql, _lifetime.Token, 120);
     }
@@ -55,7 +54,7 @@ public partial class DashboardWindow
     private async void CardLayout_Click(object? sender, RoutedEventArgs e)
     {
         if (sender is not Control { Tag: DashboardCard card }) return;
-        var copy = JsonConvert.DeserializeObject<DashboardChart>(JsonConvert.SerializeObject(card.Chart))!;
+        var copy = card.Chart.Clone();
         var page = new TextBox { Text = copy.Page }; var order = new TextBox { Text = copy.Position.ToString() }; var width = new TextBox { Text = copy.CardWidth.ToString() }; var height = new TextBox { Text = copy.CardHeight.ToString() };
         var calculations = new TextBox { AcceptsReturn = true, Height = 130, Classes = { "multiline" }, Text = string.Join("\n", copy.CalculatedFields.Select(c => c.Name + "=" + c.Expression)) };
         var y = new TextBox { Text = string.Join(",", copy.YColumns) }; var error = new TextBlock { TextWrapping = global::Avalonia.Media.TextWrapping.Wrap };

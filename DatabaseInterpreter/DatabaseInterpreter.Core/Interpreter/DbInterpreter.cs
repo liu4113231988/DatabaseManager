@@ -194,20 +194,26 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region SchemaInfo
-        protected async Task<List<T>> GetDbObjectsAsync<T>(string sql) where T : DatabaseObject
+        protected Task<List<T>> GetDbObjectsAsync<T>(string sql) where T : DatabaseObject
+            => this.GetDbObjectsAsync<T>(sql, null);
+
+        protected async Task<List<T>> GetDbObjectsAsync<T>(string sql, Func<DbDataReader, T> map) where T : DatabaseObject
         {
             if (!string.IsNullOrEmpty(sql))
             {
                 using (DbConnection dbConnection = this.CreateConnection())
                 {
-                    return await this.GetDbObjectsAsync<T>(dbConnection, sql);
+                    return await this.GetDbObjectsAsync(dbConnection, sql, map);
                 }
             }
 
             return new List<T>();
         }
 
-        protected async Task<List<T>> GetDbObjectsAsync<T>(DbConnection dbConnection, string sql) where T : DatabaseObject
+        protected Task<List<T>> GetDbObjectsAsync<T>(DbConnection dbConnection, string sql) where T : DatabaseObject
+            => this.GetDbObjectsAsync<T>(dbConnection, sql, null);
+
+        protected async Task<List<T>> GetDbObjectsAsync<T>(DbConnection dbConnection, string sql, Func<DbDataReader, T> map) where T : DatabaseObject
         {
             List<T> objects = new List<T>();
 
@@ -217,7 +223,9 @@ namespace DatabaseInterpreter.Core
                 {
                     await this.OpenConnectionAsync(dbConnection);
 
-                    objects = (await dbConnection.QueryAsync<T>(sql)).ToList();
+                    objects = map is null
+                        ? (await dbConnection.QueryAsync<T>(sql)).ToList()
+                        : await ReadMappedObjectsAsync(dbConnection, sql, map);
 
                     bool isAllOrdersIsZero = !objects.Any(item => item.Order != 0);
 
@@ -243,6 +251,20 @@ namespace DatabaseInterpreter.Core
             }
 
             this.FeedbackInfo($"Got {objects.Count} {StringHelper.GetFriendlyTypeName(typeof(T).Name).ToLower()}(s).");
+
+            return objects;
+        }
+
+        private static async Task<List<T>> ReadMappedObjectsAsync<T>(DbConnection connection, string sql, Func<DbDataReader, T> map)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            using var reader = await command.ExecuteReaderAsync();
+            var objects = new List<T>();
+            while (await reader.ReadAsync())
+            {
+                objects.Add(map(reader));
+            }
 
             return objects;
         }

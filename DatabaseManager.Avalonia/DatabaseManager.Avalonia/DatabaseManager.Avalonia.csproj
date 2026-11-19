@@ -22,6 +22,18 @@
     <NoWarn>$(NoWarn);AVLN3001</NoWarn>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(DatabaseManagerNativeAot)' == 'true'">
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PublishAot>true</PublishAot>
+    <PublishTrimmed>true</PublishTrimmed>
+  </PropertyGroup>
+
+  <Target Name="ValidateDatabaseManagerNativeAot" BeforeTargets="ProcessFrameworkReferences;PrepareForBuild"
+          Condition="'$(DatabaseManagerNativeAot)' == 'true'">
+    <Error Condition="'$(OS)' != 'Windows_NT' or '$(RuntimeIdentifier)' != 'win-x64'"
+           Text="DatabaseManager Native AOT requires Windows and the win-x64 runtime identifier." />
+  </Target>
+
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
     <!-- SQL 高亮定义：以托管嵌入资源形式打包（SqlEditor 通过 GetManifestResourceStream 加载） -->

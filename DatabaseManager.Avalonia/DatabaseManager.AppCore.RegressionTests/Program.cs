@@ -140,6 +140,7 @@ static class Program
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         SqliteEncryptionChecks.RunAsync().GetAwaiter().GetResult();
+        SqliteMetadataChecks.RunAsync().GetAwaiter().GetResult();
         SqliteBulkCopyChecks.RunAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP2Checks.RunAsync().GetAwaiter().GetResult();

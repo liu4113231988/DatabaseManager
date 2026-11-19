@@ -1,4 +1,3 @@
-using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Profile.Model;
@@ -8,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 namespace DatabaseManager.Profile.Manager
@@ -33,10 +31,7 @@ namespace DatabaseManager.Profile.Manager
 
         public static async Task InitAsync()
         {
-            // single-file 发布模式下 Assembly.Location 可能为 null，用 AppContext.BaseDirectory 兜底
-            var assemblyFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-                ?? AppContext.BaseDirectory
-                ?? Environment.CurrentDirectory;
+            var assemblyFolder = AppContext.BaseDirectory;
 
             string folder = Path.Combine(assemblyFolder, ProfileFolder);
 
@@ -126,6 +121,45 @@ namespace DatabaseManager.Profile.Manager
             return new SqliteConnection(builder.BuildConntionString(GetConnectionInfo(dataFilePath ?? ProfileDataFile)));
         }
 
+        protected static SqliteCommand CreateProfileCommand(SqliteConnection connection, string sql, IReadOnlyDictionary<string, object> parameters = null)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = sql;
+            if (parameters != null)
+            {
+                foreach (var parameter in parameters)
+                {
+                    command.Parameters.AddWithValue(parameter.Key, parameter.Value ?? DBNull.Value);
+                }
+            }
+
+            return command;
+        }
+
+        protected static async Task<List<T>> ReadProfilesAsync<T>(SqliteConnection connection, string sql,
+            Func<SqliteDataReader, T> map, IReadOnlyDictionary<string, object> parameters = null)
+        {
+            using var command = CreateProfileCommand(connection, sql, parameters);
+            using var reader = await command.ExecuteReaderAsync();
+            var rows = new List<T>();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(map(reader));
+            }
+
+            return rows;
+        }
+
+        protected static async Task<int> ReadProfileIntAsync(SqliteConnection connection, string sql, IReadOnlyDictionary<string, object> parameters)
+        {
+            using var command = CreateProfileCommand(connection, sql, parameters);
+            var value = await command.ExecuteScalarAsync();
+            return value is DBNull ? 0 : Convert.ToInt32(value);
+        }
+
+        protected static string ReadProfileString(SqliteDataReader reader, int ordinal)
+            => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
         protected static object GetParameterValue(string value)
         {
             if (string.IsNullOrEmpty(value))
@@ -162,9 +196,10 @@ namespace DatabaseManager.Profile.Manager
             }
 
             string migratedValue = CredentialProtector.Default.Protect(plainText);
-            await connection.ExecuteAsync(
-                $"UPDATE {table} SET {column}=@Value WHERE Id=@Id",
-                new { Value = migratedValue, Id = id });
+            using var command = CreateProfileCommand(connection, $"UPDATE {table} SET {column}=@Value WHERE Id=@Id");
+            command.Parameters.AddWithValue("@Value", migratedValue);
+            command.Parameters.AddWithValue("@Id", id);
+            await command.ExecuteNonQueryAsync();
             return plainText;
         }
 
@@ -212,7 +247,8 @@ namespace DatabaseManager.Profile.Manager
                         Dictionary<string, object> para = new Dictionary<string, object>();
                         para.Add("@Id", kvp.Key);
 
-                        affectedRows += await connection.ExecuteAsync(sql, para);
+                        using var command = CreateProfileCommand(connection, sql, para);
+                        affectedRows += await command.ExecuteNonQueryAsync();
                     }
 
                     await trans.CommitAsync();

@@ -4,7 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
 
@@ -62,13 +62,13 @@ public sealed partial class QueryBuilderWindow : Window
         {
             _ = Build();
             var path = await _shell.SavePath("query-design.json");
-            if (path is not null) await File.WriteAllTextAsync(path, JsonConvert.SerializeObject(_design, Formatting.Indented), ct);
+            if (path is not null) await File.WriteAllTextAsync(path, JsonSerializer.Serialize(_design, WorkbenchJsonContext.Default.QueryDesign), ct);
         });
         _shell.Bind(LoadDesignButton, async ct =>
         {
             var path = await _shell.OpenPath("加载查询设计"); if (path is null) return;
             if (new FileInfo(path).Length > 1024 * 1024) throw new ArgumentException("设计文件过大。");
-            var loaded = JsonConvert.DeserializeObject<QueryDesign>(await File.ReadAllTextAsync(path, ct)) ?? throw new ArgumentException("设计无效。");
+            var loaded = JsonSerializer.Deserialize(await File.ReadAllTextAsync(path, ct), WorkbenchJsonContext.Default.QueryDesign) ?? throw new ArgumentException("设计无效。");
             _ = VisualQueryBuilder.Build(loaded, ConnectionHelper.ParseDatabaseType(_shell.Connection.DatabaseType));
             var connection = _shell.Connection;
             _design.Tables.Clear(); _design.Tables.AddRange(loaded.Tables);

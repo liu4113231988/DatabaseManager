@@ -27,7 +27,13 @@ public static class P2SmokeHarness
             var services = new ServiceCollection().AddSingleton<IDbConnectionService>(connections).AddSingleton<IExportImportService>(new DefaultExportImportService(connections)).AddSingleton<IDataEditService>(new DefaultDataEditService(connections)).BuildServiceProvider();
             string sent = "";
             var queryWindow = new QueryBuilderWindow(services, (_, sql) => sent = sql, item.Name, item.Database); queryWindow.Show(); await Task.Delay(250);
-            await Click(queryWindow, "加载对象"); await Click(queryWindow, "加入表"); await Click(queryWindow, "添加输出"); await Click(queryWindow, "预览 SQL"); await Click(queryWindow, "送入新查询标签");
+            await Click(queryWindow, "加载对象");
+            if (queryWindow.FindControl<ListBox>("AvailableTables")?.ItemCount != 1)
+                throw new InvalidOperationException("Builder did not load the fixture table: " + Status(queryWindow));
+            await Click(queryWindow, "加入表");
+            if (queryWindow.FindControl<ComboBox>("FieldBox")?.ItemCount != 3)
+                throw new InvalidOperationException("Builder did not load the fixture columns: " + Status(queryWindow));
+            await Click(queryWindow, "添加输出"); await Click(queryWindow, "预览 SQL"); await Click(queryWindow, "送入新查询标签");
             if (!sent.StartsWith("SELECT")) throw new Exception("Builder UI did not produce SQL."); await Capture(queryWindow, "query"); queryWindow.Close();
             var generator = new TestDataWindow(services, item.Name, item.Database); generator.Show(); await Task.Delay(150);
             await Click(generator, "加载对象"); await Click(generator, "读取字段规则"); await Click(generator, "生成并预览");

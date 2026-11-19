@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Core;
+﻿using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
 using DatabaseManager.Profile.Security;
@@ -31,7 +30,7 @@ namespace DatabaseManager.Profile.Manager
 
                     Dictionary<string, object> para = new Dictionary<string, object>() { { "@DbType", dbType } };
 
-                    profiles = await connection.QueryAsync<AccountProfileInfo>(sql, para);
+                    profiles = await ReadProfilesAsync(connection, sql, ReadAccount, para);
 
                     foreach (var profile in profiles)
                     {
@@ -90,7 +89,7 @@ namespace DatabaseManager.Profile.Manager
                         para.Add("@UserId", userId);
                     }
 
-                    profile = (await connection.QueryAsync<AccountProfileInfo>(sb.Content, para)).FirstOrDefault();
+                    profile = (await ReadProfilesAsync(connection, sb.Content, ReadAccount, para)).FirstOrDefault();
 
                     if (profile != null && !string.IsNullOrEmpty(profile.Password))
                     {
@@ -123,7 +122,7 @@ namespace DatabaseManager.Profile.Manager
                         { "@Id", id }
                     };
 
-                    profile = (await connection.QueryAsync<AccountProfileInfo>(sb.Content, para)).FirstOrDefault();
+                    profile = (await ReadProfilesAsync(connection, sb.Content, ReadAccount, para)).FirstOrDefault();
 
                     if (profile != null && !string.IsNullOrEmpty(profile.Password))
                     {
@@ -134,6 +133,21 @@ namespace DatabaseManager.Profile.Manager
 
             return profile;
         }
+
+        private static AccountProfileInfo ReadAccount(SqliteDataReader reader) => new AccountProfileInfo
+        {
+            Id = ReadProfileString(reader, 0),
+            DatabaseType = ReadProfileString(reader, 1),
+            Server = ReadProfileString(reader, 2),
+            ServerVersion = ReadProfileString(reader, 3),
+            Port = ReadProfileString(reader, 4),
+            IntegratedSecurity = !reader.IsDBNull(5) && reader.GetBoolean(5),
+            UserId = ReadProfileString(reader, 6),
+            Password = ReadProfileString(reader, 7),
+            IsDba = !reader.IsDBNull(8) && reader.GetBoolean(8),
+            UseSsl = !reader.IsDBNull(9) && reader.GetBoolean(9),
+            Priority = reader.FieldCount > 10 && !reader.IsDBNull(10) ? reader.GetInt32(10) : 0,
+        };
 
         public static async Task<string> Save(AccountProfileInfo info, bool rememberPassword)
         {
@@ -190,14 +204,7 @@ namespace DatabaseManager.Profile.Manager
                 Dictionary<string, object> para = new Dictionary<string, object>();
                 para.Add("@DatabaseType", info.DatabaseType);
 
-                int? maxId = (await connection.QueryAsync<int>(sql, para))?.FirstOrDefault();
-
-                if (maxId.HasValue == false)
-                {
-                    maxId = 0;
-                }
-
-                int priority = maxId.Value + 1;
+                int priority = await ReadProfileIntAsync(connection, sql, para) + 1;
 
                 id = Guid.NewGuid().ToString();
 

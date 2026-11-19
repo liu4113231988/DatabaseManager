@@ -107,8 +107,10 @@ internal static class P2FeatureChecks
             try { await ExternalImportSource.SnapshotDbfAsync(dbf, Path.Combine(folder, "cancel.csv"), "UTF-8", canceled.Token); throw new Exception("Expected cancellation."); } catch (OperationCanceledException) { Check(!File.Exists(Path.Combine(folder, "cancel.csv")), "Canceled snapshot not published."); }
             var schema = new SchemaInfo { Tables = new() { new Table { Name = "sample", Schema = "public", Comment = "<script>alert(1)</script>" } }, TableColumns = new() { new TableColumn { Name = "title", TableName = "sample", Schema = "public", DataType = "text", Comment = "中文描述", IsNullable = true } } };
             var doc = DataDictionaryService.Build("test", schema, new DictionaryOptions());
-            var dashboardStore = new DefaultDashboardService(folder);
             var persistedChart = new DashboardChart { Name = "持久化测试", Page = "第二页", Position = 2, Sql = "SELECT 1", CardWidth = 500, CalculatedFields = new() { new() { Name = "x", Expression = "1+2" } } };
+            File.WriteAllText(Path.Combine(folder, "dashboard-charts.json"), JsonConvert.SerializeObject(new[] { persistedChart }));
+            var dashboardStore = new DefaultDashboardService(folder);
+            Check(dashboardStore.GetAll().Single().CalculatedFields.Single().Expression == "1+2", "Existing dashboard JSON must remain readable.");
             dashboardStore.Save(persistedChart); persistedChart.Page = "未保存修改";
             Check(new DefaultDashboardService(folder).GetAll()[0].Page == "第二页" && dashboardStore.GetAll()[0].Page == "第二页", "Dashboard persists layout without caller mutation.");
             Directory.CreateDirectory(Path.Combine(folder, "dashboard-charts.json.tmp"));

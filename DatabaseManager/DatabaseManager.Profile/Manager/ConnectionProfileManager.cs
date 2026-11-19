@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Core;
+﻿using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Profile.Model;
 using System;
@@ -91,7 +90,24 @@ namespace DatabaseManager.Profile.Manager
 
                     sb.Append(Environment.NewLine + "ORDER BY a.Priority,c.Priority");
 
-                    profiles = await connection.QueryAsync<ConnectionProfileInfo>(sb.Content, para);
+                    profiles = await ReadProfilesAsync(connection, sb.Content, static reader => new ConnectionProfileInfo
+                    {
+                        Id = ReadProfileString(reader, 0),
+                        AccountId = ReadProfileString(reader, 1),
+                        DatabaseType = ReadProfileString(reader, 2),
+                        Server = ReadProfileString(reader, 3),
+                        ServerVersion = ReadProfileString(reader, 4),
+                        Port = ReadProfileString(reader, 5),
+                        IntegratedSecurity = !reader.IsDBNull(6) && reader.GetBoolean(6),
+                        UserId = ReadProfileString(reader, 7),
+                        Password = ReadProfileString(reader, 8),
+                        IsDba = !reader.IsDBNull(9) && reader.GetBoolean(9),
+                        UseSsl = !reader.IsDBNull(10) && reader.GetBoolean(10),
+                        Name = ReadProfileString(reader, 11),
+                        Database = ReadProfileString(reader, 12),
+                        Visible = reader.IsDBNull(13) || reader.GetBoolean(13),
+                        Priority = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+                    }, para);
 
                     if (profiles != null)
                     {
@@ -138,6 +154,7 @@ namespace DatabaseManager.Profile.Manager
             {
                 using (var connection = CreateDbConnection())
                 {
+                    await connection.OpenAsync();
                     string sql = "SELECT 1 FROM Connection WHERE LOWER(Name)=LOWER(@Name) AND AccountId=@AccountId";
 
                     if(!isAdd)
@@ -148,10 +165,10 @@ namespace DatabaseManager.Profile.Manager
                     Dictionary<string, object> para = new Dictionary<string, object>();
 
                     para.Add("@AccountId", accountId);
-                    para.Add("@Id", id);
+                    if (!isAdd) para.Add("@Id", id);
                     para.Add("@Name", name);
 
-                    int? result = (await connection.QueryAsync<int>(sql, para))?.FirstOrDefault();
+                    int result = await ReadProfileIntAsync(connection, sql, para);
 
                     return result > 0;
                 }
@@ -208,14 +225,7 @@ namespace DatabaseManager.Profile.Manager
                     Dictionary<string, object> para = new Dictionary<string, object>();
                     para.Add("@AccountId", accountProfileId);
 
-                    int? maxId = (await connection.QueryAsync<int>(sql, para))?.FirstOrDefault();
-
-                    if (maxId.HasValue == false)
-                    {
-                        maxId = 0;
-                    }
-
-                    int priority = maxId.Value + 1;
+                    int priority = await ReadProfileIntAsync(connection, sql, para) + 1;
 
                     string id = Guid.NewGuid().ToString();
 

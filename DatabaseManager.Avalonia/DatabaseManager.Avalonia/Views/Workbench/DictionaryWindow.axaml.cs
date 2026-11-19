@@ -48,10 +48,10 @@ public sealed partial class DictionaryWindow : Window
             var path = await _shell.SavePath("data-dictionary." + Format());
             if (path is not null) await DataDictionaryService.SaveAsync(_document, path, ct, templates);
         });
-        _shell.Bind(SaveTemplateButton, _ => { WorkbenchSupport.SaveSettings("dictionary-template.json", Options()); return Task.CompletedTask; });
+        _shell.Bind(SaveTemplateButton, _ => { WorkbenchSupport.SaveSettings("dictionary-template.json", Options(), WorkbenchJsonContext.Default.DictionaryOptions); return Task.CompletedTask; });
         _shell.Bind(LoadTemplateButton, _ =>
         {
-            var options = WorkbenchSupport.LoadSettings<DictionaryOptions>("dictionary-template.json");
+            var options = WorkbenchSupport.LoadSettings("dictionary-template.json", WorkbenchJsonContext.Default.DictionaryOptions);
             TitleBox.Text = options.Title; IntroBox.Text = options.Introduction;
             ObjectTemplateBox.Text = options.ObjectTemplate; ColumnTemplateBox.Text = options.ColumnTemplate;
             ObjectsBox.Text = string.Join(",", options.Objects); _document = null;

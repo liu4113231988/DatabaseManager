@@ -1,13 +1,14 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using Avalonia.Data;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
 
@@ -57,7 +58,7 @@ public sealed class WorkbenchSupport
         get
         {
             var selected = ConnectionBox.SelectedItem as ConnectionItem ?? throw new InvalidOperationException("请选择连接。");
-            var copy = JsonConvert.DeserializeObject<ConnectionItem>(JsonConvert.SerializeObject(selected))!; copy.Ssh = selected.Ssh;
+            var copy = selected.Clone();
             copy.Database = DatabaseBox.Text?.Trim() ?? "";
             if (string.IsNullOrEmpty(copy.Database)) throw new InvalidOperationException("请填写数据库。");
             return copy;
@@ -103,7 +104,16 @@ public sealed class WorkbenchSupport
     public void ShowData(QueryResult result)
     {
         ResultGrid.Columns.Clear();
-        for (int i = 0; i < result.Columns.Count; i++) ResultGrid.Columns.Add(new DataGridTextColumn { Header = result.Columns[i], Binding = new Binding($"Values[{i}]"), Width = new DataGridLength(150) });
+        for (int i = 0; i < result.Columns.Count; i++)
+        {
+            int column = i;
+            ResultGrid.Columns.Add(new DataGridTemplateColumn
+            {
+                Header = result.Columns[column],
+                Width = new DataGridLength(150),
+                CellTemplate = new FuncDataTemplate<PreviewRow>((row, _) => new TextBlock { Text = row?.Values[column] }),
+            });
+        }
         ResultGrid.ItemsSource = result.Rows.Take(1000).Select(r => new PreviewRow(r)).ToArray();
         SetStatus($"共 {result.Rows.Count} 行，表格预览最多 1000 行。{result.WarningMessage}");
     }
@@ -167,12 +177,24 @@ public sealed class WorkbenchSupport
 
     private static string SettingsPath(string name) => Path.Combine(AppContext.BaseDirectory, "Profiles", name);
 
-    public static void SaveSettings<T>(string name, T value)
+    public static void SaveSettings<T>(string name, T value, JsonTypeInfo<T> typeInfo)
     {
         string path = SettingsPath(name); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path + ".tmp", JsonConvert.SerializeObject(value, Formatting.Indented)); File.Move(path + ".tmp", path, true);
+        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(value, typeInfo)); File.Move(path + ".tmp", path, true);
     }
 
-    public static T LoadSettings<T>(string name) where T : new() =>
-        File.Exists(SettingsPath(name)) ? JsonConvert.DeserializeObject<T>(File.ReadAllText(SettingsPath(name))) ?? new() : new();
+    public static T LoadSettings<T>(string name, JsonTypeInfo<T> typeInfo) where T : class, new() =>
+        File.Exists(SettingsPath(name)) ? JsonSerializer.Deserialize(File.ReadAllText(SettingsPath(name)), typeInfo) ?? new() : new();
+}
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
+[JsonSerializable(typeof(AiSqlSettings))]
+[JsonSerializable(typeof(DictionaryOptions))]
+[JsonSerializable(typeof(List<MaskRule>))]
+[JsonSerializable(typeof(List<GenerationRule>))]
+[JsonSerializable(typeof(QueryDesign))]
+[JsonSerializable(typeof(QualityReport))]
+internal partial class WorkbenchJsonContext : JsonSerializerContext
+{
 }

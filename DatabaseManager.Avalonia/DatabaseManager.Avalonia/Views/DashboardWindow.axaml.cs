@@ -168,7 +168,7 @@ public partial class DashboardWindow : Window
         catch (Exception ex) { card.Update(null, ex.Message); return; }
         var window = new ChartWindow(chart, result, _dashboardService, _queryService, sql =>
         {
-            var source = Newtonsoft.Json.JsonConvert.DeserializeObject<DashboardChart>(Newtonsoft.Json.JsonConvert.SerializeObject(chart))!;
+            var source = chart.Clone();
             source.Sql = sql;
             return ReadChartAsync(source);
         });

@@ -79,12 +79,12 @@ namespace DatabaseInterpreter.Core
         #region Table
         public override Task<List<Table>> GetTablesAsync(SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<Table>(this.GetSqlForTables(filter));
+            return base.GetDbObjectsAsync(this.GetSqlForTables(filter), ReadTable);
         }
 
         public override Task<List<Table>> GetTablesAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<Table>(dbConnection, this.GetSqlForTables(filter));
+            return base.GetDbObjectsAsync(dbConnection, this.GetSqlForTables(filter), ReadTable);
         }
 
         private string GetSqlForTables(SchemaInfoFilter filter = null)
@@ -111,9 +111,9 @@ namespace DatabaseInterpreter.Core
                 isScriptDbObject = true;
             }
 
-            string definition = ((isScriptDbObject && !isSimpleMode) || includeDefinition) ? ",sql as Definition" : "";
+            string definition = (isScriptDbObject && !isSimpleMode) || includeDefinition ? "sql" : "NULL";
 
-            sb.Append($@"SELECT name AS Name{definition}                         
+            sb.Append($@"SELECT name AS Name, {definition} AS Definition
                         FROM sqlite_schema WHERE type= '{type}' AND name not in('sqlite_sequence')");
 
             sb.Append(this.GetFilterNamesCondition(filter, objectNames, "name"));
@@ -122,17 +122,52 @@ namespace DatabaseInterpreter.Core
 
             return sb.Content;
         }
+
+        private static Table ReadTable(DbDataReader reader) => new Table
+        {
+            Name = reader.GetString(0),
+            Definition = GetNullableString(reader, 1),
+        };
+
+        private static View ReadView(DbDataReader reader) => new View
+        {
+            Name = reader.GetString(0),
+            Definition = GetNullableString(reader, 1),
+        };
+
+        private static TableTrigger ReadTrigger(DbDataReader reader) => new TableTrigger
+        {
+            Name = reader.GetString(0),
+            TableName = reader.GetString(1),
+            Definition = GetNullableString(reader, 2),
+        };
+
+        private static TableColumn ReadColumn(DbDataReader reader) => new TableColumn
+        {
+            Name = reader.GetString(0),
+            TableName = reader.GetString(1),
+            DataType = reader.GetString(2),
+            Precision = reader.IsDBNull(3) ? null : reader.GetInt64(3),
+            Scale = reader.IsDBNull(4) ? null : reader.GetInt64(4),
+            IsIdentity = reader.GetBoolean(5),
+            IsNullable = reader.GetBoolean(6),
+            DefaultValue = GetNullableString(reader, 7),
+            Order = reader.GetInt32(8),
+        };
+
+        private static string GetNullableString(DbDataReader reader, int ordinal)
+            => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
         #endregion
 
         #region View
         public override Task<List<View>> GetViewsAsync(SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<View>(this.GetSqlForViews(filter));
+            return base.GetDbObjectsAsync(this.GetSqlForViews(filter), ReadView);
         }
 
         public override Task<List<View>> GetViewsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<View>(dbConnection, this.GetSqlForViews(filter));
+            return base.GetDbObjectsAsync(dbConnection, this.GetSqlForViews(filter), ReadView);
         }
 
         private string GetSqlForViews(SchemaInfoFilter filter = null)
@@ -144,12 +179,12 @@ namespace DatabaseInterpreter.Core
         #region Trigger
         public override Task<List<TableTrigger>> GetTableTriggersAsync(SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<TableTrigger>(this.GetSqlForTriggers(filter));
+            return base.GetDbObjectsAsync(this.GetSqlForTriggers(filter), ReadTrigger);
         }
 
         public override Task<List<TableTrigger>> GetTableTriggersAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)
         {
-            return base.GetDbObjectsAsync<TableTrigger>(dbConnection, this.GetSqlForTriggers(filter));
+            return base.GetDbObjectsAsync(dbConnection, this.GetSqlForTriggers(filter), ReadTrigger);
         }
 
         private string GetSqlForTriggers(SchemaInfoFilter filter = null)
@@ -179,7 +214,7 @@ namespace DatabaseInterpreter.Core
                 childrenNames = filter?.TableTriggerNames;
             }
 
-            string definition = isScriptDbObject && !isSimpleMode ? ",sql as Definition" : "";
+            string definition = isScriptDbObject ? (isSimpleMode ? ",NULL AS Definition" : ",sql AS Definition") : "";
 
             string unique = dbObjectType == DatabaseObjectType.Index ? ",CASE WHEN INSTR(sql, 'UNIQUE')>0 THEN 1 ELSE 0 END AS IsUnique" : "";
 
@@ -228,12 +263,12 @@ namespace DatabaseInterpreter.Core
                 }                
             }
 
-            var columns = await base.GetDbObjectsAsync<TableColumn>(dbConnection, this.GetSqlForTableColumns(filter));
+            var columns = await base.GetDbObjectsAsync(dbConnection, this.GetSqlForTableColumns(filter), ReadColumn);
 
             #region Get generated column expression
             var tablesSql = this.GetSqlForTableViews(DatabaseObjectType.Table, filter, true);
 
-            var tables = await this.GetDbObjectsAsync<Table>(dbConnection, tablesSql);
+            var tables = await this.GetDbObjectsAsync(dbConnection, tablesSql, ReadTable);
 
             foreach (var table in tables)
             {
@@ -301,7 +336,7 @@ namespace DatabaseInterpreter.Core
                                 CASE WHEN INSTR(UPPER(type),'NUMERIC')>=1 AND INSTR(type,',')>0 THEN CAST(TRIM(SUBSTR(type,INSTR(type,',')+1,INSTR(type,')')-INSTR(type,',')-1)) AS INTEGER) ELSE NULL END AS Scale,
                                 CASE WHEN type='INTEGER' AND pk=1 AND EXISTS( SELECT 1 FROM sqlite_master WHERE  name = '{tableName}' AND sql LIKE '%AUTOINCREMENT%') THEN 1 ELSE 0 END AS IsIdentity,
                                 CASE WHEN ""notnull""=1 THEN 0 ELSE 1 END AS IsNullable,
-                                dflt_value AS DefaultValue, pk AS IsPrimaryKey, cid AS ""Order""
+                                dflt_value AS DefaultValue, cid AS ""Order""
                                 FROM PRAGMA_TABLE_XINFO('{tableName}')");
                 }
             }
@@ -329,9 +364,13 @@ namespace DatabaseInterpreter.Core
                 filter.TableNames = (await this.GetTableNamesAsync());
             }
 
-            List<TablePrimaryKeyItem> primaryKeyItems = await base.GetDbObjectsAsync<TablePrimaryKeyItem>(dbConnection, this.GetSqlForPrimaryKeys(filter));
+            var primaryKeyItems = await base.GetDbObjectsAsync(dbConnection, this.GetSqlForPrimaryKeys(filter), static reader => new TablePrimaryKeyItem
+            {
+                TableName = reader.GetString(0),
+                ColumnName = reader.GetString(1),
+            });
 
-            await this.MakeupTableChildrenNames(primaryKeyItems, filter);
+            await this.MakeupTableChildrenNames(dbConnection, primaryKeyItems, filter);
 
             return primaryKeyItems;
         }
@@ -362,7 +401,7 @@ namespace DatabaseInterpreter.Core
             return sb.Content;
         }
 
-        private async Task MakeupTableChildrenNames(IEnumerable<TableColumnChild> columnChildren, SchemaInfoFilter filter = null)
+        private async Task MakeupTableChildrenNames(DbConnection dbConnection, IEnumerable<TableColumnChild> columnChildren, SchemaInfoFilter filter = null)
         {
             if (columnChildren == null || columnChildren.Count() == 0)
             {
@@ -371,7 +410,7 @@ namespace DatabaseInterpreter.Core
 
             var tablesSql = this.GetSqlForTableViews(DatabaseObjectType.Table, filter, true);
 
-            var tables = await this.GetDbObjectsAsync<Table>(tablesSql);
+            var tables = await this.GetDbObjectsAsync(dbConnection, tablesSql, ReadTable);
 
             foreach (var table in tables)
             {
@@ -444,14 +483,9 @@ namespace DatabaseInterpreter.Core
         {
             List<DatabaseObject> databaseObjects = new List<DatabaseObject>();
 
-            if (dbConnection == null)
-            {
-                dbConnection = this.CreateConnection();
-            }
-
             var tablesSql = this.GetSqlForTableViews(DatabaseObjectType.Table, filter, true);
 
-            var tables = await this.GetDbObjectsAsync<Table>(dbConnection, tablesSql);
+            var tables = await this.GetDbObjectsAsync(dbConnection, tablesSql, ReadTable);
 
             string flag = "";
 
@@ -540,9 +574,10 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region Foreign Key
-        public override Task<List<TableForeignKeyItem>> GetTableForeignKeyItemsAsync(SchemaInfoFilter filter = null, bool isFilterForReferenced = false)
+        public override async Task<List<TableForeignKeyItem>> GetTableForeignKeyItemsAsync(SchemaInfoFilter filter = null, bool isFilterForReferenced = false)
         {
-            return this.GetTableForeignKeyItemsAsync(this.CreateConnection(), filter, isFilterForReferenced);
+            using var connection = this.CreateConnection();
+            return await this.GetTableForeignKeyItemsAsync(connection, filter, isFilterForReferenced);
         }
 
         public override async Task<List<TableForeignKeyItem>> GetTableForeignKeyItemsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null, bool isFilterForReferenced = false)
@@ -557,9 +592,17 @@ namespace DatabaseInterpreter.Core
                 filter = new SchemaInfoFilter() { TableNames = await GetTableNamesAsync() };
             }
 
-            List<TableForeignKeyItem> foreignKeyItems = await base.GetDbObjectsAsync<TableForeignKeyItem>(dbConnection, this.GetSqlForForeignKeys(filter, isFilterForReferenced));
+            var foreignKeyItems = await base.GetDbObjectsAsync(dbConnection, this.GetSqlForForeignKeys(filter, isFilterForReferenced), static reader => new TableForeignKeyItem
+            {
+                ReferencedTableName = reader.GetString(0),
+                ReferencedColumnName = GetNullableString(reader, 1),
+                TableName = reader.GetString(2),
+                ColumnName = reader.GetString(3),
+                UpdateCascade = reader.GetBoolean(4),
+                DeleteCascade = reader.GetBoolean(5),
+            });
 
-            await this.MakeupTableChildrenNames(foreignKeyItems, filter);
+            await this.MakeupTableChildrenNames(dbConnection, foreignKeyItems, filter);
 
             return foreignKeyItems;
         }
@@ -611,14 +654,20 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region Index
-        public override Task<List<TableIndexItem>> GetTableIndexItemsAsync(SchemaInfoFilter filter = null, bool includePrimaryKey = false)
+        public override async Task<List<TableIndexItem>> GetTableIndexItemsAsync(SchemaInfoFilter filter = null, bool includePrimaryKey = false)
         {
-            return this.GetTableIndexItemsAsync(this.CreateConnection(), filter);
+            using var connection = this.CreateConnection();
+            return await this.GetTableIndexItemsAsync(connection, filter, includePrimaryKey);
         }
 
         public override async Task<List<TableIndexItem>> GetTableIndexItemsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null, bool includePrimaryKey = false)
         {
-            var indexes = await base.GetDbObjectsAsync<TableIndex>(dbConnection, this.GetSqlForIndexes(filter));
+            var indexes = await base.GetDbObjectsAsync(dbConnection, this.GetSqlForIndexes(filter), static reader => new TableIndex
+            {
+                Name = reader.GetString(0),
+                TableName = reader.GetString(1),
+                IsUnique = reader.GetBoolean(2),
+            });
 
             indexes.ForEach(item =>
             {
@@ -637,7 +686,11 @@ namespace DatabaseInterpreter.Core
 
             List<TableIndexItem> items = new List<TableIndexItem>();
 
-            var indexColumns = await base.GetDbObjectsAsync<TableIndexItem>(this.GetSqlForIndexColumns(indexes));
+            var indexColumns = await base.GetDbObjectsAsync(dbConnection, this.GetSqlForIndexColumns(indexes), static reader => new TableIndexItem
+            {
+                Name = reader.GetString(0),
+                ColumnName = GetNullableString(reader, 1),
+            });
 
             foreach (var ic in indexColumns)
             {
@@ -653,7 +706,7 @@ namespace DatabaseInterpreter.Core
 
             items.AddRange(indexColumns);
 
-            var uniqueIndexes = await this.GetTableChildren(DatabaseObjectType.Index, null, filter);
+            var uniqueIndexes = await this.GetTableChildren(DatabaseObjectType.Index, dbConnection, filter);
 
             List<TableIndexItem> uniqueItems = new List<TableIndexItem>();
 
@@ -700,9 +753,10 @@ namespace DatabaseInterpreter.Core
         #endregion   
 
         #region Constraint
-        public override Task<List<TableConstraint>> GetTableConstraintsAsync(SchemaInfoFilter filter = null)
+        public override async Task<List<TableConstraint>> GetTableConstraintsAsync(SchemaInfoFilter filter = null)
         {
-            return this.GetTableConstraintsAsync(this.CreateConnection(), filter);
+            using var connection = this.CreateConnection();
+            return await this.GetTableConstraintsAsync(connection, filter);
         }
 
         public override async Task<List<TableConstraint>> GetTableConstraintsAsync(DbConnection dbConnection, SchemaInfoFilter filter = null)

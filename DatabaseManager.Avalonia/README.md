@@ -95,6 +95,7 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 - [docs/word-export.md](./docs/word-export.md)：Word 开源库评估、Open XML 导出实现与验证边界。
 - [docs/excel-io.md](./docs/excel-io.md)：MiniExcel 数据读写、格式边界与批注样式、数据保真和分表检查。
 - [docs/startup-performance.md](./docs/startup-performance.md)：启动基线、诊断与发布体积取舍。
+- [docs/native-aot.md](./docs/native-aot.md)：Windows x64 Native AOT 改造与验收范围。
 - [docs/kingbasees-support-plan.md](./docs/kingbasees-support-plan.md)：KingbaseES 支持计划、能力矩阵与兼容性边界。
 - [docs/testing/](./docs/testing/)：KingbaseES 各阶段测试证据（TDD）。
 - 根目录 [Roadmap.md](../Roadmap.md)：产品功能取舍与优先级决策。
