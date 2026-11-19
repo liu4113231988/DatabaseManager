@@ -47,6 +47,8 @@ dotnet run --project DatabaseManager.Avalonia/DatabaseManager.Avalonia -c Releas
 
 ## 当前证据与测量
 
-2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复通过 Release 构建和完整回归。随后依赖统一升级的验收覆盖全仓库 19 个项目的编译、完整控制台回归、认证检查与 Windows P0/P2 隔离 UI 冒烟；主解决方案和旧客户端的 NuGet 已知漏洞审计（含传递依赖）为零。2026-11-07 移除办公文档旧依赖后，已不再产生原有的 NPOI 许可提示。未配置 `DBSMOKE_CONNSTR` 的真实 PostgreSQL 检查跳过；其他平台未重新验收，既有源码警告仍保留。
+2026-11-06，SQLite 加密迁移、格式化迁移与保真/连接校验修复通过 Release 构建和完整回归。随后依赖统一升级的验收覆盖全仓库 19 个项目的编译、完整控制台回归、认证检查与 Windows P0/P2 隔离 UI 冒烟；主解决方案和旧客户端的 NuGet 已知漏洞审计（含传递依赖）为零。2026-11-07 移除办公文档旧依赖后，已不再产生原有的 NPOI 许可提示。
+
+2026-11-13，模板 T2/T3、方言 DDL、KingbaseES E/F、表设计器分区/列内联编辑、SQLite BulkCopy 的 Release 构建（Any CPU 与 x64 均为 0 告警）、完整控制台回归、Windows P0/P2 隔离 UI 冒烟均通过。P0 已覆盖模板管理窗口的 SQL 片段与外置代码模板示例预览；P2 已覆盖数据字典在最小 DI 容器下回退内置模板。表设计器分区 Tab 与列选择器的完整人工交互、真实数据库分区元数据回放、KingbaseES 真实 V8 实例及 Linux/macOS 桌面仍未验收；`DBSMOKE_CONNSTR`、`DBSMOKE_KINGBASE_CONNSTR` 未设置时相关检查明确跳过。
 
 智能提示的可选合成性能测量命令和适用范围见 [sql-completion.md](../../DatabaseManager.Avalonia/docs/sql-completion.md)；标签与事务规则见 [query-database-selection.md](../../DatabaseManager.Avalonia/docs/query-database-selection.md)。

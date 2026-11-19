@@ -2,7 +2,7 @@
 
 > 本文只记录**尚未完成 / 尚未验收**的工作，是路线图（[Roadmap.md](../../Roadmap.md)）与已交付能力（[README.md](../README.md)）之间的执行跟踪文档。
 > 三者各有侧重：README 记录**已经交付**的能力；Roadmap 记录**功能取舍决策**（做 / 不做 / 分期）；本文记录**尚未闭环**的事项。
-> 最后更新：2026-11-08。
+> 最后更新：2026-11-13。
 
 ## 一、待验收（已实现，未经真实环境验证）
 
@@ -13,7 +13,7 @@
 | 数据库 | 已实现范围 | 待验收内容 |
 | --- | --- | --- |
 | SQL Server / MySQL / Oracle | 代码接入，部分计划格式解析 | 真实实例的连接、对象树、查询、数据编辑、备份恢复、迁移、权限逐项验收 |
-| KingbaseES V8（PG 兼容） | 连接 / 对象树 / 查询 / 编辑 / DDL / 脚本生成 / 导入导出（阶段 C–D 代码级）；会话与锁（阶段 E 代码级） | 见 §2.1；`RETURNING`、事务、锁、类型 round-trip、五种格式导入导出实际回放 |
+| KingbaseES V8（PG 兼容） | 连接 / 对象树 / 查询 / 编辑 / DDL / 脚本生成 / 导入导出（阶段 C–D 代码级）；会话/锁、用户权限、查询剖析、备份恢复、全库搜索与定时任务（阶段 E 代码级）；阶段 F 确定性回归与发布状态标注 | 见 §2.1；真实 V8 实例的 `RETURNING`、事务、锁、类型 round-trip、五种格式导入导出、运维 SQL/客户端工具、两套权限账号与 UI 冒烟 |
 | DuckDB | `DuckDB = 7`；`DuckDbInterpreter : PostgresInterpreter`；文件 / 内存 / 只读连接面板；对象类型收窄（Table/View/Sequence/Function） | 真实实例的连接、对象树、查询、数据编辑、脚本生成主链路；跨库转换已被 `UnverifiedConversionTypes` 拦截 |
 | 达梦 DM8 | 官方包 `DM.DmProvider 8.3.1.47463`；`DM = 8`；`DmInterpreter : OracleInterpreter`（Schema 即用户、默认端口 5236） | 同上；诊断入口已禁用，跨库转换已拦截 |
 
@@ -31,6 +31,7 @@
 - SQL 编辑器辅助：右键菜单各菜单项、查找/替换面板样式与 Esc 关闭、`Ctrl+Enter` 执行选区、`Ctrl+Shift+Enter` 新标签执行、`Ctrl+L` 执行计划、注释/大小写/缩进/行操作对多行选区的行为，以及多标签场景下命令是否作用于当前标签。
 - 查询连接与事务：标签连接隔离、手动提交模式、同连接异步串行、排队取消和分组断开已通过 SQLite 确定性回归；自动提交控件及智能提示已通过 Windows P0 隔离 UI 冒烟。仍需真实服务器验证跨库事务目标、慢查询期间提交/断开、网络中断与提交失败；PostgreSQL 可选检查本轮因未设置 `DBSMOKE_CONNSTR` 而跳过。Linux/macOS 桌面交互仍待验收。
 - 智能提示：真实服务器的元数据权限、网络延迟与对象刷新行为仍待验收；CTE/派生表输出列及关联子查询的外层别名尚不推断。已有合成基线只覆盖多语句脚本与已加载对象树，不代表单条超长 SQL 或服务器端性能，见 [sql-completion.md](./sql-completion.md)。
+- 新增 UI 流程（2026-11-13，代码级已完成）：模板管理窗口的类别筛选、变量/方言编辑与导入导出；表设计器「分区」Tab、列选择器排序与主键/索引/外键列内联编辑；对象树新建视图/过程/函数按方言生成模板。Windows P0/P2 隔离冒烟已覆盖模板管理示例预览与数据字典最小 DI 回退；仍需表设计器分区/列选择器的人工交互、真实数据库分区元数据回放，以及 Linux 桌面冒烟与截图，见 [验证与冒烟说明](../../docs/smoke/verification.md)。
 
 ### 1.4 外部服务联调
 
@@ -44,28 +45,39 @@
 
 > 详见 [kingbasees-support-plan.md](./kingbasees-support-plan.md) 与 [testing/](./testing/)。
 
-- **阶段 E（运维与高级功能）**：
-  - 会话 / 锁：已代码级接入 `sys_stat_activity` / `sys_locks` / `sys_blocking_pids()` / `sys_terminate_backend(pid)`（缺失时回退 `pg_*`）；待真实 V8 实例验证普通账号 / 监控账号 / 超级用户可见范围、阻塞链展示、终止会话与权限失败提示。
-  - 用户 / 权限：待接入（写操作需二次确认）。
-  - 查询剖析：只读 `EXPLAIN ANALYZE` 输入点已接入，计划与统计展示待实例验证。
-  - 备份恢复：待接入（依赖金仓客户端工具与参数验证）。
-  - 全库搜索与定时任务：待接入（标识符 / 文本匹配规则）。
-- **阶段 F（质量门禁与发布）**：
-  - 补齐会话 / 权限 SQL 与能力矩阵单元测试。
-  - 真实数据库集成测试（基础用户 + 管理员用户两套，覆盖断连、权限不足、取消、超时、Unicode）。
-  - Windows / Linux 目标版本 UI 冒烟并记录版本、驱动版本、实例参数、权限、截图与回滚步骤。
-  - 发布时标注「已验证兼容模式 / 版本」，其他模式显示实验性或不可用。
+> 2026-11-13：**阶段 E/F 的代码级工作已完成并通过确定性回归**；真实 V8 实例、权限与跨平台 UI 验收仍为未完成部分，不能视为已验证发布。
+
+- **阶段 E（已完成的代码级接入）**：
+  - 会话 / 锁：`sys_stat_activity` / `sys_locks` / `sys_blocking_pids()` / `sys_terminate_backend(pid)`，缺失时回退 `pg_*`。
+  - 用户 / 权限：`sys_catalog.sys_roles` 优先、`pg_catalog.pg_roles` 回退；`information_schema` 读取表/例程授权与角色成员；CREATE/DROP USER、GRANT 复用 PG 兼容语法，写操作仍走现有二次确认。
+  - 查询剖析：只读 `EXPLAIN ANALYZE` 输入点、能力门控与错误提示。
+  - 备份恢复：新增 `KingbaseBackup`（`sys_dump`）与 `ksql` / `sys_restore` 恢复路径，密码经 `KBPASSWORD` / `PGPASSWORD` 环境变量传递，不写入命令行。
+  - 全库搜索与定时任务：显式接入 KingbaseES 双引号标识符、LIKE 转义与 LIMIT；备份白名单放开后定时任务可调用。
+  - 非 PG 兼容模式的运维能力仍由 `KingbaseCompatibilityModes.GetAdminFeatureBlockReason` 明确拦截。
+- **阶段 F（已完成的代码级门禁）**：
+  - `KingbaseStageEFChecks`：能力矩阵、用户/权限 SQL、备份工具识别、模式门控、全库搜索方言与发布状态标注。
+  - `DBSMOKE_KINGBASE_CONNSTR` / `DBSMOKE_KINGBASE_ADMIN_CONNSTR` 可选真实实例探针：连接、Unicode、角色/授权、超时；未配置时明确跳过。
+  - `KingbaseSupportStatus`：锁定驱动包、默认端口、代码级支持模式与实验性模式；`IsInstanceVerified = false`，发布说明不得声称已验证。
+- **仍待验收（不可在本机闭环）**：
+  - 真实 V8 实例的普通账号 / 管理员账号两套权限、断连、取消、超时、Unicode、阻塞链、终止会话、计划统计、`RETURNING`、事务、锁与五种格式导入导出。
+  - 金仓客户端工具 `sys_dump` / `sys_restore` / `ksql` 的实际参数、环境变量、编码、取消与覆盖确认。
+  - Windows / Linux UI 冒烟，记录版本、实例参数、权限、日志、截图与回滚步骤；验收通过后才能把发布标注改为「已验证」。
 
 ### 2.2 模板外部化 T2 / T3
 
-- **T2 最小入口已接入**：菜单「SQL 片段模板...」提供 SQL 片段列表、编辑、示例预览、保存用户覆盖与恢复默认；脚本库重新打开后读取覆盖内容。管理窗口暂仅编辑现有片段内容，变量契约沿用模板清单。
-- **T2 剩余（上下文、管理扩展与导入导出）**：`ITemplateEngine` 变量上下文（连接 / 库 / schema / 表 / 列 / 时间 / 方言）、模板管理窗口（列表 / 编辑 / 示例预览）、按 `ConnectionTransferService` 信封模式导入导出（`{ Version = 1, Payload(Base64 JSON) }`）。
-- **T3（分批迁移内置模板）**：数据字典对象/列模板 → `DefaultDdlService.GetCreateTemplate` → 文档导出 HTML → `CodeGenerator`（C#/Java，需拆分骨架与循环片段）。PDF / Word 模板改造面大，另行评估。
+> 2026-11-13：**T2/T3 与按方言的 DDL 新建模板已完成代码级交付并通过确定性回归**；剩余是 UI 手工验收与 PDF/Word 模板改造评估。
+
+- **T2 已完成**：`TemplateContext` 提供连接 / 库 / schema / 表 / 列 / 时间 / 方言内置变量；模板管理窗口支持多类别筛选、名称/变量/方言编辑、示例预览、恢复默认；`TemplateTransferService` 按 `{ Version = 1, Payload(Base64 JSON) }` 信封导入导出，含版本、大小、契约、变量与方言校验。
+- **T3 已完成**：内置模板清单覆盖 DDL（按方言）、数据字典对象/列、HTML 导出、C#/Java 骨架与循环片段；`DefaultDdlService.GetCreateTemplate` 从模板仓库读取并按 `DatabaseType` 选择 SQL Server / MySQL / Oracle / DM / PostgreSQL / KingbaseES / DuckDB / SQLite 视图模板，SQLite/DuckDB 的例程模板明确拒绝；数据字典与代码生成读取用户覆盖模板。
+- **仍待验收**：Windows/Linux 手工验证模板导入导出文件选择器、用户覆盖生效、脚本库重新打开与代码生成结果；PDF / Word 模板改造面大，另行评估。
 
 ### 2.3 表设计器遗留
 
-- 分区管理（`UC_TablePartition_*`）。
-- 列选择器内联编辑。
+> 2026-11-13：代码级已完成；分区功能定位为**只读元数据 + DDL 回放**，未实现分区 ALTER 编辑。
+
+- 分区 Tab：按 MySQL / Oracle / PostgreSQL / KingbaseES / SQL Server 读取分区摘要、明细与可回放 DDL（含继承分区、分区方案与函数）。真实数据库的分区元数据与生成脚本仍待实例回放验证。
+- 列选择器：主键、索引、外键支持候选列选择、添加/移除/上移/下移；`ColumnsDisplay` 为可双向绑定的内联编辑文本，编辑自动标记未保存状态。
+- 分区编辑/保存（新增、合并、拆分分区）因共享引擎缺少统一的 ALTER PARTITION 生成接口，仍未纳入本期范围。
 
 ### 2.4 跨平台发布（M7）
 
@@ -88,7 +100,7 @@
 以下不是新增产品模块，但会影响后续功能质量，建议在启动相关大型功能前纳入对应验收：
 
 - 多查询标签仍按连接共享事务；模式持久到断开、目标数据库传递、异步串行与断开回滚已实现并通过本地回归。剩余工作是实库并发/故障压力验证，以及按需求评估每标签独立会话，详见 [query-database-selection.md](./query-database-selection.md)。
-- 构建现存的可空性、未使用成员与 Avalonia 资源加载告警逐项处理，不机械抑制。
+- 构建告警：MSB3270 已通过统一根解决方案 x64 平台映射消除；`Release` 全量重新生成（Any CPU 与 x64）当前均为 0 告警。可空性、未使用成员与 Avalonia 资源加载告警若在其他配置/IDE 重现，仍逐项处理，不机械抑制。
 - 数据库管理：建库 / 删库（PostgreSQL、MySQL、SQL Server）、只读数据库属性、备份恢复目标隔离已接入并有确定性回归及隔离 UI 冒烟；真实服务器的权限不足、活动会话、执行失败及事务状态仍待验收，不能视为全数据库验证通过。
 - 对象树预取：共享并去重在途请求，刷新 / 断开丢弃旧请求集合；慢服务器交互仍需实机检查。
 - 高风险操作统一补充预览、确认、取消、日志与可恢复策略。

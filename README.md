@@ -118,8 +118,12 @@
 
 ### 15. 模板与方言扩展（2026-09-18 新增）
 - 收藏查询：脚本库与查询历史支持收藏（置顶/筛选），收藏的历史记录不参与 500 条裁剪。
-- 模板外部化（T1）：统一 `{name}` 占位符契约（兼容 `$TOKEN$`），用户模板放 `Profiles/Templates/<类别>/<id>.tpl`，内置同名可覆盖。
+- 模板外部化（T1–T3）：统一 `{name}` 占位符契约（兼容 `$TOKEN$`），用户模板放 `Profiles/Templates/<类别>/<id>.tpl`，内置同名可覆盖；模板上下文、多类别管理、信封导入导出，以及 DDL / 数据字典 / HTML / C#-Java 内置模板均已接入。
+- 按方言生成新建模板：对象树新建视图/过程/函数按当前数据库类型生成可编辑 SQL；SQLite / DuckDB 的例程模板给出明确不支持提示。
 - 新方言：DuckDB（`DuckDB.NET.Data`，文件/内存/只读）、达梦 DM8（官方 `DM.DmProvider`，默认端口 5236）；未经真实实例验收，跨库转换明确拦截。
+- SQLite 批量导入：`SqliteInterpreter.BulkCopyAsync` 使用参数化多值 INSERT，支持事务、取消、超时、计算列排除、SQLCipher 加密文件与变量上限分块。
+- KingbaseES 阶段 E/F 代码级能力：用户/权限、备份恢复、全库搜索、定时任务门控、确定性回归与发布状态标注；真实 V8 实例与跨平台 UI 验收仍待补。
+- 表设计器：分区只读元数据/DDL 回放 Tab，主键、索引、外键列选择器与内联编辑。
 
 > WinForms 原版额外提供：**数据库关系图（frmDatabaseDiagram）**，该功能已列入 Avalonia 版待实现清单。
 
