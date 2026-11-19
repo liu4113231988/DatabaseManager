@@ -1,4 +1,5 @@
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Templating;
 using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Services;
@@ -137,14 +138,14 @@ public class DefaultScheduleService : IScheduleService
         IBackupService backupService,
         IExportImportService exportImportService,
         IConvertService? convertService = null, ICompareService? compareService = null, ISyncScriptService? syncService = null,
-        string? storageDirectory = null)
+        string? storageDirectory = null, ITemplateStore? templateStore = null)
     {
         _taskCenter = taskCenter;
         _connectionService = connectionService;
         _queryService = queryService;
         _backupService = backupService;
         _exportImportService = exportImportService;
-        _operations = new ScheduledOperations(connectionService, exportImportService, convertService, compareService, syncService);
+        _operations = new ScheduledOperations(connectionService, exportImportService, convertService, compareService, syncService, templateStore);
 
         var dir = storageDirectory ?? Path.Combine(AppContext.BaseDirectory, "Profiles");
         Directory.CreateDirectory(dir);

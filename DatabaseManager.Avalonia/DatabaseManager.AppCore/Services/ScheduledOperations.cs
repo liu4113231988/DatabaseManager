@@ -1,4 +1,5 @@
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Templating;
 using DatabaseInterpreter.Model;
 using System.Net;
 using System.Net.Mail;
@@ -6,7 +7,7 @@ using System.Net.Mail;
 namespace DatabaseManager.AppCore.Services;
 
 public sealed class ScheduledOperations(IDbConnectionService connections, IExportImportService files,
-    IConvertService? convert, ICompareService? compare, ISyncScriptService? sync)
+    IConvertService? convert, ICompareService? compare, ISyncScriptService? sync, ITemplateStore? templates = null)
 {
     private ConnectionItem Resolve(string name, string? database)
     {
@@ -24,7 +25,7 @@ public sealed class ScheduledOperations(IDbConnectionService connections, IExpor
         {
             run.Report("读取文档元数据…");
             var document = await DataDictionaryService.ReadAsync(source, step.Dictionary, ct);
-            await DataDictionaryService.SaveAsync(document, step.ExportFilePath!, ct);
+            await DataDictionaryService.SaveAsync(document, step.ExportFilePath!, ct, templates);
             return "数据字典已生成：" + step.ExportFilePath;
         }
         if (step.TaskType == ScheduleTaskTypes.Import)

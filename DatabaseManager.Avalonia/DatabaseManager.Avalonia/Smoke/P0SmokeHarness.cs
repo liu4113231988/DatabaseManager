@@ -31,9 +31,20 @@ public static class P0SmokeHarness
             var templateVm = new TemplateManagerViewModel(new DatabaseManager.AppCore.Templating.DefaultTemplateStore(), new DatabaseManager.AppCore.Templating.TemplateEngine());
             await Capture(new TemplateManagerWindow(templateVm), "sql-template-manager", null, async () =>
             {
+                var snippet = templateVm.Templates.FirstOrDefault(t => t.Kind == "sql-snippet")
+                    ?? throw new InvalidOperationException("Builtin SQL snippets must be listed in the template manager.");
+                templateVm.SelectedTemplate = snippet;
                 templateVm.PreviewCommand.Execute(null);
-                if (templateVm.Templates.Count == 0 || templateVm.PreviewText != templateVm.EditingContent)
-                    throw new InvalidOperationException("Template selection and sample preview must work in the window.");
+                if (templateVm.PreviewText != templateVm.EditingContent)
+                    throw new InvalidOperationException("SQL snippet preview must preserve content without variables.");
+
+                var codeTemplate = templateVm.Templates.FirstOrDefault(t => t.Id == "code-csharp-property")
+                    ?? throw new InvalidOperationException("Externalized code templates must be listed in the template manager.");
+                templateVm.SelectedTemplate = codeTemplate;
+                templateVm.PreviewCommand.Execute(null);
+                if (!templateVm.PreviewText.Contains("public", StringComparison.Ordinal)
+                    || templateVm.PreviewText.Contains("{type}", StringComparison.Ordinal))
+                    throw new InvalidOperationException("Sample preview must expand externalized code template variables.");
                 await Task.Delay(100);
             });
             await query.ExecuteAsync(item.Name, "CREATE TABLE sample(id INTEGER PRIMARY KEY, title TEXT, payload BLOB); INSERT INTO sample VALUES(1,'测试文本',X'0102');");

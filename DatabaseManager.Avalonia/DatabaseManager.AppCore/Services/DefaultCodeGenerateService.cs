@@ -2,6 +2,7 @@ using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Templating;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
 
@@ -12,6 +13,13 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public class DefaultCodeGenerateService : ICodeGenerateService
 {
+    private readonly ITemplateStore _templateStore;
+
+    public DefaultCodeGenerateService(ITemplateStore templateStore)
+    {
+        _templateStore = templateStore;
+    }
+
     public Task<IReadOnlyList<CodeGenerateTarget>> GetTargetsAsync(
         ConnectionItem connection,
         CancellationToken cancellationToken = default)
@@ -117,7 +125,7 @@ public class DefaultCodeGenerateService : ICodeGenerateService
                 throw new InvalidOperationException("未能加载所选对象的结构。");
             }
 
-            var generator = new CodeGenerator(interpreter, option);
+            var generator = new CodeGenerator(interpreter, option, TemplateCodeTemplates.Create(_templateStore));
             var feedback = new FeedbackObserver(onFeedback);
             generator.Subscribe(feedback);
 

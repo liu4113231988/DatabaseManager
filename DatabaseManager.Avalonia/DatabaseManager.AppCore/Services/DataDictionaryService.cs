@@ -3,6 +3,7 @@ using System.Text;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Templating;
 
 namespace DatabaseManager.AppCore.Services;
 
@@ -10,8 +11,8 @@ public sealed class DictionaryOptions
 {
     public string Title { get; set; } = "数据字典";
     public string Introduction { get; set; } = "";
-    public string ObjectTemplate { get; set; } = "{schema}.{name} — {comment}";
-    public string ColumnTemplate { get; set; } = "{name} | {type} | 可空:{nullable} | 默认:{default} | {comment}";
+    public string ObjectTemplate { get; set; } = TemplateCatalog.GetBuiltinContent("dictionary", "dictionary-object");
+    public string ColumnTemplate { get; set; } = TemplateCatalog.GetBuiltinContent("dictionary", "dictionary-column");
     public List<string> Objects { get; set; } = new();
 }
 public sealed record DictionaryDocument(string Title, IReadOnlyList<string> Lines);
@@ -46,16 +47,27 @@ public static class DataDictionaryService
     }
     private static string Expand(string template, Dictionary<string, string> values)
     {
-        if (template.Length > 2000) throw new ArgumentException("模板过长。");
-        return System.Text.RegularExpressions.Regex.Replace(template, @"\{([a-z]+)\}", m => values.TryGetValue(m.Groups[1].Value, out var value) ? value : throw new ArgumentException("未知模板变量：" + m.Value));
+        var manifest = new TemplateManifest
+        {
+            Version = TemplateContract.CurrentVersion,
+            Engine = "simple",
+            Content = template,
+            Variables = values.Keys.Select(name => new TemplateVariable { Name = name, Sample = values[name] }).ToList(),
+        };
+        return new TemplateEngine().Expand(manifest, values);
     }
-    public static async Task SaveAsync(DictionaryDocument doc, string path, CancellationToken ct)
+
+    public static async Task SaveAsync(DictionaryDocument doc, string path, CancellationToken ct, ITemplateStore? templateStore = null)
     {
         if (!Path.IsPathFullyQualified(path)) throw new ArgumentException("请选择完整输出路径。");
+        string htmlTemplate = templateStore?.Get("export", "dictionary-html")?.Content
+            ?? TemplateCatalog.GetBuiltinContent("export", "dictionary-html");
+        string title = WebUtility.HtmlEncode(doc.Title);
+        string body = string.Join("", doc.Lines.Select(l => "<p>" + WebUtility.HtmlEncode(l) + "</p>"));
         byte[] content = Path.GetExtension(path).ToLowerInvariant() switch
         {
             ".pdf" => SimpleDocumentPdf.Create(doc.Lines),
-            ".html" => Encoding.UTF8.GetBytes("<!doctype html><html lang=\"zh\"><meta charset=\"utf-8\"><title>" + WebUtility.HtmlEncode(doc.Title) + "</title><style>body{font-family:sans-serif;max-width:1100px;margin:40px auto}p{white-space:pre-wrap;overflow-wrap:anywhere;border-bottom:1px solid #ddd;padding:8px}</style><body>" + string.Join("", doc.Lines.Select(l => "<p>" + WebUtility.HtmlEncode(l) + "</p>")) + "</body></html>"),
+            ".html" => Encoding.UTF8.GetBytes(Expand(htmlTemplate, new() { ["title"] = title, ["body"] = body })),
             _ => throw new ArgumentException("输出格式请选择 .pdf 或 .html。"),
         };
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";

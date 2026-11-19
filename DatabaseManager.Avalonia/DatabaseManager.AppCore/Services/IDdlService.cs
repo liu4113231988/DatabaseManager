@@ -35,9 +35,9 @@ public interface IDdlService
     Task<DdlExecuteResult> RenameTableColumnAsync(string connectionName, string databaseName, Table table, TableColumn column, string newName, CancellationToken ct = default);
 
     /// <summary>
-    /// 生成新建对象的通用 SQL 模板。不同数据库语法有差异，生成一个可编辑占位的通用模板。
+    /// 按数据库方言从外部化模板生成新建视图 / 存储过程 / 函数的可编辑 SQL。
     /// </summary>
-    DdlScriptResult GetCreateTemplate(DatabaseObjectType objectType, string? schema);
+    DdlScriptResult GetCreateTemplate(DatabaseObjectType objectType, string? schema, DatabaseType databaseType = DatabaseType.Unknown);
 
     /// <summary>
     /// 读取已有对象（视图/函数/存储过程/触发器）的完整 CREATE 定义脚本。

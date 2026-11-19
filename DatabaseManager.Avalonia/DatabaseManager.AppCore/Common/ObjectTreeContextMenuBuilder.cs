@@ -453,7 +453,7 @@ public class ObjectTreeContextMenuBuilder
                 {
                     var ddl = GetDdlService();
                     if (ddl is null) return;
-                    var result = ddl.GetCreateTemplate(DatabaseObjectType.View, node.Schema);
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.View, node.Schema, node.GetDatabaseType());
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else
@@ -467,7 +467,7 @@ public class ObjectTreeContextMenuBuilder
                 {
                     var ddl = GetDdlService();
                     if (ddl is null) return;
-                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Procedure, node.Schema);
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Procedure, node.Schema, node.GetDatabaseType());
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else
@@ -481,7 +481,7 @@ public class ObjectTreeContextMenuBuilder
                 {
                     var ddl = GetDdlService();
                     if (ddl is null) return;
-                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Function, node.Schema);
+                    var result = ddl.GetCreateTemplate(DatabaseObjectType.Function, node.Schema, node.GetDatabaseType());
                     if (result.IsSuccess)
                         _viewModel.NewObjectDefinitionQuery(result.Script!, _viewModel.FindNodeConnectionName(node), node.DatabaseName);
                     else

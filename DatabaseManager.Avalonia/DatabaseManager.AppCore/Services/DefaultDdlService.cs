@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Templating;
 
 namespace DatabaseManager.AppCore.Services;
 
@@ -16,10 +17,17 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultDdlService : IDdlService
 {
     private readonly IDbConnectionService _connectionService;
+    private readonly ITemplateStore _templateStore;
+    private readonly ITemplateEngine _templateEngine;
 
-    public DefaultDdlService(IDbConnectionService connectionService)
+    public DefaultDdlService(
+        IDbConnectionService connectionService,
+        ITemplateStore? templateStore = null,
+        ITemplateEngine? templateEngine = null)
     {
         _connectionService = connectionService;
+        _templateStore = templateStore ?? new DefaultTemplateStore();
+        _templateEngine = templateEngine ?? new TemplateEngine();
     }
 
     public DdlScriptResult PreviewDropDatabase(string connectionName, string databaseName)
@@ -256,20 +264,59 @@ public class DefaultDdlService : IDdlService
         return DatabaseType.Unknown;
     }
 
-    public DdlScriptResult GetCreateTemplate(DatabaseObjectType objectType, string? schema)
+    public DdlScriptResult GetCreateTemplate(DatabaseObjectType objectType, string? schema, DatabaseType databaseType = DatabaseType.Unknown)
     {
-        var prefix = string.IsNullOrEmpty(schema) ? string.Empty : $"[{schema}].";
-        string body = objectType switch
+        if (databaseType == DatabaseType.Unknown)
         {
-            DatabaseObjectType.View => $"CREATE VIEW {prefix}[ViewName] AS{Environment.NewLine}    SELECT /* TODO: 请编辑列名和 WHERE 条件 */ 1 AS Col1;",
-            DatabaseObjectType.Procedure => $"CREATE PROCEDURE {prefix}[ProcedureName]{Environment.NewLine}    /* @Param1 INT = 0, @Param2 NVARCHAR(50) */{Environment.NewLine}AS{Environment.NewLine}BEGIN{Environment.NewLine}    SET NOCOUNT ON;{Environment.NewLine}    /* TODO: 编写存储过程逻辑 */{Environment.NewLine}    SELECT 1;{Environment.NewLine}END;",
-            DatabaseObjectType.Function => $"CREATE FUNCTION {prefix}[FunctionName](/* @Param1 INT */){Environment.NewLine}RETURNS /* TABLE / INT / NVARCHAR(MAX) */{Environment.NewLine}AS{Environment.NewLine}BEGIN{Environment.NewLine}    /* TODO: 编写函数逻辑 */{Environment.NewLine}    RETURN /* value / SELECT */ 1;{Environment.NewLine}END;",
-            _ => throw new NotSupportedException($"暂不支持生成 {objectType} 对象模板。")
+            return Error<DdlScriptResult>("无法确定当前连接的数据库方言，无法生成 CREATE 模板。");
+        }
+        if (objectType is not (DatabaseObjectType.View or DatabaseObjectType.Procedure or DatabaseObjectType.Function))
+        {
+            return Error<DdlScriptResult>($"暂不支持生成 {objectType} 对象模板。");
+        }
+        if (objectType != DatabaseObjectType.View && !TemplateCatalog.SupportsRoutineTemplates(databaseType))
+        {
+            return Error<DdlScriptResult>($"{databaseType} 不支持存储过程或函数，无法生成 {objectType} 模板。");
+        }
+
+        string templateId = TemplateCatalog.GetDdlTemplateId(databaseType, objectType);
+        var manifest = _templateStore.Get("ddl", templateId);
+        if (manifest is null)
+        {
+            return Error<DdlScriptResult>($"未找到 {databaseType} 的 {objectType} 内置模板（{templateId}）。");
+        }
+
+        string prefix = string.IsNullOrWhiteSpace(schema) || databaseType == DatabaseType.Sqlite
+            ? string.Empty
+            : SqlDialectHelper.QuoteIdentifier(databaseType, schema!) + ".";
+        string placeholder = objectType switch
+        {
+            DatabaseObjectType.View => "ViewName",
+            DatabaseObjectType.Procedure => "ProcedureName",
+            _ => "FunctionName",
+        };
+        string objectName = SqlDialectHelper.QuoteIdentifier(databaseType, placeholder);
+
+        var context = new TemplateContext
+        {
+            Dialect = databaseType,
+            Schema = schema ?? string.Empty,
+            Table = placeholder,
+        };
+        var variables = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["schema"] = prefix,
+            ["object"] = objectName,
         };
 
-        var comment = "-- 注意：此为通用 CREATE 模板，不同数据库（SQL Server / MySQL / Oracle / Postgres / SQLite）语法有差异，请按实际数据库方言调整后执行。"
-            + Environment.NewLine;
-        return new DdlScriptResult { IsSuccess = true, Script = comment + body };
+        try
+        {
+            return Ok(_templateEngine.Expand(manifest, context, variables));
+        }
+        catch (Exception ex)
+        {
+            return Error<DdlScriptResult>($"模板 {templateId} 渲染失败：{ex.Message}");
+        }
     }
 
     public async Task<DdlScriptResult> GetObjectDefinitionAsync(string connectionName, string databaseName, DatabaseObject dbObject, CancellationToken ct = default)

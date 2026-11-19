@@ -7,6 +7,20 @@ public interface ITemplateEngine
 {
     /// <summary>按变量契约展开模板：{name} 白名单展开，$TOKEN$ 作为兼容别名。</summary>
     string Expand(TemplateManifest manifest, IReadOnlyDictionary<string, string> variables);
+
+    /// <summary>带内置上下文展开；显式变量优先于上下文。</summary>
+    string Expand(TemplateManifest manifest, TemplateContext context, IReadOnlyDictionary<string, string>? variables = null)
+    {
+        var values = new Dictionary<string, string>(context.ToVariables(), StringComparer.Ordinal);
+        if (variables is not null)
+        {
+            foreach (var pair in variables)
+            {
+                values[pair.Key] = pair.Value;
+            }
+        }
+        return Expand(manifest, values);
+    }
 }
 
 /// <summary>simple 引擎实现：统一占位符语法 + $TOKEN$ 兼容别名（一期后移除）。</summary>
@@ -19,6 +33,19 @@ public partial class TemplateEngine : ITemplateEngine
     // {name} 白名单：仅小写字母（与 DataDictionaryService.Expand 一致）。
     [GeneratedRegex(@"\{([a-z]+)\}")]
     private static partial Regex PlaceholderRegex();
+
+    public string Expand(TemplateManifest manifest, TemplateContext context, IReadOnlyDictionary<string, string>? variables = null)
+    {
+        var values = new Dictionary<string, string>(context.ToVariables(), StringComparer.Ordinal);
+        if (variables is not null)
+        {
+            foreach (var pair in variables)
+            {
+                values[pair.Key] = pair.Value;
+            }
+        }
+        return Expand(manifest, values);
+    }
 
     public string Expand(TemplateManifest manifest, IReadOnlyDictionary<string, string> variables)
     {

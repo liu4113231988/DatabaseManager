@@ -125,6 +125,9 @@ static class Program
             "Shared configuration must resolve from an absolute assembly path on every platform.");
         SqlCompletionChecks.Run();
         TemplateManagerChecks.Run();
+        TemplateExternalizationChecks.Run();
+        KingbaseStageEFChecks.RunAsync().GetAwaiter().GetResult();
+        TableDesignerChecks.RunAsync().GetAwaiter().GetResult();
         ObjectPrefetchChecks.RunAsync().GetAwaiter().GetResult();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();
@@ -137,6 +140,7 @@ static class Program
         VerifyConnectionInputs();
         VerifySqliteConnectionAsync().GetAwaiter().GetResult();
         SqliteEncryptionChecks.RunAsync().GetAwaiter().GetResult();
+        SqliteBulkCopyChecks.RunAsync().GetAwaiter().GetResult();
         P2FeatureChecks.RunAsync().GetAwaiter().GetResult();
         PostgresP2Checks.RunAsync().GetAwaiter().GetResult();
         QueryExecutionChecks.RunAsync().GetAwaiter().GetResult();

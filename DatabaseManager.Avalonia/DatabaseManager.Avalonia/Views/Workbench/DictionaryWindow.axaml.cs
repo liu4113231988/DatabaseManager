@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
+using DatabaseManager.AppCore.Templating;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DatabaseManager.Avalonia.Views.Workbench;
@@ -22,10 +23,12 @@ public sealed partial class DictionaryWindow : Window
             InitialConnection = connectionName, InitialDatabase = database
         };
 
+        // 冒烟宿主可能只注册最小服务集；模板仓库缺失时回退到内置模板，不影响数据字典主流程。
+        ITemplateStore? templates = services.GetService<ITemplateStore>();
         var defaults = new DictionaryOptions();
         TitleBox.Text = defaults.Title;
-        ObjectTemplateBox.Text = defaults.ObjectTemplate;
-        ColumnTemplateBox.Text = defaults.ColumnTemplate;
+        ObjectTemplateBox.Text = templates?.Get("dictionary", "dictionary-object")?.Content ?? defaults.ObjectTemplate;
+        ColumnTemplateBox.Text = templates?.Get("dictionary", "dictionary-column")?.Content ?? defaults.ColumnTemplate;
 
         _shell.Bind(AddObjectButton, _ =>
         {
@@ -43,7 +46,7 @@ public sealed partial class DictionaryWindow : Window
         {
             if (_document is null) throw new InvalidOperationException("请先生成预览。");
             var path = await _shell.SavePath("data-dictionary." + Format());
-            if (path is not null) await DataDictionaryService.SaveAsync(_document, path, ct);
+            if (path is not null) await DataDictionaryService.SaveAsync(_document, path, ct, templates);
         });
         _shell.Bind(SaveTemplateButton, _ => { WorkbenchSupport.SaveSettings("dictionary-template.json", Options()); return Task.CompletedTask; });
         _shell.Bind(LoadTemplateButton, _ =>

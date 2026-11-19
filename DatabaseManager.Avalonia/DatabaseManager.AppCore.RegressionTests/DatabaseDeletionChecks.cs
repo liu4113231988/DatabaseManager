@@ -118,7 +118,7 @@ internal static class DatabaseDeletionChecks
         public Task<DdlExecuteResult> DropAsync(string c, string d, DatabaseObject o, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DdlExecuteResult> RenameTableAsync(string c, string d, Table t, string n, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DdlExecuteResult> RenameTableColumnAsync(string c, string d, Table t, TableColumn col, string n, CancellationToken ct = default) => throw new NotSupportedException();
-        public DdlScriptResult GetCreateTemplate(DatabaseObjectType t, string? s) => throw new NotSupportedException();
+        public DdlScriptResult GetCreateTemplate(DatabaseObjectType t, string? s, DatabaseType d = DatabaseType.Unknown) => throw new NotSupportedException();
         public Task<DdlScriptResult> GetObjectDefinitionAsync(string c, string d, DatabaseObject o, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<DdlScriptResult> GenerateObjectScriptAsync(string c, string d, DatabaseObject o, ObjectScriptType t, CancellationToken ct = default) => throw new NotSupportedException();
         public DdlScriptResult GetAddColumnTemplate(string t, Table table) => throw new NotSupportedException();

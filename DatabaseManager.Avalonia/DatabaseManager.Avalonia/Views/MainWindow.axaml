@@ -91,7 +91,7 @@
                 <Separator />
                 <MenuItem Header="查询历史..." Click="MenuQueryHistory_Click" />
                 <MenuItem Header="脚本库..." Click="MenuScriptLibrary_Click" />
-                <MenuItem Header="SQL 片段模板..." Click="MenuTemplates_Click" />
+                <MenuItem Header="模板管理..." Click="MenuTemplates_Click" />
                 <MenuItem Header="保存当前 SQL 到脚本库" Click="MenuSaveToLibrary_Click" />
             </MenuItem>
             <MenuItem Header="搜索">

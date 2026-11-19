@@ -20,11 +20,13 @@ namespace DatabaseManager.Core
         private DbInterpreter dbInterpreter;
         private CodeGenerateOption option;
         private IObserver<FeedbackInfo> observer;
+        private readonly CodeTemplateSet templates;
 
-        public CodeGenerator(DbInterpreter dbInterpreter, CodeGenerateOption option)
+        public CodeGenerator(DbInterpreter dbInterpreter, CodeGenerateOption option, CodeTemplateSet templates = null)
         {
             this.dbInterpreter = dbInterpreter;
             this.option = option;
+            this.templates = templates ?? CodeTemplateSet.Default;
         }
 
         public void Subscribe(IObserver<FeedbackInfo> observer)
@@ -178,15 +180,17 @@ namespace DatabaseManager.Core
 
             if (hasNamespace)
             {
-                sb.AppendLine($"namespace {@namespace}");
-                sb.AppendLine("{");
+                sb.Append(CodeTemplateSet.Expand(templates.CSharpNamespace, new Dictionary<string, string> { ["namespace"] = @namespace }));
             }
 
             string classIndent = hasNamespace ? "\t" : "";
 
             this.AppendComment(sb, ProgrammingLanguage.CSharp, tableOrView, classIndent);
-            sb.AppendLine($"{classIndent}public class {tableOrView.Name}");
-            sb.AppendLine(classIndent + "{");
+            sb.Append(CodeTemplateSet.Expand(templates.CSharpClass, new Dictionary<string, string>
+            {
+                ["indent"] = classIndent,
+                ["class"] = tableOrView.Name ?? string.Empty,
+            }));
 
             bool hasComment = false;
 
@@ -236,20 +240,28 @@ namespace DatabaseManager.Core
                     hasComment = true;
                 }
 
-                sb.AppendLine(columnIndent + "public " + type + $"{nullableFlag} " + column.Name + " {get; set;}");
+                sb.Append(CodeTemplateSet.Expand(templates.CSharpProperty, new Dictionary<string, string>
+                {
+                    ["indent"] = columnIndent,
+                    ["type"] = type ?? string.Empty,
+                    ["nullable"] = nullableFlag,
+                    ["name"] = column.Name ?? string.Empty,
+                }));
             }
 
-            sb.AppendLine(classIndent + "}");
+            sb.Append(CodeTemplateSet.Expand(templates.CSharpClassEnd, new Dictionary<string, string> { ["indent"] = classIndent }));
 
             if (hasNamespace)
             {
-                sb.AppendLine("}");
+                sb.Append(CodeTemplateSet.Expand(templates.CSharpNamespaceEnd, new Dictionary<string, string>()));
             }
 
             if (usingNamespaces.Count > 0)
             {
+                string usings = string.Join("", usingNamespaces.Distinct().Select(item =>
+                    CodeTemplateSet.Expand(templates.CSharpUsing, new Dictionary<string, string> { ["import"] = item })));
                 sb.Insert(0, Environment.NewLine);
-                sb.Insert(0, string.Join(Environment.NewLine, usingNamespaces.Distinct().Select(item => $"using {item};")));
+                sb.Insert(0, usings.TrimEnd('\r', '\n'));
             }
 
             return (fileName, sb.ToString());
@@ -293,7 +305,11 @@ namespace DatabaseManager.Core
 
                 if (commentTemplate != null)
                 {
-                    sb.Append(string.Format(commentTemplate, indent, comment));
+                    sb.Append(CodeTemplateSet.Expand(commentTemplate, new Dictionary<string, string>
+                    {
+                        ["indent"] = indent,
+                        ["comment"] = comment ?? string.Empty,
+                    }));
 
                     return true;
                 }
@@ -302,36 +318,11 @@ namespace DatabaseManager.Core
             return false;
         }
 
-        private string GetCSharpCommentTemplate()
-        {
-            StringBuilder sb = new StringBuilder();
+        private string GetCSharpCommentTemplate() => templates.CSharpComment;
 
-            sb.AppendLine("{0}/// <summary>");
-            sb.AppendLine("{0}/// {1}");
-            sb.AppendLine("{0}/// <summary>");
+        private string GetJavaClassCommentTemplate() => templates.JavaClassComment;
 
-            return sb.ToString();
-        }
-
-        private string GetJavaClassCommentTemplate()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            sb.AppendLine("{0}/*");
-            sb.AppendLine("{0} *{1}");
-            sb.AppendLine("{0} */");
-
-            return sb.ToString();
-        }
-
-        private string GetJavaFieldCommentTemplate()
-        {
-            StringBuilder sb = new StringBuilder();
-
-            sb.AppendLine("{0}//{1}");
-
-            return sb.ToString();
-        }
+        private string GetJavaFieldCommentTemplate() => templates.JavaFieldComment;
 
         private (string FileName, string FileContent) GenerateJavaCode(DatabaseObject tableOrView, List<TableColumn> columns)
         {
@@ -394,26 +385,28 @@ namespace DatabaseManager.Core
                 string fieldName = column.Name.First().ToString().ToLower() + column.Name.Substring(1);
                 string propertyName = column.Name.First().ToString().ToUpper() + column.Name.Substring(1);
 
-                fields.Add($"\tprivate {type} {fieldName};");
+                fields.Add(CodeTemplateSet.Expand(templates.JavaField, new Dictionary<string, string>
+                {
+                    ["indent"] = "\t",
+                    ["type"] = type ?? string.Empty,
+                    ["field"] = fieldName,
+                }));
 
-                StringBuilder sbMethod = new StringBuilder();
-
-                sbMethod.AppendLine($"\tpublic {type} get{propertyName}" + " {");
-                sbMethod.AppendLine($"\t\treturn this.{fieldName};");
-                sbMethod.AppendLine("\t}");
-
-                sbMethod.AppendLine();
-
-                sbMethod.AppendLine($"\tpublic void set{propertyName}({type} {fieldName}) " + "{");
-                sbMethod.AppendLine($"\t\tthis.{fieldName} = {fieldName};");
-                sbMethod.AppendLine("\t}");
-
-                methods.Add(sbMethod.ToString());
+                methods.Add(CodeTemplateSet.Expand(templates.JavaMethod, new Dictionary<string, string>
+                {
+                    ["indent"] = "\t",
+                    ["type"] = type ?? string.Empty,
+                    ["property"] = propertyName,
+                    ["field"] = fieldName,
+                }));
             }
 
             if (packages.Count > 0)
             {
-                sb.AppendLine(string.Join(Environment.NewLine, packages.Distinct().Select(item => $"import {item};")));
+                foreach (string item in packages.Distinct())
+                {
+                    sb.Append(CodeTemplateSet.Expand(templates.JavaImport, new Dictionary<string, string> { ["import"] = item }));
+                }
                 sb.AppendLine();
             }
 
@@ -423,12 +416,11 @@ namespace DatabaseManager.Core
 
             if (hasPackage)
             {
-                sb.AppendLine($"package {package};");
-                sb.AppendLine();
+                sb.Append(CodeTemplateSet.Expand(templates.JavaPackage, new Dictionary<string, string> { ["namespace"] = package }));
             }
 
             this.AppendComment(sb, ProgrammingLanguage.Java, tableOrView);
-            sb.AppendLine($"public class {tableOrView.Name}" + " {");
+            sb.Append(CodeTemplateSet.Expand(templates.JavaClass, new Dictionary<string, string> { ["class"] = tableOrView.Name ?? string.Empty }));
             sb.AppendLine();
 
             int columnIndex = 0;
@@ -450,7 +442,7 @@ namespace DatabaseManager.Core
                     hasComment = true;
                 }
 
-                sb.AppendLine(filed);
+                sb.Append(filed);
 
                 columnIndex++;
             }
@@ -464,7 +456,7 @@ namespace DatabaseManager.Core
                 sb.AppendLine(method);
             }
 
-            sb.AppendLine("}");
+            sb.Append(CodeTemplateSet.Expand(templates.JavaClassEnd, new Dictionary<string, string>()));
 
             return (fileName, sb.ToString().TrimEnd());
         }

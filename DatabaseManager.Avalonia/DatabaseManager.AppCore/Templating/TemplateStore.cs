@@ -122,7 +122,7 @@ public class DefaultTemplateStore : ITemplateStore
 
     public IReadOnlyList<TemplateManifest> GetBuiltin(string? kind = null)
     {
-        // 内置清单桥接：SqlSnippets（纯文本、无逻辑）作为首批内置模板（对应 P3 T3 第 1 批）。
+        // T3：SQL 片段、DDL、数据字典、HTML 导出与代码生成片段均来自内置清单，用户可同名覆盖。
         IEnumerable<TemplateManifest> builtins = SqlSnippets.BuiltIn.Select(item => new TemplateManifest
         {
             Id = item.Id,
@@ -135,7 +135,7 @@ public class DefaultTemplateStore : ITemplateStore
             Variables = new List<TemplateVariable>(),
             Content = item.SqlText,
             Source = "builtin",
-        });
+        }).Concat(TemplateCatalog.GetBuiltin());
 
         if (!string.IsNullOrEmpty(kind))
         {

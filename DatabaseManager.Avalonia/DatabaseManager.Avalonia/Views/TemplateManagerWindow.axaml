@@ -5,30 +5,49 @@
         xmlns:tpl="using:DatabaseManager.AppCore.Templating"
         x:Class="DatabaseManager.Avalonia.Views.TemplateManagerWindow"
         x:DataType="vm:TemplateManagerViewModel"
-        Title="SQL 片段模板" Width="960" Height="640" MinWidth="700" MinHeight="480"
+        Title="模板管理" Width="1020" Height="720" MinWidth="760" MinHeight="540"
         Icon="/Assets/database-manager.ico" WindowStartupLocation="CenterOwner">
     <DockPanel Margin="16">
         <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
-            <TextBlock Text="SQL 片段模板" FontSize="18" FontWeight="SemiBold" />
-            <TextBlock Text="保存后覆盖内置片段；示例预览仅生成文本。" />
+            <TextBlock Text="模板管理" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="内置模板可在 Profiles/Templates 下同名覆盖；示例预览只生成文本，不执行 SQL。" TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="类别" VerticalAlignment="Center" />
+                <atom:ComboBox ItemsSource="{Binding Kinds}" SelectedItem="{Binding KindFilter, Mode=TwoWay}" Width="180" />
                 <atom:Button Content="示例预览" Command="{Binding PreviewCommand}" />
                 <atom:Button Content="保存" ButtonType="Primary" Command="{Binding SaveCommand}" />
                 <atom:Button Content="恢复默认" Command="{Binding RestoreDefaultCommand}" />
+                <atom:Button Content="导出..." Command="{Binding ExportCommand}" />
+                <atom:Button Content="导入..." Command="{Binding ImportCommand}" />
             </StackPanel>
         </StackPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,10,0,0" />
-        <Grid ColumnDefinitions="240,8,*">
+        <Grid ColumnDefinitions="260,8,*">
             <ListBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}">
-                <ListBox.ItemTemplate><DataTemplate x:DataType="tpl:TemplateManifest"><TextBlock Text="{Binding Name}" /></DataTemplate></ListBox.ItemTemplate>
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="tpl:TemplateManifest">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{Binding Kind}" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
             </ListBox>
             <GridSplitter Grid.Column="1" Width="8" />
-            <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,*">
-                <TextBlock Text="模板内容" Margin="0,0,0,6" />
-                <atom:TextBox Grid.Row="1" Text="{Binding EditingContent}" AcceptsReturn="True" Classes="multiline" MinHeight="160" VerticalAlignment="Stretch" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" ScrollViewer.VerticalScrollBarVisibility="Auto" />
-                <TextBlock Grid.Row="2" Text="示例预览" Margin="0,8,0,6" />
-                <atom:TextBox Grid.Row="3" Text="{Binding PreviewText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" Classes="multiline" MinHeight="160" VerticalAlignment="Stretch" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" ScrollViewer.VerticalScrollBarVisibility="Auto" />
-            </Grid>
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="8" Margin="4,0,0,0">
+                    <TextBlock Text="名称" />
+                    <atom:TextBox Text="{Binding EditingName}" />
+                    <TextBlock Text="变量（每行：name|说明|示例|1 表示必填，0 表示可选）" />
+                    <atom:TextBox Text="{Binding VariablesText}" AcceptsReturn="True" Classes="multiline" MinHeight="70" FontFamily="Consolas,Menlo,monospace" />
+                    <TextBlock Text="适用方言（逗号分隔，留空表示不限）" />
+                    <atom:TextBox Text="{Binding DialectsText}" />
+                    <TextBlock Text="模板内容" />
+                    <atom:TextBox Text="{Binding EditingContent}" AcceptsReturn="True" Classes="multiline" MinHeight="190" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" />
+                    <TextBlock Text="示例预览" />
+                    <atom:TextBox Text="{Binding PreviewText, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True" Classes="multiline" MinHeight="160" VerticalContentAlignment="Top" FontFamily="Consolas,Menlo,monospace" />
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
     </DockPanel>
 </Window>
