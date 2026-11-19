@@ -355,6 +355,11 @@ REFERENCES {this.GetQuotedDbObjectNameWithSchema(foreignKey.ReferencedSchema, fo
 
         public Script CreateTablePartition(PartitionSummary partitionSummary)
         {
+            if (!string.IsNullOrWhiteSpace(partitionSummary.Expression))
+            {
+                return new Script($"PARTITION BY {partitionSummary.Expression};");
+            }
+
             string type = partitionSummary.Type;
 
             string strType = "";

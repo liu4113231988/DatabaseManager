@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using DatabaseManager.AppCore.Models;
@@ -18,6 +19,16 @@ public interface ITableDesignService
         string tableName,
         string? schema,
         bool isNew,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 读取表的分区元数据与可回放的分区 DDL（只读；当前不生成分区 ALTER 脚本）。
+    /// </summary>
+    Task<TablePartitionLoadResult> LoadPartitionAsync(
+        string connectionName,
+        string databaseName,
+        string tableName,
+        string? schema,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -47,6 +58,17 @@ public class TableDesignLoadResult
     public string ErrorMessage { get; set; } = string.Empty;
 
     public TableDesignInfo Design { get; set; } = new();
+}
+
+/// <summary>表分区只读加载结果。</summary>
+public class TablePartitionLoadResult
+{
+    public bool IsSuccess { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+    public string DatabaseType { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
+    public string Definition { get; set; } = string.Empty;
+    public List<TablePartitionItem> Items { get; set; } = new();
 }
 
 /// <summary>表设计脚本生成结果。</summary>

@@ -1,7 +1,18 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace DatabaseManager.AppCore.Models;
+
+/// <summary>表设计器可编辑子对象的通知基类。</summary>
+public abstract class TableDesignObservable : INotifyPropertyChanged
+{
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+}
 
 /// <summary>
 /// 表设计器领域模型（AppCore 层，UI 无关）。
@@ -82,20 +93,38 @@ public class TableDesignColumn
 }
 
 /// <summary>表设计器主键定义。</summary>
-public class TableDesignKey
+public class TableDesignKey : TableDesignObservable
 {
     /// <summary>主键名称。</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>主键包含的列名。</summary>
-    public List<string> Columns { get; set; } = new();
+    private List<string> _columns = new();
+
+    public List<string> Columns
+    {
+        get => _columns;
+        set
+        {
+            _columns = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ColumnsDisplay));
+        }
+    }
 
     /// <summary>是否聚集。</summary>
     public bool Clustered { get; set; } = true;
+
+    /// <summary>列显示（英文逗号连接，可直接内联编辑）。</summary>
+    public string ColumnsDisplay
+    {
+        get => TableDesignColumnParser.ToDisplay(Columns);
+        set => Columns = TableDesignColumnParser.ParseColumns(value);
+    }
 }
 
 /// <summary>表设计器索引定义。</summary>
-public class TableDesignIndex
+public class TableDesignIndex : TableDesignObservable
 {
     /// <summary>索引名称。</summary>
     public string Name { get; set; } = string.Empty;
@@ -104,20 +133,46 @@ public class TableDesignIndex
     public bool IsUnique { get; set; }
 
     /// <summary>索引包含的列名。</summary>
-    public List<string> Columns { get; set; } = new();
+    private List<string> _columns = new();
 
-    /// <summary>列显示（英文逗号连接，供 UI 展示）。</summary>
-    public string ColumnsDisplay => string.Join(", ", Columns);
+    public List<string> Columns
+    {
+        get => _columns;
+        set
+        {
+            _columns = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ColumnsDisplay));
+        }
+    }
+
+    /// <summary>列显示（英文逗号连接，可直接内联编辑）。</summary>
+    public string ColumnsDisplay
+    {
+        get => TableDesignColumnParser.ToDisplay(Columns);
+        set => Columns = TableDesignColumnParser.ParseColumns(value);
+    }
 }
 
 /// <summary>表设计器外键定义。</summary>
-public class TableDesignForeignKey
+public class TableDesignForeignKey : TableDesignObservable
 {
     /// <summary>外键名称。</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>外键列 → 引用列 映射。</summary>
-    public List<ForeignKeyMapping> Columns { get; set; } = new();
+    private List<ForeignKeyMapping> _columns = new();
+
+    public List<ForeignKeyMapping> Columns
+    {
+        get => _columns;
+        set
+        {
+            _columns = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ColumnsDisplay));
+        }
+    }
 
     /// <summary>引用表 Schema。</summary>
     public string ReferencedSchema { get; set; } = string.Empty;
@@ -131,8 +186,19 @@ public class TableDesignForeignKey
     /// <summary>删除级联。</summary>
     public bool DeleteCascade { get; set; }
 
-    /// <summary>列映射显示（本表列=引用列，供 UI 展示）。</summary>
-    public string ColumnsDisplay => string.Join(", ", Columns.Select(c => $"{c.ColumnName}={c.ReferencedColumnName}"));
+    /// <summary>列映射显示（本表列=引用列，可直接内联编辑）。</summary>
+    public string ColumnsDisplay
+    {
+        get => TableDesignColumnParser.ToDisplay(Columns);
+        set => Columns = TableDesignColumnParser.ParseMappings(value);
+    }
+
+    public void SelectLocalColumns(IEnumerable<string> selectedColumns)
+    {
+        Columns = selectedColumns.Select(name =>
+            Columns.FirstOrDefault(mapping => string.Equals(mapping.ColumnName, name, StringComparison.Ordinal))
+            ?? new ForeignKeyMapping { ColumnName = name, ReferencedColumnName = name }).ToList();
+    }
 }
 
 /// <summary>外键列映射（本表列 → 引用表列）。</summary>
@@ -153,4 +219,13 @@ public class TableDesignConstraint
 
     /// <summary>约束表达式（Check 定义）。</summary>
     public string Definition { get; set; } = string.Empty;
+}
+
+/// <summary>表分区只读展示项。</summary>
+public class TablePartitionItem
+{
+    public string Name { get; set; } = string.Empty;
+    public string HighValue { get; set; } = string.Empty;
+    public string Tablespace { get; set; } = string.Empty;
+    public int Order { get; set; }
 }

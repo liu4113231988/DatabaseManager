@@ -856,19 +856,19 @@ WHERE 1=1");
         public async Task<PartitionSummary> GetPartitionSummary(DbConnection dbConnection, Table table, bool includeDetails = false)
         {
             string sql =
-$@"SELECT t.table_name as ""TableName"", pt.partstrat AS ""Type""
+@"SELECT t.table_name AS ""TableName"", pt.partstrat AS ""Type"", pg_get_partkeydef(c.oid) AS ""Expression""
 FROM information_schema.tables t
 JOIN pg_catalog.pg_namespace n ON t.table_schema = n.nspname
 JOIN pg_catalog.pg_class c ON n.oid = c.relnamespace AND t.table_name=c.relname
-JOIN pg_partitioned_table pt ON pt.partrelid = c.oid 
-WHERE t.table_name='{table.Name}'";
+JOIN pg_catalog.pg_partitioned_table pt ON pt.partrelid = c.oid
+WHERE t.table_name=@Name";
 
             if (!string.IsNullOrEmpty(table.Schema))
             {
-                sql += $" AND n.nspname='{table.Schema}'";
+                sql += " AND n.nspname=@Schema";
             }
 
-            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql))?.FirstOrDefault();
+            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql, new { table.Name, table.Schema }))?.FirstOrDefault();
 
             if (summary != null)
             {
@@ -891,23 +891,20 @@ WHERE t.table_name='{table.Name}'";
         public async Task<IEnumerable<PartitionColumn>> GetPartitionColumns(DbConnection dbConnection, Table table)
         {
             string sql =
-$@"SELECT col.table_name AS ""TableName"", col.column_name as ""Name"",ROW_NUMBER() OVER () AS ""Order""
-FROM 
-(
-  SELECT partrelid, UNNEST(partattrs) AS col_pos
-  FROM pg_partitioned_table
-) pt
-JOIN pg_catalog.pg_class c ON c.oid=pt.partrelid
-JOIN information_schema.columns col ON col.table_name=c.relname AND pt.col_pos=col.ordinal_position
-JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-WHERE col.table_name='tbl_range'";
+@"SELECT c.relname AS ""TableName"", a.attname AS ""Name"", k.key_order::integer AS ""Order""
+FROM pg_catalog.pg_partitioned_table pt
+JOIN pg_catalog.pg_class c ON c.oid = pt.partrelid
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+CROSS JOIN LATERAL unnest(pt.partattrs) WITH ORDINALITY AS k(attnum, key_order)
+JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+WHERE c.relname = @Name";
 
             if (!string.IsNullOrEmpty(table.Schema))
             {
-                sql += $" AND col.table_schema='{table.Schema}'";
+                sql += " AND n.nspname = @Schema";
             }
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql);
+            return await dbConnection.QueryAsync<PartitionColumn>(sql + " ORDER BY k.key_order", new { table.Name, table.Schema });
         }
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(Table table, bool isInherited = false)
@@ -929,14 +926,15 @@ WHERE col.table_name='tbl_range'";
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(DbConnection dbConnection, SchemaInfoFilter filter, bool isInherited = false)
         {
-            string sql = this.GetSqlForPartitionInfos(filter, isInherited);
+            var parameters = new DynamicParameters();
+            string sql = this.GetSqlForPartitionInfos(filter, isInherited, parameters);
 
-            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql);
+            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql, parameters);
 
             return partitions;
         }
 
-        private string GetSqlForPartitionInfos(SchemaInfoFilter filter, bool isInherited = false)
+        private string GetSqlForPartitionInfos(SchemaInfoFilter filter, bool isInherited, DynamicParameters parameters)
         {
             var sb = this.CreateSqlBuilder();
 
@@ -948,8 +946,21 @@ JOIN pg_class p ON p.oid=pi.inhparent
 JOIN pg_catalog.pg_namespace n1 ON p.relnamespace=n1.oid
 JOIN pg_catalog.pg_namespace n2 ON c.relnamespace=n2.oid");
 
-            sb.Append(this.GetFilterSchemaCondition(filter, $"{(isInherited ? "n2" : "n1")}.nspname"));
-            sb.Append(this.GetFilterNamesCondition(filter, filter?.TableNames, $"{(isInherited ? "c" : "p")}.relname"));
+            if (!string.IsNullOrEmpty(filter?.Schema))
+            {
+                sb.Append($"AND {(isInherited ? "n2" : "n1")}.nspname = @Schema");
+                parameters.Add("Schema", filter.Schema);
+            }
+            if (filter?.TableNames?.Length > 0)
+            {
+                var placeholders = filter.TableNames.Select((name, index) =>
+                {
+                    string parameterName = $"PartitionTable{index}";
+                    parameters.Add(parameterName, name);
+                    return "@" + parameterName;
+                });
+                sb.Append($"AND {(isInherited ? "c" : "p")}.relname IN ({string.Join(", ", placeholders)})");
+            }
 
             return sb.Content;
         }

@@ -177,20 +177,30 @@
 
                 <!-- 主键 Tab -->
                 <TabItem Header="主键">
-                    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="0,10,0,0">
-                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,8">
+                    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="0,10,0,0">
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
                             <TextBlock Text="主键名称" VerticalAlignment="Center"
                                        Foreground="{DynamicResource AppTextSecondaryBrush}" FontSize="12" />
                             <atom:TextBox Grid.Column="1" Text="{Binding PrimaryKey.Name}"
                                           VerticalContentAlignment="Center" Margin="8,0,0,0" />
-                            <TextBlock Grid.Column="3" Text="主键列以添加顺序作为索引列顺序" VerticalAlignment="Center"
+                            <TextBlock Grid.Column="2" Text="主键列以添加顺序作为索引列顺序" VerticalAlignment="Center"
                                        FontSize="11" Opacity="0.6" Margin="12,0,0,0" />
                         </Grid>
 
-                        <TextBlock Grid.Row="1" Text="已选主键列" Margin="0,0,0,4" FontSize="12"
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
+                            <TextBlock Text="主键列" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}" FontSize="12" />
+                            <atom:TextBox Grid.Column="1" Text="{Binding PrimaryKey.ColumnsDisplay, Mode=TwoWay}"
+                                          VerticalContentAlignment="Center" Margin="8,0,0,0"
+                                          ToolTip.Tip="逗号分隔列名，可直接内联编辑；列顺序即索引列顺序。" />
+                            <atom:Button Grid.Column="2" Content="选择列..." Click="BtnPkAddColumn_Click"
+                                         Margin="8,0,0,0" />
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Text="已选主键列" Margin="0,0,0,4" FontSize="12"
                                    Foreground="{DynamicResource AppTextSecondaryBrush}" />
 
-                        <Border Grid.Row="2" BorderBrush="{DynamicResource AppBorderBrush}"
+                        <Border Grid.Row="3" BorderBrush="{DynamicResource AppBorderBrush}"
                                 BorderThickness="1" CornerRadius="4" ClipToBounds="True" Margin="0,0,0,8">
                             <ListBox x:Name="PkColumnList"
                                      ItemsSource="{Binding PrimaryKey.Columns}"
@@ -207,7 +217,7 @@
                             </ListBox>
                         </Border>
 
-                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center"
                                        Text="未定义主键时保存将不包含主键子句。" FontSize="11" Opacity="0.6" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
@@ -233,16 +243,17 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="索引名" Binding="{Binding Name}" Width="1.5*" MinWidth="100" />
                                     <DataGridCheckBoxColumn Header="唯一" Binding="{Binding IsUnique}" Width="Auto" />
-                                    <DataGridTextColumn Header="列" Binding="{Binding ColumnsDisplay}" Width="3*" MinWidth="140" />
+                                    <DataGridTextColumn Header="列" Binding="{Binding ColumnsDisplay, Mode=TwoWay}" Width="3*" MinWidth="140" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
 
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" Opacity="0.6"
-                                       Text="索引列以英文逗号分隔填写，如：ColA,ColB。" TextTrimming="CharacterEllipsis" />
+                                       Text="双击「列」单元格可直接编辑（逗号分隔），或使用列选择器排序。" TextTrimming="CharacterEllipsis" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                                 <atom:Button Content="＋ 新增索引" Command="{Binding AddIndexCommand}" />
+                                <atom:Button Content="选择列..." Click="BtnIndexPickColumns_Click" />
                                 <atom:Button Content="删除选中" Click="BtnRemoveIndex_Click" />
                             </StackPanel>
                         </Grid>
@@ -265,16 +276,17 @@
                                     <DataGridTextColumn Header="引用表" Binding="{Binding ReferencedTableName}" Width="1.5*" MinWidth="110" />
                                     <DataGridCheckBoxColumn Header="更新级联" Binding="{Binding UpdateCascade}" Width="Auto" />
                                     <DataGridCheckBoxColumn Header="删除级联" Binding="{Binding DeleteCascade}" Width="Auto" />
-                                    <DataGridTextColumn Header="列映射" Binding="{Binding ColumnsDisplay}" Width="3*" MinWidth="140" />
+                                    <DataGridTextColumn Header="列映射" Binding="{Binding ColumnsDisplay, Mode=TwoWay}" Width="3*" MinWidth="140" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Border>
 
                         <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
                             <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" Opacity="0.6"
-                                       Text="列映射格式：本表列=引用列，多组用英文逗号分隔。" TextTrimming="CharacterEllipsis" />
+                                       Text="双击「列映射」可编辑：本表列=引用列，多组用英文逗号分隔。" TextTrimming="CharacterEllipsis" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
                                 <atom:Button Content="＋ 新增外键" Command="{Binding AddForeignKeyCommand}" />
+                                <atom:Button Content="选择本表列..." Click="BtnForeignKeyPickColumns_Click" />
                                 <atom:Button Content="删除选中" Click="BtnRemoveForeignKey_Click" />
                             </StackPanel>
                         </Grid>
@@ -306,6 +318,45 @@
                                 <atom:Button Content="＋ 新增约束" Command="{Binding AddConstraintCommand}" />
                                 <atom:Button Content="删除选中" Click="BtnRemoveConstraint_Click" />
                             </StackPanel>
+                        </Grid>
+                    </Grid>
+                </TabItem>
+
+                <!-- 分区 Tab（只读元数据 + 可回放 DDL） -->
+                <TabItem Header="分区">
+                    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="0,10,0,0">
+                        <TextBlock Grid.Row="0" Text="{Binding PartitionSummary}" FontSize="12"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                        <Border Grid.Row="1" BorderBrush="{DynamicResource AppBorderBrush}"
+                                BorderThickness="1" CornerRadius="4" ClipToBounds="True"
+                                IsVisible="{Binding HasPartitionInfo}">
+                            <DataGrid ItemsSource="{Binding PartitionItems}" AutoGenerateColumns="False"
+                                      IsReadOnly="True" GridLinesVisibility="Horizontal" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="分区名" Binding="{Binding Name}" Width="1.5*" />
+                                    <DataGridTextColumn Header="边界值" Binding="{Binding HighValue}" Width="2*" />
+                                    <DataGridTextColumn Header="表空间/文件组" Binding="{Binding Tablespace}" Width="1.2*" />
+                                    <DataGridTextColumn Header="顺序" Binding="{Binding Order}" Width="0.5*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                        <TextBlock Grid.Row="1" Text="未读取到分区明细。" FontSize="11" Opacity="0.6"
+                                   IsVisible="{Binding !HasPartitionInfo}" Margin="0,4,0,0" />
+                        <Border Grid.Row="2" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="1"
+                                CornerRadius="4" Margin="0,8,0,0" IsVisible="{Binding HasPartitionInfo}">
+                            <atom:TextBox Text="{Binding PartitionDefinition}" AcceptsReturn="True"
+                                          Classes="multiline" IsReadOnly="True" MinHeight="130"
+                                          VerticalContentAlignment="Top" TextWrapping="NoWrap"
+                                          FontFamily="Consolas, Menlo, monospace" FontSize="12"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                        </Border>
+                        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" FontSize="11" Opacity="0.6"
+                                       Text="分区信息为只读元数据；DDL 由对应方言脚本生成器回放，当前版本不生成分区 ALTER 脚本。"
+                                       TextTrimming="CharacterEllipsis" />
+                            <atom:Button Grid.Column="1" Content="刷新分区" Command="{Binding RefreshPartitionCommand}" />
                         </Grid>
                     </Grid>
                 </TabItem>

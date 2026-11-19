@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using DatabaseInterpreter.Core;
@@ -145,6 +146,153 @@ public class DefaultTableDesignService : ITableDesignService
         {
             return new TableDesignLoadResult { ErrorMessage = ex.Message };
         }
+    }
+
+    public async Task<TablePartitionLoadResult> LoadPartitionAsync(
+        string connectionName,
+        string databaseName,
+        string tableName,
+        string? schema,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null)
+        {
+            return new TablePartitionLoadResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
+        }
+
+        var dbType = ParseDatabaseType(connection.DatabaseType);
+        var supported = dbType is DatabaseType.MySql or DatabaseType.Oracle or DatabaseType.Postgres
+            or DatabaseType.KingbaseES or DatabaseType.SqlServer;
+        if (!supported)
+        {
+            return NoPartition(dbType, $"{dbType} 暂不提供分区元数据读取。");
+        }
+
+        try
+        {
+            var interpreter = CreateInterpreter(connection, databaseName);
+            var table = new Table
+            {
+                Schema = string.IsNullOrEmpty(schema) ? interpreter.DefaultSchema : schema,
+                Name = tableName,
+            };
+            await using var dbConnection = interpreter.CreateConnection();
+            await dbConnection.OpenAsync(cancellationToken);
+
+            var generator = DbScriptGeneratorHelper.GetDbScriptGenerator(interpreter);
+            var result = new TablePartitionLoadResult { IsSuccess = true, DatabaseType = dbType.ToString() };
+
+            switch (dbType)
+            {
+                case DatabaseType.MySql:
+                {
+                    var summary = await ((MySqlInterpreter)interpreter).GetPartitionSummary(dbConnection, table, true);
+                    if (summary is null || !summary.HasPartition) return NoPartition(dbType, "该表未启用分区。");
+                    ApplySummary(result, dbType, summary);
+                    result.Definition = ((MySqlScriptGenerator)generator).CreateTablePartition(summary).Content.Trim();
+                    break;
+                }
+                case DatabaseType.Oracle:
+                {
+                    var summary = await ((OracleInterpreter)interpreter).GetPartitionSummary(dbConnection, table, true);
+                    if (summary is null || !summary.HasPartition) return NoPartition(dbType, "该表未启用分区。");
+                    ApplySummary(result, dbType, summary);
+                    result.Definition = ((OracleScriptGenerator)generator).CreateTablePartition(summary).Content.Trim();
+                    break;
+                }
+                case DatabaseType.Postgres:
+                case DatabaseType.KingbaseES:
+                {
+                    var postgres = (PostgresInterpreter)interpreter;
+                    var postgresGenerator = (PostgresScriptGenerator)generator;
+                    var summary = await postgres.GetPartitionSummary(dbConnection, table, true);
+                    if (summary is not null)
+                    {
+                        ApplySummary(result, dbType, summary);
+                        result.Definition = postgresGenerator.CreateTablePartition(summary).Content.Trim();
+                    }
+                    else
+                    {
+                        ApplySummary(result, dbType, null);
+                    }
+
+                    var inheritedTables = summary?.Partitions
+                        ?? (await postgres.GetPartitionInfos(dbConnection, table, isInherited: true)).ToList();
+                    var builder = new StringBuilder(result.Definition);
+                    foreach (var partition in inheritedTables.Where(p => !string.IsNullOrWhiteSpace(p.Bound)))
+                    {
+                        if (builder.Length > 0) builder.AppendLine().AppendLine();
+                        builder.Append(postgresGenerator.CreateInheritedTable(partition).Content.Trim());
+                    }
+                    result.Definition = builder.ToString().Trim();
+                    if (result.Definition.Length == 0) return NoPartition(dbType, "该表未启用分区，也没有继承分区。");
+                    break;
+                }
+                case DatabaseType.SqlServer:
+                {
+                    var sqlServer = (SqlServerInterpreter)interpreter;
+                    var sqlServerGenerator = (SqlServerScriptGenerator)generator;
+                    var scheme = await sqlServer.GetPartitionSchemeByTable(dbConnection, table, true);
+                    if (scheme is null || string.IsNullOrWhiteSpace(scheme.SchemeName))
+                    {
+                        return NoPartition(dbType, "该表未绑定分区方案。");
+                    }
+
+                    var filegroups = scheme.Filegroups ?? new List<string>();
+                    result.Summary = $"分区方案：{scheme.SchemeName}；分区列：{scheme.ColumnName}；分区函数：{scheme.FunctionName}；文件组数：{filegroups.Count}";
+                    result.Items = filegroups.Select((name, index) => new TablePartitionItem
+                    {
+                        Name = name, HighValue = string.Empty, Tablespace = name, Order = index + 1,
+                    }).ToList();
+
+                    var definitions = new StringBuilder(sqlServerGenerator.CreatePartitionScheme(scheme).Content.Trim());
+                    var function = (await sqlServer.GetPartitionFunctions(dbConnection, new[] { scheme.FunctionName }, true)).FirstOrDefault();
+                    if (function is not null)
+                    {
+                        definitions.AppendLine().AppendLine();
+                        definitions.Append(sqlServerGenerator.CreatePartitionFunction(function).Content.Trim());
+                    }
+                    result.Definition = definitions.ToString().Trim();
+                    break;
+                }
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            return new TablePartitionLoadResult
+            {
+                DatabaseType = dbType.ToString(),
+                ErrorMessage = $"分区元数据读取失败：{ex.Message}",
+            };
+        }
+    }
+
+    private static TablePartitionLoadResult NoPartition(DatabaseType dbType, string message)
+        => new() { IsSuccess = true, DatabaseType = dbType.ToString(), Summary = message };
+
+    private static void ApplySummary(TablePartitionLoadResult result, DatabaseType dbType, PartitionSummary? summary)
+    {
+        if (summary is null)
+        {
+            result.Summary = "未读取到主表分区定义。";
+            return;
+        }
+
+        string columns = string.Join(", ", (summary.Columns ?? new List<PartitionColumn>())
+            .Select(c => c.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
+        result.Summary = $"{dbType} 分区类型：{summary.Type ?? "未知"}；分区键：{(columns.Length > 0 ? columns : "未识别")}；分区数：{summary.PartitionCount}";
+        result.Items = (summary.Partitions ?? new List<PartitionInfo>())
+            .Select(p => new TablePartitionItem
+            {
+                Name = p.Name ?? p.TableName ?? string.Empty,
+                HighValue = p.HighValue ?? p.Bound ?? string.Empty,
+                Tablespace = p.Tablespace ?? string.Empty,
+                Order = p.Order,
+            }).ToList();
     }
 
     public async Task<TableDesignScriptResult> GenerateScriptsAsync(

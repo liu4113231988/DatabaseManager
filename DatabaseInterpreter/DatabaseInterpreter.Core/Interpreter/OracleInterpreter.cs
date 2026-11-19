@@ -765,12 +765,12 @@ WHERE 1=1");
         public async Task<PartitionSummary> GetPartitionSummary(DbConnection dbConnection, Table table, bool includeDetails = false)
         {
             string sql =
-$@"SELECT t.TABLE_NAME AS ""TableName"", t.PARTITIONING_TYPE AS ""Type"",t.INTERVAL AS ""Interval"",
+@"SELECT t.TABLE_NAME AS ""TableName"", t.PARTITIONING_TYPE AS ""Type"",t.INTERVAL AS ""Interval"",
 t.SUBPARTITIONING_TYPE AS ""SubType"",t.INTERVAL_SUBPARTITION AS ""SubInterval""
 FROM USER_PART_TABLES t
-WHERE t.TABLE_NAME='{table.Name}'";
+WHERE t.TABLE_NAME=:Name";
 
-            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql))?.FirstOrDefault();
+            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql, new { table.Name }))?.FirstOrDefault();
 
             if (summary != null)
             {
@@ -798,12 +798,12 @@ WHERE t.TABLE_NAME='{table.Name}'";
         public async Task<IEnumerable<PartitionColumn>> GetPartitionColumns(DbConnection dbConnection, Table table)
         {
             string sql =
-$@"SELECT NAME AS ""TableName"",COLUMN_NAME AS ""Name"",COLUMN_POSITION AS ""Order""
+@"SELECT NAME AS ""TableName"",COLUMN_NAME AS ""Name"",COLUMN_POSITION AS ""Order""
 FROM USER_PART_KEY_COLUMNS 
-WHERE OBJECT_TYPE='TABLE' AND NAME='{table.Name}'
+WHERE OBJECT_TYPE='TABLE' AND NAME=:Name
 ORDER BY COLUMN_POSITION";
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql);
+            return await dbConnection.QueryAsync<PartitionColumn>(sql, new { table.Name });
         }
 
         public async Task<IEnumerable<PartitionColumn>> GetSubPartitionColumns(Table table)
@@ -814,12 +814,12 @@ ORDER BY COLUMN_POSITION";
         public async Task<IEnumerable<PartitionColumn>> GetSubPartitionColumns(DbConnection dbConnection, Table table)
         {
             string sql =
-$@"SELECT NAME AS ""TableName"",COLUMN_NAME AS ""Name"",COLUMN_POSITION AS ""Order""
+@"SELECT NAME AS ""TableName"",COLUMN_NAME AS ""Name"",COLUMN_POSITION AS ""Order""
 FROM USER_SUBPART_KEY_COLUMNS 
-WHERE OBJECT_TYPE='TABLE' AND NAME='{table.Name}'
+WHERE OBJECT_TYPE='TABLE' AND NAME=:Name
 ORDER BY COLUMN_POSITION";
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql);
+            return await dbConnection.QueryAsync<PartitionColumn>(sql, new { table.Name });
         }
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(Table table, bool includeDetails = false)
@@ -830,11 +830,11 @@ ORDER BY COLUMN_POSITION";
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(DbConnection dbConnection, Table table, bool includeDetails = false)
         {
             string sql =
-$@"SELECT TABLE_NAME AS ""TableName"", PARTITION_NAME AS ""Name"",HIGH_VALUE AS ""HighValue"",TABLESPACE_NAME AS ""Tablespace"",PARTITION_POSITION AS ""Order""
+@"SELECT TABLE_NAME AS ""TableName"", PARTITION_NAME AS ""Name"",HIGH_VALUE AS ""HighValue"",TABLESPACE_NAME AS ""Tablespace"",PARTITION_POSITION AS ""Order""
 FROM USER_TAB_PARTITIONS 
-WHERE TABLE_NAME='{table.Name}'";
+WHERE TABLE_NAME=:Name";
 
-            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql);
+            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql, new { table.Name });
 
             if (includeDetails)
             {
@@ -859,11 +859,11 @@ WHERE TABLE_NAME='{table.Name}'";
         public async Task<IEnumerable<PartitionInfo>> GetSubPartitionInfos(DbConnection dbConnection, Table table)
         {
             string sql =
-$@"SELECT TABLE_NAME AS ""TableName"", PARTITION_NAME AS ""ParentTableName"", SUBPARTITION_NAME AS ""Name"", HIGH_VALUE AS ""HighValue"",TABLESPACE_NAME AS ""Tablespace"",SUBPARTITION_POSITION AS ""Order""
+@"SELECT TABLE_NAME AS ""TableName"", PARTITION_NAME AS ""ParentTableName"", SUBPARTITION_NAME AS ""Name"", HIGH_VALUE AS ""HighValue"",TABLESPACE_NAME AS ""Tablespace"",SUBPARTITION_POSITION AS ""Order""
 FROM USER_TAB_SUBPARTITIONS
-WHERE TABLE_NAME='{table.Name}'";
+WHERE TABLE_NAME=:Name";
 
-            return await dbConnection.QueryAsync<PartitionInfo>(sql);
+            return await dbConnection.QueryAsync<PartitionInfo>(sql, new { table.Name });
         }
 
         public async Task<IEnumerable<TableIndexExtraInfo>> GetTableIndexExtraInfos(Table table, bool includeDetails = false)

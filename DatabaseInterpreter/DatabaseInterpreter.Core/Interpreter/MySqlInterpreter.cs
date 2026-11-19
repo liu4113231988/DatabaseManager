@@ -595,16 +595,16 @@ WHERE PARTITION_METHOD IS NOT NULL");
         public async Task<PartitionSummary> GetPartitionSummary(DbConnection dbConnection, Table table, bool includeDetails = false)
         {
             string sql =
-$@"SELECT TABLE_NAME AS `TableName`,PARTITION_METHOD AS `Type`,PARTITION_EXPRESSION AS `Expression`
+@"SELECT TABLE_NAME AS `TableName`,PARTITION_METHOD AS `Type`,PARTITION_EXPRESSION AS `Expression`
 FROM INFORMATION_SCHEMA.PARTITIONS
-WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME='{table.Name}'";
+WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME=@Name";
 
             if(!string.IsNullOrEmpty(table.Schema))
             {
-                sql += $" AND TABLE_SCHEMA='{table.Schema}'";
+                sql += " AND TABLE_SCHEMA=@Schema";
             }
 
-            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql))?.FirstOrDefault();
+            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql, new { table.Name, table.Schema }))?.FirstOrDefault();
 
             if (summary != null)
             {
@@ -625,16 +625,16 @@ WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME='{table.Name}'";
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(DbConnection dbConnection, Table table)
         {
             string sql = 
-$@"SELECT TABLE_SCHEMA AS `TableSchema`,TABLE_NAME AS `TableName`,PARTITION_NAME AS `Name`,PARTITION_DESCRIPTION AS `Bound`,PARTITION_ORDINAL_POSITION AS `Order`
+@"SELECT TABLE_SCHEMA AS `TableSchema`,TABLE_NAME AS `TableName`,PARTITION_NAME AS `Name`,PARTITION_DESCRIPTION AS `Bound`,PARTITION_ORDINAL_POSITION AS `Order`
 FROM INFORMATION_SCHEMA.PARTITIONS
-WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME='{table.Name}'";
+WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME=@Name";
 
             if (!string.IsNullOrEmpty(table.Schema))
             {
-                sql += $" AND TABLE_SCHEMA='{table.Schema}'";
+                sql += " AND TABLE_SCHEMA=@Schema";
             }
 
-            return await dbConnection.QueryAsync<PartitionInfo>(sql);
+            return await dbConnection.QueryAsync<PartitionInfo>(sql, new { table.Name, table.Schema });
         }
 
         #endregion

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -77,10 +79,76 @@ public partial class TableDesignerViewModel : ViewModelBase
     [ObservableProperty]
     private bool _hasChanges;
 
+    /// <summary>分区明细（只读元数据）。</summary>
+    public ObservableCollection<TablePartitionItem> PartitionItems { get; } = new();
+
+    /// <summary>分区摘要。</summary>
+    [ObservableProperty]
+    private string _partitionSummary = string.Empty;
+
+    /// <summary>可回放的分区 DDL。</summary>
+    [ObservableProperty]
+    private string _partitionDefinition = string.Empty;
+
+    /// <summary>是否读取到分区信息。</summary>
+    [ObservableProperty]
+    private bool _hasPartitionInfo;
+
+    private TableDesignKey? _observedPrimaryKey;
+
     public TableDesignerViewModel(ITableDesignService designService)
     {
         _designService = designService;
+        Indexes.CollectionChanged += OnDesignCollectionChanged;
+        ForeignKeys.CollectionChanged += OnDesignCollectionChanged;
+        Constraints.CollectionChanged += OnDesignCollectionChanged;
+        Columns.CollectionChanged += OnDesignCollectionChanged;
     }
+
+    partial void OnPrimaryKeyChanged(TableDesignKey? value)
+    {
+        if (_observedPrimaryKey is not null)
+        {
+            _observedPrimaryKey.PropertyChanged -= OnDesignItemPropertyChanged;
+        }
+        _observedPrimaryKey = value;
+        if (value is not null)
+        {
+            value.PropertyChanged += OnDesignItemPropertyChanged;
+        }
+    }
+
+    private void OnDesignCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        HasChanges = true;
+        if (e.OldItems is not null)
+        {
+            foreach (object item in e.OldItems) UnsubscribeDesignItem(item);
+        }
+        if (e.NewItems is not null)
+        {
+            foreach (object item in e.NewItems) SubscribeDesignItem(item);
+        }
+    }
+
+    private void SubscribeDesignItem(object item)
+    {
+        if (item is INotifyPropertyChanged notifier)
+        {
+            notifier.PropertyChanged -= OnDesignItemPropertyChanged;
+            notifier.PropertyChanged += OnDesignItemPropertyChanged;
+        }
+    }
+
+    private void UnsubscribeDesignItem(object item)
+    {
+        if (item is INotifyPropertyChanged notifier)
+        {
+            notifier.PropertyChanged -= OnDesignItemPropertyChanged;
+        }
+    }
+
+    private void OnDesignItemPropertyChanged(object? sender, PropertyChangedEventArgs e) => HasChanges = true;
 
     /// <summary>加载指定表的结构（isNew=true 时为新建空表）。</summary>
     public async Task<bool> LoadAsync(
@@ -120,6 +188,7 @@ public partial class TableDesignerViewModel : ViewModelBase
             }
 
             Apply(result.Design);
+            await LoadPartitionAsync();
             IsLoaded = true;
             HasChanges = false;
             PreviewScript = string.Empty;
@@ -394,6 +463,55 @@ public partial class TableDesignerViewModel : ViewModelBase
         };
     }
 
+    /// <summary>读取分区元数据；失败不阻断表结构加载。</summary>
+    private async Task LoadPartitionAsync()
+    {
+        if (IsNew)
+        {
+            ResetPartitionState();
+            return;
+        }
+
+        try
+        {
+            var result = await _designService.LoadPartitionAsync(
+                ConnectionName, DatabaseName, TableName, string.IsNullOrEmpty(Schema) ? null : Schema);
+
+            PartitionItems.Clear();
+            foreach (var item in result.Items)
+            {
+                PartitionItems.Add(item);
+            }
+            PartitionSummary = result.IsSuccess
+                ? result.Summary
+                : $"分区信息加载失败：{result.ErrorMessage}";
+            PartitionDefinition = result.Definition;
+            HasPartitionInfo = result.IsSuccess
+                && (PartitionItems.Count > 0 || !string.IsNullOrWhiteSpace(PartitionDefinition));
+        }
+        catch (Exception ex)
+        {
+            ResetPartitionState();
+            PartitionSummary = $"分区信息加载失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>刷新分区 Tab。</summary>
+    [RelayCommand]
+    private async Task RefreshPartitionAsync()
+    {
+        await LoadPartitionAsync();
+        StatusMessage = "已刷新分区信息。";
+    }
+
+    private void ResetPartitionState()
+    {
+        PartitionItems.Clear();
+        PartitionSummary = string.Empty;
+        PartitionDefinition = string.Empty;
+        HasPartitionInfo = false;
+    }
+
     /// <summary>清空设计状态。</summary>
     public void Clear()
     {
@@ -410,5 +528,6 @@ public partial class TableDesignerViewModel : ViewModelBase
         HasChanges = false;
         PreviewScript = string.Empty;
         StatusMessage = string.Empty;
+        ResetPartitionState();
     }
 }

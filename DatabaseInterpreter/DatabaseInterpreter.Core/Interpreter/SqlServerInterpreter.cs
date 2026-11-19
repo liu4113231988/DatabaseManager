@@ -701,7 +701,8 @@ WHERE t.name='{table.Name}'";
         {
             string sql = this.GetSqlForPartitionSchemes(filter);
 
-            var schemes = (await dbConnection.QueryAsync<PartitionScheme>(sql)).ToList();
+            var schemes = (await dbConnection.QueryAsync<PartitionScheme>(sql,
+                new { Schema = filter?.Schema, TableNames = filter?.TableNames })).ToList();
 
             if(includeDetails)
             {
@@ -732,8 +733,8 @@ JOIN sys.partition_schemes AS s ON i.data_space_id = s.data_space_id
 join sys.index_columns ic on ic.index_id = i.index_id and ic.object_id = i.object_id and ic.partition_ordinal >= 1
 JOIN sys.columns c ON ic.object_id=c.object_id AND ic.column_id=c.column_id and c.object_id = t.object_id");
 
-            sb.Append(this.GetFilterSchemaCondition(filter, "schema_name(t.schema_id)"));
-            sb.Append(this.GetFilterNamesCondition(filter, filter?.TableNames, "t.name"));
+            if (!string.IsNullOrEmpty(filter?.Schema)) sb.Append("AND schema_name(t.schema_id) = @Schema");
+            if (filter?.TableNames?.Length > 0) sb.Append("AND t.name IN @TableNames");
 
             return sb.Content;
         }
@@ -747,7 +748,7 @@ JOIN sys.columns c ON ic.object_id=c.object_id AND ic.column_id=c.column_id and 
         {
             string sql = this.GetSqlForPartitionSchemeFunctions(schemeNames);
 
-            return (await dbConnection.QueryAsync<PartitionSchemeFunction>(sql)).ToList();
+            return (await dbConnection.QueryAsync<PartitionSchemeFunction>(sql, new { SchemeNames = schemeNames })).ToList();
         }
 
         private string GetSqlForPartitionSchemeFunctions(string[] schemeNames)
@@ -761,9 +762,7 @@ JOIN sys.partition_schemes s on f.function_id = s.function_id");
 
             if (schemeNames != null && schemeNames.Any())
             {
-                string strNames = string.Join(",", schemeNames.Select(item => $"'{item}'"));
-
-                sb.Append($"WHERE s.name IN({strNames})");
+                sb.Append("WHERE s.name IN @SchemeNames");
             }
 
             return sb.Content;
@@ -778,7 +777,7 @@ JOIN sys.partition_schemes s on f.function_id = s.function_id");
         {
             string sql = this.GetSqlForPartitionSchemeFilegroups(schemeNames);
 
-            return (await dbConnection.QueryAsync<PartitionSchemeFilegroup>(sql)).ToList();
+            return (await dbConnection.QueryAsync<PartitionSchemeFilegroup>(sql, new { SchemeNames = schemeNames })).ToList();
         }
 
         private string GetSqlForPartitionSchemeFilegroups(params string[] schemeNames)
@@ -793,12 +792,10 @@ JOIN sys.filegroups fg ON dds.data_space_id = fg.data_space_id");
 
             if (schemeNames != null && schemeNames.Any())
             {
-                string strNames = string.Join(",", schemeNames.Select(item => $"'{item}'"));
-
-                sb.Append($"WHERE s.name IN({strNames})");
+                sb.Append("WHERE s.name IN @SchemeNames");
             }
 
-            sb.Append("GROUP BY s.name,fg.name");
+            sb.Append("ORDER BY s.name, dds.destination_id");
 
             return sb.Content;
         }
@@ -816,12 +813,10 @@ FROM sys.partition_functions f";
 
             if (functionNames != null && functionNames.Any())
             {
-                string strNames = string.Join(",", functionNames.Select(item => $"'{item}'"));
-
-                sql += Environment.NewLine +  $"WHERE f.name IN({strNames})";
+                sql += Environment.NewLine + "WHERE f.name IN @FunctionNames";
             }
 
-            List<PartitionFunction> functions = (await dbConnection.QueryAsync<PartitionFunction>(sql)).ToList();
+            List<PartitionFunction> functions = (await dbConnection.QueryAsync<PartitionFunction>(sql, new { FunctionNames = functionNames })).ToList();
             List<PartitionFunctionDataTypeInfo> functionDataTypeInfos =await this.GetPartitionFunctionDataTypes(dbConnection, functionNames);
             List<PartitionFunctionValue> functionValues = await this.GetPartitionFunctionValues(dbConnection, functionNames);
 
@@ -853,12 +848,10 @@ JOIN sys.types t on p.system_type_id = t.system_type_id";
 
             if (functionNames != null && functionNames.Any())
             {
-                string strNames = string.Join(",", functionNames.Select(item => $"'{item}'"));
-
-                sql += Environment.NewLine + $"WHERE f.name IN({strNames})";
+                sql += Environment.NewLine + "WHERE f.name IN @FunctionNames";
             }
 
-            return (await dbConnection.QueryAsync<PartitionFunctionDataTypeInfo>(sql)).ToList();
+            return (await dbConnection.QueryAsync<PartitionFunctionDataTypeInfo>(sql, new { FunctionNames = functionNames })).ToList();
         }
 
         public async Task<List<PartitionFunctionValue>> GetPartitionFunctionValues(string[] functionNames)
@@ -875,14 +868,12 @@ JOIN sys.partition_range_values v on v.function_id = f.function_id";
 
             if (functionNames != null && functionNames.Any())
             {
-                string strNames = string.Join(",", functionNames.Select(item => $"'{item}'"));
-
-                sql += Environment.NewLine + $"WHERE f.name IN({strNames})";
+                sql += Environment.NewLine + "WHERE f.name IN @FunctionNames";
             }
 
             sql += Environment.NewLine + "ORDER BY f.name, v.boundary_id";
 
-            var values = (await dbConnection.QueryAsync<PartitionFunctionValue>(sql)).ToList();          
+            var values = (await dbConnection.QueryAsync<PartitionFunctionValue>(sql, new { FunctionNames = functionNames })).ToList();
 
             foreach (var value in values)
             {
