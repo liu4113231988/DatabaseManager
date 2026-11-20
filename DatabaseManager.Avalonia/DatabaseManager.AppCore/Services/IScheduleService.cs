@@ -1,6 +1,7 @@
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Templating;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DatabaseManager.AppCore.Services;
 
@@ -83,7 +84,17 @@ public class ScheduleDefinition
     public DateTime? LastRunAt { get; set; }
 
     public string? LastResult { get; set; }
+
+    public ScheduleDefinition Clone() => JsonSerializer.Deserialize(
+        JsonSerializer.SerializeToUtf8Bytes(this, ScheduleJsonContext.Default.ScheduleDefinition),
+        ScheduleJsonContext.Default.ScheduleDefinition)!;
 }
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip,
+    NumberHandling = JsonNumberHandling.AllowReadingFromString)]
+[JsonSerializable(typeof(List<ScheduleDefinition>))]
+internal partial class ScheduleJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// 任务定时调度服务：计划定义持久化 + 到期检查；
@@ -252,7 +263,7 @@ public class DefaultScheduleService : IScheduleService
     private void SubmitScheduled(ScheduleDefinition definition, DateTime now)
     {
         // Freeze the definition so editing a running plan cannot change its remaining steps.
-        definition = JsonConvert.DeserializeObject<ScheduleDefinition>(JsonConvert.SerializeObject(definition))!;
+        definition = definition.Clone();
         _taskCenter.Run($"[定时] {definition.Name}", $"定时/{definition.TaskType}", async (run, ct) =>
         {
             run.Report($"计划到期，开始执行（类型：{definition.TaskType}）。");
@@ -442,7 +453,7 @@ public class DefaultScheduleService : IScheduleService
         {
             if (File.Exists(_filePath))
             {
-                return JsonConvert.DeserializeObject<List<ScheduleDefinition>>(File.ReadAllText(_filePath))
+                return JsonSerializer.Deserialize(File.ReadAllText(_filePath), ScheduleJsonContext.Default.ListScheduleDefinition)
                        ?? new List<ScheduleDefinition>();
             }
         }
@@ -459,7 +470,7 @@ public class DefaultScheduleService : IScheduleService
         lock (FileLock)
         {
             var temp = _filePath + ".tmp";
-            File.WriteAllText(temp, JsonConvert.SerializeObject(_items, Formatting.Indented));
+            File.WriteAllText(temp, JsonSerializer.Serialize(_items, ScheduleJsonContext.Default.ListScheduleDefinition));
             File.Move(temp, _filePath, true);
         }
     }

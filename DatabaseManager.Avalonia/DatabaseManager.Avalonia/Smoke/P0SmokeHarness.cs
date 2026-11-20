@@ -173,9 +173,32 @@ public static class P0SmokeHarness
                 if (!password.IsEffectivelyVisible || !string.IsNullOrEmpty(password.Text))
                     throw new InvalidOperationException("Returning to SQLite must show an empty password field.");
             });
-            var schedule = new DefaultScheduleService(new DefaultTaskCenterService(), connections, query, new DefaultBackupService(), new DefaultExportImportService(connections), storageDirectory: folder);
+            DefaultScheduleService OpenSchedules() => new(new DefaultTaskCenterService(), connections, query,
+                new DefaultBackupService(), new DefaultExportImportService(connections), storageDirectory: folder);
+            File.WriteAllText(Path.Combine(folder, "schedules.json"), """
+                [{"Id":"p0","Name":"旧计划","ConnectionName":"测试连接","Enabled":false,"LastResult":"完成",
+                  "Steps":[{"Name":"步骤","ConnectionName":"测试连接","SqlText":"SELECT 1"}],
+                  "Dictionary":{"Objects":["sample"]}}]
+                """);
+            var schedule = OpenSchedules();
             var window = new ScheduleWindow(schedule, connections);
-            await Capture(window, "schedule", () => window.GetVisualDescendants().OfType<Button>().First(b => b.Content?.ToString() == "新建计划").RaiseEvent(new RoutedEventArgs(Button.ClickEvent)));
+            void ClickSchedule(string label) => window.GetVisualDescendants().OfType<Button>()
+                .Single(b => b.Content?.ToString() == label).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await Capture(window, "schedule", verify: async () =>
+            {
+                var original = schedule.GetAll().Single();
+                window.FindControl<DataGrid>("SchedulesGrid")!.SelectedIndex = 0;
+                ClickSchedule("编辑");
+                await Task.Delay(200);
+                window.FindControl<AtomUI.Desktop.Controls.TextBox>("TxtName")!.Text = "更新计划";
+                ClickSchedule("保存");
+                var saved = OpenSchedules().GetAll().Single();
+                if (original.Name != "旧计划" || saved.Id != "p0" || saved.Name != "更新计划" || saved.Enabled
+                    || saved.LastResult != "完成" || saved.Steps.Single().SqlText != "SELECT 1"
+                    || !saved.Dictionary.Objects.SequenceEqual(new[] { "sample" }))
+                    throw new InvalidOperationException("Editing a legacy schedule must preserve its steps, settings and history.");
+                ClickSchedule("新建计划");
+            });
             File.WriteAllText(Path.Combine(output, "passed.txt"), "P0 UI fixtures opened and rendered successfully.");
         }
         finally

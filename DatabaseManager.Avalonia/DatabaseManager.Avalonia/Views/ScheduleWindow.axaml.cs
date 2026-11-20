@@ -220,7 +220,7 @@ public partial class ScheduleWindow : Window
             return;
         }
 
-        var definition = _editing is null || _addingStep ? new ScheduleDefinition() : Newtonsoft.Json.JsonConvert.DeserializeObject<ScheduleDefinition>(Newtonsoft.Json.JsonConvert.SerializeObject(_editing))!;
+        var definition = _addingStep ? new ScheduleDefinition() : _editing?.Clone() ?? new ScheduleDefinition();
 
         definition.Name = name;
         definition.ConnectionName = connection.Name;
