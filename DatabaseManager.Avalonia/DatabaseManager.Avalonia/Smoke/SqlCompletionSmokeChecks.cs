@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -40,6 +41,14 @@ internal static class SqlCompletionSmokeChecks
             window.Show();
             await Task.Delay(100);
             var textEditor = editor.FindControl<TextEditor>("PART_TextEditor")!;
+            const string copySql = "SELECT \"中文\", '\\path'\r\n\t-- 😀";
+            editor.SqlText = "-- prefix\n" + copySql + "\n-- suffix";
+            textEditor.Select("-- prefix\n".Length, copySql.Length);
+            using (var json = JsonDocument.Parse(editor.FormatSelectionForCopy(SqlEditor.SqlCopyAsKind.JsonString)!))
+                Check(json.RootElement.GetString() == copySql, "Copy as JSON must preserve the exact SQL selection.");
+            textEditor.Select(0, 0);
+            Check(editor.FormatSelectionForCopy(SqlEditor.SqlCopyAsKind.JsonString) is null,
+                "Copy without a selection must leave the clipboard untouched.");
             const string formatSql = "SELECT 'from a,b and end', $$from, where;$$, 1 -- keep comment\n+2;";
             editor.SqlText = formatSql;
             textEditor.Select(0, 0);

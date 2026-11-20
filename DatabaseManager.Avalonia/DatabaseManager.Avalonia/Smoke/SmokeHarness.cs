@@ -34,9 +34,7 @@ public static class SmokeHarness
     public static int Run(string[] args)
     {
         // WinExe 子系统没有 console，stdout/stderr 默认不输出；改为写日志文件。
-        _logFile = Path.Combine(
-            Path.GetDirectoryName(typeof(SmokeHarness).Assembly.Location) ?? AppContext.BaseDirectory,
-            "smoke.log");
+        _logFile = Path.Combine(AppContext.BaseDirectory, "smoke.log");
         try { File.WriteAllText(_logFile, $"[smoke] 启动 {DateTime.Now:HH:mm:ss}\n"); } catch { }
 
         // 实际工作由 App.OnFrameworkInitializationCompleted 在主窗口就绪后异步驱动。

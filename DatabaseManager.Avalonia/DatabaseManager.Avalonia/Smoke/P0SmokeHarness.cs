@@ -94,6 +94,10 @@ public static class P0SmokeHarness
                 queryTab.IsExecuting = false;
                 var otherTab = mainVm.OpenSqlInNewTab(server.Name, "SELECT 2;", "app_db");
                 await Task.Delay(100);
+                if (!databaseWindow.GetVisualDescendants().OfType<Controls.SqlEditor>()
+                    .Any(editor => editor.IsEffectivelyVisible && ReferenceEquals(editor.DataContext, otherTab)
+                        && editor.SqlText == "SELECT 2;"))
+                    throw new InvalidOperationException("The selected query tab must render its SQL editor and text.");
                 if (!ReferenceEquals(selector.DataContext, otherTab) || !Equals(selector.SelectedItem, "app_db"))
                     throw new InvalidOperationException("Toolbar must follow the selected query tab.");
                 mainVm.SelectedQueryTab = queryTab;

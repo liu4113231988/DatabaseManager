@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml;
 using Avalonia;
@@ -1053,26 +1054,29 @@ public partial class SqlEditor : UserControl
     /// <summary>把选中的 SQL 以指定形式复制到剪贴板。</summary>
     private async Task CopySqlAsAsync(SqlCopyAsKind kind)
     {
+        var result = FormatSelectionForCopy(kind);
+        if (result is not null && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(result);
+        }
+    }
+
+    internal string? FormatSelectionForCopy(SqlCopyAsKind kind)
+    {
         var text = GetSelectedText();
         if (string.IsNullOrEmpty(text))
-        {
-            return;
-        }
+            return null;
 
-        var result = kind switch
+        return kind switch
         {
             // 压缩空白为单个空格，便于粘贴到聊天/文档里排版
             SqlCopyAsKind.SingleLine => Regex.Replace(text, "\\s+", " ").Trim(),
-            SqlCopyAsKind.JsonString => System.Text.Json.JsonSerializer.Serialize(text),
+            SqlCopyAsKind.JsonString => $"\"{JsonEncodedText.Encode(text)}\"",
             // 逐行原样保留的 C# 逐字字符串
             SqlCopyAsKind.CSharpString => "@\"" + text.Replace("\"", "\"\"") + "\"",
             _ => text,
         };
 
-        if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
-        {
-            await clipboard.SetTextAsync(result);
-        }
     }
 
     /// <summary>注释或取消注释选区覆盖的行（无选区则为光标所在行）。</summary>
