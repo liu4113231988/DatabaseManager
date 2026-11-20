@@ -1,4 +1,3 @@
-using Dapper;
 using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -64,11 +63,10 @@ namespace DatabaseInterpreter.Core
 
         #region Schema Information
         #region Database
-        public override Task<List<Database>> GetDatabasesAsync()
+        public override async Task<List<Database>> GetDatabasesAsync()
         {
-            string sql = $@"SELECT name AS [Name] FROM sys.databases {this.GetExcludeBuiltinDbNamesCondition("name")} ORDER BY name";
-
-            return base.GetDbObjectsAsync<Database>(sql);
+            using var connection = this.CreateConnection();
+            return await this.GetDatabasesAsync(connection);
         }
 
         /// <summary>
@@ -80,19 +78,21 @@ namespace DatabaseInterpreter.Core
         {
             string sql = $@"SELECT name AS [Name] FROM sys.databases {this.GetExcludeBuiltinDbNamesCondition("name")} ORDER BY name";
 
-            return base.GetDbObjectsAsync<Database>(dbConnection, sql);
+            return base.GetDbObjectsAsync(dbConnection, sql, reader => new Database { Name = reader.GetString(0) });
         }
         #endregion
 
         #region Database Schema
-        public override Task<List<DatabaseSchema>> GetDatabaseSchemasAsync()
+        public override async Task<List<DatabaseSchema>> GetDatabaseSchemasAsync()
         {
-            return base.GetDbObjectsAsync<DatabaseSchema>(this.GetSqlForDatabaseSchemas());
+            using var connection = this.CreateConnection();
+            return await this.GetDatabaseSchemasAsync(connection);
         }
 
         public override Task<List<DatabaseSchema>> GetDatabaseSchemasAsync(DbConnection dbConnection)
         {
-            return base.GetDbObjectsAsync<DatabaseSchema>(dbConnection, this.GetSqlForDatabaseSchemas());
+            return base.GetDbObjectsAsync(dbConnection, this.GetSqlForDatabaseSchemas(),
+                reader => new DatabaseSchema { Name = reader.GetString(0), Schema = reader.GetString(1) });
         }
 
         private string GetSqlForDatabaseSchemas()
@@ -631,6 +631,44 @@ namespace DatabaseInterpreter.Core
 
         #region Partition       
 
+        private static async Task<List<T>> ReadPartitionRowsAsync<T>(DbInterpreter interpreter, DbConnection connection,
+            string sql, Func<DbDataReader, T> map, params (string Name, object Value)[] parameters)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            foreach (var (name, value) in parameters)
+            {
+                var parameter = command.CreateParameter();
+                parameter.ParameterName = name;
+                parameter.Value = value ?? DBNull.Value;
+                command.Parameters.Add(parameter);
+            }
+
+            await interpreter.OpenConnectionAsync(connection);
+            var rows = new List<T>();
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                rows.Add(map(reader));
+            }
+            return rows;
+        }
+
+        private static string ParameterNames(string prefix, int count)
+            => string.Join(",", Enumerable.Range(0, count).Select(i => "@" + prefix + i));
+
+        private static void AddNameParameters(List<(string Name, object Value)> parameters, string prefix, string[] names)
+        {
+            if (names is null) return;
+            for (int i = 0; i < names.Length; i++)
+            {
+                parameters.Add((prefix + i, names[i]));
+            }
+        }
+
+        private static string ReadString(DbDataReader reader, int ordinal)
+            => reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+
         public override async Task<List<Table>> GetPartitionedTables(SchemaInfoFilter filter)
         {
             return await this.GetPartitionedTables(this.CreateConnection(), filter);
@@ -638,7 +676,8 @@ namespace DatabaseInterpreter.Core
 
         public override async Task<List<Table>> GetPartitionedTables(DbConnection dbConnection, SchemaInfoFilter filter)
         {
-            return (await dbConnection.QueryAsync<Table>(this.GetSqlForPartitionedTables(filter))).ToList();
+            return await ReadPartitionRowsAsync(this, dbConnection, this.GetSqlForPartitionedTables(filter),
+                reader => new Table { Schema = ReadString(reader, 0), Name = ReadString(reader, 1) });
         }
 
         private string GetSqlForPartitionedTables(SchemaInfoFilter filter)
@@ -677,7 +716,8 @@ WHERE t.name='{table.Name}'";
                 sql += $" AND t.schema_id = SCHEMA_ID('{table.Schema}')";
             }
 
-            return (await dbConnection.QueryAsync<string>(sql)).FirstOrDefault();
+            var values = await ReadPartitionRowsAsync(this, dbConnection, sql, reader => ReadString(reader, 0));
+            return values.FirstOrDefault();
         }
 
         public async Task<PartitionScheme> GetPartitionSchemeByTable(Table table)
@@ -700,9 +740,23 @@ WHERE t.name='{table.Name}'";
         public async Task<List<PartitionScheme>> GetPartitionSchemes(DbConnection dbConnection, SchemaInfoFilter filter, bool includeDetails = false)
         {
             string sql = this.GetSqlForPartitionSchemes(filter);
+            var parameters = new List<(string Name, object Value)>();
+            if (!string.IsNullOrEmpty(filter?.Schema))
+            {
+                parameters.Add(("Schema", filter.Schema));
+            }
+            if (filter?.TableNames?.Length > 0)
+            {
+                sql = sql.Replace("IN @TableNames", "IN (" + ParameterNames("TableName", filter.TableNames.Length) + ")");
+                AddNameParameters(parameters, "TableName", filter.TableNames);
+            }
 
-            var schemes = (await dbConnection.QueryAsync<PartitionScheme>(sql,
-                new { Schema = filter?.Schema, TableNames = filter?.TableNames })).ToList();
+            var schemes = await ReadPartitionRowsAsync(this, dbConnection, sql,
+                reader => new PartitionScheme
+                {
+                    SchemeName = ReadString(reader, 0),
+                    ColumnName = ReadString(reader, 1),
+                }, parameters.ToArray());
 
             if(includeDetails)
             {
@@ -747,8 +801,19 @@ JOIN sys.columns c ON ic.object_id=c.object_id AND ic.column_id=c.column_id and 
         public async Task<List<PartitionSchemeFunction>> GetPartitionSchemeFunctions(DbConnection dbConnection, string[] schemeNames)
         {
             string sql = this.GetSqlForPartitionSchemeFunctions(schemeNames);
+            var parameters = new List<(string Name, object Value)>();
+            if (schemeNames != null && schemeNames.Any())
+            {
+                sql = sql.Replace("IN @SchemeNames", "IN (" + ParameterNames("SchemeName", schemeNames.Length) + ")");
+                AddNameParameters(parameters, "SchemeName", schemeNames);
+            }
 
-            return (await dbConnection.QueryAsync<PartitionSchemeFunction>(sql, new { SchemeNames = schemeNames })).ToList();
+            return await ReadPartitionRowsAsync(this, dbConnection, sql,
+                reader => new PartitionSchemeFunction
+                {
+                    SchemeName = ReadString(reader, 0),
+                    FunctionName = ReadString(reader, 1),
+                }, parameters.ToArray());
         }
 
         private string GetSqlForPartitionSchemeFunctions(string[] schemeNames)
@@ -776,8 +841,19 @@ JOIN sys.partition_schemes s on f.function_id = s.function_id");
         public async Task<List<PartitionSchemeFilegroup>> GetPartitionSchemeFilegroups(DbConnection dbConnection, string[] schemeNames)
         {
             string sql = this.GetSqlForPartitionSchemeFilegroups(schemeNames);
+            var parameters = new List<(string Name, object Value)>();
+            if (schemeNames != null && schemeNames.Any())
+            {
+                sql = sql.Replace("IN @SchemeNames", "IN (" + ParameterNames("SchemeName", schemeNames.Length) + ")");
+                AddNameParameters(parameters, "SchemeName", schemeNames);
+            }
 
-            return (await dbConnection.QueryAsync<PartitionSchemeFilegroup>(sql, new { SchemeNames = schemeNames })).ToList();
+            return await ReadPartitionRowsAsync(this, dbConnection, sql,
+                reader => new PartitionSchemeFilegroup
+                {
+                    SchemeName = ReadString(reader, 0),
+                    FilegroupName = ReadString(reader, 1),
+                }, parameters.ToArray());
         }
 
         private string GetSqlForPartitionSchemeFilegroups(params string[] schemeNames)
@@ -816,7 +892,20 @@ FROM sys.partition_functions f";
                 sql += Environment.NewLine + "WHERE f.name IN @FunctionNames";
             }
 
-            List<PartitionFunction> functions = (await dbConnection.QueryAsync<PartitionFunction>(sql, new { FunctionNames = functionNames })).ToList();
+            var parameters = new List<(string Name, object Value)>();
+            if (functionNames != null && functionNames.Any())
+            {
+                sql = sql.Replace("IN @FunctionNames", "IN (" + ParameterNames("FunctionName", functionNames.Length) + ")");
+                AddNameParameters(parameters, "FunctionName", functionNames);
+            }
+
+            List<PartitionFunction> functions = await ReadPartitionRowsAsync(this, dbConnection, sql,
+                reader => new PartitionFunction
+                {
+                    Name = ReadString(reader, 0),
+                    Type = ReadString(reader, 1),
+                    IsOnRight = reader.GetBoolean(2),
+                }, parameters.ToArray());
             List<PartitionFunctionDataTypeInfo> functionDataTypeInfos =await this.GetPartitionFunctionDataTypes(dbConnection, functionNames);
             List<PartitionFunctionValue> functionValues = await this.GetPartitionFunctionValues(dbConnection, functionNames);
 
@@ -851,7 +940,21 @@ JOIN sys.types t on p.system_type_id = t.system_type_id";
                 sql += Environment.NewLine + "WHERE f.name IN @FunctionNames";
             }
 
-            return (await dbConnection.QueryAsync<PartitionFunctionDataTypeInfo>(sql, new { FunctionNames = functionNames })).ToList();
+            var parameters = new List<(string Name, object Value)>();
+            if (functionNames != null && functionNames.Any())
+            {
+                sql = sql.Replace("IN @FunctionNames", "IN (" + ParameterNames("FunctionName", functionNames.Length) + ")");
+                AddNameParameters(parameters, "FunctionName", functionNames);
+            }
+
+            return await ReadPartitionRowsAsync(this, dbConnection, sql, reader => new PartitionFunctionDataTypeInfo
+            {
+                FunctionName = ReadString(reader, 0),
+                DataType = ReadString(reader, 1),
+                MaxLength = reader.IsDBNull(2) ? null : Convert.ToInt64(reader.GetValue(2)),
+                Precision = reader.IsDBNull(3) ? null : Convert.ToInt64(reader.GetValue(3)),
+                Scale = reader.IsDBNull(4) ? null : Convert.ToInt64(reader.GetValue(4)),
+            }, parameters.ToArray());
         }
 
         public async Task<List<PartitionFunctionValue>> GetPartitionFunctionValues(string[] functionNames)
@@ -873,7 +976,18 @@ JOIN sys.partition_range_values v on v.function_id = f.function_id";
 
             sql += Environment.NewLine + "ORDER BY f.name, v.boundary_id";
 
-            var values = (await dbConnection.QueryAsync<PartitionFunctionValue>(sql, new { FunctionNames = functionNames })).ToList();
+            var parameters = new List<(string Name, object Value)>();
+            if (functionNames != null && functionNames.Any())
+            {
+                sql = sql.Replace("IN @FunctionNames", "IN (" + ParameterNames("FunctionName", functionNames.Length) + ")");
+                AddNameParameters(parameters, "FunctionName", functionNames);
+            }
+
+            var values = await ReadPartitionRowsAsync(this, dbConnection, sql, reader => new PartitionFunctionValue
+            {
+                FunctionName = ReadString(reader, 0),
+                Value = ReadString(reader, 1),
+            }, parameters.ToArray());
 
             foreach (var value in values)
             {

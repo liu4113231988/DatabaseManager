@@ -27,6 +27,7 @@ public static class P0SmokeHarness
         try
         {
             File.WriteAllBytes(item.Database, []);
+            await VerifySqlServerLoginMetadataAsync();
             await SqlCompletionSmokeChecks.RunAsync(output);
             var templateVm = new TemplateManagerViewModel(new DatabaseManager.AppCore.Templating.DefaultTemplateStore(), new DatabaseManager.AppCore.Templating.TemplateEngine());
             await Capture(new TemplateManagerWindow(templateVm), "sql-template-manager", null, async () =>
@@ -220,6 +221,66 @@ public static class P0SmokeHarness
             window.Close();
         }
     }
+    private static async Task VerifySqlServerLoginMetadataAsync()
+    {
+        // Exercise the SQL Server catalog queries and their row mappers inside the native EXE.
+        using var fixture = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        fixture.CreateFunction<int, string>("schema_name", id => id == 1 ? "dbo" : string.Empty);
+        await fixture.OpenAsync();
+        using var command = fixture.CreateCommand();
+        command.CommandText = """
+            ATTACH DATABASE ':memory:' AS sys;
+            CREATE TABLE sys.databases(name TEXT);
+            INSERT INTO sys.databases VALUES ('sales'), ('archive');
+            CREATE TABLE sys.schemas(name TEXT);
+            INSERT INTO sys.schemas VALUES ('dbo'), ('guest');
+            """;
+        await command.ExecuteNonQueryAsync();
+        var interpreter = new DatabaseInterpreter.Core.SqlServerInterpreter(new(), new());
+        var databases = await interpreter.GetDatabasesAsync(fixture);
+        var schemas = await interpreter.GetDatabaseSchemasAsync(fixture);
+        if (!databases.Select(d => d.Name).SequenceEqual(new[] { "archive", "sales" })
+            || schemas.Count != 1 || schemas[0].Name != "dbo" || schemas[0].Schema != "dbo")
+            throw new InvalidOperationException("SQL Server database and schema rows must map without dynamic code.");
+
+        command.CommandText = """
+            CREATE TABLE sys.tables(object_id INTEGER, schema_id INTEGER, name TEXT);
+            INSERT INTO sys.tables VALUES (1, 1, 'orders');
+            CREATE TABLE sys.indexes(object_id INTEGER, index_id INTEGER, data_space_id INTEGER, name TEXT);
+            INSERT INTO sys.indexes VALUES (1, 1, 7, 'IX_orders');
+            CREATE TABLE sys.partition_schemes(data_space_id INTEGER, name TEXT, function_id INTEGER);
+            INSERT INTO sys.partition_schemes VALUES (7, 'ps_orders', 3);
+            CREATE TABLE sys.index_columns(object_id INTEGER, index_id INTEGER, column_id INTEGER, partition_ordinal INTEGER);
+            INSERT INTO sys.index_columns VALUES (1, 1, 2, 1);
+            CREATE TABLE sys.columns(object_id INTEGER, column_id INTEGER, name TEXT);
+            INSERT INTO sys.columns VALUES (1, 2, 'created_at');
+            CREATE TABLE sys.partition_functions(function_id INTEGER, name TEXT, type TEXT, boundary_value_on_right INTEGER);
+            INSERT INTO sys.partition_functions VALUES (3, 'pf_orders', 'RANGE', 1);
+            CREATE TABLE sys.destination_data_spaces(partition_scheme_id INTEGER, destination_id INTEGER, data_space_id INTEGER);
+            INSERT INTO sys.destination_data_spaces VALUES (7, 1, 11), (7, 2, 12);
+            CREATE TABLE sys.filegroups(data_space_id INTEGER, name TEXT);
+            INSERT INTO sys.filegroups VALUES (11, 'fg_2025'), (12, 'fg_2026');
+            CREATE TABLE sys.partition_parameters(function_id INTEGER, system_type_id INTEGER, max_length INTEGER, precision INTEGER, scale INTEGER);
+            INSERT INTO sys.partition_parameters VALUES (3, 61, 8, 0, 0);
+            CREATE TABLE sys.types(system_type_id INTEGER, name TEXT);
+            INSERT INTO sys.types VALUES (61, 'datetime2');
+            CREATE TABLE sys.partition_range_values(function_id INTEGER, boundary_id INTEGER, value TEXT);
+            INSERT INTO sys.partition_range_values VALUES (3, 1, '2025-01-01'), (3, 2, '2026-01-01');
+            """;
+        await command.ExecuteNonQueryAsync();
+
+        var table = new DatabaseInterpreter.Model.Table { Schema = "dbo", Name = "orders" };
+        var scheme = await interpreter.GetPartitionSchemeByTable(fixture, table, true);
+        if (scheme is null || scheme.SchemeName != "ps_orders" || scheme.ColumnName != "created_at"
+            || scheme.FunctionName != "pf_orders" || scheme.Filegroups.Count != 2)
+            throw new InvalidOperationException("SQL Server partition scheme rows must map without dynamic code.");
+        var functions = await interpreter.GetPartitionFunctions(fixture, new[] { "pf_orders" }, true);
+        if (functions.Count != 1 || functions[0].Name != "pf_orders" || functions[0].Type != "RANGE"
+            || !functions[0].IsOnRight || functions[0].Values.Count != 2
+            || functions[0].Values[0] != "2025-01-01")
+            throw new InvalidOperationException("SQL Server partition function rows must map without dynamic code.");
+    }
+
     private sealed class FixturePlan : IExecutionPlanService
     {
         public Task<QueryResult> ExplainAsync(ConnectionItem connection,string sql,bool analyze=false,CancellationToken cancellationToken=default) => Task.FromResult(new QueryResult

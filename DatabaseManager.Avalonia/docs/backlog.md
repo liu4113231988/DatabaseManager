@@ -2,7 +2,7 @@
 
 > 本文只记录**尚未完成 / 尚未验收**的工作，是路线图（[Roadmap.md](../../Roadmap.md)）与已交付能力（[README.md](../README.md)）之间的执行跟踪文档。
 > 三者各有侧重：README 记录**已经交付**的能力；Roadmap 记录**功能取舍决策**（做 / 不做 / 分期）；本文记录**尚未闭环**的事项。
-> 最后更新：2026-11-13。
+> 最后更新：2026-11-20。
 
 ## 一、待验收（已实现，未经真实环境验证）
 
@@ -83,6 +83,15 @@
 
 - Windows / Linux / macOS 三平台发布包与实机 GUI 启动验证。
 - DuckDB 等含 native 依赖的包需声明平台 RID 与版本兼容矩阵。
+
+### 2.5 Windows x64 Native AOT 预览
+
+> 范围与已闭环项见 [native-aot.md](./native-aot.md)。当前为「可发布的受限预览」，不是无告警、全数据库支持。
+
+- 已用 SQLite/SQLCipher 与模拟 SQL Server catalog 完成 P0/P2 原生冒烟；`Newtonsoft.Json`、Avalonia 反射绑定、`dynamic`、DataSet/ODBC、各数据库驱动仍有约 272 条 IL 告警，按实际调用路径逐项处理，不机械抑制。
+- CI 的 `windows-aot` job 目前只检查 EXE、原生依赖与打包，尚未在 AOT 二进制上运行控制台回归和 P0/P2 冒烟。
+- 尚未建立 Oracle / Kdbndp / DM / DuckDB / SqlClient / ODBC 的 AOT 支持矩阵；Oracle 若干认证/钱包路径因可选程序集缺失在 AOT 分析中判定必然抛异常。
+- 其他表结构变更、文件格式边界、其他数据库及认证方式待真实实例验收；Linux AOT 不在范围内，正式 CoreCLR 包继续保留。
 
 ## 三、待评估 / 待决定
 
