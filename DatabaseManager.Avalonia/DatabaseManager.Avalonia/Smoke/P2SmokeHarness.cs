@@ -2,6 +2,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
+using DatabaseConverter.Core;
+using DatabaseInterpreter.Core;
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using DatabaseManager.AppCore.ViewModels;
@@ -24,6 +27,7 @@ public static class P2SmokeHarness
             File.WriteAllBytes(item.Database, []);
             var created = await query.ExecuteStandaloneAsync(item, "CREATE TABLE sample(id INTEGER PRIMARY KEY, phone TEXT, amount INTEGER); INSERT INTO sample VALUES(1,'13812345678',12),(2,'13912345678',25);");
             if (!created.IsSuccess) throw new Exception(created.ErrorMessage);
+            await VerifyDateFunctionConversionAsync(item, query);
             var source = await query.ExecuteStandaloneAsync(item, "SELECT * FROM sample");
             var services = new ServiceCollection().AddSingleton<IDbConnectionService>(connections).AddSingleton<IExportImportService>(new DefaultExportImportService(connections)).AddSingleton<IDataEditService>(new DefaultDataEditService(connections)).BuildServiceProvider();
             string sent = "";
@@ -99,6 +103,28 @@ public static class P2SmokeHarness
         async Task Capture(Window window, string name)
         {
             await Task.Delay(150); using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96, 96)); bitmap.Render(window); bitmap.Save(Path.Combine(output, name + ".png"), new PngBitmapEncoderOptions());
+        }
+    }
+
+    private static async Task VerifyDateFunctionConversionAsync(ConnectionItem item, IQueryService query)
+    {
+        var info = new ConnectionInfo { Database = item.Database };
+        using var translator = new FunctionTranslator(
+            DbInterpreterHelper.GetDbInterpreter(DatabaseType.SqlServer, info, new DbInterpreterOption()),
+            DbInterpreterHelper.GetDbInterpreter(DatabaseType.Sqlite, info, new DbInterpreterOption()));
+        translator.LoadMappings();
+        translator.LoadFunctionSpecifications();
+        foreach (var (expression, expected) in new[]
+        {
+            ("DATEADD(DAY,1,'2024-02-28')", "'2024-02-29'"),
+            ("DATEDIFF(DAY,'2024-02-28','2024-03-01')", "2"),
+            ("DATEPART(YEAR,'2024-02-29')", "'2024'"),
+        })
+        {
+            var sql = translator.GetMappedFunction(expression);
+            var result = await query.ExecuteStandaloneAsync(item, $"SELECT ({sql}) = {expected}");
+            if (!result.IsSuccess || result.Rows.Count != 1 || result.Rows[0][0] != "1")
+                throw new InvalidOperationException($"Date conversion failed for {sql}. Expected {expected}. {result.ErrorMessage}");
         }
     }
 

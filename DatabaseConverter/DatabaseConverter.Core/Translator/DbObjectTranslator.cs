@@ -248,9 +248,13 @@ namespace DatabaseConverter.Core
 
             if (sourceFuncSpec != null && !string.IsNullOrEmpty(targetFunctionInfo.Translator))
             {
-                Type type = Type.GetType($"{typeof(SpecificFunctionTranslatorBase).Namespace}.{targetFunctionInfo.Translator}");
-
-                SpecificFunctionTranslatorBase translator = (SpecificFunctionTranslatorBase)Activator.CreateInstance(type, new object[] { sourceFuncSpec, targetFuncSpec });
+                SpecificFunctionTranslatorBase translator = targetFunctionInfo.Translator switch
+                {
+                    nameof(DateAddTranslator) => new DateAddTranslator(sourceFuncSpec, targetFuncSpec),
+                    nameof(DateDiffTranslator) => new DateDiffTranslator(sourceFuncSpec, targetFuncSpec),
+                    nameof(DateExtractTranslator) => new DateExtractTranslator(sourceFuncSpec, targetFuncSpec),
+                    _ => throw new InvalidOperationException($"Unknown function translator '{targetFunctionInfo.Translator}'."),
+                };
 
                 translator.SourceDbType = this.sourceDbType;
                 translator.TargetDbType = this.targetDbType;
