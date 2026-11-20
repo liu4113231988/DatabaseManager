@@ -1,6 +1,12 @@
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DatabaseManager.AppCore.Services;
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip)]
+[JsonSerializable(typeof(List<ConnectionVisualInfo>))]
+internal partial class ConnectionVisualJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// 连接可视化标注（分组与颜色标签）。侧车存储于 Profiles\connection-visuals.json，
@@ -125,7 +131,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
         {
             if (File.Exists(_filePath))
             {
-                return JsonConvert.DeserializeObject<List<ConnectionVisualInfo>>(File.ReadAllText(_filePath))
+                return JsonSerializer.Deserialize(File.ReadAllText(_filePath), ConnectionVisualJsonContext.Default.ListConnectionVisualInfo)
                        ?? new List<ConnectionVisualInfo>();
             }
         }
@@ -143,7 +149,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
         {
             try
             {
-                File.WriteAllText(_filePath, JsonConvert.SerializeObject(_items, Formatting.Indented));
+                File.WriteAllText(_filePath, JsonSerializer.Serialize(_items, ConnectionVisualJsonContext.Default.ListConnectionVisualInfo));
             }
             catch
             {

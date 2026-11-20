@@ -128,6 +128,8 @@ static class Program
         TemplateExternalizationChecks.Run();
         KingbaseStageEFChecks.RunAsync().GetAwaiter().GetResult();
         TableDesignerChecks.RunAsync().GetAwaiter().GetResult();
+        SshProfileStoreChecks.Run();
+        StartupConfigJsonChecks.Run();
         ObjectPrefetchChecks.RunAsync().GetAwaiter().GetResult();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();

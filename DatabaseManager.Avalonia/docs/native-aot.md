@@ -38,6 +38,12 @@ SQL 编辑器的“复制为 JSON 字符串”使用 `JsonEncodedText` 转义选
 
 2026-11-20，SQL Server 的登录元数据（数据库、Schema）和分区元数据（分区表、方案、函数、文件组、边界值）查询改为显式 ADO.NET 行映射与 `DbParameter` 列表参数，移除 `Dapper` 依赖；前者供对象树切换数据库使用，后者供表设计器分区 Tab 使用。原生 P0 在 SQLite 模拟的 `sys` 目录上验证两类查询的行映射、参数展开与排序，覆盖 `schema_name()` 兼容函数、分区方案的文件组顺序和分区函数边界值。发布日志中的 IL 告警从 296 条降至 272 条。
 
+启动排查：`StartupProbe` 显示全部启动阶段正常（约 7.9 秒进入 UI idle），原生 EXE 的主窗口可显示并响应。历史错误日志中的 `profiles.db3 already exists` 来自 `File.Exists` 与 `File.Copy` 之间的并发竞态，已改为捕获该特定 `IOException` 并在目标文件已存在时继续，避免冒烟与正式入口同时初始化时卡在启动错误窗口。
+
+SSH 隧道配置改用源生成 JSON（`SshProfileJsonContext`），去除启动路径的 Newtonsoft 反射反序列化并缓存重复读取；`Secret` 使用 `System.Text.Json.Serialization.JsonIgnore` 保证明文密码不落盘。全量 AOT 发布的 IL 告警从 272 条降至 251 条，原生 P0/P2 与独立工作目录的主窗口启动验证通过。
+
+继续排查剩余告警：应用设置与连接视觉标注分别迁移到 `AppSettingsJsonContext` 和 `ConnectionVisualJsonContext`，保留旧文件的大小写不敏感、注释与尾逗号兼容；JSON 数据导入导出改用 `JsonDocument` / `Utf8JsonWriter`，维持对象数组、`{"rows":[...]}` 包装、null、数值/布尔与 Base64 二进制兼容。新增 `StartupConfigJsonChecks` 与 `SshProfileStoreChecks` 覆盖旧格式、字段往返和 Secret 隔离。以统一口径（含 IL2104/IL3000 等）统计，全量 AOT 告警从 285 条降至 265 条，原生 P0/P2 通过。
+
 AOT 发布仍有裁剪和运行时代码生成诊断。其他表结构变更、文件格式边界、其他数据库及认证方式仍待单独验收。
 
 ## 实施顺序

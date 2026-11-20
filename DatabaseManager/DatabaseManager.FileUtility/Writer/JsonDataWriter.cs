@@ -3,7 +3,7 @@ using System;
 using System.Data;
 using System.IO;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
 
 namespace DatabaseManager.FileUtility
 {
@@ -32,40 +32,59 @@ namespace DatabaseManager.FileUtility
 
             var encoding = TextEncoding.Resolve(this.option.EncodingName) ?? new UTF8Encoding(false);
 
-            using (var writer = new JsonTextWriter(new StreamWriter(filePath, false, encoding)))
+            using (var stream = new MemoryStream())
             {
-                var serializer = new JsonSerializer() { Formatting = Formatting.Indented };
-
-                writer.WriteStartArray();
-
-                foreach (DataRow row in dataTable.Rows)
+                using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
                 {
-                    writer.WriteStartObject();
+                    writer.WriteStartArray();
 
-                    foreach (DataColumn column in dataTable.Columns)
+                    foreach (DataRow row in dataTable.Rows)
                     {
-                        writer.WritePropertyName(column.ColumnName);
+                        writer.WriteStartObject();
 
-                        var value = row[column];
+                        foreach (DataColumn column in dataTable.Columns)
+                        {
+                            writer.WritePropertyName(column.ColumnName);
 
-                        if (value == null || value == DBNull.Value)
-                        {
-                            writer.WriteNull();
+                            var value = row[column];
+
+                            if (value == null || value == DBNull.Value)
+                            {
+                                writer.WriteNullValue();
+                            }
+                            else if (value is byte[] bytes)
+                            {
+                                writer.WriteStringValue(Convert.ToBase64String(bytes));
+                            }
+                            else if (value is bool boolValue)
+                            {
+                                writer.WriteBooleanValue(boolValue);
+                            }
+                            else if (value is sbyte or byte or short or ushort or int or uint or long or ulong)
+                            {
+                                writer.WriteNumberValue(Convert.ToInt64(value));
+                            }
+                            else if (value is float or double or decimal)
+                            {
+                                writer.WriteNumberValue(Convert.ToDecimal(value));
+                            }
+                            else if (value is DateTime dateTime)
+                            {
+                                writer.WriteStringValue(dateTime.ToString("O"));
+                            }
+                            else
+                            {
+                                writer.WriteStringValue(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture));
+                            }
                         }
-                        else if (value is byte[] bytes)
-                        {
-                            writer.WriteValue(Convert.ToBase64String(bytes));
-                        }
-                        else
-                        {
-                            writer.WriteValue(value);
-                        }
+
+                        writer.WriteEndObject();
                     }
 
-                    writer.WriteEndObject();
+                    writer.WriteEndArray();
                 }
 
-                writer.WriteEndArray();
+                File.WriteAllText(filePath, encoding.GetString(stream.ToArray()), encoding);
             }
 
             return filePath;

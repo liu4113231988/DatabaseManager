@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DatabaseManager.AppCore.Models;
 
 public sealed class SshTunnelOptions
@@ -10,5 +12,6 @@ public sealed class SshTunnelOptions
     public string HostFingerprint { get; set; } = "";
     public string EncryptedSecret { get; set; } = "";
     [Newtonsoft.Json.JsonIgnore]
+    [JsonIgnore]
     public string Secret { get; set; } = "";
 }

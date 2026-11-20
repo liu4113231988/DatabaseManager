@@ -51,7 +51,15 @@ namespace DatabaseManager.Profile.Manager
 
             if (!File.Exists(dataFilePath))
             {
-                File.Copy(templateFilePath, dataFilePath);
+                try
+                {
+                    File.Copy(templateFilePath, dataFilePath);
+                }
+                catch (IOException) when (File.Exists(dataFilePath))
+                {
+                    // 并发启动或冒烟与正式入口同时初始化时，另一个实例可能已创建数据文件。
+                    // 文件已存在即可继续，无需覆盖。
+                }
 
                 ProfileDataFile = dataFilePath;
             }

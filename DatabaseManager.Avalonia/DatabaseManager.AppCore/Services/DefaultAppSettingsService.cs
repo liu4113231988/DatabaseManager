@@ -1,7 +1,14 @@
 using System.IO;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DatabaseManager.AppCore.Services;
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip,
+    NumberHandling = JsonNumberHandling.AllowReadingFromString)]
+[JsonSerializable(typeof(AppSettings))]
+internal partial class AppSettingsJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// 应用设置服务实现：JSON 文件存储（随程序目录 Profiles\），锁 + 静默容错（与 query-history 同范式）。
@@ -29,7 +36,7 @@ public class DefaultAppSettingsService : IAppSettingsService
         {
             try
             {
-                File.WriteAllText(_filePath, JsonConvert.SerializeObject(Settings, Formatting.Indented));
+                File.WriteAllText(_filePath, JsonSerializer.Serialize(Settings, AppSettingsJsonContext.Default.AppSettings));
             }
             catch
             {
@@ -49,7 +56,8 @@ public class DefaultAppSettingsService : IAppSettingsService
                     return new AppSettings();
                 }
 
-                return JsonConvert.DeserializeObject<AppSettings>(File.ReadAllText(_filePath)) ?? new AppSettings();
+                return JsonSerializer.Deserialize(File.ReadAllText(_filePath), AppSettingsJsonContext.Default.AppSettings)
+                       ?? new AppSettings();
             }
             catch
             {

@@ -1,8 +1,9 @@
 using DatabaseManager.FileUtility.Model;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 
 namespace DatabaseManager.FileUtility
 {
@@ -27,20 +28,23 @@ namespace DatabaseManager.FileUtility
                 text = reader.ReadToEnd();
             }
 
-            JArray rows = ParseRows(text);
+            using var document = ParseRows(text);
+            var rows = document.RootElement;
 
             var header = new List<string>();
 
-            foreach (var row in rows)
+            foreach (var row in rows.EnumerateArray())
             {
-                if (row is JObject obj)
+                if (row.ValueKind != JsonValueKind.Object)
                 {
-                    foreach (var prop in obj.Properties())
+                    continue;
+                }
+
+                foreach (var prop in row.EnumerateObject())
+                {
+                    if (!header.Contains(prop.Name, StringComparer.OrdinalIgnoreCase))
                     {
-                        if (!header.Contains(prop.Name, System.StringComparer.OrdinalIgnoreCase))
-                        {
-                            header.Add(prop.Name);
-                        }
+                        header.Add(prop.Name);
                     }
                 }
 
@@ -60,7 +64,7 @@ namespace DatabaseManager.FileUtility
 
                 int index = 0;
 
-                foreach (var row in rows)
+                foreach (var row in rows.EnumerateArray())
                 {
                     var dictRow = new Dictionary<int, object?>();
 
@@ -70,16 +74,19 @@ namespace DatabaseManager.FileUtility
 
                         object? value = null;
 
-                        if (row is JObject obj && obj.TryGetValue(columnName, out var token))
+                        if (row.ValueKind == JsonValueKind.Object && row.TryGetProperty(columnName, out var element))
                         {
-                            if (token is JValue jValue)
+                            value = element.ValueKind switch
                             {
-                                value = jValue.Type == JTokenType.Null ? null : jValue.Value;
-                            }
-                            else
-                            {
-                                value = token.ToString();
-                            }
+                                JsonValueKind.Null or JsonValueKind.Undefined => null,
+                                JsonValueKind.String => element.GetString(),
+                                JsonValueKind.True => true,
+                                JsonValueKind.False => false,
+                                JsonValueKind.Number when element.TryGetInt64(out long longValue) => longValue,
+                                JsonValueKind.Number when element.TryGetDecimal(out decimal decimalValue) => decimalValue,
+                                JsonValueKind.Number => element.GetRawText(),
+                                _ => element.GetRawText(),
+                            };
                         }
 
                         dictRow.Add(i, value);
@@ -94,28 +101,28 @@ namespace DatabaseManager.FileUtility
             return result;
         }
 
-        internal static JArray ParseRows(string text)
+        internal static JsonDocument ParseRows(string text)
         {
-            var token = JToken.Parse(text ?? "[]");
+            using var document = JsonDocument.Parse(string.IsNullOrEmpty(text) ? "[]" : text);
+            var root = document.RootElement;
 
-            if (token is JArray array)
+            if (root.ValueKind == JsonValueKind.Array)
             {
-                return array;
+                return JsonDocument.Parse(root.GetRawText());
             }
 
-            // 对象包装：取第一个数组属性（如 {"rows":[...]}）。
-            if (token is JObject obj)
+            if (root.ValueKind == JsonValueKind.Object)
             {
-                foreach (var prop in obj.Properties())
+                foreach (var prop in root.EnumerateObject())
                 {
-                    if (prop.Value is JArray propArray)
+                    if (prop.Value.ValueKind == JsonValueKind.Array)
                     {
-                        return propArray;
+                        return JsonDocument.Parse(prop.Value.GetRawText());
                     }
                 }
             }
 
-            return new JArray();
+            return JsonDocument.Parse("[]");
         }
     }
 }
