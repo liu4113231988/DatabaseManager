@@ -13,7 +13,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  windows-aot:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish Windows x64 Native AOT preview
+        shell: pwsh
+        run: |
+          dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= -o artifacts/aot
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path artifacts/aot/DatabaseManager.exe) -or (Test-Path artifacts/aot/coreclr.dll) -or (Test-Path artifacts/aot/Profiles)) { throw 'Unexpected Native AOT package contents' }
+          Compress-Archive -Path artifacts/aot/* -DestinationPath "artifacts/DatabaseManager-$env:GITHUB_REF_NAME-win-x64-aot.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-aot
+          path: artifacts/*-win-x64-aot.zip
+          if-no-files-found: error
   release:
+    needs: windows-aot
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +71,14 @@ jobs:
           tar -czf "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" -C artifacts/linux-x64 .
           unzip -tq "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip"
           tar -tzf "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" > /dev/null
-          (cd artifacts && sha256sum "DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" "DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" > SHA256SUMS.txt)
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-aot
+          path: artifacts
+      - name: Verify AOT archive and hash release packages
+        run: |
+          unzip -tq "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64-aot.zip"
+          (cd artifacts && sha256sum DatabaseManager-"${GITHUB_REF_NAME}"-* > SHA256SUMS.txt)
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -59,6 +86,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64.zip" \
+            "artifacts/DatabaseManager-${GITHUB_REF_NAME}-win-x64-aot.zip" \
             "artifacts/DatabaseManager-${GITHUB_REF_NAME}-linux-x64.tar.gz" \
             artifacts/SHA256SUMS.txt \
             --verify-tag --latest --title "DatabaseManager ${GITHUB_REF_NAME}" \
