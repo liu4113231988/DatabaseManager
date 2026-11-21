@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using DatabaseManager.AppCore.ViewModels;
@@ -46,11 +47,12 @@ public partial class ExecutionPlanWindow : Window
 
         for (int i = 0; i < _vm.Columns.Count; i++)
         {
-            PlanGrid.Columns.Add(new DataGridTextColumn
+            int column = i;
+            PlanGrid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = _vm.Columns[i],
-                Binding = new Binding($"[{i}]"),
+                Header = _vm.Columns[column],
                 IsReadOnly = true,
+                CellTemplate = new FuncDataTemplate<DataRowItem>((row, _) => new TextBlock { Text = row?[column] }),
             });
         }
     }

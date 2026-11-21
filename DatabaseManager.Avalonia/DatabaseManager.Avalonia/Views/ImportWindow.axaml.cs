@@ -83,11 +83,12 @@ public partial class ImportWindow : Window
 
         for (int i = 0; i < _vm.PreviewColumns.Count; i++)
         {
-            PreviewGrid.Columns.Add(new DataGridTextColumn
+            int column = i;
+            PreviewGrid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = _vm.PreviewColumns[i],
-                Binding = new Binding($"[{i}]"),
+                Header = _vm.PreviewColumns[column],
                 IsReadOnly = true,
+                CellTemplate = new FuncDataTemplate<DataRowItem>((row, _) => new TextBlock { Text = row?[column] }),
             });
         }
     }

@@ -20,7 +20,7 @@ namespace DatabaseInterpreter.Core
                 #region Handle partition tables for Postgres 
                 if (databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
                 {
-                    clonedTableForeignKeys = tableForeignKeys.Select(item => ObjectHelper.CloneObject<TableForeignKey>(item)).ToList();
+                    clonedTableForeignKeys = tableForeignKeys.Select(item => item.DeepClone()).ToList();
 
                     SchemaInfoFilter filter = null;
 

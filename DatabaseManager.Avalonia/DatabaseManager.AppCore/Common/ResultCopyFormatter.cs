@@ -1,9 +1,14 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DatabaseManager.AppCore.Models;
-using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Common;
+
+[JsonSourceGenerationOptions]
+[JsonSerializable(typeof(string))]
+internal partial class ResultCopyJsonContext : JsonSerializerContext;
 
 /// <summary>查询结果网格"复制为"的目标格式。</summary>
 public enum ResultCopyFormat
@@ -114,7 +119,7 @@ public static class ResultCopyFormatter
                     row.Append(", ");
                 }
 
-                row.Append($"{JsonConvert.SerializeObject(columns[i])}: {JsonConvert.SerializeObject(values[i] ?? string.Empty)}");
+                row.Append($"{JsonSerializer.Serialize(columns[i], ResultCopyJsonContext.Default.String)}: {JsonSerializer.Serialize(values[i] ?? string.Empty, ResultCopyJsonContext.Default.String)}");
             }
 
             row.Append(" }");

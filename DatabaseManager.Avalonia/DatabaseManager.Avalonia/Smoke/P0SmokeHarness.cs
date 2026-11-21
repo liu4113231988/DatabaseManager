@@ -51,6 +51,11 @@ public static class P0SmokeHarness
             await query.ExecuteAsync(item.Name, "CREATE TABLE sample(id INTEGER PRIMARY KEY, title TEXT, payload BLOB); INSERT INTO sample VALUES(1,'测试文本',X'0102');");
             var tab = new QueryTabViewModel(query, new DefaultDataEditService(connections)) { ConnectionName = item.Name, DatabaseName = item.Database, SqlText = "SELECT * FROM sample" };
             await tab.ExecuteAsync(); tab.PinResultCommand.Execute(null);
+            var gridProbe = new DataGrid();
+            Controls.ResultGridHelper.RebuildColumns(gridProbe, tab);
+            if (gridProbe.Columns.Count != tab.Columns.Count
+                || gridProbe.Columns.Any(c => c is not DataGridTemplateColumn))
+                throw new InvalidOperationException("Result grid must use reflection-free template columns.");
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
             var server = new ConnectionItem { Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };

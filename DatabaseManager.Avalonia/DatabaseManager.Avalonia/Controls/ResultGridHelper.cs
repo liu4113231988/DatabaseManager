@@ -1,11 +1,14 @@
 using Avalonia.Controls;
-using Avalonia.Data;
+using Avalonia.Controls.Templates;
+using Avalonia.Interactivity;
+using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
 
 namespace DatabaseManager.Avalonia.Controls;
 
 /// <summary>
 /// 查询结果网格的共享助手：按查询标签列集合重建数据列（主窗口与浮动结果窗口共用）。
+/// 使用 FuncDataTemplate 直接读写 QueryResultRow，避免 AOT 下 Binding(string) 的反射路径。
 /// </summary>
 public static class ResultGridHelper
 {
@@ -16,24 +19,52 @@ public static class ResultGridHelper
 
         for (int i = 0; i < tabVm.Columns.Count; i++)
         {
-            // 内联编辑模式：非只读列（映射到表的非自增/计算/二进制列）开放双向编辑；否则只读。
+            int column = i;
             bool editableColumn = tabVm.IsColumnEditable(i);
             bool isPrimaryKey = tabVm.IsPrimaryKeyColumn(i);
+            string header = isPrimaryKey ? $"🔑 {tabVm.Columns[i]}" : tabVm.Columns[i];
 
-            grid.Columns.Add(new DataGridTextColumn
+            grid.Columns.Add(new DataGridTemplateColumn
             {
-                // 主键列头加 🔑 标识，便于用户识别编辑定位依据。
-                Header = isPrimaryKey ? $"🔑 {tabVm.Columns[i]}" : tabVm.Columns[i],
-                // 使用 Values[i] 绑定，避免直接索引器路径解析在不同 Avalonia 版本/主题下的兼容性问题
-                Binding = new Binding($"Values[{i}]")
-                {
-                    Mode = editableColumn ? BindingMode.TwoWay : BindingMode.OneWay,
-                },
+                Header = header,
                 IsReadOnly = !editableColumn,
                 CanUserResize = true,
                 Width = DataGridLength.Auto,
                 MinWidth = 40,
+                CellTemplate = editableColumn
+                    ? new FuncDataTemplate<QueryResultRow>((row, _) => CreateEditor(row, column))
+                    : new FuncDataTemplate<QueryResultRow>((row, _) => new TextBlock { Text = row?[column] }),
             });
         }
+    }
+
+    private static TextBox CreateEditor(QueryResultRow? row, int column)
+    {
+        var box = new TextBox
+        {
+            Text = row?[column] ?? string.Empty,
+            VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Stretch,
+            HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Stretch,
+        };
+
+        void Commit()
+        {
+            if (row is null) return;
+            string value = box.Text ?? string.Empty;
+            if (!string.Equals(row[column], value, StringComparison.Ordinal))
+            {
+                row.SetValue(column, value);
+            }
+        }
+
+        box.LostFocus += (_, _) => Commit();
+        box.KeyDown += (_, e) =>
+        {
+            if (e.Key == global::Avalonia.Input.Key.Enter)
+            {
+                Commit();
+            }
+        };
+        return box;
     }
 }

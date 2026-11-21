@@ -402,7 +402,7 @@ namespace DatabaseInterpreter.Core
 
                     for (int i = 1; i <= referencedColumnNamesCount; i++)
                     {
-                        var cloneForeignKey = ObjectHelper.CloneObject<TableForeignKey>(foreignKey);
+                        var cloneForeignKey = foreignKey.DeepClone();
 
                         var item = keyItems[i - 1];
 

@@ -119,27 +119,27 @@ public static class SmokeHarness
         // 6) 工具窗口：反射创建，让每个窗口走自己的依赖注入（构造器拿自己需要的 VM）。
         var toolShots = new (string FileName, Func<Window> Factory)[]
         {
-            ("04_convert.png", () => MakeToolWindow<ConvertWindow>()),
-            ("05_schema_compare.png", () => MakeToolWindow<SchemaCompareWindow>()),
-            ("06_data_compare.png", () => MakeToolWindow<DataCompareWindow>()),
-            ("07_backup.png", () => MakeToolWindow<BackupWindow>()),
-            ("08_statistic.png", () => MakeToolWindow<StatisticWindow>()),
-            ("09_dependency.png", () => MakeToolWindow<DependencyWindow>()),
-            ("10_diagnose.png", () => MakeToolWindow<DiagnoseWindow>()),
-            ("11_optimize.png", () => MakeToolWindow<OptimizeWindow>()),
-            ("12_index_fragmentation.png", () => MakeToolWindow<IndexFragmentationWindow>()),
-            ("13_code_generate.png", () => MakeToolWindow<CodeGenerateWindow>()),
-            ("14_column_documentation.png", () => MakeToolWindow<ColumnDocumentationWindow>()),
-            ("15_export.png", () => MakeToolWindow<ExportWindow>()),
-            ("16_import.png", () => MakeToolWindow<ImportWindow>()),
-            ("17_execution_plan.png", () => MakeToolWindow<ExecutionPlanWindow>()),
-            ("18_query_history.png", () => MakeToolWindow<QueryHistoryWindow>()),
-            ("19_search.png", () => MakeToolWindow<SearchWindow>()),
-            ("20_full_data_search.png", () => MakeToolWindow<FullDataSearchWindow>()),
-            ("21_table_designer.png", () => MakeTableDesignerWindow()),
-            ("22_script_library.png", () => MakeToolWindow<ScriptLibraryWindow>()),
-            ("23_dashboard.png", () => MakeToolWindow<DashboardWindow>()),
-            ("24_chart.png", () => MakeToolWindow<ChartWindow>()),
+            ("04_convert.png", () => new ConvertWindow()),
+            ("05_schema_compare.png", () => new SchemaCompareWindow()),
+            ("06_data_compare.png", () => new DataCompareWindow()),
+            ("07_backup.png", () => new BackupWindow()),
+            ("08_statistic.png", () => new StatisticWindow()),
+            ("09_dependency.png", () => new DependencyWindow()),
+            ("10_diagnose.png", () => new DiagnoseWindow()),
+            ("11_optimize.png", () => new OptimizeWindow()),
+            ("12_index_fragmentation.png", () => new IndexFragmentationWindow()),
+            ("13_code_generate.png", () => new CodeGenerateWindow()),
+            ("14_column_documentation.png", () => new ColumnDocumentationWindow()),
+            ("15_export.png", () => new ExportWindow()),
+            ("16_import.png", () => new ImportWindow()),
+            ("17_execution_plan.png", () => new ExecutionPlanWindow()),
+            ("18_query_history.png", () => new QueryHistoryWindow()),
+            ("19_search.png", () => new SearchWindow()),
+            ("20_full_data_search.png", () => new FullDataSearchWindow()),
+            ("21_table_designer.png", () => new TableDesignerWindow()),
+            ("22_script_library.png", () => new ScriptLibraryWindow()),
+            ("23_dashboard.png", () => new DashboardWindow()),
+            ("24_chart.png", () => new ChartWindow()),
         };
 
         foreach (var (fileName, factory) in toolShots)
@@ -363,59 +363,6 @@ public static class SmokeHarness
             UseSsl = Get("sslmode").Equals("Require", StringComparison.OrdinalIgnoreCase),
             RememberPassword = true,
         };
-    }
-
-    /// <summary>用 DI 解析 VM，再反射注入到工具窗口。</summary>
-    private static Window MakeToolWindow<TWindow>() where TWindow : Window
-    {
-        var services = ((App)Application.Current!).Services!;
-        var vmType = FindViewModelTypeForWindow(typeof(TWindow));
-        if (vmType is null)
-        {
-            // 没有显式 VM 关联：退化为无参构造（部分窗口容许）。
-            return (TWindow)Activator.CreateInstance(typeof(TWindow))!;
-        }
-        var vm = services.GetRequiredService(vmType);
-        return (TWindow)Activator.CreateInstance(typeof(TWindow), vm)!;
-    }
-
-    private static Window MakeTableDesignerWindow()
-    {
-        // 表设计器需要额外的 table 参数。无 table 时用空表。
-        var services = ((App)Application.Current!).Services!;
-        var vmType = FindViewModelTypeForWindow(typeof(TableDesignerWindow));
-        if (vmType is null)
-        {
-            return new TableDesignerWindow();
-        }
-        var vm = services.GetRequiredService(vmType);
-        // 多数 TableDesignerWindow 实现接受 (vm, tableInfo?) 之类的参数，这里走无参 fallback。
-        try
-        {
-            return (Window)Activator.CreateInstance(typeof(TableDesignerWindow), vm, null)!;
-        }
-        catch
-        {
-            return new TableDesignerWindow();
-        }
-    }
-
-    private static Window MakeExecutionPlanWindow() => new ExecutionPlanWindow();
-
-    private static Type? FindViewModelTypeForWindow(Type windowType)
-    {
-        // 寻找一个参数为 ViewModelBase 子类的构造器（VM 注入），取该参数类型作为 DI 解析键。
-        foreach (var ctor in windowType.GetConstructors())
-        {
-            foreach (var p in ctor.GetParameters())
-            {
-                if (typeof(ViewModelBase).IsAssignableFrom(p.ParameterType))
-                {
-                    return p.ParameterType;
-                }
-            }
-        }
-        return null;
     }
 
     private static async Task ShowAndCaptureAsync(Func<Window> factory, string file, CancellationToken ct)

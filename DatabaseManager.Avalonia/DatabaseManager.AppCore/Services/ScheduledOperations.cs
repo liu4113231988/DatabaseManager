@@ -13,8 +13,7 @@ public sealed class ScheduledOperations(IDbConnectionService connections, IExpor
     {
         var item = connections.GetConnections().FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException($"找不到连接：{name}");
-        var copy = Newtonsoft.Json.JsonConvert.DeserializeObject<ConnectionItem>(Newtonsoft.Json.JsonConvert.SerializeObject(item))!;
-        copy.Ssh = item.Ssh;
+        var copy = item.Clone();
         if (!string.IsNullOrWhiteSpace(database)) copy.Database = database;
         return copy;
     }

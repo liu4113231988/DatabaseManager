@@ -27,6 +27,9 @@ namespace DatabaseManager.Avalonia.Views;
 
 public partial class MainWindow : Window
 {
+    /// <summary>SqlEditor 需要的强类型对象树入口，避免 XAML 中通过 object DataContext 反射绑定。</summary>
+    public ObjectsExplorerViewModel? ObjectsExplorer => (DataContext as MainWindowViewModel)?.ObjectsExplorer;
+
     private IServiceProvider? _services;
     private QueryTabViewModel? _currentQueryTab;
     private DispatcherTimer? _scheduleTimer;

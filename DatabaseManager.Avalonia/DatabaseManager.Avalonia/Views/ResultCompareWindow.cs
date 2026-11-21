@@ -1,5 +1,5 @@
 using Avalonia.Controls;
-using Avalonia.Data;
+using Avalonia.Controls.Templates;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.Avalonia.Views;
@@ -22,7 +22,16 @@ public sealed class ResultCompareWindow : Window
             {
                 if (picker.SelectedItem is not ResultSnapshot snapshot) return;
                 grid.Columns.Clear();
-                for (int i = 0; i < snapshot.Result.Columns.Count; i++) grid.Columns.Add(new DataGridTextColumn { Header = snapshot.Result.Columns[i], Binding = new Binding($"Values[{i}]"), IsReadOnly = true });
+                for (int i = 0; i < snapshot.Result.Columns.Count; i++)
+                {
+                    int column = i;
+                    grid.Columns.Add(new DataGridTemplateColumn
+                    {
+                        Header = snapshot.Result.Columns[column],
+                        IsReadOnly = true,
+                        CellTemplate = new FuncDataTemplate<QueryResultRow>((row, _) => new TextBlock { Text = row?[column] }),
+                    });
+                }
                 grid.ItemsSource = snapshot.Result.Rows.Select(r => new QueryResultRow(snapshot.Result.Columns, r)).ToArray();
             };
             picker.SelectedIndex = Math.Min(side, snapshots.Count - 1);

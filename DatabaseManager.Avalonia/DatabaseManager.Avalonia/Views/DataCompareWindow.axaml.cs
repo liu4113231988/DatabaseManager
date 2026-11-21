@@ -124,11 +124,12 @@ public partial class DataCompareWindow : Window
 
         for (int i = 0; i < _vm.DetailColumns.Count; i++)
         {
-            grid.Columns.Add(new DataGridTextColumn
+            int column = i;
+            grid.Columns.Add(new DataGridTemplateColumn
             {
-                Header = _vm.DetailColumns[i],
-                Binding = new Binding($"[{i}]"),
+                Header = _vm.DetailColumns[column],
                 IsReadOnly = true,
+                CellTemplate = new FuncDataTemplate<DataRowItem>((row, _) => new TextBlock { Text = row?[column] }),
             });
         }
     }

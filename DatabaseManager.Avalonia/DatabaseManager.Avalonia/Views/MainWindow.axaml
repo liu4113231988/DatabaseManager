@@ -10,6 +10,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
         x:Class="DatabaseManager.Avalonia.Views.MainWindow"
+        x:Name="RootWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/database-manager.ico"
         Title="DatabaseManager"
@@ -506,7 +507,7 @@
                                                 SqlText="{Binding SqlText, Mode=TwoWay}"
                                                 ConnectionName="{Binding ConnectionName}"
                                                 DatabaseName="{Binding DatabaseName}"
-                                                ObjectTreeRoots="{ReflectionBinding DataContext.ObjectsExplorer.RootNodes, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                ObjectTreeRoots="{CompiledBinding #RootWindow.ObjectsExplorer.RootNodes}"
                                                 CommandRequested="SqlEditor_CommandRequested" />
 
                                 <!-- 上下分割条：拖动调整编辑器/结果区高度比例，1px 主色线 + hover 加粗 -->
@@ -644,9 +645,9 @@
                                               Margin="2" x:Name="QueryResultGrid">
                                         <!-- 行状态着色：新增=浅绿、修改=浅黄、删除=浅红（单元格背景随行状态实时更新） -->
                                         <DataGrid.Styles>
-                                            <Style Selector="DataGridCell">
+                                            <Style Selector="DataGridCell" x:DataType="models:QueryResultRow">
                                                 <Setter Property="Background"
-                                                        Value="{ReflectionBinding State, Converter={StaticResource RowStateToBrushConverter}}" />
+                                                        Value="{CompiledBinding State, Converter={StaticResource RowStateToBrushConverter}}" />
                                             </Style>
                                         </DataGrid.Styles>
                                         <DataGrid.Columns>
