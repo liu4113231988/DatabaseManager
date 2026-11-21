@@ -1,5 +1,4 @@
 ﻿using DatabaseInterpreter.Model;
-using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
 using System.Collections.Generic;
 
@@ -89,9 +88,7 @@ namespace DatabaseManager.Core
 
             foreach(TableForeignKey foreignKey in foreignKeys)
             {
-                TableForeignKeyDesignerInfo keyDesignerInfo = new TableForeignKeyDesignerInfo();
-
-                ObjectHelper.CopyProperties(foreignKey, keyDesignerInfo);
+                TableForeignKeyDesignerInfo keyDesignerInfo = CoreModelCopy.Copy<TableForeignKeyDesignerInfo>(foreignKey);
 
                 keyDesignerInfo.OldName = foreignKey.Name;              
                 keyDesignerInfo.Columns = foreignKey.Columns;               
@@ -108,9 +105,7 @@ namespace DatabaseManager.Core
 
             foreach (TableConstraint constraint in constraints)
             {
-                TableConstraintDesignerInfo constraintDesignerInfo = new TableConstraintDesignerInfo();
-
-                ObjectHelper.CopyProperties(constraint, constraintDesignerInfo);
+                TableConstraintDesignerInfo constraintDesignerInfo = CoreModelCopy.Copy<TableConstraintDesignerInfo>(constraint);
 
                 constraintDesignerInfo.OldName = constraint.Name;               
 

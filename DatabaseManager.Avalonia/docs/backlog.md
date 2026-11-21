@@ -88,7 +88,7 @@
 
 > 范围与已闭环项见 [native-aot.md](./native-aot.md)。当前为「可发布的受限预览」，不是无告警、全数据库支持。
 
-- 已用 SQLite/SQLCipher 与模拟 SQL Server catalog 完成 P0/P2 原生冒烟；统一口径下默认发布约 58 条 IL 告警（此前 236 条）。源生成 JSON 已覆盖 SSH、应用设置、连接视觉、导入导出、执行计划、JSON 查看器、脚本库、任务历史、模板/连接传输、AI 助手与复制为 JSON；Interpreter/转换器的 `dynamic` 大部分已改为 `object`/具体类型，主窗口、数据库属性窗口与结果网格均已去除反射绑定，冒烟工具窗口工厂已去反射。剩余以第三方程序集级汇总（Oracle / SqlClient / DuckDB / DM / Kdbndp / ODBC / Avalonia DataGrid / MiniProfiler）、框架内部 `DataSet.ReadXml`、`SchemaInfoHelper`/`ObjectHelper` 大对象深拷贝、`SqlServerInterpreter` JSON 数组写值与驱动能力矩阵为主，按真实数据库路径另行评估，不机械抑制。
+- 已用 SQLite/SQLCipher 与模拟 SQL Server catalog 完成 P0/P2 原生冒烟；统一口径下默认发布约 32 条 IL 告警（此前 236 条）。源生成 JSON 已覆盖 SSH、应用设置、连接视觉、导入导出、执行计划、JSON 查看器、脚本库、任务历史、模板/连接传输、AI 助手、复制为 JSON、SchemaInfo/ObjectHelper 深拷贝、应用设置与 MiniProfiler 结果读取；Interpreter/转换器的 `dynamic` 大部分已改为 `object`/具体类型，主窗口、数据库属性窗口、结果网格与表设计器映射均已去除反射绑定，冒烟工具窗口工厂已去反射，查询结果改为按 `IDataReader` 显式建列填行。剩余以第三方程序集级汇总（Oracle / SqlClient / DuckDB / DM / Kdbndp / ODBC / Avalonia DataGrid / MiniProfiler）、框架内部 `DataSet.ReadXml` 与驱动能力矩阵为主，按真实数据库路径另行评估，不机械抑制。
 - CI 的 `windows-aot` job 目前只检查 EXE、原生依赖与打包，尚未在 AOT 二进制上运行控制台回归和 P0/P2 冒烟。
 - 尚未建立 Oracle / Kdbndp / DM / DuckDB / SqlClient / ODBC 的 AOT 支持矩阵；Oracle 若干认证/钱包路径因可选程序集缺失在 AOT 分析中判定必然抛异常。
 - 其他表结构变更、文件格式边界、其他数据库及认证方式待真实实例验收；Linux AOT 不在范围内，正式 CoreCLR 包继续保留。

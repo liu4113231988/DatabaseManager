@@ -2,7 +2,6 @@
 using Antlr4.Runtime.Misc;
 using Antlr4.Runtime.Tree;
 using DatabaseInterpreter.Model;
-using DatabaseInterpreter.Utility;
 using Newtonsoft.Json.Linq;
 using SqlAnalyser.Model;
 using System;
@@ -739,11 +738,8 @@ namespace SqlAnalyser.Core
                                 {
                                     JoinItem previousJoinItem = joinItems[i - 1];
 
-                                    TableName previousJoinTableName = new TableName(previousJoinItem.TableName.Symbol);
-                                    ObjectHelper.CopyProperties(previousJoinItem.TableName, previousJoinTableName);
-
-                                    TableName currentJoinTableName = new TableName(currentJoinItem.TableName.Symbol);
-                                    ObjectHelper.CopyProperties(currentJoinItem.TableName, currentJoinTableName);
+                                    TableName previousJoinTableName = CopyTableName(previousJoinItem.TableName);
+                                    TableName currentJoinTableName = CopyTableName(currentJoinItem.TableName);
 
                                     joinItems[i - 1].TableName = currentJoinTableName;
                                     joinItems[i].TableName = previousJoinTableName;
@@ -2698,6 +2694,21 @@ namespace SqlAnalyser.Core
         private bool IsTemporaryTable(ParserRuleContext node)
         {
             return node.GetText().Trim('[', ' ').StartsWith("#");
+        }
+
+        private static TableName CopyTableName(TableName source)
+        {
+            return new TableName(source.Symbol)
+            {
+                Server = source.Server,
+                Database = source.Database,
+                Schema = source.Schema,
+                HasAs = source.HasAs,
+                StartIndex = source.StartIndex,
+                StopIndex = source.StopIndex,
+                IsConst = source.IsConst,
+                Alias = source.Alias
+            };
         }
     }
 }

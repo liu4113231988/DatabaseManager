@@ -1,6 +1,7 @@
 ﻿using SqlAnalyser.Model;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 
@@ -26,6 +27,8 @@ namespace DatabaseConverter.Core
             return this.tokens;
         }
 
+        [UnconditionalSuppressMessage("Trimming", "IL2075",
+            Justification = "Token traversal only reflects over the statically referenced SqlAnalyser.Model types; their public properties are preserved by the native AOT graph.")]
         private void ExtractTokens(object obj, bool isFirst = true)
         {
             if(obj == null)

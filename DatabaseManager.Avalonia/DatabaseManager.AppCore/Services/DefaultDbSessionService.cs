@@ -1,6 +1,7 @@
 using System.Data;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
+using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -199,7 +200,7 @@ public class DefaultDbSessionService : IDbSessionService
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         var table = new DataTable();
-        table.Load(reader);
+        DataTableHelper.LoadFromReader(table, reader);
         return table;
     }
 

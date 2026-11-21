@@ -1,7 +1,8 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 
 namespace DatabaseInterpreter.Utility
 {
@@ -9,7 +10,32 @@ namespace DatabaseInterpreter.Utility
     {
         public static T CloneObject<T>(object obj)
         {
-            return (T)JsonConvert.DeserializeObject(JsonConvert.SerializeObject(obj), typeof(T));
+            if (obj == null)
+            {
+                return default;
+            }
+
+            Type sourceType = obj.GetType();
+            var sourceTypeInfo = ObjectCloneJsonContext.Default.GetTypeInfo(sourceType);
+            if (sourceTypeInfo == null)
+            {
+                throw new NotSupportedException($"Type {sourceType.FullName} is not registered for AOT-safe cloning.");
+            }
+
+            Type targetType = typeof(T);
+            var targetTypeInfo = ObjectCloneJsonContext.Default.GetTypeInfo(targetType);
+            if (targetTypeInfo == null)
+            {
+                throw new NotSupportedException($"Type {targetType.FullName} is not registered for AOT-safe cloning.");
+            }
+
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                JsonSerializer.Serialize(writer, obj, sourceTypeInfo);
+            }
+
+            return (T)JsonSerializer.Deserialize(stream.ToArray(), targetTypeInfo);
         }
 
         public static void CopyProperties(object source, object target)

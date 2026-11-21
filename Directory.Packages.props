@@ -49,6 +49,7 @@
     <PackageVersion Include="System.Data.Odbc" Version="10.0.14" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.14" />
     <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
+    <PackageVersion Include="System.Text.Json" Version="10.0.14" />
     <PackageVersion Include="TSQL.Parser" Version="2.6.0" />
   </ItemGroup>
 </Project>

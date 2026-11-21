@@ -3,14 +3,16 @@ using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using Microsoft.Data.SqlClient;
 using Microsoft.SqlServer.Types;
-using Newtonsoft.Json;
 using NpgsqlTypes;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.IO;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using PgGeom = NetTopologySuite.Geometries;
 
@@ -1309,7 +1311,7 @@ JOIN sys.partition_range_values v on v.function_id = f.function_id";
                                 if (DataTypeHelper.IsCharType(dataType))
                                 {
                                     newColumnType = typeof(String);
-                                    newValue = JsonConvert.SerializeObject(value);
+                                    newValue = SerializeArrayValue(value);
                                 }
                                 else
                                 {
@@ -1386,6 +1388,91 @@ JOIN sys.partition_range_values v on v.function_id = f.function_id";
             DataTable dtChanged = DataTableHelper.GetChangedDataTable(dataTable, changedColumns, changedValues);
 
             return dtChanged;
+        }
+
+        private static string SerializeArrayValue(object value)
+        {
+            using var stream = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(stream))
+            {
+                writer.WriteStartArray();
+
+                if (value is IEnumerable enumerable)
+                {
+                    foreach (object item in enumerable)
+                    {
+                        WriteJsonValue(writer, item);
+                    }
+                }
+
+                writer.WriteEndArray();
+            }
+
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+
+        private static void WriteJsonValue(Utf8JsonWriter writer, object value)
+        {
+            switch (value)
+            {
+                case null:
+                    writer.WriteNullValue();
+                    break;
+                case string text:
+                    writer.WriteStringValue(text);
+                    break;
+                case bool flag:
+                    writer.WriteBooleanValue(flag);
+                    break;
+                case byte number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case sbyte number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case short number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case ushort number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case int number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case uint number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case long number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case ulong number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case float number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case double number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case decimal number:
+                    writer.WriteNumberValue(number);
+                    break;
+                case DateTime dateTime:
+                    writer.WriteStringValue(dateTime);
+                    break;
+                case DateTimeOffset dateTimeOffset:
+                    writer.WriteStringValue(dateTimeOffset);
+                    break;
+                case Guid guid:
+                    writer.WriteStringValue(guid);
+                    break;
+                case TimeSpan timeSpan:
+                    writer.WriteStringValue(timeSpan.ToString());
+                    break;
+                default:
+                    writer.WriteStringValue(value.ToString());
+                    break;
+            }
         }
 
         private async Task<SqlBulkCopy> GetBulkCopy(DbConnection connection, BulkCopyInfo bulkCopyInfo)

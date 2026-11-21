@@ -644,8 +644,7 @@ namespace DatabaseManager.Core
         {
             SchemaInfo schemaInfo = new SchemaInfo();
 
-            Table table = new Table();
-            ObjectHelper.CopyProperties(schemaDesignerInfo.TableDesignerInfo, table);
+            Table table = CoreModelCopy.Copy<Table>(schemaDesignerInfo.TableDesignerInfo);
 
             schemaInfo.Tables.Add(table);
 
@@ -654,8 +653,7 @@ namespace DatabaseManager.Core
 
             foreach (TableColumnDesingerInfo column in schemaDesignerInfo.TableColumnDesingerInfos)
             {
-                TableColumn tableColumn = new TableColumn();
-                ObjectHelper.CopyProperties(column, tableColumn);
+                TableColumn tableColumn = CoreModelCopy.Copy<TableColumn>(column);
 
                 if (!DataTypeHelper.IsUserDefinedType(tableColumn))
                 {

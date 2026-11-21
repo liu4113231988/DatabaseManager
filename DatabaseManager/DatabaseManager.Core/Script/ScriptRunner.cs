@@ -4,7 +4,6 @@ using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
-using Newtonsoft.Json;
 using SqlAnalyser.Core;
 using SqlAnalyser.Model;
 using StackExchange.Profiling;
@@ -15,6 +14,7 @@ using System.Data;
 using System.Data.Common;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -293,7 +293,7 @@ namespace DatabaseManager.Core
                         {
                             await mp.StopAsync();
 
-                            var profilingInfo = JsonConvert.DeserializeObject<ProfilingInfo>(mp.ToJson());
+                            var profilingInfo = JsonSerializer.Deserialize(mp.ToJson(), CoreJsonContext.Default.ProfilingInfo);
 
                             if (profilingInfo != null && profilingInfo.Root != null && profilingInfo.Root.CustomTimings != null && profilingInfo.Root.CustomTimings.sql != null)
                             {

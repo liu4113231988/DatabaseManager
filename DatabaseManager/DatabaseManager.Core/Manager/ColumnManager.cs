@@ -20,14 +20,10 @@ namespace DatabaseManager.Core
             {
                 DataTypeInfo dataTypeInfo = DataTypeHelper.GetDataTypeInfo(column.DataType);
 
-                TableColumnDesingerInfo columnDesingerInfo = new TableColumnDesingerInfo()
-                {
-                    OldName = column.Name,
-                    IsPrimary = primaryKeys.Any(item => item.Columns.Any(t => t.ColumnName == column.Name)),
-                    Length = dbInterpreter.GetColumnDataLength(column)
-                };
-
-                ObjectHelper.CopyProperties(column, columnDesingerInfo);
+                TableColumnDesingerInfo columnDesingerInfo = CoreModelCopy.Copy<TableColumnDesingerInfo>(column);
+                columnDesingerInfo.OldName = column.Name;
+                columnDesingerInfo.IsPrimary = primaryKeys.Any(item => item.Columns.Any(t => t.ColumnName == column.Name));
+                columnDesingerInfo.Length = dbInterpreter.GetColumnDataLength(column);
 
                 string dataType = DataTypeHelper.IsUserDefinedType(column) ? column.DataType : dataTypeInfo.DataType.ToLower();
 
@@ -72,9 +68,7 @@ namespace DatabaseManager.Core
 
             foreach (DataTypeSpecification dataTypeSpec in dataTypeSpecifications)
             {
-                DataTypeDesignerInfo dataTypeDesingerInfo = new DataTypeDesignerInfo();
-
-                ObjectHelper.CopyProperties(dataTypeSpec, dataTypeDesingerInfo);
+                DataTypeDesignerInfo dataTypeDesingerInfo = CoreModelCopy.Copy<DataTypeDesignerInfo>(dataTypeSpec);
 
                 dataTypeDesignerInfos.Add(dataTypeDesingerInfo);
             }

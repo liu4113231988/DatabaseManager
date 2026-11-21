@@ -746,15 +746,9 @@ namespace DatabaseInterpreter.Core
 
             dataSet.Tables.Add(table);
 
-            if (!ignoreSchema)
-            {
-                table.Load(reader);
-            }
-            else
-            {
-                //when it's only for querying, use this to avoid rows are merged if unique index exists.
-                table.Load(reader, 0);
-            }
+            // Explicit reader mapping avoids DataTable.Load's reflection-based expression columns under Native AOT.
+            // The table has no constraints, so the ignoreSchema merge behavior is preserved.
+            DataTableHelper.LoadFromReader(table, reader);
 
             return table;
         }

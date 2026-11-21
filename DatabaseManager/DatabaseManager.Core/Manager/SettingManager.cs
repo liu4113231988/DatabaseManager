@@ -1,9 +1,8 @@
 ﻿using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
-using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
-using Newtonsoft.Json;
 using System.IO;
+using System.Text.Json;
 
 namespace DatabaseManager.Core
 {
@@ -28,25 +27,21 @@ namespace DatabaseManager.Core
         {
             if (File.Exists(ConfigFilePath))
             {
-                Setting = (Setting)JsonConvert.DeserializeObject(File.ReadAllText(ConfigFilePath), typeof(Setting));
+                Setting = JsonSerializer.Deserialize(File.ReadAllText(ConfigFilePath), CoreJsonContext.Default.Setting) ?? Setting;
             }
         }
 
         public static void SaveConfig(Setting setting)
         {
             Setting = setting;
-            string content = JsonConvert.SerializeObject(setting, Formatting.Indented);
+            string content = JsonSerializer.Serialize(setting, CoreJsonContext.Default.Setting);
 
             File.WriteAllText(ConfigFilePath, content);
         }
 
         public static DbInterpreterSetting GetInterpreterSetting()
         {
-            DbInterpreterSetting dbInterpreterSetting = new DbInterpreterSetting();
-
-            ObjectHelper.CopyProperties(Setting, dbInterpreterSetting);
-
-            return dbInterpreterSetting;
+            return CoreModelCopy.Copy<DbInterpreterSetting>(Setting);
         }
     }
 }

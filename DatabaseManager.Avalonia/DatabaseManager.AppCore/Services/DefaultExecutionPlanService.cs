@@ -2,6 +2,7 @@ using System.Data;
 using System.Diagnostics;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
+using DatabaseInterpreter.Utility;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -92,7 +93,7 @@ public class DefaultExecutionPlanService : IExecutionPlanService
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         var table = new DataTable();
-        table.Load(reader);
+        DataTableHelper.LoadFromReader(table, reader);
 
         sw.Stop();
         return QueryResult.FromDataTable(table, sw.ElapsedMilliseconds);

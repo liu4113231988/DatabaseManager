@@ -1,9 +1,8 @@
 ﻿using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
-using NetTopologySuite.Index.HPRtree;
-using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace DatabaseInterpreter.Core
 {
@@ -11,9 +10,9 @@ namespace DatabaseInterpreter.Core
     {
         public static SchemaInfo Clone(SchemaInfo schemaInfo)
         {
-            SchemaInfo cloneSchemaInfo = (SchemaInfo)JsonConvert.DeserializeObject(JsonConvert.SerializeObject(schemaInfo), typeof(SchemaInfo));
+            string json = JsonSerializer.Serialize(schemaInfo, SchemaInfoJsonContext.Default.SchemaInfo);
 
-            return cloneSchemaInfo;
+            return JsonSerializer.Deserialize(json, SchemaInfoJsonContext.Default.SchemaInfo);
         }
 
         public static void MapTableNames(SchemaInfo schemaInfo, Dictionary<string, string> tableNameMappings)
