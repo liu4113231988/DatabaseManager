@@ -3,7 +3,10 @@ using Microsoft.Data.SqlClient;
 using Microsoft.Data.Sqlite;
 using Npgsql;
 using Oracle.ManagedDataAccess.Client;
+#if !DATABASE_MANAGER_AOT
 using Kdbndp;
+#endif
+using System;
 using System.Data.Common;
 
 namespace DatabaseInterpreter.Core
@@ -30,6 +33,12 @@ namespace DatabaseInterpreter.Core
             DbProviderFactory factory = null;
 
             string lowerProviderName = this._dbProvider.ProviderName.ToLower();
+#if DATABASE_MANAGER_AOT
+            if (lowerProviderName.Contains("kdbndp") || lowerProviderName.Contains("duckdb") || lowerProviderName.Contains("dmprovider"))
+            {
+                throw new NotSupportedException($"Database provider '{this._dbProvider.ProviderName}' is not supported in the Native AOT preview.");
+            }
+#endif
             if (lowerProviderName.Contains("oracle"))
             {
                 factory = new OracleClientFactory();
@@ -52,14 +61,17 @@ namespace DatabaseInterpreter.Core
 
                 return dataSource.CreateConnection();
             }
+#if !DATABASE_MANAGER_AOT
             else if (lowerProviderName.Contains("kdbndp"))
             {
                 factory = KdbndpFactory.Instance;
             }
+#endif
             else if(lowerProviderName.Contains("sqlite"))
             {
                 factory = SqliteFactory.Instance;
             }
+#if !DATABASE_MANAGER_AOT
             else if (lowerProviderName.Contains("duckdb"))
             {
                 factory = DuckDB.NET.Data.DuckDBClientFactory.Instance;
@@ -69,6 +81,7 @@ namespace DatabaseInterpreter.Core
                 // 达梦驱动未暴露稳定的 DbProviderFactory，直接构造 DmConnection。
                 return new Dm.DmConnection(this._connectionString);
             }
+#endif
            
             DbConnection connection = factory.CreateConnection();
 

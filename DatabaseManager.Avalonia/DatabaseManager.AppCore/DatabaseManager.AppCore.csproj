@@ -18,7 +18,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SSH.NET" />
-    <PackageReference Include="System.Data.Odbc" />
+    <!-- ODBC 仅在外部 Access 导入路径使用，尚未完成 Native AOT 验收。 -->
+    <PackageReference Include="System.Data.Odbc" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>

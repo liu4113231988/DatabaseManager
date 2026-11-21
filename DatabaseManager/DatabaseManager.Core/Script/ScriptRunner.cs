@@ -6,8 +6,10 @@ using DatabaseInterpreter.Utility;
 using DatabaseManager.Core.Model;
 using SqlAnalyser.Core;
 using SqlAnalyser.Model;
+#if !DATABASE_MANAGER_AOT
 using StackExchange.Profiling;
 using StackExchange.Profiling.Internal;
+#endif
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -70,18 +72,22 @@ namespace DatabaseManager.Core
                     connectionInfo.NeedCheckServerVersion = true;
                 }
 
+#if !DATABASE_MANAGER_AOT
                 bool useProfiler = this.option.UseProfiler;
 
                 MiniProfiler mp = null;
+#endif
 
                 DbConnection dbConnection = dbInterpreter.CreateConnection();
 
+#if !DATABASE_MANAGER_AOT
                 if (useProfiler)
                 {
                     mp = MiniProfiler.StartNew(Guid.NewGuid().ToString());
 
                     dbConnection = new StackExchange.Profiling.Data.ProfiledDbConnection(dbConnection, MiniProfiler.Current);
                 }
+#endif
 
                 using (dbConnection)
                 {
@@ -287,6 +293,7 @@ namespace DatabaseManager.Core
                         }
                     }
 
+#if !DATABASE_MANAGER_AOT
                     if (mp != null)
                     {
                         try
@@ -320,6 +327,7 @@ namespace DatabaseManager.Core
                         {
                         }
                     }
+#endif
                 }
             }
             catch (Exception ex)

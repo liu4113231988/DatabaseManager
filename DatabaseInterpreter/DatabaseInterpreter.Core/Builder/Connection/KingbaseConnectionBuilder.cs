@@ -1,3 +1,4 @@
+#if !DATABASE_MANAGER_AOT
 using DatabaseInterpreter.Model;
 using Kdbndp;
 
@@ -27,3 +28,4 @@ namespace DatabaseInterpreter.Core
         }
     }
 }
+#endif

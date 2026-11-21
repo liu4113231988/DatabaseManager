@@ -1,4 +1,6 @@
+#if !DATABASE_MANAGER_AOT
 using System.Data.Odbc;
+#endif
 using System.Globalization;
 using System.Text;
 
@@ -6,6 +8,7 @@ namespace DatabaseManager.AppCore.Services;
 
 public static class ExternalImportSource
 {
+#if !DATABASE_MANAGER_AOT
     public static string AccessConnectionString(string path, string driver)
     {
         if (!File.Exists(path) || !new[] { ".mdb", ".accdb" }.Contains(Path.GetExtension(path).ToLowerInvariant())) throw new ArgumentException("请选择有效的 Access 文件。");
@@ -42,6 +45,13 @@ public static class ExternalImportSource
             finally { if (File.Exists(temp)) File.Delete(temp); }
         }, ct);
     }
+#else
+    public static string AccessConnectionString(string path, string driver)
+        => throw new NotSupportedException("ODBC Access import is not supported in the Native AOT preview.");
+
+    public static Task<int> SnapshotOdbcAsync(string connectionString, string select, string path, CancellationToken ct)
+        => throw new NotSupportedException("ODBC snapshots are not supported in the Native AOT preview.");
+#endif
     public static async Task<int> SnapshotDbfAsync(string input, string output, string encodingName, CancellationToken ct)
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

@@ -166,18 +166,17 @@
 
   <ItemGroup>
     <PackageReference Include="Dapper" />
-    <!-- DuckDB 官方 ADO.NET 驱动（Full 含各平台 native）；文件/内存连接模型。 -->
-    <PackageReference Include="DuckDB.NET.Data.Full" />
-    <!-- 达梦官方 ADO.NET 驱动（NuGet 发布者 dameng）；用于 DM8 接入。 -->
-    <PackageReference Include="DM.DmProvider" />
+    <!-- DuckDB/达梦驱动尚未完成 Native AOT 验收，原生预览版不加载其程序集。 -->
+    <PackageReference Include="DuckDB.NET.Data.Full" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
+    <PackageReference Include="DM.DmProvider" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Microsoft.Data.Sqlite.Core" />
     <PackageReference Include="Microsoft.SqlServer.Types" />
     <PackageReference Include="MySqlConnector" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Npgsql.NetTopologySuite" />
-    <!-- 金仓官方 ADO.NET 驱动；首期用于 KingbaseES PG 兼容模式。 -->
-    <PackageReference Include="SqlSugarCore.Kdbndp" />
+    <!-- 金仓驱动尚未完成 Native AOT 验收，原生预览版不加载其程序集。 -->
+    <PackageReference Include="SqlSugarCore.Kdbndp" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
     <PackageReference Include="Oracle.ManagedDataAccess.Core" />
     <!-- One native bundle for both plaintext SQLite and SQLCipher-compatible encrypted files. -->
     <PackageReference Include="SQLite3MC.PCLRaw.bundle" />

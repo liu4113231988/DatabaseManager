@@ -1,4 +1,5 @@
 using DatabaseInterpreter.Model;
+using System;
 
 namespace DatabaseInterpreter.Core
 {
@@ -8,7 +9,11 @@ namespace DatabaseInterpreter.Core
     /// </summary>
     public class KingbaseInterpreter : PostgresInterpreter
     {
+#if DATABASE_MANAGER_AOT
+        public new const int DEFAULT_PORT = 54321;
+#else
         public new const int DEFAULT_PORT = KingbaseConnectionBuilder.DefaultPort;
+#endif
 
         public KingbaseInterpreter(ConnectionInfo connectionInfo, DbInterpreterOption option)
             : base(connectionInfo, option)
@@ -24,6 +29,12 @@ namespace DatabaseInterpreter.Core
         public override bool SupportBulkCopy => false;
 
         public override DbConnector GetDbConnector()
-            => new DbConnector(new KingbaseProvider(), new KingbaseConnectionBuilder(), ConnectionInfo);
+        {
+#if DATABASE_MANAGER_AOT
+            throw new NotSupportedException("KingbaseES/Kdbndp is not supported in the Native AOT preview.");
+#else
+            return new DbConnector(new KingbaseProvider(), new KingbaseConnectionBuilder(), ConnectionInfo);
+#endif
+        }
     }
 }

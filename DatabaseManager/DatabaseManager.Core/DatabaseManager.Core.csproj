@@ -102,7 +102,7 @@
   <ItemGroup>
     <PackageReference Include="CompareNETObjects" />
     <PackageReference Include="Humanizer.Core" />
-    <PackageReference Include="MiniProfiler.Shared" />
+    <PackageReference Include="MiniProfiler.Shared" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
     <PackageReference Include="SharpZipLib" />
   </ItemGroup>
 

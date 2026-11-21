@@ -8,6 +8,10 @@
     说明：Directory.Build.props 会自动被仓库下所有 .csproj 导入（无需修改各项目）。
   -->
 
+  <PropertyGroup Condition="'$(DatabaseManagerNativeAot)' == 'true'">
+    <DefineConstants>$(DefineConstants);DATABASE_MANAGER_AOT</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup>
     <!-- 关闭 build 阶段 PDB 生成：避免 bin/Output 下出现 .pdb -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
