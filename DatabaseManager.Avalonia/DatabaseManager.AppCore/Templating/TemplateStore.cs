@@ -1,5 +1,5 @@
+using System.Text.Json;
 using DatabaseManager.AppCore.Services;
-using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Templating;
 
@@ -84,7 +84,7 @@ public class DefaultTemplateStore : ITemplateStore
             var path = Path.Combine(folder, $"{manifest.Id}.tpl");
             manifest.Source = "user";
             var tmp = path + ".tmp";
-            File.WriteAllText(tmp, JsonConvert.SerializeObject(manifest, Formatting.Indented));
+            File.WriteAllText(tmp, JsonSerializer.Serialize(manifest, TemplateJsonContext.Default.TemplateManifest));
             File.Move(tmp, path, true); // 原子写
         }
     }
@@ -170,7 +170,7 @@ public class DefaultTemplateStore : ITemplateStore
             {
                 try
                 {
-                    var manifest = JsonConvert.DeserializeObject<TemplateManifest>(File.ReadAllText(file));
+                    var manifest = JsonSerializer.Deserialize(File.ReadAllText(file), TemplateJsonContext.Default.TemplateManifest);
                     if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id) || string.IsNullOrWhiteSpace(manifest.Kind))
                     {
                         continue; // 契约不完整：跳过，不中断整目录加载。

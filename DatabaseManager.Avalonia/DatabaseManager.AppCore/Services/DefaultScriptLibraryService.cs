@@ -1,7 +1,13 @@
 using System.IO;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace DatabaseManager.AppCore.Services;
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip)]
+[JsonSerializable(typeof(DefaultScriptLibraryService.ScriptLibraryStore))]
+internal partial class ScriptLibraryJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// 脚本库服务实现：JSON 文件存储（随程序目录）。
@@ -110,7 +116,7 @@ public class DefaultScriptLibraryService : IScriptLibraryService
                 return new ScriptLibraryStore();
             }
 
-            return JsonConvert.DeserializeObject<ScriptLibraryStore>(File.ReadAllText(_filePath))
+            return JsonSerializer.Deserialize(File.ReadAllText(_filePath), ScriptLibraryJsonContext.Default.ScriptLibraryStore)
                    ?? new ScriptLibraryStore();
         }
         catch
@@ -123,7 +129,7 @@ public class DefaultScriptLibraryService : IScriptLibraryService
     {
         try
         {
-            File.WriteAllText(_filePath, JsonConvert.SerializeObject(_store, Formatting.Indented));
+            File.WriteAllText(_filePath, JsonSerializer.Serialize(_store, ScriptLibraryJsonContext.Default.ScriptLibraryStore));
         }
         catch
         {
@@ -131,7 +137,7 @@ public class DefaultScriptLibraryService : IScriptLibraryService
         }
     }
 
-    private sealed class ScriptLibraryStore
+    internal sealed class ScriptLibraryStore
     {
         public List<ScriptLibraryItem> Scripts { get; set; } = new();
 

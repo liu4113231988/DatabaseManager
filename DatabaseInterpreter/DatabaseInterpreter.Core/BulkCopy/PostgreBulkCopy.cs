@@ -115,7 +115,7 @@ namespace DatabaseInterpreter.Core
                     {
                         var result = this.ParseDbTypeFromDotnetType(col.ColumnName, row[col.ColumnName], col.DataType);
 
-                        dynamic value = result.Value;
+                        object value = result.Value;
                         string strValue = value?.ToString();
 
                         if(!string.IsNullOrEmpty(strValue))
@@ -194,7 +194,7 @@ namespace DatabaseInterpreter.Core
             this.Dispose();
         }
 
-        public (dynamic Value, NpgsqlDbType Type) ParseDbTypeFromDotnetType(string columnName, dynamic value, Type t)
+        public (object Value, NpgsqlDbType Type) ParseDbTypeFromDotnetType(string columnName, object value, Type t)
         {
             NpgsqlDbType dbType = NpgsqlDbType.Unknown;
 

@@ -1,8 +1,14 @@
 using System.IO;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DatabaseManager.AppCore.Models;
-using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Services;
+
+[JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true,
+    AllowTrailingCommas = true, ReadCommentHandling = JsonCommentHandling.Skip)]
+[JsonSerializable(typeof(List<TaskHistoryEntry>))]
+internal partial class TaskHistoryJsonContext : JsonSerializerContext;
 
 /// <summary>
 /// 任务中心服务实现：内存保留最近 100 条任务；结束的任务追加持久化到
@@ -141,7 +147,7 @@ public class DefaultTaskCenterService : ITaskCenterService
                     entries.RemoveRange(MaxHistoryEntries, entries.Count - MaxHistoryEntries);
                 }
 
-                File.WriteAllText(_historyFilePath, JsonConvert.SerializeObject(entries, Formatting.Indented));
+                File.WriteAllText(_historyFilePath, JsonSerializer.Serialize(entries, TaskHistoryJsonContext.Default.ListTaskHistoryEntry));
             }
         }
         catch
@@ -159,7 +165,7 @@ public class DefaultTaskCenterService : ITaskCenterService
                 return new List<TaskHistoryEntry>();
             }
 
-            return JsonConvert.DeserializeObject<List<TaskHistoryEntry>>(File.ReadAllText(_historyFilePath))
+            return JsonSerializer.Deserialize(File.ReadAllText(_historyFilePath), TaskHistoryJsonContext.Default.ListTaskHistoryEntry)
                    ?? new List<TaskHistoryEntry>();
         }
         catch

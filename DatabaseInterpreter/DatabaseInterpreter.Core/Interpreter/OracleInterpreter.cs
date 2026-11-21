@@ -1076,7 +1076,7 @@ FROM USER_IND_PARTITIONS WHERE INDEX_NAME IN({indexNames})";
             }
 
             Dictionary<int, DataTableColumnChangeInfo> changedColumns = new Dictionary<int, DataTableColumnChangeInfo>();
-            Dictionary<(int RowIndex, int ColumnIndex), dynamic> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), dynamic>();
+            Dictionary<(int RowIndex, int ColumnIndex), object> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), object>();
 
             int rowIndex = 0;
 
@@ -1094,7 +1094,7 @@ FROM USER_IND_PARTITIONS WHERE INDEX_NAME IN({indexNames})";
                         string dataType = tableColumn.DataType.ToLower();
 
                         Type newColumnType = null;
-                        dynamic newValue = null;
+                        object newValue = null;
 
                         if (type != typeof(DBNull))
                         {

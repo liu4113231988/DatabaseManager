@@ -1,7 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DatabaseInterpreter.Model;
-using Newtonsoft.Json;
 
 namespace DatabaseManager.AppCore.Templating;
 
@@ -33,12 +33,12 @@ public static class TemplateTransferService
             throw new ArgumentException($"单次最多导出 {MaxTemplateCount} 个模板。");
         }
 
-        string payload = JsonConvert.SerializeObject(templates.Select(CloneForTransfer).ToList(), Formatting.Indented);
-        string json = JsonConvert.SerializeObject(new TemplateTransferEnvelope
+        string payload = JsonSerializer.Serialize(templates.Select(CloneForTransfer).ToList(), TemplateJsonContext.Default.ListTemplateManifest);
+        string json = JsonSerializer.Serialize(new TemplateTransferEnvelope
         {
             Version = TemplateContract.CurrentVersion,
             Payload = Convert.ToBase64String(Encoding.UTF8.GetBytes(payload)),
-        }, Formatting.Indented);
+        }, TemplateJsonContext.Default.TemplateTransferEnvelope);
 
         if (Encoding.UTF8.GetByteCount(json) > MaxBytes)
         {
@@ -54,7 +54,7 @@ public static class TemplateTransferService
             throw new ArgumentException("模板文件为空或过大。");
         }
 
-        var envelope = JsonConvert.DeserializeObject<TemplateTransferEnvelope>(json)
+        var envelope = JsonSerializer.Deserialize(json, TemplateJsonContext.Default.TemplateTransferEnvelope)
             ?? throw new ArgumentException("模板文件格式无效。");
         if (envelope.Version != TemplateContract.CurrentVersion)
         {
@@ -69,7 +69,7 @@ public static class TemplateTransferService
         try { bytes = Convert.FromBase64String(envelope.Payload); }
         catch (FormatException) { throw new ArgumentException("模板 Payload 不是有效的 Base64 内容。"); }
 
-        var templates = JsonConvert.DeserializeObject<List<TemplateManifest>>(Encoding.UTF8.GetString(bytes))
+        var templates = JsonSerializer.Deserialize(Encoding.UTF8.GetString(bytes), TemplateJsonContext.Default.ListTemplateManifest)
             ?? throw new ArgumentException("模板 Payload 解析失败。");
         if (templates.Count == 0 || templates.Count > MaxTemplateCount)
         {

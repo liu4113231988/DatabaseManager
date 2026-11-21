@@ -27,7 +27,7 @@ namespace DatabaseConverter.Core
             return this.statements;
         }
 
-        private void ExtractStatements(dynamic obj)
+        private void ExtractStatements(object obj)
         {
             Type type = obj.GetType();
 
@@ -37,7 +37,7 @@ namespace DatabaseConverter.Core
 
                 foreach (PropertyInfo property in properties)
                 {
-                    dynamic value = property.GetValue(obj);
+                    object value = property.GetValue(obj);
 
                     if (value == null)
                     {
@@ -51,9 +51,10 @@ namespace DatabaseConverter.Core
                             this.ExtractStatements(value);
                         }
                     }
-                    else if (value.GetType().IsClass && property.PropertyType.IsGenericType )
+                    else if (value.GetType().IsClass && property.PropertyType.IsGenericType
+                             && value is System.Collections.IEnumerable enumerable)
                     {
-                        foreach (var v in value)
+                        foreach (var v in enumerable)
                         {
                             this.ExtractStatements(v);
                         }

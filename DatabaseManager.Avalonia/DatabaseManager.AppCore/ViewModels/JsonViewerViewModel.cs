@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Text;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DatabaseManager.AppCore.Common;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace DatabaseManager.AppCore.ViewModels;
 
@@ -31,12 +31,17 @@ public partial class JsonViewerViewModel : ViewModelBase
         }
         try
         {
-            var obj = JsonConvert.DeserializeObject(JsonText);
-            JsonText = JsonConvert.SerializeObject(obj, Formatting.Indented);
+            using var document = JsonDocument.Parse(JsonText);
+            using var buffer = new MemoryStream();
+            using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
+            {
+                document.RootElement.WriteTo(writer);
+            }
+            JsonText = Encoding.UTF8.GetString(buffer.ToArray());
             StatusMessage = "格式化完成。";
             BuildTree();
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
             StatusMessage = $"格式化失败：{ex.Message}";
         }
@@ -53,12 +58,12 @@ public partial class JsonViewerViewModel : ViewModelBase
         }
         try
         {
-            var token = JToken.Parse(JsonText);
-            var root = CreateNode(null, token);
+            using var document = JsonDocument.Parse(JsonText);
+            var root = CreateNode(null, document.RootElement);
             TreeNodes.Add(root);
             StatusMessage = "已加载 JSON 树。";
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
             StatusMessage = $"解析失败：{ex.Message}";
         }
@@ -72,47 +77,47 @@ public partial class JsonViewerViewModel : ViewModelBase
         StatusMessage = string.Empty;
     }
 
-    private static JsonTreeNode CreateNode(string? name, JToken token)
+    private static JsonTreeNode CreateNode(string? name, JsonElement token)
     {
         string display;
-        var node = new JsonTreeNode();
-        node.Name = name;
+        var node = new JsonTreeNode { Name = name };
 
-        switch (token.Type)
+        switch (token.ValueKind)
         {
-            case JTokenType.Object:
+            case JsonValueKind.Object:
                 display = name is null ? "{}" : $"{name}: {{}}";
                 node.DisplayText = display;
                 node.ValueText = "{}";
-                foreach (var prop in ((JObject)token).Properties())
+                foreach (var prop in token.EnumerateObject())
                 {
                     node.Children.Add(CreateNode(prop.Name, prop.Value));
                 }
                 break;
-            case JTokenType.Array:
+            case JsonValueKind.Array:
                 display = name is null ? "[]" : $"{name}: []";
                 node.DisplayText = display;
                 node.ValueText = "[]";
                 int idx = 0;
-                foreach (var child in ((JArray)token).Children())
+                foreach (var child in token.EnumerateArray())
                 {
                     node.Children.Add(CreateNode($"[{idx}]", child));
                     idx++;
                 }
                 break;
             default:
-                var jValue = token as JValue;
-                object? v = jValue?.Value;
-                string valueStr;
-                if (v is null) valueStr = "null";
-                else if (v is string s) valueStr = $"\"{s}\"";
-                else if (v is bool b) valueStr = b ? "true" : "false";
-                else valueStr = v.ToString() ?? string.Empty;
-
+                string valueStr = token.ValueKind switch
+                {
+                    JsonValueKind.Null or JsonValueKind.Undefined => "null",
+                    JsonValueKind.String => $"\"{token.GetString()}\"",
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => token.GetRawText(),
+                };
                 node.ValueText = valueStr;
                 node.DisplayText = name is null ? valueStr : $"\"{name}\": {valueStr}";
                 break;
         }
+
         return node;
     }
 }

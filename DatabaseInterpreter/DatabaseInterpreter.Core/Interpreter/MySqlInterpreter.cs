@@ -753,7 +753,7 @@ WHERE PARTITION_METHOD IS NOT NULL AND TABLE_NAME=@Name";
 
             Dictionary<string, Type> dictColumnTypes = new Dictionary<string, Type>();
             Dictionary<int, DataTableColumnChangeInfo> changedColumns = new Dictionary<int, DataTableColumnChangeInfo>();
-            Dictionary<(int RowIndex, int ColumnIndex), dynamic> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), dynamic>();
+            Dictionary<(int RowIndex, int ColumnIndex), object> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), object>();
 
             int rowIndex = 0;
 

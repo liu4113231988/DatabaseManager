@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Newtonsoft.Json;
+using System.Text.Json;
 using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
@@ -34,13 +34,13 @@ public static class ConnectionTransferService
         if (includePasswords && password.Length < 12) throw new ArgumentException("携带密码时必须设置至少 12 位的导出保护口令。");
         var entries = connections.Select(c =>
         {
-            var copy = JsonConvert.DeserializeObject<ConnectionItem>(JsonConvert.SerializeObject(c))!;
+            var copy = JsonSerializer.Deserialize(JsonSerializer.SerializeToUtf8Bytes(c, ConnectionTransferPayloadContext.Default.ConnectionItem), ConnectionTransferPayloadContext.Default.ConnectionItem)!;
             copy.Id = null; copy.AccountId = null; copy.RememberPassword = includePasswords;
             if (!includePasswords) copy.Password = null;
             if (copy.Ssh is not null) copy.Ssh.EncryptedSecret = "";
             return new ConnectionTransferEntry { Connection = copy, SshSecret = includePasswords ? c.Ssh?.Secret : null };
         }).ToArray();
-        byte[] payload = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(entries));
+        byte[] payload = JsonSerializer.SerializeToUtf8Bytes(entries, ConnectionTransferPayloadContext.Default.ConnectionTransferEntryArray);
         if (payload.Length > MaxBytes) throw new ArgumentException("连接配置过大。");
         var envelope = new ConnectionTransferEnvelope { Encrypted = includePasswords };
         if (includePasswords)
@@ -52,12 +52,12 @@ public static class ConnectionTransferService
             envelope.Salt = Convert.ToBase64String(salt); envelope.Nonce = Convert.ToBase64String(nonce); envelope.Tag = Convert.ToBase64String(tag); payload = cipher;
         }
         envelope.Payload = Convert.ToBase64String(payload);
-        return JsonConvert.SerializeObject(envelope, Formatting.Indented);
+        return JsonSerializer.Serialize(envelope, ConnectionTransferEnvelopeContext.Default.ConnectionTransferEnvelope);
     }
     public static IReadOnlyList<ConnectionItem> Preview(string json, string password)
     {
         if (Encoding.UTF8.GetByteCount(json) > MaxBytes * 2) throw new ArgumentException("连接文件超过大小限制。");
-        var envelope = JsonConvert.DeserializeObject<ConnectionTransferEnvelope>(json) ?? throw new ArgumentException("连接文件无效。");
+        var envelope = JsonSerializer.Deserialize(json, ConnectionTransferEnvelopeContext.Default.ConnectionTransferEnvelope) ?? throw new ArgumentException("连接文件无效。");
         if (envelope.Version != 1) throw new ArgumentException("不支持的连接文件版本。");
         byte[] data = Convert.FromBase64String(envelope.Payload);
         if (envelope.Encrypted)
@@ -72,7 +72,7 @@ public static class ConnectionTransferService
         }
         try
         {
-            var entries = JsonConvert.DeserializeObject<List<ConnectionTransferEntry>>(Encoding.UTF8.GetString(data)) ?? throw new ArgumentException("连接内容无效。");
+            var entries = JsonSerializer.Deserialize(data, ConnectionTransferPayloadContext.Default.ListConnectionTransferEntry) ?? throw new ArgumentException("连接内容无效。");
             if (entries.Count is < 1 or > 200) throw new ArgumentException("连接数量无效。");
             foreach (var entry in entries)
             {
@@ -96,7 +96,7 @@ public static class ConnectionTransferService
             foreach (var item in selected)
             {
                 ct.ThrowIfCancellationRequested();
-                var copy = JsonConvert.DeserializeObject<ConnectionItem>(JsonConvert.SerializeObject(item))!;
+                var copy = JsonSerializer.Deserialize(JsonSerializer.SerializeToUtf8Bytes(item, ConnectionTransferPayloadContext.Default.ConnectionItem), ConnectionTransferPayloadContext.Default.ConnectionItem)!;
                 copy.Ssh = item.Ssh; copy.Id = null; copy.AccountId = null;
                 string original = copy.Name; int suffix = 1;
                 if (names.Contains(copy.Name) && !renameConflicts) continue;

@@ -134,7 +134,24 @@ public static class P0SmokeHarness
                     throw new InvalidOperationException("Auto commit checkbox must restore automatic mode.");
             });
             var vm = new ExecutionPlanViewModel(new FixturePlan()) { Connection = item, SqlText = "SELECT * FROM sample" };
-            await Capture(new ExecutionPlanWindow(vm), "plan");
+            await Capture(new ExecutionPlanWindow(vm), "plan", async () =>
+            {
+                await vm.ExecuteCommand.ExecuteAsync(null);
+                if (vm.PlanNodes.Count == 0 || vm.PlanNodes[0].Operation != "Index Scan")
+                    throw new InvalidOperationException("Execution plan must parse fixture rows into nodes.");
+            });
+
+            var jsonVm = new DatabaseManager.AppCore.ViewModels.JsonViewerViewModel
+            {
+                JsonText = "{\"name\":\"orders\",\"columns\":[{\"id\":1,\"nullable\":false}]}",
+            };
+            jsonVm.FormatCommand.Execute(null);
+            jsonVm.BuildTreeCommand.Execute(null);
+            if (jsonVm.TreeNodes.Count != 1 || jsonVm.TreeNodes[0].Children.Count != 2
+                || jsonVm.TreeNodes[0].Children[1].Children.Count != 1
+                || jsonVm.TreeNodes[0].Children[1].Children[0].Children.Count != 2
+                || jsonVm.StatusMessage != "已加载 JSON 树。")
+                throw new InvalidOperationException("JSON viewer must build the tree with source-generated JSON APIs.");
             var connect = new ConnectWindow(new ConnectionManagerViewModel(connections), new ConnectionItem { DatabaseType = "Postgres", Name = "SSH 测试", Server = "db.internal", Port = "5432", Ssh = new() { Enabled = true, Host = "bastion.example", UserName = "developer" } });
             connect.Height = 980;
             await Capture(connect, "ssh", () => { foreach (var expander in connect.GetVisualDescendants().OfType<Expander>()) expander.IsExpanded = true; });

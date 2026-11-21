@@ -1,6 +1,6 @@
 using DatabaseManager.AppCore.Models;
-using Newtonsoft.Json.Linq;
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace DatabaseManager.AppCore.Services;
@@ -16,10 +16,18 @@ public static class ExecutionPlanParser
         {
             try
             {
-                foreach (var item in JArray.Parse(raw))
-                    if (item["Plan"] is JObject plan) roots.Add(ParsePostgres(plan));
+                using var document = JsonDocument.Parse(raw);
+                foreach (var item in document.RootElement.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("Plan", out var plan)
+                        && plan.ValueKind == JsonValueKind.Object)
+                    {
+                        roots.Add(ParsePostgres(plan));
+                    }
+                }
             }
-            catch (Newtonsoft.Json.JsonException) { }
+            catch (JsonException) { }
         }
         if (roots.Count == 0)
         {
@@ -55,7 +63,7 @@ public static class ExecutionPlanParser
             }
         }
         var all = roots.SelectMany(Descendants).ToList();
-        double maxCost = all.Max(n => n.Cost ?? 0);
+        double maxCost = all.Count == 0 ? 0 : all.Max(n => n.Cost ?? 0);
         foreach (var node in all) node.IsHotspot = maxCost > 0 && node.Cost >= maxCost * .5;
         return roots;
     }
@@ -100,18 +108,34 @@ public static class ExecutionPlanParser
         return roots;
     }
 
-    private static ExecutionPlanNode ParsePostgres(JObject plan)
+    private static ExecutionPlanNode ParsePostgres(JsonElement plan)
     {
         var node = new ExecutionPlanNode
         {
-            Operation = (string?)plan["Node Type"] ?? "Plan", ObjectName = (string?)plan["Relation Name"] ?? "",
-            Cost = (double?)plan["Total Cost"], Milliseconds = (double?)plan["Actual Total Time"], Details = plan.ToString(),
+            Operation = ReadString(plan, "Node Type") ?? "Plan",
+            ObjectName = ReadString(plan, "Relation Name") ?? "",
+            Cost = ReadDouble(plan, "Total Cost"),
+            Milliseconds = ReadDouble(plan, "Actual Total Time"),
+            Details = plan.GetRawText(),
         };
-        if (plan["Plans"] is JArray children)
-            foreach (var child in children.OfType<JObject>()) node.Children.Add(ParsePostgres(child));
+        if (plan.TryGetProperty("Plans", out var children) && children.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var child in children.EnumerateArray())
+            {
+                if (child.ValueKind == JsonValueKind.Object) node.Children.Add(ParsePostgres(child));
+            }
+        }
         return node;
     }
+
+    private static string? ReadString(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static double? ReadDouble(JsonElement element, string name)
+        => element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out double number) ? number : null;
+
     private static double? Number(string value) => double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) ? number : null;
+
     private static IEnumerable<ExecutionPlanNode> Descendants(ExecutionPlanNode node)
     {
         yield return node;

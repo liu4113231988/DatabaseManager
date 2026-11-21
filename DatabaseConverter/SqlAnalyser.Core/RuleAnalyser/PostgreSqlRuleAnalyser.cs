@@ -494,7 +494,7 @@ namespace SqlAnalyser.Core
 
             var distinct = node.distinct_clause();
 
-            dynamic columns = null;
+            Target_listContext columns = null;
 
             if (distinct != null)
             {

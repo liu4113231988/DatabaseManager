@@ -26,7 +26,7 @@ namespace DatabaseConverter.Core
             return this.tokens;
         }
 
-        private void ExtractTokens(dynamic obj, bool isFirst = true)
+        private void ExtractTokens(object obj, bool isFirst = true)
         {
             if(obj == null)
             {
@@ -46,7 +46,7 @@ namespace DatabaseConverter.Core
                         continue;
                     }                   
 
-                    dynamic value = property.GetValue(obj);
+                    object value = property.GetValue(obj);
 
                     if (value == null)
                     {
@@ -60,9 +60,10 @@ namespace DatabaseConverter.Core
                             this.ExtractTokens(value, false);
                         }
                     }
-                    else if (value.GetType().IsClass && property.PropertyType.IsGenericType && !(property.DeclaringType == typeof(CommonScript) && property.Name == nameof(CommonScript.Functions)))
+                    else if (value.GetType().IsClass && property.PropertyType.IsGenericType && !(property.DeclaringType == typeof(CommonScript) && property.Name == nameof(CommonScript.Functions))
+                             && value is System.Collections.IEnumerable enumerable)
                     {
-                        foreach (var v in value)
+                        foreach (var v in enumerable)
                         {
                             this.ExtractTokens(v, false);
                         }

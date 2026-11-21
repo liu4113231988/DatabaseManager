@@ -1080,7 +1080,7 @@ JOIN pg_catalog.pg_namespace n2 ON c.relnamespace=n2.oid");
             }
 
             Dictionary<int, DataTableColumnChangeInfo> changedColumns = new Dictionary<int, DataTableColumnChangeInfo>();
-            Dictionary<(int RowIndex, int ColumnIndex), dynamic> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), dynamic>();
+            Dictionary<(int RowIndex, int ColumnIndex), object> changedValues = new Dictionary<(int RowIndex, int ColumnIndex), object>();
 
             int rowIndex = 0;
 
@@ -1099,7 +1099,7 @@ JOIN pg_catalog.pg_namespace n2 ON c.relnamespace=n2.oid");
                             Type newColumnType = null;
                             TableColumn tableColumn = bulkCopyInfo.Columns.FirstOrDefault(item => item.Name == dataTable.Columns[i].ColumnName);
                             string dataType = tableColumn.DataType.ToLower();
-                            dynamic newValue = null;
+                            object newValue = null;
 
                             if (type == typeof(MySqlDateTime))
                             {

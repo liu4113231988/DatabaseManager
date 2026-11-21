@@ -1,5 +1,6 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.DatabasePropertiesWindow"
         Title="数据库属性" Width="760" Height="540" MinWidth="540" MinHeight="360"
         Icon="/Assets/database-manager.ico" WindowStartupLocation="CenterOwner">
@@ -14,12 +15,12 @@
             <Button Grid.Column="2" Content="关闭" Click="Close_Click" MinWidth="80" Margin="8,0,0,0" />
         </Grid>
         <DataGrid x:Name="PropertyGrid" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal"
-                  x:CompileBindings="False">
+                  x:DataType="models:DatabaseProperty">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="属性" Binding="{Binding Name}" Width="230" />
                 <DataGridTemplateColumn Header="值" Width="*" ClipboardContentBinding="{Binding Value}">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="models:DatabaseProperty">
                             <TextBlock Text="{Binding Value}" TextWrapping="Wrap" ToolTip.Tip="{Binding Value}" Margin="8,4" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
