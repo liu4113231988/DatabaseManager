@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Core;
+﻿using DatabaseInterpreter.Core;
 using DatabaseManager.Profile.Model;
 using Microsoft.Data.Sqlite;
 using System.Collections.Generic;
@@ -25,13 +24,13 @@ namespace DatabaseManager.Profile.Manager
                     sb.Append(@"SELECT Id,AccountId,Database,Hidden FROM DatabaseVisibility
                                 WHERE AccountId=@AccountId");
 
-                    Dictionary<string, object> para = new Dictionary<string, object>();
+                    List<(string Name, object Value)> para = new List<(string Name, object Value)>();
 
                     sb.Append("AND AccountId=@AccountId");
 
-                    para.Add("@AccountId", accountId);
+                    para.Add(("@AccountId", accountId));
 
-                    visibilities = await connection.QueryAsync<DatabaseVisibilityInfo>(sb.Content, para);
+                    visibilities = await DbRowMapper.ReadObjectsAsync<DatabaseVisibilityInfo>(connection, sb.Content, parameters: para);
                 }
             }
 

@@ -1,4 +1,3 @@
-﻿using Dapper;
 using DatabaseConverter.Core;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
@@ -113,7 +112,7 @@ namespace DatabaseManager.Core
 
                                 analyseResult.CountScript = countScript;
 
-                                long? totalCount = (await dbConnection.QueryAsync<long?>(countScript)).Sum(item => item ?? 0);
+                                long? totalCount = (await DbRowMapper.ReadColumnValuesAsync<long?>(dbConnection, countScript)).Sum(item => item ?? 0);
 
                                 result.TotalCount = totalCount;
                             }

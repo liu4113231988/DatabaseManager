@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Geometry;
+﻿using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using Microsoft.SqlServer.Types;
@@ -143,21 +142,30 @@ namespace DatabaseInterpreter.Core
         {
             string sql = this.GetSqlForTablespaces();
 
-            return await this.CreateConnection().QueryAsync<string>(sql);
+            using (DbConnection connection = this.CreateConnection())
+            {
+                return await DbRowMapper.ReadColumnValuesAsync<string>(connection, sql, this.OpenConnectionAsync);
+            }
         }
 
         public string GetUserDefaultTablespace()
         {
             string sql = this.GetSqlForDefaultTablespace(this.GetCurrentUserName());
 
-            return (this.CreateConnection().Query<string>(sql)).FirstOrDefault();
+            using (DbConnection connection = this.CreateConnection())
+            {
+                return this.GetScalar(connection, sql)?.ToString();
+            }
         }
 
         public async Task<string> GetUserDefaultTablespaceAsync()
         {
             string sql = this.GetSqlForDefaultTablespace(await this.GetCurrentUserNameAsync());
 
-            return (await this.CreateConnection().QueryAsync<string>(sql)).FirstOrDefault();
+            using (DbConnection connection = this.CreateConnection())
+            {
+                return await DbRowMapper.ReadFirstValueAsync<string>(connection, sql, this.OpenConnectionAsync);
+            }
         }
 
         private string GetSqlForDefaultTablespace(string userName)
@@ -188,7 +196,7 @@ namespace DatabaseInterpreter.Core
                 sql += $" AND OWNER='{table.Schema}'";
             }
 
-            return (await dbConnection.QueryAsync<string>(sql)).FirstOrDefault();
+            return await DbRowMapper.ReadFirstValueAsync<string>(dbConnection, sql, this.OpenConnectionAsync);
         }
         #endregion
 
@@ -729,7 +737,7 @@ namespace DatabaseInterpreter.Core
 
         public override async Task<List<Table>> GetPartitionedTables(DbConnection dbConnection, SchemaInfoFilter filter)
         {
-            return (await dbConnection.QueryAsync<Table>(this.GetSqlForPartitionedTables(filter))).ToList();
+            return await DbRowMapper.ReadObjectsAsync<Table>(dbConnection, this.GetSqlForPartitionedTables(filter), this.OpenConnectionAsync);
         }
 
         public override async Task<bool> IsPartitionedTable(DbConnection dbConnection, Table table)
@@ -738,7 +746,7 @@ namespace DatabaseInterpreter.Core
 
             string sql = this.GetSqlForPartitionedTables(filter, true);
 
-            return (await dbConnection.QueryAsync<int?>(sql))?.FirstOrDefault() > 0;
+            return await DbRowMapper.ReadFirstValueAsync<int?>(dbConnection, sql, this.OpenConnectionAsync) > 0;
         }
 
         private string GetSqlForPartitionedTables(SchemaInfoFilter filter, bool isCount = false)
@@ -770,7 +778,8 @@ t.SUBPARTITIONING_TYPE AS ""SubType"",t.INTERVAL_SUBPARTITION AS ""SubInterval""
 FROM USER_PART_TABLES t
 WHERE t.TABLE_NAME=:Name";
 
-            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql, new { table.Name }))?.FirstOrDefault();
+            var summary = (await DbRowMapper.ReadObjectsAsync<PartitionSummary>(dbConnection, sql, this.OpenConnectionAsync,
+                DbRowMapper.Params(("Name", table.Name))))?.FirstOrDefault();
 
             if (summary != null)
             {
@@ -803,7 +812,8 @@ FROM USER_PART_KEY_COLUMNS
 WHERE OBJECT_TYPE='TABLE' AND NAME=:Name
 ORDER BY COLUMN_POSITION";
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql, new { table.Name });
+            return await DbRowMapper.ReadObjectsAsync<PartitionColumn>(dbConnection, sql, this.OpenConnectionAsync,
+                DbRowMapper.Params(("Name", table.Name)));
         }
 
         public async Task<IEnumerable<PartitionColumn>> GetSubPartitionColumns(Table table)
@@ -819,7 +829,8 @@ FROM USER_SUBPART_KEY_COLUMNS
 WHERE OBJECT_TYPE='TABLE' AND NAME=:Name
 ORDER BY COLUMN_POSITION";
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql, new { table.Name });
+            return await DbRowMapper.ReadObjectsAsync<PartitionColumn>(dbConnection, sql, this.OpenConnectionAsync,
+                DbRowMapper.Params(("Name", table.Name)));
         }
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(Table table, bool includeDetails = false)
@@ -834,7 +845,8 @@ ORDER BY COLUMN_POSITION";
 FROM USER_TAB_PARTITIONS 
 WHERE TABLE_NAME=:Name";
 
-            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql, new { table.Name });
+            var partitions = await DbRowMapper.ReadObjectsAsync<PartitionInfo>(dbConnection, sql, this.OpenConnectionAsync,
+                DbRowMapper.Params(("Name", table.Name)));
 
             if (includeDetails)
             {
@@ -863,7 +875,8 @@ WHERE TABLE_NAME=:Name";
 FROM USER_TAB_SUBPARTITIONS
 WHERE TABLE_NAME=:Name";
 
-            return await dbConnection.QueryAsync<PartitionInfo>(sql, new { table.Name });
+            return await DbRowMapper.ReadObjectsAsync<PartitionInfo>(dbConnection, sql, this.OpenConnectionAsync,
+                DbRowMapper.Params(("Name", table.Name)));
         }
 
         public async Task<IEnumerable<TableIndexExtraInfo>> GetTableIndexExtraInfos(Table table, bool includeDetails = false)
@@ -885,7 +898,7 @@ WHERE TABLE_NAME='{table.Name}'";
                 sql += $" AND TABLE_OWNER='{table.Schema}'";
             }
 
-            var infos = await dbConnection.QueryAsync<TableIndexExtraInfo>(sql);
+            var infos = await DbRowMapper.ReadObjectsAsync<TableIndexExtraInfo>(dbConnection, sql, this.OpenConnectionAsync);
 
             if (includeDetails)
             {
@@ -895,7 +908,7 @@ WHERE TABLE_NAME='{table.Name}'";
 $@"SELECT INDEX_NAME AS ""IndexName"", PARTITION_NAME AS ""Name"", COMPRESSION AS ""Compression"",PARTITION_POSITION AS ""Order""
 FROM USER_IND_PARTITIONS WHERE INDEX_NAME IN({indexNames})";
 
-                var partitions = await dbConnection.QueryAsync<TableIndexPartitionInfo>(sql);
+                var partitions = await DbRowMapper.ReadObjectsAsync<TableIndexPartitionInfo>(dbConnection, sql, this.OpenConnectionAsync);
 
                 foreach (var info in infos)
                 {

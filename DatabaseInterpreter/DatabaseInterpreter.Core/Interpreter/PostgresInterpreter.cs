@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Geometry;
+﻿using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using Microsoft.SqlServer.Types;
@@ -815,7 +814,7 @@ namespace DatabaseInterpreter.Core
 
         public override async Task<List<Table>> GetPartitionedTables(DbConnection dbConnection, SchemaInfoFilter filter)
         {
-            return (await dbConnection.QueryAsync<Table>(this.GetSqlForPartitionedTables(filter))).ToList();
+            return await DbRowMapper.ReadObjectsAsync<Table>(dbConnection, this.GetSqlForPartitionedTables(filter), this.OpenConnectionAsync);
         }
 
         public override async Task<bool> IsPartitionedTable(DbConnection dbConnection, Table table)
@@ -824,7 +823,7 @@ namespace DatabaseInterpreter.Core
 
             string sql = this.GetSqlForPartitionedTables(filter, true);
 
-            return (await dbConnection.QueryAsync<int?>(sql))?.FirstOrDefault() > 0;
+            return await DbRowMapper.ReadFirstValueAsync<int?>(dbConnection, sql, this.OpenConnectionAsync) > 0;
         }
 
         private string GetSqlForPartitionedTables(SchemaInfoFilter filter, bool isCount = false)
@@ -868,7 +867,8 @@ WHERE t.table_name=@Name";
                 sql += " AND n.nspname=@Schema";
             }
 
-            var summary = (await dbConnection.QueryAsync<PartitionSummary>(sql, new { table.Name, table.Schema }))?.FirstOrDefault();
+            var summary = (await DbRowMapper.ReadObjectsAsync<PartitionSummary>(dbConnection, sql, this.OpenConnectionAsync,
+                this.GetPartitionKeyParameters(table)))?.FirstOrDefault();
 
             if (summary != null)
             {
@@ -904,7 +904,21 @@ WHERE c.relname = @Name";
                 sql += " AND n.nspname = @Schema";
             }
 
-            return await dbConnection.QueryAsync<PartitionColumn>(sql + " ORDER BY k.key_order", new { table.Name, table.Schema });
+            return await DbRowMapper.ReadObjectsAsync<PartitionColumn>(dbConnection, sql + " ORDER BY k.key_order",
+                this.OpenConnectionAsync, this.GetPartitionKeyParameters(table));
+        }
+
+        /// <summary>分区查询参数：仅在 SQL 含有对应条件时传入，避免驱动拒绝未引用的参数。</summary>
+        private IList<(string Name, object Value)> GetPartitionKeyParameters(Table table)
+        {
+            List<(string Name, object Value)> parameters = new List<(string Name, object Value)>() { ("Name", table.Name) };
+
+            if (!string.IsNullOrEmpty(table.Schema))
+            {
+                parameters.Add(("Schema", table.Schema));
+            }
+
+            return parameters;
         }
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(Table table, bool isInherited = false)
@@ -926,15 +940,15 @@ WHERE c.relname = @Name";
 
         public async Task<IEnumerable<PartitionInfo>> GetPartitionInfos(DbConnection dbConnection, SchemaInfoFilter filter, bool isInherited = false)
         {
-            var parameters = new DynamicParameters();
+            IList<(string Name, object Value)> parameters = new List<(string Name, object Value)>();
             string sql = this.GetSqlForPartitionInfos(filter, isInherited, parameters);
 
-            var partitions = await dbConnection.QueryAsync<PartitionInfo>(sql, parameters);
+            var partitions = await DbRowMapper.ReadObjectsAsync<PartitionInfo>(dbConnection, sql, this.OpenConnectionAsync, parameters);
 
             return partitions;
         }
 
-        private string GetSqlForPartitionInfos(SchemaInfoFilter filter, bool isInherited, DynamicParameters parameters)
+        private string GetSqlForPartitionInfos(SchemaInfoFilter filter, bool isInherited, IList<(string Name, object Value)> parameters)
         {
             var sb = this.CreateSqlBuilder();
 
@@ -949,14 +963,14 @@ JOIN pg_catalog.pg_namespace n2 ON c.relnamespace=n2.oid");
             if (!string.IsNullOrEmpty(filter?.Schema))
             {
                 sb.Append($"AND {(isInherited ? "n2" : "n1")}.nspname = @Schema");
-                parameters.Add("Schema", filter.Schema);
+                parameters.Add(("Schema", filter.Schema));
             }
             if (filter?.TableNames?.Length > 0)
             {
                 var placeholders = filter.TableNames.Select((name, index) =>
                 {
                     string parameterName = $"PartitionTable{index}";
-                    parameters.Add(parameterName, name);
+                    parameters.Add((parameterName, name));
                     return "@" + parameterName;
                 });
                 sb.Append($"AND {(isInherited ? "c" : "p")}.relname IN ({string.Join(", ", placeholders)})");

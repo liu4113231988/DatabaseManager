@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Geometry;
+﻿using DatabaseInterpreter.Geometry;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
 using Microsoft.Data.SqlClient;
@@ -7,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -194,10 +195,10 @@ namespace DatabaseInterpreter.Core
         #endregion
 
         #region SchemaInfo
-        protected Task<List<T>> GetDbObjectsAsync<T>(string sql) where T : DatabaseObject
+        protected Task<List<T>> GetDbObjectsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string sql) where T : DatabaseObject, new()
             => this.GetDbObjectsAsync<T>(sql, null);
 
-        protected async Task<List<T>> GetDbObjectsAsync<T>(string sql, Func<DbDataReader, T> map) where T : DatabaseObject
+        protected async Task<List<T>> GetDbObjectsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string sql, Func<DbDataReader, T> map) where T : DatabaseObject, new()
         {
             if (!string.IsNullOrEmpty(sql))
             {
@@ -210,10 +211,10 @@ namespace DatabaseInterpreter.Core
             return new List<T>();
         }
 
-        protected Task<List<T>> GetDbObjectsAsync<T>(DbConnection dbConnection, string sql) where T : DatabaseObject
+        protected Task<List<T>> GetDbObjectsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(DbConnection dbConnection, string sql) where T : DatabaseObject, new()
             => this.GetDbObjectsAsync<T>(dbConnection, sql, null);
 
-        protected async Task<List<T>> GetDbObjectsAsync<T>(DbConnection dbConnection, string sql, Func<DbDataReader, T> map) where T : DatabaseObject
+        protected async Task<List<T>> GetDbObjectsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(DbConnection dbConnection, string sql, Func<DbDataReader, T> map) where T : DatabaseObject, new()
         {
             List<T> objects = new List<T>();
 
@@ -224,7 +225,7 @@ namespace DatabaseInterpreter.Core
                     await this.OpenConnectionAsync(dbConnection);
 
                     objects = map is null
-                        ? (await dbConnection.QueryAsync<T>(sql)).ToList()
+                        ? await DbRowMapper.ReadObjectsAsync<T>(dbConnection, sql)
                         : await ReadMappedObjectsAsync(dbConnection, sql, map);
 
                     bool isAllOrdersIsZero = !objects.Any(item => item.Order != 0);
@@ -415,7 +416,7 @@ namespace DatabaseInterpreter.Core
         public abstract Task<List<RoutineScriptUsage>> GetRoutineScriptUsages(SchemaInfoFilter filter, bool isFilterForReferenced = false, bool includeViewTableUsages = false);
         public abstract Task<List<RoutineScriptUsage>> GetRoutineScriptUsages(DbConnection dbConnection, SchemaInfoFilter filter, bool isFilterForReferenced = false, bool includeViewTableUsages = false);
 
-        protected async Task<List<T>> GetDbObjectUsagesAsync<T>(string sql) where T : DbObjectUsage
+        protected async Task<List<T>> GetDbObjectUsagesAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(string sql) where T : DbObjectUsage, new()
         {
             if (!string.IsNullOrEmpty(sql))
             {
@@ -428,7 +429,7 @@ namespace DatabaseInterpreter.Core
             return new List<T>();
         }
 
-        protected async Task<List<T>> GetDbObjectUsagesAsync<T>(DbConnection dbConnection, string sql) where T : DbObjectUsage
+        protected async Task<List<T>> GetDbObjectUsagesAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(DbConnection dbConnection, string sql) where T : DbObjectUsage, new()
         {
             List<T> objects = new List<T>();
 
@@ -438,7 +439,7 @@ namespace DatabaseInterpreter.Core
                 {
                     await this.OpenConnectionAsync(dbConnection);
 
-                    objects = (await dbConnection.QueryAsync<T>(sql)).ToList();
+                    objects = await DbRowMapper.ReadObjectsAsync<T>(dbConnection, sql);
                 }
                 catch (Exception ex)
                 {
@@ -509,6 +510,26 @@ namespace DatabaseInterpreter.Core
                     };
                     sqlConnection.ConnectionString = builder.ConnectionString;
                     await sqlConnection.OpenAsync();
+                }
+            }
+        }
+
+        private void OpenConnection(DbConnection connection)
+        {
+            if (connection.State == ConnectionState.Closed)
+            {
+                try
+                {
+                    connection.Open();
+                }
+                catch (SqlException ex) when (ex.Number == 4060 && connection is SqlConnection)
+                {
+                    var sqlConnection = (SqlConnection)connection;
+                    sqlConnection.ConnectionString = new SqlConnectionStringBuilder(sqlConnection.ConnectionString)
+                    {
+                        InitialCatalog = string.Empty
+                    }.ConnectionString;
+                    sqlConnection.Open();
                 }
             }
         }
@@ -676,7 +697,9 @@ namespace DatabaseInterpreter.Core
 
         protected async Task<long> GetTableRecordCountAsync(DbConnection connection, string sql)
         {
-            return await connection.ExecuteScalarAsync<long>(sql);
+            object value = await DbRowMapper.ReadScalarAsync(connection, sql, this.OpenConnectionAsync);
+
+            return value is null ? 0 : Convert.ToInt64(value, CultureInfo.InvariantCulture);
         }
 
         public object GetScalar(string sql)
@@ -686,7 +709,12 @@ namespace DatabaseInterpreter.Core
 
         public object GetScalar(DbConnection dbConnection, string sql)
         {
-            return dbConnection.ExecuteScalar(sql);
+            using (DbCommand command = DbRowMapper.CreateCommand(dbConnection, sql, null))
+            {
+                this.OpenConnection(dbConnection);
+
+                return ReadScalarValue(command.ExecuteReader());
+            }
         }
 
         public async Task<object> GetScalarAsync(string sql)
@@ -696,7 +724,7 @@ namespace DatabaseInterpreter.Core
 
         public async Task<object> GetScalarAsync(DbConnection dbConnection, string sql)
         {
-            return await dbConnection.ExecuteScalarAsync(sql);
+            return await DbRowMapper.ReadScalarAsync(dbConnection, sql, this.OpenConnectionAsync);
         }
 
         public async Task<DbDataReader> GetDataReaderAsync(string sql)
@@ -706,12 +734,35 @@ namespace DatabaseInterpreter.Core
 
         public async Task<DbDataReader> GetDataReaderAsync(DbConnection dbConnection, string sql)
         {
-            return await dbConnection.ExecuteReaderAsync(sql);
+            DbCommand command = DbRowMapper.CreateCommand(dbConnection, sql, null);
+
+            await this.OpenConnectionAsync(dbConnection);
+
+            return await command.ExecuteReaderAsync();
         }
 
         public IDataReader GetDataReader(DbConnection dbConnection, string sql)
         {
-            return dbConnection.ExecuteReader(sql);
+            DbCommand command = DbRowMapper.CreateCommand(dbConnection, sql, null);
+
+            this.OpenConnection(dbConnection);
+
+            return command.ExecuteReader();
+        }
+
+        private static object ReadScalarValue(IDataReader reader)
+        {
+            using (reader)
+            {
+                if (!reader.Read())
+                {
+                    return null;
+                }
+
+                object value = reader.FieldCount == 0 ? null : reader.GetValue(0);
+
+                return value is DBNull ? null : value;
+            }
         }
 
         public async Task<DataTable> GetDataTableAsync(

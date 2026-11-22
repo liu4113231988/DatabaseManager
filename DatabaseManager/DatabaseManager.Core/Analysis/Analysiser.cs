@@ -1,4 +1,3 @@
-﻿using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Core.Model;
@@ -70,7 +69,7 @@ WHERE avg_fragmentation_in_percent>0";
                     {
                         string execSql = $"analyze index {this.dbInterpreter.GetQuotedDbObjectNameWithSchema(index)} validate structure";
 
-                        await con.ExecuteAsync(execSql);
+                        await DbRowMapper.ExecuteNonQueryAsync(con, execSql);
                     }
 
                     sql =
@@ -87,7 +86,7 @@ WHERE I.TABLE_OWNER='{this.dbInterpreter.ConnectionInfo.Database}' AND del_lf_ro
                     throw new NotImplementedException();
                 }
 
-                var results = await con.QueryAsync<IndexFragmentation>(sql);
+                var results = await DbRowMapper.ReadObjectsAsync<IndexFragmentation>(con, sql);
 
                 return results;
             }
@@ -134,7 +133,7 @@ WHERE I.TABLE_OWNER='{this.dbInterpreter.ConnectionInfo.Database}' AND del_lf_ro
                     {
                         string sql = script.Content.Trim(' ', ';');
 
-                        await con.ExecuteAsync(sql, null, trans);
+                        await DbRowMapper.ExecuteNonQueryAsync(con, sql, transaction: trans);
 
                         await trans.CommitAsync();
 

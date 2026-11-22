@@ -1,4 +1,3 @@
-﻿using Dapper;
 using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseInterpreter.Utility;
@@ -65,7 +64,7 @@ namespace DatabaseManager.Core
 
                     this.FeedbackInfo("Begin to read records count...");
 
-                    results = (await connection.QueryAsync<TableRecordCount>(sb.Content));
+                    results = await DbRowMapper.ReadObjectsAsync<TableRecordCount>(connection, sb.Content);
 
                     this.FeedbackInfo("End read records count.");
                 }
@@ -116,7 +115,7 @@ namespace DatabaseManager.Core
 
                                 sql = @$"select {dbInterpreter.StringCheckNullFunctionName}(MAX({dbInterpreter.StringLengthFunctionName}({columnName})),0) AS {dbInterpreter.GetQuotedString("ContentMaxLength")} FROM {tableName}";
 
-                                int maxLength = (await connection.QueryAsync<int>(sql)).FirstOrDefault();
+                                int maxLength = await DbRowMapper.ReadFirstValueAsync<int>(connection, sql);
 
                                 TableColumnContentMaxLength item = new TableColumnContentMaxLength() { Schema = table.Schema, TableName = table.Name, ColumnName = column.Name, ContentMaxLength = maxLength };
 

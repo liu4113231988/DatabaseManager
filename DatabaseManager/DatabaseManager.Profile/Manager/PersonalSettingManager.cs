@@ -1,4 +1,4 @@
-﻿using Dapper;
+﻿using DatabaseInterpreter.Core;
 using DatabaseManager.Profile.Model;
 using DatabaseManager.Profile.Security;
 using System.Linq;
@@ -18,7 +18,7 @@ namespace DatabaseManager.Profile.Manager
 
                     string sql = "SELECT Id, LockPassword FROM PersonalSetting WHERE Id=1";
 
-                    PersonalSetting setting = (await connection.QueryAsync<PersonalSetting>(sql))?.FirstOrDefault();
+                    PersonalSetting setting = (await DbRowMapper.ReadObjectsAsync<PersonalSetting>(connection, sql)).FirstOrDefault();
 
                     if(setting!=null && !string.IsNullOrEmpty(setting.LockPassword))
                     {

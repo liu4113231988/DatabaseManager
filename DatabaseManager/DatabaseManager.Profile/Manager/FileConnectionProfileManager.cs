@@ -1,5 +1,4 @@
-﻿using Dapper;
-using DatabaseInterpreter.Core;
+﻿using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Utility;
 using DatabaseManager.Profile.Model;
 using DatabaseManager.Profile.Security;
@@ -48,31 +47,31 @@ namespace DatabaseManager.Profile.Manager
                     string id = filter?.Id;
                     string database = filter?.Database;
 
-                    Dictionary<string, object> para = new Dictionary<string, object>();                   
+                    List<(string Name, object Value)> para = new List<(string Name, object Value)>();                   
 
                     if (!string.IsNullOrEmpty(dbType))
                     {
                         sb.Append("AND DatabaseType=@DbType");
 
-                        para.Add("@DbType", filter.DatabaseType);
+                        para.Add(("@DbType", filter.DatabaseType));
                     }
 
                     if (!string.IsNullOrEmpty(id))
                     {
                         sb.Append("AND Id=@Id");
-                        para.Add("@Id", id);
+                        para.Add(("@Id", id));
                     }
 
                     if (!string.IsNullOrEmpty(database))
                     {
                         sb.Append("AND Database=@Database");
 
-                        para.Add("@Database", database);
+                        para.Add(("@Database", database));
                     }
 
                     sb.Append(Environment.NewLine + "ORDER BY Priority");
 
-                    profiles = await connection.QueryAsync<FileConnectionProfileInfo>(sb.Content, para);
+                    profiles = await DbRowMapper.ReadObjectsAsync<FileConnectionProfileInfo>(connection, sb.Content, parameters: para);
 
                     foreach (var profile in profiles)
                     {
@@ -127,10 +126,10 @@ namespace DatabaseManager.Profile.Manager
                     {
                         string sql = $"SELECT IFNULL(MAX(Priority),0) as MaxId FROM FileConnection WHERE DatabaseType=@DatabaseType";
 
-                        Dictionary<string, object> para = new Dictionary<string, object>();
-                        para.Add("@DatabaseType", info.DatabaseType);
+                        List<(string Name, object Value)> para = new List<(string Name, object Value)>();
+                        para.Add(("@DatabaseType", info.DatabaseType));
 
-                        int? maxId = (await connection.QueryAsync<int>(sql, para))?.FirstOrDefault();
+                        int? maxId = await DbRowMapper.ReadFirstValueAsync<int?>(connection, sql, parameters: para);
 
                         if (maxId.HasValue == false)
                         {

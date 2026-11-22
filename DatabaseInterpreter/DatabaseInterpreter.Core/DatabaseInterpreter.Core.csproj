@@ -165,7 +165,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Dapper" />
     <!-- DuckDB/达梦驱动尚未完成 Native AOT 验收，原生预览版不加载其程序集。 -->
     <PackageReference Include="DuckDB.NET.Data.Full" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
     <PackageReference Include="DM.DmProvider" Condition="'$(DatabaseManagerNativeAot)' != 'true'" />
