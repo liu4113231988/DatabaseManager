@@ -142,6 +142,10 @@
                     <MenuItem Header="ODBC / Access / DBF 导入..." Tag="6" Click="MenuP2Workbench_Click" />
                     <MenuItem Header="查询结果与导出脱敏..." Tag="7" Click="MenuP2Workbench_Click" />
                 </MenuItem>
+                <Separator />
+                <MenuItem Header="删除对象需输入名称确认" ToggleType="CheckBox"
+                          IsChecked="{Binding RequireDeleteNameConfirmation, Mode=TwoWay}"
+                          ToolTip.Tip="开启：删除数据库/表等对象需输入对象名称；关闭：仅弹出确认提示，确认即可删除" />
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />

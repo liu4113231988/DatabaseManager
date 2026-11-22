@@ -57,6 +57,9 @@ public class AppSettings
     /// <summary>主窗口字体缩放（0.9 / 1.0 / 1.1 / 1.25）。</summary>
     public double FontScale { get; set; } = 1.0;
 
+    /// <summary>删除数据库/表等对象时是否要求输入对象名称确认；关闭后仅弹出提示，确认即可删除。</summary>
+    public bool RequireDeleteNameConfirmation { get; set; } = true;
+
     public WorkspaceState Workspace { get; set; } = new();
 }
 

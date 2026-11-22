@@ -39,6 +39,7 @@ public class ObjectTreeContextMenuBuilder
 
     private readonly IDbConnectionService _connectionService;
     private readonly IDdlService? _ddlService;
+    private readonly Func<bool>? _requireDeleteNameConfirmation;
 
     /// <summary>创建右键菜单构建器。</summary>
     public ObjectTreeContextMenuBuilder(
@@ -55,7 +56,8 @@ public class ObjectTreeContextMenuBuilder
         Action<DbObjectTreeNode>? openDataCompare = null,
         Action<DbObjectTreeNode>? openConvert = null,
         Action<DbObjectTreeNode, bool>? openBackup = null,
-        Action<DbObjectTreeNode>? openDatabaseProperties = null)
+        Action<DbObjectTreeNode>? openDatabaseProperties = null,
+        Func<bool>? requireDeleteNameConfirmation = null)
     {
         _viewModel = viewModel;
         _treeView = treeView;
@@ -71,7 +73,11 @@ public class ObjectTreeContextMenuBuilder
         _openConvert = openConvert;
         _openBackup = openBackup;
         _openDatabaseProperties = openDatabaseProperties;
+        _requireDeleteNameConfirmation = requireDeleteNameConfirmation;
     }
+
+    /// <summary>删除确认模式：开启需输入对象名称，关闭仅弹出确认提示（默认开启）。</summary>
+    private bool RequiresDeleteNameConfirmation => _requireDeleteNameConfirmation?.Invoke() ?? true;
 
     /// <summary>根据节点类型构建并显示右键菜单。</summary>
     public void BuildAndShow(DbObjectTreeNode node, ContextRequestedEventArgs e)
@@ -387,13 +393,19 @@ public class ObjectTreeContextMenuBuilder
             _viewModel.QueryEditor.StatusMessage = preview?.ErrorMessage ?? "DDL 服务未初始化。";
             return;
         }
-        var input = await ShowInputDialog(
-            $"连接：{connectionName}\n数据库：{node.Name}\n\n将永久删除该库的全部对象和数据，此操作不可撤销！请先确认已有备份。\n不会强制终止其他会话；存在占用时可能删除失败。\n\n{preview.Script}\n\n请输入完整数据库名称以确认删除：",
-            "删除数据库");
-        if (input is null) return;
-        if (!string.Equals(input, node.Name, StringComparison.Ordinal))
+        var message = $"连接：{connectionName}\n数据库：{node.Name}\n\n将永久删除该库的全部对象和数据，此操作不可撤销！请先确认已有备份。\n不会强制终止其他会话；存在占用时可能删除失败。\n\n{preview.Script}\n\n";
+        if (RequiresDeleteNameConfirmation)
         {
-            _viewModel.QueryEditor.StatusMessage = "数据库名称不匹配，已取消删除。";
+            var input = await ShowInputDialog($"{message}请输入完整数据库名称以确认删除：", "删除数据库");
+            if (input is null) return;
+            if (!string.Equals(input, node.Name, StringComparison.Ordinal))
+            {
+                _viewModel.QueryEditor.StatusMessage = "数据库名称不匹配，已取消删除。";
+                return;
+            }
+        }
+        else if (await ShowConfirmDialog($"{message}确定删除此数据库？", "删除数据库") != true)
+        {
             return;
         }
         await _viewModel.DeleteDatabaseAsync(node, _ddlService!);
@@ -1450,9 +1462,23 @@ public class ObjectTreeContextMenuBuilder
 
         string objType = node.DbObject.GetType().Name;
         string confirmMsg = $"确定要删除{objType} \"{node.Name}\" 吗？\n此操作不可撤销！";
-        var result = await ShowConfirmDialog(confirmMsg, $"删除{objType}");
-        if (result != true)
+        if (RequiresDeleteNameConfirmation)
+        {
+            var input = await ShowInputDialog(
+                $"连接：{connectionName}\n数据库：{node.DatabaseName}\n{objType}：{node.Name}\n\n{confirmMsg}\n\n请输入对象名称以确认删除：",
+                $"删除{objType}");
+            if (input is null)
+                return;
+            if (!string.Equals(input, node.Name, StringComparison.Ordinal))
+            {
+                _viewModel.QueryEditor.StatusMessage = "对象名称不匹配，已取消删除。";
+                return;
+            }
+        }
+        else if (await ShowConfirmDialog(confirmMsg, $"删除{objType}") != true)
+        {
             return;
+        }
 
         try
         {

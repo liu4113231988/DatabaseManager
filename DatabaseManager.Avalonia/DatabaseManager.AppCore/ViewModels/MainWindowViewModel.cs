@@ -154,6 +154,21 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _focusMode;
 
+    /// <summary>删除数据库/表等对象时是否要求输入对象名称确认（关闭后仅弹出确认提示）；持久化到 app-settings.json。</summary>
+    public bool RequireDeleteNameConfirmation
+    {
+        get => _appSettingsService?.Settings.RequireDeleteNameConfirmation ?? true;
+        set
+        {
+            if (_appSettingsService is null
+                || _appSettingsService.Settings.RequireDeleteNameConfirmation == value)
+                return;
+            _appSettingsService.Settings.RequireDeleteNameConfirmation = value;
+            _appSettingsService.Save();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>主内容区当前模式（0=查询，1=数据编辑），切换子选项卡使用。</summary>
     [ObservableProperty]
     private int _contentMode;

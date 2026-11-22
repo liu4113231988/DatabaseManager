@@ -28,11 +28,15 @@ internal static class StartupConfigJsonChecks
             || settings.Workspace.WindowState != "Maximized" || !settings.Workspace.FocusMode
             || settings.Workspace.Tabs.Count != 1 || settings.Workspace.Tabs[0].SqlText != "select 1")
             throw new InvalidOperationException("AppSettings legacy JSON fields must round trip.");
+        if (!settings.RequireDeleteNameConfirmation)
+            throw new InvalidOperationException("Typed delete-name confirmation must default to enabled for legacy settings.");
 
+        settings.RequireDeleteNameConfirmation = false;
         string saved = JsonSerializer.Serialize(settings, AppSettingsJsonContext.Default.AppSettings);
         var restored = JsonSerializer.Deserialize(saved, AppSettingsJsonContext.Default.AppSettings)!;
-        if (restored.Workspace.Tabs[0].ConnectionName != "local" || Math.Abs(restored.Workspace.LeftPanelWidth - 360) > 0.0001)
-            throw new InvalidOperationException("AppSettings source-generated JSON round trip must preserve workspace state.");
+        if (restored.Workspace.Tabs[0].ConnectionName != "local" || Math.Abs(restored.Workspace.LeftPanelWidth - 360) > 0.0001
+            || restored.RequireDeleteNameConfirmation)
+            throw new InvalidOperationException("AppSettings source-generated JSON round trip must preserve workspace and delete-confirmation state.");
 
         const string legacyVisuals = """
             [

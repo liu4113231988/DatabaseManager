@@ -2272,7 +2272,8 @@ public partial class MainWindow : Window
             openDataCompare: n => AppExceptionHandler.Run(() => OpenDataCompareForNodeAsync(n), "打开数据对比"),
             openConvert: n => AppExceptionHandler.Run(() => OpenConvertForNodeAsync(n), "打开数据库转换"),
             openBackup: (n, restore) => AppExceptionHandler.Run(() => OpenBackupForNodeAsync(n, restore), "打开备份/恢复"),
-            openDatabaseProperties: n => AppExceptionHandler.Run(() => OpenDatabasePropertiesAsync(n), "查看数据库属性"));
+            openDatabaseProperties: n => AppExceptionHandler.Run(() => OpenDatabasePropertiesAsync(n), "查看数据库属性"),
+            requireDeleteNameConfirmation: () => _appSettings?.Settings.RequireDeleteNameConfirmation ?? true);
     }
 
     private async Task OpenBackupForNodeAsync(DbObjectTreeNode node, bool restore)
