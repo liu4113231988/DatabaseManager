@@ -10,15 +10,29 @@ Native AOT 的发布目标是 Avalonia 客户端的 Windows x64。正式的 Wind
 
 ## 本地实验发布
 
-在安装了 .NET 10 SDK 和 Visual Studio C++ x64 工具链的 Windows 上，从仓库根目录运行下面的命令。
+在安装了 .NET 10 SDK 10.0.404 或更新的维护版本和 Visual Studio C++ x64 工具链的 Windows 上，从仓库根目录运行下面的命令。
 
 ```powershell
 dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj `
   -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= `
+  -warnaserror:NU1903,NU1904 `
   -o .artifacts/aot-win-x64
+.github/scripts/Test-NativeAot.ps1 .artifacts/aot-win-x64
 ```
 
-从单独的工作目录对发布目录中的 `DatabaseManager.exe` 分别执行 `--smoke --p0` 和 `--smoke --p2`，检查退出码及各自的 `artifacts/*-ui/passed.txt`。发布目录还包含数据库和渲染组件需要的原生库与配置，应整体使用。
+每次验证使用全新发布目录。脚本从独立工作目录启动发布后的 EXE，检查 P0/P2 的退出码与成功标记，并输出截图目录。首次启动会在 EXE 旁创建 `Profiles`。CI 在变更检查中验证发布目录，在正式发布前验证解压后的 ZIP。
+
+旧 SDK 10.0.402 默认使用存在 CVE-2026-111497 的 Native AOT 编译器 10.0.13。更新 SDK 后需重新发布原生 EXE。[Microsoft 安全公告](https://github.com/advisories/GHSA-p3jp-9v83-76w9)
+
+## 当前兼容性
+
+| 路径 | Windows x64 Native AOT 验收状态 |
+| --- | --- |
+| SQLite / SQLCipher | P0/P2 使用临时数据库验证配置、查询、对象元数据、表设计和文件往返。SQLite 另验证相同表结构与索引列差异。 |
+| SQL Server | 使用 SQLite 模拟目录验证登录与分区元数据映射。本机 LocalDB 测试实例启动失败，真实服务器、Windows 集成认证和云认证仍待验收。 |
+| PostgreSQL 18 | 独立原生探针在本机临时实例通过 P0/P2 数据库回归，覆盖多结果集、事务、执行计划、元数据、二进制编辑和导入导出。使用本机信任认证，其他认证方式待验收。 |
+| MySQL / Oracle | 驱动已打包。真实实例及各类认证待验收。Oracle 的可选云配置、令牌和 Kerberos 路径在原生编译中被报告为缺少相应程序集。 |
+| DuckDB / 达梦 / KingbaseES / Access 和 ODBC | 当前原生包未包含这些驱动。相应操作可使用 CoreCLR 包。 |
 
 ## 改造进度
 
@@ -44,7 +58,9 @@ SSH 隧道配置改用源生成 JSON（`SshProfileJsonContext`），去除启动
 
 继续排查剩余告警：应用设置与连接视觉标注分别迁移到 `AppSettingsJsonContext` 和 `ConnectionVisualJsonContext`，保留旧文件的大小写不敏感、注释与尾逗号兼容；JSON 数据导入导出改用 `JsonDocument` / `Utf8JsonWriter`，维持对象数组、`{"rows":[...]}` 包装、null、数值/布尔与 Base64 二进制兼容。新增 `StartupConfigJsonChecks` 与 `SshProfileStoreChecks` 覆盖旧格式、字段往返和 Secret 隔离。执行计划解析与 JSON 查看器改用 `JsonDocument`/`Utf8JsonWriter`，P0 在原生 EXE 中验证 PostgreSQL 计划节点解析和 JSON 树构建。AOT 配置固化 `AvaloniaUseCompiledBindingsByDefault=true`，避免 XAML 运行时反射绑定。发布时仍建议显式传入 `-p:UsedAvaloniaProducts=` 以跳过未使用的产品程序集分析；项目文件内空值属性不能覆盖 SDK 默认值，命令行显式空参数才有效。脚本库、任务历史、模板存储与模板导入导出信封改用源生成 JSON（`ScriptLibraryJsonContext`、`TaskHistoryJsonContext`、`TemplateJsonContext`），保留大小写不敏感、注释与尾逗号兼容；连接配置导出/预览/导入的深拷贝与加密信封改用 `ConnectionTransferPayloadContext` / `ConnectionTransferEnvelopeContext`，既有回归继续验证口令、SSH Secret、篡改检测与回滚；AI SQL 助手的请求体与响应解析改用 `Utf8JsonWriter` / `JsonDocument`。数据编辑路径的 `Dictionary<..., dynamic>` 与 `newValue` 改为 `object`（SQL Server / MySQL / Postgres / Oracle 及共享 `DataTableHelper`），PostgreBulkCopy 与 ANTLR 规则分析改用具体类型，脚本 token/语句提取器改用 `IEnumerable` 显式遍历；数据库属性窗口恢复编译绑定并补充 `x:DataType`，主窗口两处相对源绑定因编译期上下文无法静态解析而保留 `ReflectionBinding`。主窗口两处相对源绑定通过 `#RootWindow.ObjectsExplorer` 强类型包装属性和 `Style x:DataType` 改为编译绑定；结果快照、数据对照、执行计划和导入预览的只读动态列改用 `FuncDataTemplate` 直接读取索引值；冒烟工具窗口工厂改为显式无参构造，去掉 `Activator`/`GetConstructors`；定时任务连接克隆、外键元数据克隆和复制为 JSON 改用无反射实现。主查询结果网格改用 `DataGridTemplateColumn + FuncDataTemplate<QueryResultRow>`，`TextBox.LostFocus`/Enter 显式写回 `QueryResultRow.SetValue`，保留脏列与行状态标记，P0 断言结果列均为模板列。以统一口径（含 IL2104/IL3000 等）统计：全量 AOT 告警从 96 条降至 58 条、32 条，再降至 19 条，原生 P0/P2 均通过。后续批次将 `SchemaInfoHelper`/`ObjectHelper` 大对象深拷贝、`SettingManager`/`ScriptRunner` 配置与分析器读取、`SqlServerInterpreter` 数组写值、表设计器属性复制改为源生成 JSON 或无反射显式映射；查询结果也改为按 `IDataReader` 显式建列填行，移除 `DataTable.Load` 的动态代码告警。AOT 构建通过 `DATABASE_MANAGER_AOT` 条件化移除尚未验收的 DuckDB、达梦、KingbaseES/Kdbndp、ODBC 驱动以及 Avalonia 侧未启用的 MiniProfiler，相关路径在原生预览中给出明确不支持提示；普通构建仍保留这些依赖。剩余告警均为第三方程序集级汇总（Oracle / SqlClient / Microsoft.SqlServer.Types / Dapper / CompareNETObjects / MiniExcel / Avalonia DataGrid / System.Configuration.ConfigurationManager）及 Oracle 的 `Assembly.Location` 使用，按真实数据库路径另行评估，不机械抑制。
 
-AOT 发布仍有裁剪和运行时代码生成诊断。其他表结构变更、文件格式边界、其他数据库及认证方式仍待单独验收。
+共享查询映射已移除 Dapper，按当前结果集的列名和列序号构建映射。诊断结果表格使用显式列和编译绑定。原生发布仍报告 Oracle、SqlClient、CompareNETObjects、MiniExcel、Avalonia DataGrid 等依赖中的裁剪和动态代码诊断。其他表结构变更、文件格式边界和认证方式仍待单独验收。
+
+2026-11-22，使用 .NET SDK 10.0.404 和 ILCompiler 10.0.15 发布 Windows x64 原生 ZIP，从解压目录运行的 P0/P2 均通过。发布日志保留 17 条第三方 IL 告警。常规 Release 构建和控制台回归通过，并复验了 Windows x64 独立还原、错误 RID 拒绝和模板缺失时的冒烟失败退出。
 
 ## 实施顺序
 

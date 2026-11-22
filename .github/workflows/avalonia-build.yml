@@ -32,3 +32,16 @@ jobs:
           dotnet run --project DatabaseManager.AppCore.RegressionTests --no-build --configuration Release
       - name: Test
         run: dotnet test DatabaseManager.Avalonia.sln --no-restore --configuration Release --no-build
+  windows-aot:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore Native AOT dependencies
+        run: dotnet restore DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= -warnaserror:NU1903,NU1904
+      - name: Publish Windows x64 Native AOT preview
+        run: dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj --no-restore -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= -warnaserror:NU1903,NU1904 -o artifacts/aot
+      - name: Verify native executable
+        run: .github/scripts/Test-NativeAot.ps1 artifacts/aot

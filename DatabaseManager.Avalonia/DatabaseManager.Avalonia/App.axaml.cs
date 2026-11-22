@@ -66,6 +66,12 @@ public partial class App : Application
         catch (Exception ex)
         {
             AppExceptionHandler.Report(ex, "应用初始化", showDialog: false);
+            if (Program.SmokeRequested)
+            {
+                FailSmoke(desktop, ex);
+                return;
+            }
+
             desktop.MainWindow = CreateStartupErrorWindow(ex);
         }
 
@@ -80,14 +86,27 @@ public partial class App : Application
             }
             catch (Exception ex)
             {
-                if (Program.SmokeArgs.Any(a => a is "--p0" or "--p2")) Environment.ExitCode = 1;
-                try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{ex}\n"); } catch { }
+                Environment.ExitCode = 1;
+                LogSmokeFailure(ex);
             }
             finally
             {
                 try { desktop.Shutdown(Environment.ExitCode); } catch { /* ignore */ }
             }
         }
+    }
+
+    private static void FailSmoke(IClassicDesktopStyleApplicationLifetime desktop, Exception exception)
+    {
+        Environment.ExitCode = 1;
+        LogSmokeFailure(exception);
+        // 初始化可能在 Avalonia 进入桌面事件循环前失败。
+        global::Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown(Environment.ExitCode));
+    }
+
+    private static void LogSmokeFailure(Exception exception)
+    {
+        try { System.IO.File.AppendAllText(DatabaseManager.Avalonia.Smoke.SmokeHarness.LogFile, $"[smoke] 失败：{exception}\n"); } catch { }
     }
 
     private static global::Avalonia.Controls.Window CreateStartupErrorWindow(Exception exception)

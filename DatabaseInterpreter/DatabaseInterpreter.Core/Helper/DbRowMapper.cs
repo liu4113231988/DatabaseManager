@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -19,8 +18,6 @@ namespace DatabaseInterpreter.Core
     /// </summary>
     public static class DbRowMapper
     {
-        private static readonly ConcurrentDictionary<string, MapEntry[]> Plans = new ConcurrentDictionary<string, MapEntry[]>();
-
         private static readonly object Unassigned = new object();
 
         /// <summary>构造参数列表，便于在调用处内联传参。</summary>
@@ -45,7 +42,7 @@ namespace DatabaseInterpreter.Core
 
                 using (DbDataReader reader = await command.ExecuteReaderAsync())
                 {
-                    MapEntry[] plan = GetPlan<T>(reader);
+                    MapEntry[] plan = BuildPlan(typeof(T), reader);
 
                     while (await reader.ReadAsync())
                     {
@@ -88,33 +85,31 @@ namespace DatabaseInterpreter.Core
         public static async Task<T> ReadFirstValueAsync<T>(DbConnection connection, string sql,
             Func<DbConnection, Task> openConnection = null, IList<(string Name, object Value)> parameters = null)
         {
-            List<T> values = await ReadColumnValuesAsync<T>(connection, sql, openConnection, parameters);
-
-            return values.Count == 0 ? default : values[0];
+            object value = await ReadScalarAsync(connection, sql, openConnection, parameters);
+            return value == null ? default : (T)ConvertValue(value, typeof(T));
         }
 
         /// <summary>读取首行首列的原始值，无结果行时返回 null。</summary>
         public static async Task<object> ReadScalarAsync(DbConnection connection, string sql,
             Func<DbConnection, Task> openConnection = null, IList<(string Name, object Value)> parameters = null)
         {
-            List<object> values = await ReadColumnValuesAsync<object>(connection, sql, openConnection, parameters);
+            if (string.IsNullOrEmpty(sql))
+            {
+                return null;
+            }
 
-            return values.Count == 0 ? null : values[0];
+            using (DbCommand command = CreateCommand(connection, sql, parameters))
+            {
+                await EnsureOpenAsync(connection, openConnection);
+                object value = await command.ExecuteScalarAsync();
+                return value is DBNull ? null : value;
+            }
         }
 
         /// <summary>执行标量查询并转换为指定类型，无结果行或 DBNull 时返回默认值。</summary>
-        public static async Task<T> ExecuteScalarAsync<T>(DbConnection connection, string sql,
+        public static Task<T> ExecuteScalarAsync<T>(DbConnection connection, string sql,
             Func<DbConnection, Task> openConnection = null, IList<(string Name, object Value)> parameters = null)
-        {
-            object value = await ReadScalarAsync(connection, sql, openConnection, parameters);
-
-            if (value == null)
-            {
-                return default;
-            }
-
-            return (T)ConvertValue(value, typeof(T));
-        }
+            => ReadFirstValueAsync<T>(connection, sql, openConnection, parameters);
 
         /// <summary>执行非查询命令（替代 Dapper 的 <c>ExecuteAsync</c>）。</summary>
         public static async Task<int> ExecuteNonQueryAsync(DbConnection connection, string sql,
@@ -202,32 +197,18 @@ namespace DatabaseInterpreter.Core
             return (T)ConvertValue(value, typeof(T));
         }
 
-        private static MapEntry[] GetPlan<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] T>(DbDataReader reader)
-        {
-            string[] columnNames = new string[reader.FieldCount];
-
-            for (int i = 0; i < columnNames.Length; i++)
-            {
-                columnNames[i] = reader.GetName(i);
-            }
-
-            string key = typeof(T).FullName + "|" + string.Join(";", columnNames);
-
-            return Plans.GetOrAdd(key, _ => BuildPlan(typeof(T), columnNames));
-        }
-
-        private static MapEntry[] BuildPlan([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, string[] columnNames)
+        private static MapEntry[] BuildPlan([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties)] Type type, DbDataReader reader)
         {
             PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .Where(item => item.CanWrite && item.GetIndexParameters().Length == 0 && IsMappable(item.PropertyType))
                 .ToArray();
 
-            var entries = new List<MapEntry>(columnNames.Length);
+            var entries = new List<MapEntry>(reader.FieldCount);
             var mappedProperties = new HashSet<PropertyInfo>();
 
-            foreach (string columnName in columnNames)
+            for (int ordinal = 0; ordinal < reader.FieldCount; ordinal++)
             {
-                string name = (columnName ?? string.Empty).Trim();
+                string name = reader.GetName(ordinal).Trim();
 
                 PropertyInfo property = properties.FirstOrDefault(item => item.Name == name)
                     ?? properties.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
@@ -237,7 +218,7 @@ namespace DatabaseInterpreter.Core
                     continue;
                 }
 
-                entries.Add(new MapEntry(property, Array.IndexOf(columnNames, columnName)));
+                entries.Add(new MapEntry(property, ordinal));
             }
 
             return entries.ToArray();

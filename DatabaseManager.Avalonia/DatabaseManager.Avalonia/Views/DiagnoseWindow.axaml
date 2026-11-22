@@ -67,12 +67,22 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="检出异常对象（记录数 / 定位 SQL）" FontWeight="Bold" Margin="2,0,0,4" />
                     <Border BorderBrush="{DynamicResource AppDividerBrush}" BorderThickness="1">
-                        <DataGrid ItemsSource="{Binding TableResults}" AutoGenerateColumns="True"
+                        <DataGrid ItemsSource="{Binding TableResults}" AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   GridLinesVisibility="All"
                                   HeadersVisibility="Column"
                                   ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="类型" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding ObjectType}" />
+                                <DataGridTextColumn Header="架构" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding Schema}" />
+                                <DataGridTextColumn Header="表名" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding TableName}" />
+                                <DataGridTextColumn Header="对象名" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding ObjectName}" />
+                                <DataGridTextColumn Header="异常记录数" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding RecordCount}" />
+                                <DataGridTextColumn Header="定位 SQL" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding Sql}" />
+                                <DataGridTextColumn Header="完整对象名" x:DataType="models:TableDiagnoseResultItem" Binding="{CompiledBinding DisplayName}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
                     </Border>
                 </DockPanel>
             </TabItem>

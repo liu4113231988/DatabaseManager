@@ -11,6 +11,7 @@ using DatabaseManager.AppCore.ViewModels;
 using DatabaseManager.Avalonia.Views;
 using DatabaseManager.Avalonia.Views.Workbench;
 using Microsoft.Extensions.DependencyInjection;
+using SchemaCompareDifferenceType = DatabaseManager.Core.Model.SchemaCompareDifferenceType;
 
 namespace DatabaseManager.Avalonia.Smoke;
 
@@ -28,6 +29,7 @@ public static class P2SmokeHarness
             var created = await query.ExecuteStandaloneAsync(item, "CREATE TABLE sample(id INTEGER PRIMARY KEY, phone TEXT, amount INTEGER); INSERT INTO sample VALUES(1,'13812345678',12),(2,'13912345678',25);");
             if (!created.IsSuccess) throw new Exception(created.ErrorMessage);
             await VerifyDateFunctionConversionAsync(item, query);
+            await VerifySchemaCompareAsync(item, query, folder);
             var source = await query.ExecuteStandaloneAsync(item, "SELECT * FROM sample");
             var services = new ServiceCollection().AddSingleton<IDbConnectionService>(connections).AddSingleton<IExportImportService>(new DefaultExportImportService(connections)).AddSingleton<IDataEditService>(new DefaultDataEditService(connections)).BuildServiceProvider();
             string sent = "";
@@ -104,6 +106,42 @@ public static class P2SmokeHarness
         {
             await Task.Delay(150); using var bitmap = new RenderTargetBitmap(new global::Avalonia.PixelSize((int)window.Bounds.Width, (int)window.Bounds.Height), new global::Avalonia.Vector(96, 96)); bitmap.Render(window); bitmap.Save(Path.Combine(output, name + ".png"), new PngBitmapEncoderOptions());
         }
+    }
+
+    private static async Task VerifySchemaCompareAsync(ConnectionItem source, IQueryService query, string folder)
+    {
+        var target = new ConnectionItem
+        {
+            Name = "P2 schema comparison target",
+            DatabaseType = source.DatabaseType,
+            Database = Path.Combine(folder, "schema-target.db"),
+        };
+        File.WriteAllBytes(target.Database, []);
+
+        var created = await query.ExecuteStandaloneAsync(target,
+            "CREATE TABLE sample(id INTEGER PRIMARY KEY, phone TEXT, amount INTEGER);");
+        if (!created.IsSuccess) throw new InvalidOperationException(created.ErrorMessage);
+
+        var comparer = new DefaultCompareService();
+        var equal = await comparer.CompareSchemaAsync(source, target, DatabaseObjectType.Table);
+        if (equal.ErrorMessage is not null || equal.HasDifferences)
+            throw new InvalidOperationException(equal.ErrorMessage ?? "Identical SQLite schemas reported differences.");
+
+        foreach (var (connection, indexSql) in new[]
+        {
+            (source, "CREATE INDEX idx_sample ON sample(phone);"),
+            (target, "CREATE INDEX idx_sample ON sample(phone, amount);")
+        })
+        {
+            var result = await query.ExecuteStandaloneAsync(connection, indexSql);
+            if (!result.IsSuccess) throw new InvalidOperationException(result.ErrorMessage);
+        }
+
+        var changed = await comparer.CompareSchemaAsync(source, target, DatabaseObjectType.Table);
+        if (changed.ErrorMessage is not null || !changed.HasDifferences
+            || !changed.Differences.SelectMany(d => d.SubDifferences).Any(d => d.DatabaseObjectType == DatabaseObjectType.Index
+                && d.DifferenceType == SchemaCompareDifferenceType.Modified))
+            throw new InvalidOperationException(changed.ErrorMessage ?? "SQLite index column differences were missed.");
     }
 
     private static async Task VerifyDateFunctionConversionAsync(ConnectionItem item, IQueryService query)

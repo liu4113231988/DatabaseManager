@@ -57,6 +57,11 @@ internal static class DbRowMapperChecks
                 Check(!columns[0].IsIdentity && !columns[1].IsIdentity, "无对应结果列的属性必须保持默认值。");
                 Check(columns[0].IsRequired && !columns[1].IsRequired, "只读计算属性必须由依赖属性推导而非结果列写入。");
 
+                await DbRowMapper.ReadObjectsAsync<TableColumn>(connection, """SELECT 1 AS "ignored;Name", 'old' AS "Schema" """);
+                var differentShape = (await DbRowMapper.ReadObjectsAsync<TableColumn>(connection,
+                    """SELECT 1 AS "ignored", 'new' AS "Name", 'main' AS "Schema" """)).Single();
+                Check(differentShape.Name == "new" && differentShape.Schema == "main", "包含分号的列别名不能影响其他查询的列映射。");
+
                 // 数值来源可以映射到 string 属性（Oracle / MySQL 的百分比统计列）。
                 var fragments = await DbRowMapper.ReadObjectsAsync<IndexFragmentation>(connection,
                     """SELECT 12.5 AS "FragmentationPercent", 'dbo' AS "Schema", 'mapped' AS "TableName", 'ix' AS "IndexName" FROM mapped WHERE "Name"='child'""");
@@ -95,6 +100,9 @@ internal static class DbRowMapperChecks
 
                 Check(await DbRowMapper.ReadFirstValueAsync<string>(connection, """SELECT "DefaultValue" FROM mapped WHERE "Name"='child'""") == null,
                     "DBNull 的首列值必须读取为 null。");
+
+                Check(await DbRowMapper.ReadFirstValueAsync<int>(connection, "SELECT 1 UNION ALL SELECT 'ignored'") == 1,
+                    "读取首值时不能转换后续行。");
 
                 Check(await DbRowMapper.ExecuteScalarAsync<long?>(connection, """SELECT MAX("Order") FROM mapped WHERE "Name"='missing'""") == null,
                     "无结果行的标量查询必须返回默认值而非抛异常。");

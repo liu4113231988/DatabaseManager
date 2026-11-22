@@ -8,7 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\database-manager.ico</ApplicationIcon>
     <AssemblyName>DatabaseManager</AssemblyName>
-    <Version>1.1.6</Version>
+    <Version>1.1.7</Version>
     <RootNamespace>DatabaseManager.Avalonia</RootNamespace>
     <!-- 仅保留 win-x64 与 linux-x64 运行时，避免发布包携带大量其他平台原生依赖 -->
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
@@ -24,6 +24,8 @@
 
   <PropertyGroup Condition="'$(DatabaseManagerNativeAot)' == 'true'">
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
     <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
     <!-- AOT 下避免 Avalonia 运行时反射 Binding；P0/P2 原生冒烟已验证所有首页/工具窗口。 -->
@@ -32,7 +34,7 @@
 
   <Target Name="ValidateDatabaseManagerNativeAot" BeforeTargets="ProcessFrameworkReferences;PrepareForBuild"
           Condition="'$(DatabaseManagerNativeAot)' == 'true'">
-    <Error Condition="'$(OS)' != 'Windows_NT' or '$(RuntimeIdentifier)' != 'win-x64'"
+    <Error Condition="'$(OS)' != 'Windows_NT' or '$(RuntimeIdentifier)' != 'win-x64' or '$(RuntimeIdentifiers)' != 'win-x64'"
            Text="DatabaseManager Native AOT requires Windows and the win-x64 runtime identifier." />
   </Target>
 

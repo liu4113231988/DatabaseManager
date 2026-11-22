@@ -23,10 +23,14 @@ jobs:
       - name: Publish Windows x64 Native AOT preview
         shell: pwsh
         run: |
-          dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= -o artifacts/aot
+          dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= -warnaserror:NU1903,NU1904 -o artifacts/aot
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (!(Test-Path artifacts/aot/DatabaseManager.exe) -or (Test-Path artifacts/aot/coreclr.dll) -or (Test-Path artifacts/aot/Profiles)) { throw 'Unexpected Native AOT package contents' }
           Compress-Archive -Path artifacts/aot/* -DestinationPath "artifacts/DatabaseManager-$env:GITHUB_REF_NAME-win-x64-aot.zip"
+      - name: Verify native release archive
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath "artifacts/DatabaseManager-$env:GITHUB_REF_NAME-win-x64-aot.zip" -DestinationPath artifacts/aot-verify
+          .github/scripts/Test-NativeAot.ps1 artifacts/aot-verify
       - uses: actions/upload-artifact@v4
         with:
           name: windows-aot

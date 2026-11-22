@@ -67,7 +67,7 @@ public sealed class SchemaCompareContext
     /// <summary>差异树根节点（UI 展示用）。</summary>
     public IReadOnlyList<SchemaCompareItem> Roots { get; init; } = Array.Empty<SchemaCompareItem>();
 
-    public bool HasDifferences => Roots.Count > 0;
+    public bool HasDifferences => Differences.Any(d => d.DifferenceType != SchemaCompareDifferenceType.None);
 }
 
 /// <summary>脚本执行结果。</summary>

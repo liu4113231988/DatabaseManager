@@ -28,6 +28,18 @@ public static class P0SmokeHarness
         {
             File.WriteAllBytes(item.Database, []);
             await VerifySqlServerLoginMetadataAsync();
+            var diagnose = new DiagnoseViewModel(connections, new DefaultDiagnoseService());
+            var diagnoseWindow = new DiagnoseWindow(diagnose);
+            await Capture(diagnoseWindow, "diagnose-table",
+                () => diagnose.TableResults.Add(new TableDiagnoseResultItem("列", "main", "sample", "title", 7, "SELECT title FROM sample")),
+                () =>
+                {
+                    var grid = diagnoseWindow.GetVisualDescendants().OfType<DataGrid>().Single();
+                    var cells = grid.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
+                    if (grid.Columns.Count != 7 || !cells.Contains("main.sample.title") || !cells.Contains("7"))
+                        throw new InvalidOperationException("Diagnosis result columns did not render their bound values.");
+                    return Task.CompletedTask;
+                });
             await SqlCompletionSmokeChecks.RunAsync(output);
             var templateVm = new TemplateManagerViewModel(new DatabaseManager.AppCore.Templating.DefaultTemplateStore(), new DatabaseManager.AppCore.Templating.TemplateEngine());
             await Capture(new TemplateManagerWindow(templateVm), "sql-template-manager", null, async () =>
