@@ -35,7 +35,9 @@ public class NodeIconConverter : IValueConverter
     {
         if (node.NodeType is DbObjectTreeNodeType.Connection or DbObjectTreeNodeType.Database) return "database";
         if (node.NodeType == DbObjectTreeNodeType.Schema) return "schema";
-        if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder)
+        if (node.NodeType == DbObjectTreeNodeType.Principal)
+            return node.PrincipalKind == DbPrincipalKind.Role ? "key" : "user";
+        if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder or DbObjectTreeNodeType.PrincipalFolder)
         {
             return node.Name switch
             {
@@ -64,6 +66,7 @@ public class NodeIconConverter : IValueConverter
             DatabaseObjectType.PrimaryKey or DatabaseObjectType.ForeignKey => "key",
             DatabaseObjectType.Constraint => "constraint",
             DatabaseObjectType.Trigger => "trigger",
+            DatabaseObjectType.Function when node.DbObject is Function { IsTriggerFunction: true } => "trigger-function",
             DatabaseObjectType.Procedure or DatabaseObjectType.Function => "code",
             DatabaseObjectType.Sequence => "sequence",
             _ => "object",
@@ -109,6 +112,10 @@ public class NodeIconConverter : IValueConverter
             case "key":
                 Add("M6.5,8 A3,3 0 1 1 9.5,11 M8.8,10.2 L14,15.4 M11.5,12.9 L13,11.4 M13,14.4 L14.5,12.9", null, new Pen(amber, 1.4));
                 break;
+            case "user":
+                group.Children.Add(new GeometryDrawing { Geometry = new EllipseGeometry(new Rect(5.5, 2, 5, 5)), Brush = lightBlue, Pen = new Pen(primary, 1.1) });
+                Add("M2.8,13.8 C2.8,8 13.2,8 13.2,13.8 Z", lightBlue, new Pen(primary, 1.1));
+                break;
             case "index":
                 Add("M3,3 L13,3 L13,13 L3,13 Z M5,6 L11,6 M5,9 L9,9 M5,12 L10,12", null, new Pen(teal, 1.1));
                 break;
@@ -120,6 +127,10 @@ public class NodeIconConverter : IValueConverter
                 break;
             case "code":
                 Add("M6.5,4 L3,8 L6.5,12 M9.5,4 L13,8 L9.5,12", null, new Pen(violet, 1.35));
+                break;
+            case "trigger-function":
+                Add("M6.5,4 L3,8 L6.5,12 M9.5,4 L13,8 L9.5,12", null, new Pen(amber, 1.35));
+                Add("M11.8,2.2 L9.2,6.2 L10.9,6.2 L9.8,10.2 L13.2,5.4 L11.5,5.4 Z", folderFill, new Pen(amber, 0.9));
                 break;
             case "sequence":
                 Add("M4,5 L12,5 M9.5,2.5 L12,5 L9.5,7.5 M12,11 L4,11 M6.5,8.5 L4,11 L6.5,13.5", null, new Pen(teal, 1.2));

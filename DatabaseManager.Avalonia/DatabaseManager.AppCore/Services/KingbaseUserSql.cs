@@ -8,8 +8,8 @@ namespace DatabaseManager.AppCore.Services;
 public static class KingbaseUserSql
 {
     public static string BuildUsersSql(bool useSystemCatalog) => useSystemCatalog
-        ? "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '' FROM sys_catalog.sys_roles WHERE rolname NOT LIKE 'sys\\_%' ORDER BY rolname"
-        : "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '' FROM pg_catalog.pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY rolname";
+        ? "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '', CASE WHEN rolcanlogin THEN 'user' ELSE 'role' END FROM sys_catalog.sys_roles WHERE rolname NOT LIKE 'sys\\_%' ORDER BY rolname"
+        : "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '', CASE WHEN rolcanlogin THEN 'user' ELSE 'role' END FROM pg_catalog.pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY rolname";
 
     public static string BuildFallbackUsersSql() => BuildUsersSql(false);
 

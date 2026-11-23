@@ -12,7 +12,7 @@ public class NodeFontWeightConverter : IValueConverter
     {
         if (value is DbObjectTreeNodeType type)
         {
-            return type is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.Database or DbObjectTreeNodeType.Schema or DbObjectTreeNodeType.Connection
+            return type is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.PrincipalFolder or DbObjectTreeNodeType.Database or DbObjectTreeNodeType.Schema or DbObjectTreeNodeType.Connection
                 ? FontWeight.SemiBold
                 : FontWeight.Regular;
         }

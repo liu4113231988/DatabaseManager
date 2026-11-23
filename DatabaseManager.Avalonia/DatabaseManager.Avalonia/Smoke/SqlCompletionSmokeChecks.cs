@@ -191,6 +191,7 @@ internal static class SqlCompletionSmokeChecks
         public Task<IReadOnlyList<DbObjectTreeNode>> GetTableChildNodesAsync(string c, string db, DbObjectChildType kind, DatabaseObject table, bool view = false, CancellationToken ct = default)
         { Calls++; return Pending.Task; }
         public IReadOnlyList<string> GetSupportedDatabaseTypes() => new[] { "Postgres" };
+        public Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(string c, DbPrincipalKind kind, string? db, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetObjectTreeAsync(string c, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(string c, string db, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDbObjectNodesAsync(string c, string db, DatabaseObjectType type, string? schema = null, CancellationToken ct = default) => throw new NotSupportedException();

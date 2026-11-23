@@ -442,6 +442,7 @@
                                                     VerticalAlignment="Center"
                                                     ToolTip.Tip="连接颜色标签" />
                                             <TextBlock Text="{Binding Text}"
+                                                       ToolTip.Tip="{Binding Text}"
                                                        VerticalAlignment="Center"
                                                        Margin="0"
                                                        FontFamily="Segoe UI, Microsoft YaHei UI, sans-serif"

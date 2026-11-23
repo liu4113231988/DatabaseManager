@@ -703,6 +703,9 @@ public partial class MainWindow : Window
             case DbObjectTreeNodeType.Folder:
                 await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
                 break;
+            case DbObjectTreeNodeType.PrincipalFolder:
+                await vm.ObjectsExplorer.LoadPrincipalFolderAsync(node);
+                return;
             case DbObjectTreeNodeType.ChildFolder:
                 await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
@@ -790,6 +793,8 @@ public partial class MainWindow : Window
         window.Show(this);
     }
 
+    private UserManagementWindow? _userManagementWindow;
+
     /// <summary>打开用户与权限管理窗口。</summary>
     private void MenuUserManagement_Click(object? sender, RoutedEventArgs e)
     {
@@ -800,6 +805,45 @@ public partial class MainWindow : Window
             _services.GetRequiredService<IDbUserService>(),
             _services.GetRequiredService<IDbConnectionService>());
         window.Show(this);
+    }
+
+    /// <summary>从对象树的安全主体节点打开管理窗口，并按菜单动作预填上下文。</summary>
+    private async Task OpenUserManagementForNodeAsync(DbObjectTreeNode node, PrincipalManagementAction action)
+    {
+        if (_services is null)
+            return;
+
+        var connection = node.FindConnectionNode()?.Connection;
+        if (connection is null)
+            return;
+
+        if (_userManagementWindow is null || !_userManagementWindow.IsVisible)
+        {
+            _userManagementWindow = new UserManagementWindow(
+                _services.GetRequiredService<IDbUserService>(),
+                _services.GetRequiredService<IDbConnectionService>());
+            _userManagementWindow.Show(this);
+        }
+
+        var window = _userManagementWindow;
+        window.Activate();
+
+        if (action is PrincipalManagementAction.NewUser or PrincipalManagementAction.NewRole)
+        {
+            window.SetConnection(connection);
+            if (action == PrincipalManagementAction.NewUser)
+                window.PrepareCreateUser();
+            else
+                window.PrepareCreateRole();
+            return;
+        }
+
+        if (node.NodeType != DbObjectTreeNodeType.Principal)
+            return;
+
+        await window.SetContextAsync(connection, node.Name, action == PrincipalManagementAction.ShowGrants);
+        if (action == PrincipalManagementAction.Delete)
+            await window.RequestDeleteAsync();
     }
 
     /// <summary>打开查询性能剖析窗口（预填当前查询标签的连接与 SQL）。</summary>
@@ -2012,6 +2056,9 @@ public partial class MainWindow : Window
             case DbObjectTreeNodeType.Folder:
                 await vm.ObjectsExplorer.LoadFolderChildrenAsync(node, connectionName);
                 break;
+            case DbObjectTreeNodeType.PrincipalFolder:
+                await vm.ObjectsExplorer.LoadPrincipalFolderAsync(node);
+                break;
             case DbObjectTreeNodeType.ChildFolder:
                 await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
@@ -2273,7 +2320,8 @@ public partial class MainWindow : Window
             openConvert: n => AppExceptionHandler.Run(() => OpenConvertForNodeAsync(n), "打开数据库转换"),
             openBackup: (n, restore) => AppExceptionHandler.Run(() => OpenBackupForNodeAsync(n, restore), "打开备份/恢复"),
             openDatabaseProperties: n => AppExceptionHandler.Run(() => OpenDatabasePropertiesAsync(n), "查看数据库属性"),
-            requireDeleteNameConfirmation: () => _appSettings?.Settings.RequireDeleteNameConfirmation ?? true);
+            requireDeleteNameConfirmation: () => _appSettings?.Settings.RequireDeleteNameConfirmation ?? true,
+            openUserManagement: (n, action) => AppExceptionHandler.Run(() => OpenUserManagementForNodeAsync(n, action), "用户与角色管理"));
     }
 
     private async Task OpenBackupForNodeAsync(DbObjectTreeNode node, bool restore)

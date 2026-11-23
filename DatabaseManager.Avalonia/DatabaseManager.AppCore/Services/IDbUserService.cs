@@ -16,6 +16,9 @@ public class DbUserInfo
     public string Attributes { get; set; } = string.Empty;
 
     public string Created { get; set; } = string.Empty;
+
+    /// <summary>主体类别：user（可登录）/ role（不可登录）/ account（MySQL 账户与角色同表）。</summary>
+    public string Kind { get; set; } = "user";
 }
 
 /// <summary>
@@ -44,6 +47,24 @@ public interface IDbUserService
 
     /// <summary>生成授权的 SQL（方言模板）。</summary>
     string BuildGrantSql(string databaseType, string userName, string? host, string privilege, string onObject);
+
+    /// <summary>生成撤销授权的 SQL（方言模板）。</summary>
+    string BuildRevokeSql(string databaseType, string userName, string? host, string privilege, string onObject);
+
+    /// <summary>生成创建角色的 SQL（方言模板）。canLogin 仅对 PostgreSQL/KingbaseES 有效。</summary>
+    string BuildCreateRoleSql(string databaseType, string roleName, string? password, bool canLogin, string? host);
+
+    /// <summary>生成删除角色的 SQL（方言模板）。</summary>
+    string BuildDropRoleSql(string databaseType, string roleName, string? host);
+
+    /// <summary>生成把角色授予成员的 SQL（方言模板）。</summary>
+    string BuildGrantRoleSql(string databaseType, string roleName, string memberName, string? memberHost);
+
+    /// <summary>生成从成员撤销角色的 SQL（方言模板）。</summary>
+    string BuildRevokeRoleSql(string databaseType, string roleName, string memberName, string? memberHost);
+
+    /// <summary>生成修改密码的 SQL（方言模板）。</summary>
+    string BuildAlterPasswordSql(string databaseType, string userName, string? host, string newPassword);
 }
 
 /// <summary>按数据库类型组织的用户管理方言实现。</summary>
@@ -71,11 +92,11 @@ public class DefaultDbUserService : IDbUserService
 
         string sql = dbType switch
         {
-            DatabaseType.MySql => "SELECT `User`, `Host`, IFNULL(`authentication_string`,'') <> '' AS HasPassword, '' FROM mysql.user ORDER BY `User`",
-            DatabaseType.Postgres => "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '' FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY rolname",
+            DatabaseType.MySql => "SELECT `User`, `Host`, IFNULL(`authentication_string`,'') <> '' AS HasPassword, '', 'account' FROM mysql.user ORDER BY `User`",
+            DatabaseType.Postgres => "SELECT rolname, '', CASE WHEN rolsuper THEN 'superuser' WHEN rolcanlogin THEN 'login' ELSE 'nologin' END, '', CASE WHEN rolcanlogin THEN 'user' ELSE 'role' END FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY rolname",
             DatabaseType.KingbaseES => KingbaseUserSql.BuildUsersSql(useSystemCatalog: true),
-            DatabaseType.SqlServer => "SELECT name, '', ISNULL(type_desc,''), ISNULL(CONVERT(varchar(10), create_date, 120),'') FROM sys.server_principals WHERE type IN ('S','U') ORDER BY name",
-            DatabaseType.Oracle => "SELECT username, '', NVL(account_status,''), TO_CHAR(created,'YYYY-MM-DD') FROM all_users ORDER BY username",
+            DatabaseType.SqlServer => "SELECT name, '', ISNULL(type_desc,''), ISNULL(CONVERT(varchar(10), create_date, 120),''), 'user' FROM sys.server_principals WHERE type IN ('S','U') ORDER BY name",
+            DatabaseType.Oracle => "SELECT username, '', NVL(account_status,''), TO_CHAR(created,'YYYY-MM-DD'), 'user' FROM all_users ORDER BY username",
             _ => string.Empty,
         };
 
@@ -241,6 +262,108 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         };
     }
 
+    public string BuildRevokeSql(string databaseType, string userName, string? host, string privilege, string onObject)
+    {
+        var dbType = ParseDatabaseType(databaseType);
+        string priv = privilege.Trim().ToUpperInvariant();
+        if (priv is not ("SELECT" or "INSERT" or "UPDATE" or "DELETE" or "ALL PRIVILEGES")
+            || !TryBuildGrantTarget(dbType, onObject, out var target))
+        {
+            return string.Empty;
+        }
+
+        return dbType switch
+        {
+            DatabaseType.MySql => $"REVOKE {priv} ON {target} FROM '{EscapeSingleQuote(userName)}'@'{EscapeSingleQuote(host ?? "%")}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"REVOKE {priv} ON {target} FROM {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
+            DatabaseType.SqlServer => $"REVOKE {priv} ON {target} FROM {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
+            DatabaseType.Oracle => $"REVOKE {priv} ON {target} FROM {SqlDialectHelper.QuoteIdentifier(dbType, userName)};",
+            _ => string.Empty,
+        };
+    }
+
+    public string BuildCreateRoleSql(string databaseType, string roleName, string? password, bool canLogin, string? host)
+    {
+        var dbType = ParseDatabaseType(databaseType);
+        string role = EscapeSingleQuote(roleName);
+        string quoted = SqlDialectHelper.QuoteIdentifier(dbType, roleName);
+        string pwd = EscapeSingleQuote(password ?? string.Empty);
+
+        return dbType switch
+        {
+            DatabaseType.MySql => $"CREATE ROLE '{role}'@'{EscapeSingleQuote(host ?? "%")}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES =>
+                $"CREATE ROLE {quoted}{(canLogin ? " LOGIN" : string.Empty)}{(pwd.Length > 0 ? $" PASSWORD '{pwd}'" : string.Empty)};",
+            DatabaseType.SqlServer => $"CREATE ROLE [{roleName.Replace("]", "]]")}];",
+            DatabaseType.Oracle => $"CREATE ROLE {quoted};",
+            _ => string.Empty,
+        };
+    }
+
+    public string BuildDropRoleSql(string databaseType, string roleName, string? host)
+    {
+        var dbType = ParseDatabaseType(databaseType);
+        string role = EscapeSingleQuote(roleName);
+        string quoted = SqlDialectHelper.QuoteIdentifier(dbType, roleName);
+
+        return dbType switch
+        {
+            DatabaseType.MySql => $"DROP ROLE '{role}'@'{EscapeSingleQuote(host ?? "%")}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"DROP ROLE {quoted};",
+            DatabaseType.SqlServer => $"DROP ROLE [{roleName.Replace("]", "]]")}];",
+            DatabaseType.Oracle => $"DROP ROLE {quoted};",
+            _ => string.Empty,
+        };
+    }
+
+    public string BuildGrantRoleSql(string databaseType, string roleName, string memberName, string? memberHost)
+        => BuildRoleMembershipSql(ParseDatabaseType(databaseType), roleName, memberName, memberHost, grant: true);
+
+    public string BuildRevokeRoleSql(string databaseType, string roleName, string memberName, string? memberHost)
+        => BuildRoleMembershipSql(ParseDatabaseType(databaseType), roleName, memberName, memberHost, grant: false);
+
+    private static string BuildRoleMembershipSql(DatabaseType dbType, string roleName, string memberName, string? memberHost, bool grant)
+    {
+        string role = EscapeSingleQuote(roleName);
+        string member = EscapeSingleQuote(memberName);
+        string quotedRole = SqlDialectHelper.QuoteIdentifier(dbType, roleName);
+        string quotedMember = SqlDialectHelper.QuoteIdentifier(dbType, memberName);
+
+        return dbType switch
+        {
+            DatabaseType.MySql => grant
+                ? $"GRANT '{role}'@'%' TO '{member}'@'{EscapeSingleQuote(memberHost ?? "%")}';"
+                : $"REVOKE '{role}'@'%' FROM '{member}'@'{EscapeSingleQuote(memberHost ?? "%")}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => grant
+                ? $"GRANT {quotedRole} TO {quotedMember};"
+                : $"REVOKE {quotedRole} FROM {quotedMember};",
+            DatabaseType.SqlServer => grant
+                ? $"ALTER ROLE [{roleName.Replace("]", "]]")}] ADD MEMBER [{memberName.Replace("]", "]]")}];"
+                : $"ALTER ROLE [{roleName.Replace("]", "]]")}] DROP MEMBER [{memberName.Replace("]", "]]")}];",
+            DatabaseType.Oracle => grant
+                ? $"GRANT {quotedRole} TO {quotedMember};"
+                : $"REVOKE {quotedRole} FROM {quotedMember};",
+            _ => string.Empty,
+        };
+    }
+
+    public string BuildAlterPasswordSql(string databaseType, string userName, string? host, string newPassword)
+    {
+        var dbType = ParseDatabaseType(databaseType);
+        string user = EscapeSingleQuote(userName);
+        string pwd = EscapeSingleQuote(newPassword);
+        string quoted = SqlDialectHelper.QuoteIdentifier(dbType, userName);
+
+        return dbType switch
+        {
+            DatabaseType.MySql => $"ALTER USER '{user}'@'{EscapeSingleQuote(host ?? "%")}' IDENTIFIED BY '{pwd}';",
+            DatabaseType.Postgres or DatabaseType.KingbaseES => $"ALTER USER {quoted} WITH PASSWORD '{pwd}';",
+            DatabaseType.SqlServer => $"ALTER LOGIN [{userName.Replace("]", "]]")}] WITH PASSWORD = '{pwd}';",
+            DatabaseType.Oracle => $"ALTER USER {quoted} IDENTIFIED BY \"{pwd}\";",
+            _ => string.Empty,
+        };
+    }
+
     private static bool TryBuildGrantTarget(DatabaseType dbType, string? onObject, out string target)
     {
         target = string.Empty;
@@ -288,15 +411,18 @@ FROM sys.server_role_members WHERE USER_NAME(member_principal_id) = '{EscapeSing
         Host = r[1] ?? string.Empty,
         Attributes = r[2] ?? string.Empty,
         Created = r[3] ?? string.Empty,
+        Kind = r.Length > 4 && !string.IsNullOrEmpty(r[4]) ? r[4]! : "user",
     }).ToList();
 
     private static string EscapeSingleQuote(string value) => value?.Replace("'", "''") ?? string.Empty;
 
-    private static async Task<List<string?[]>> ExecuteReaderAsync(ConnectionItem connection, string sql, CancellationToken ct)
+    private static Task<List<string?[]>> ExecuteReaderAsync(ConnectionItem connection, string sql, CancellationToken ct)
+        => ExecuteReaderAsync(CreateInterpreter(connection), sql, ct);
+
+    internal static async Task<List<string?[]>> ExecuteReaderAsync(DbInterpreter interpreter, string sql, CancellationToken ct)
     {
         var rows = new List<string?[]>();
 
-        var interpreter = CreateInterpreter(connection);
         await using var conn = interpreter.CreateConnection();
         await conn.OpenAsync(ct);
 

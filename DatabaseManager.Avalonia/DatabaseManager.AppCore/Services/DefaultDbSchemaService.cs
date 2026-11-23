@@ -30,7 +30,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
-        var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
+        var interpreter = CreateCatalogInterpreter(connection);
 
         List<Database> databases;
         List<DatabaseSchema>[] schemaLists;
@@ -92,7 +92,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             }
             else
             {
-                AddDatabaseChildren(dbNode, interpreter, schemas);
+                AddDatabaseChildren(dbNode, connection, interpreter, schemas);
             }
 
             result.Add(dbNode);
@@ -121,8 +121,33 @@ public class DefaultDbSchemaService : IDbSchemaService
             NodeType = DbObjectTreeNodeType.Database,
             DatabaseName = databaseName,
         };
-        AddDatabaseChildren(databaseNode, interpreter, schemas);
+        AddDatabaseChildren(databaseNode, connection, interpreter, schemas);
         return databaseNode.Children.ToList();
+    }
+
+    public async Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(
+        string connectionName, DbPrincipalKind kind, string? databaseName, CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null || !DbPrincipalCatalog.CreateFolders(connection, databaseName).Any(folder => folder.PrincipalKind == kind))
+            throw new InvalidOperationException("该连接上的安全主体目录不可用。");
+
+        var interpreter = CreateInterpreter(connection, databaseName);
+        var dbType = interpreter.DatabaseType;
+        var sql = DbPrincipalCatalog.GetSql(dbType, kind, databaseName is not null);
+        List<string?[]> rows;
+        try
+        {
+            rows = await DefaultDbUserService.ExecuteReaderAsync(interpreter, sql, cancellationToken);
+        }
+        catch (System.Data.Common.DbException) when (dbType == DatabaseType.KingbaseES && !cancellationToken.IsCancellationRequested)
+        {
+            var fallback = DbPrincipalCatalog.GetSql(dbType, kind, databaseName is not null, kingbaseFallback: true);
+            rows = await DefaultDbUserService.ExecuteReaderAsync(interpreter, fallback, cancellationToken);
+        }
+
+        return rows.Select(row => DbPrincipalCatalog.CreatePrincipalNode(
+            row[0] ?? string.Empty, kind == DbPrincipalKind.Account ? row[1] : null, databaseName, kind)).ToArray();
     }
 
     public async Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
@@ -204,6 +229,10 @@ public class DefaultDbSchemaService : IDbSchemaService
             case DatabaseObjectType.Type:
                 var types = await interpreter.GetUserDefinedTypesAsync(filter).WaitAsync(cancellationToken);
                 nodes.AddRange(types.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
+                break;
+            case DatabaseObjectType.Trigger:
+                var triggers = await interpreter.GetTableTriggersAsync(filter).WaitAsync(cancellationToken);
+                nodes.AddRange(triggers.OrderBy(t => t.Name).Select(t => ToNode(t, databaseName, schema)));
                 break;
         }
 
@@ -436,7 +465,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         try
         {
-            var interpreter = CreateInterpreter(connection, useConnectionDatabase: false);
+            var interpreter = CreateCatalogInterpreter(connection);
             var databases = await interpreter.GetDatabasesAsync();
             names.AddRange(databases.Select(d => d.Name).Where(n => !string.IsNullOrEmpty(n)));
         }
@@ -534,10 +563,14 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         if (supported.HasFlag(DatabaseObjectType.Sequence))
             AddFolder(parent, "Sequences", DatabaseObjectType.Sequence, databaseName, schema);
+
+        // 各解释器均实现了 GetTableTriggersAsync；DuckDB 无触发器，其余数据库统一提供全局目录。
+        if (interpreter.DatabaseType != DatabaseType.DuckDB)
+            AddFolder(parent, "Triggers", DatabaseObjectType.Trigger, databaseName, schema);
     }
 
     /// <summary>按 Schema 数量构造数据库子节点：多 Schema 时分组，其他情况直接放置类型文件夹。</summary>
-    private void AddDatabaseChildren(DbObjectTreeNode databaseNode, DbInterpreter interpreter, IReadOnlyList<DatabaseSchema> schemas)
+    private void AddDatabaseChildren(DbObjectTreeNode databaseNode, ConnectionItem connection, DbInterpreter interpreter, IReadOnlyList<DatabaseSchema> schemas)
     {
         if (schemas.Count > 1)
         {
@@ -556,13 +589,16 @@ public class DefaultDbSchemaService : IDbSchemaService
                 AddTypeFolders(schemaNode, interpreter, databaseNode.Name, schema.Name);
                 databaseNode.AddChild(schemaNode);
             }
-
-            return;
+        }
+        else
+        {
+            // 单 Schema：传入过滤条件，避免查询混入其他 Schema 的对象；MySQL/SQLite 无 Schema 时为 null。
+            string? singleSchema = schemas.Count == 1 ? schemas[0].Name : null;
+            AddTypeFolders(databaseNode, interpreter, databaseNode.Name, singleSchema);
         }
 
-        // 单 Schema：传入过滤条件，避免查询混入其他 Schema 的对象；MySQL/SQLite 无 Schema 时为 null。
-        string? singleSchema = schemas.Count == 1 ? schemas[0].Name : null;
-        AddTypeFolders(databaseNode, interpreter, databaseNode.Name, singleSchema);
+        foreach (var folder in DbPrincipalCatalog.CreateFolders(connection, databaseNode.Name))
+            databaseNode.AddChild(folder);
     }
 
     /// <summary>为按需加载的数据库预置占位节点，以显示展开箭头。</summary>
@@ -810,6 +846,10 @@ public class DefaultDbSchemaService : IDbSchemaService
         return sb.ToString();
     }
 
+    private DbInterpreter CreateCatalogInterpreter(ConnectionItem connection)
+        // PG 系驱动在未指定数据库时尝试连接同名用户数据库。
+        => CreateInterpreter(connection, useConnectionDatabase: ParseDatabaseType(connection.DatabaseType) is DatabaseType.Postgres or DatabaseType.KingbaseES);
+
     private DbInterpreter CreateInterpreter(ConnectionItem connection, string? databaseOverride = null, bool useConnectionDatabase = true)
     {
         var dbType = ParseDatabaseType(connection.DatabaseType);
@@ -841,6 +881,7 @@ public class DefaultDbSchemaService : IDbSchemaService
             Function => DatabaseObjectType.Function,
             Sequence => DatabaseObjectType.Sequence,
             UserDefinedType => DatabaseObjectType.Type,
+            TableTrigger => DatabaseObjectType.Trigger,
             _ => DatabaseObjectType.None,
         };
 

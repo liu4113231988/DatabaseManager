@@ -90,10 +90,19 @@ public static class P0SmokeHarness
                 serverQuery.NotifyConnected(server.Name);
                 foreach (var name in new[] { "app_db", "report_db" })
                     node.Children.Add(new DbObjectTreeNode { Name = name, NodeType = DbObjectTreeNodeType.Database });
+                var roles = new DbObjectTreeNode { Name = "不可登录角色", Text = "不可登录角色", NodeType = DbObjectTreeNodeType.PrincipalFolder, PrincipalKind = DbPrincipalKind.Role };
+                roles.AddChild(new DbObjectTreeNode { Name = "report_reader", Text = "report_reader", NodeType = DbObjectTreeNodeType.Principal, PrincipalKind = DbPrincipalKind.Role });
+                roles.IsLoaded = true;
+                roles.IsExpanded = true;
+                node.AddChild(roles);
+                node.IsConnectionActive = true;
+                node.IsExpanded = true;
                 var queryTab = mainVm.OpenSqlInNewTab(server.Name, "SELECT current_database();", server.Database);
                 if (queryTab.AvailableDatabases.Count != 2) throw new InvalidOperationException("Database selector fixture failed.");
             }, async () =>
             {
+                if (!databaseWindow.GetVisualDescendants().OfType<TextBlock>().Any(t => t.IsEffectivelyVisible && t.Text == "report_reader"))
+                    throw new InvalidOperationException("The object tree must render a visible role node.");
                 var queryTab = mainVm.SelectedQueryTab!;
                 var selector = databaseWindow.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.ComboBox>()
                     .Single(c => ReferenceEquals(c.ItemsSource, queryTab.AvailableDatabases));

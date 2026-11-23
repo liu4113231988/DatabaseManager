@@ -20,6 +20,33 @@ internal static class PostgresP0Checks
         bool created = false;
         try
         {
+            var schemaService = new DefaultDbSchemaService(connections);
+            var explorer = new ObjectsExplorerViewModel(schemaService);
+            explorer.LoadConnections([connection]);
+            var connectionNode = explorer.FindConnectionNode(connection.Name)!;
+            await explorer.ConnectAsync(connectionNode);
+            var loginRoles = connectionNode.Children.Single(n => n.PrincipalKind == DbPrincipalKind.User);
+            var groupRoles = connectionNode.Children.Single(n => n.PrincipalKind == DbPrincipalKind.Role);
+            Check(connectionNode.IsConnectionActive && !loginRoles.IsLoaded && !groupRoles.IsLoaded,
+                "PG cluster roles must be lazy after connecting to the configured database.");
+            await explorer.LoadPrincipalFolderAsync(loginRoles);
+            await explorer.LoadPrincipalFolderAsync(groupRoles);
+            await using (var currentRole = new NpgsqlCommand("SELECT current_user", db))
+            {
+                var name = (string)(await currentRole.ExecuteScalarAsync())!;
+                Check(loginRoles.Children.Any(n => n.Name == name) && !groupRoles.Children.Any(n => n.Name == name),
+                    "PG catalog must put the current login in the login role folder.");
+            }
+            await using (var noLogin = new NpgsqlCommand("SELECT rolname FROM pg_catalog.pg_roles WHERE rolcanlogin = false", db))
+            await using (var reader = await noLogin.ExecuteReaderAsync())
+            {
+                var expected = new HashSet<string>(StringComparer.Ordinal);
+                while (await reader.ReadAsync())
+                    expected.Add(reader.GetString(0));
+                Check(groupRoles.IsLoaded && expected.SetEquals(groupRoles.Children.Where(n => !n.IsPlaceholder).Select(n => n.Name)),
+                    "PG no-login roles must agree with the live catalog.");
+            }
+
             await Run($"CREATE SCHEMA {schema}"); created = true;
             await Run($"CREATE TABLE {schema}.parents(id integer PRIMARY KEY); INSERT INTO {schema}.parents VALUES(10),(20); CREATE TABLE {schema}.items(id integer PRIMARY KEY, parent_id integer REFERENCES {schema}.parents(id), name text, payload bytea); INSERT INTO {schema}.items VALUES(1,10,'alpha',decode('0102','hex'))");
             var multi = await query.ExecuteAsync(connection.Name, "SELECT 1 AS first; SELECT 2 AS second; SELECT 3 WHERE false;");

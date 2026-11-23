@@ -45,6 +45,10 @@ public interface IDbSchemaService
         string? schema = null,
         CancellationToken cancellationToken = default);
 
+    /// <summary>按连接级或数据库级目录读取当前账号可见的安全主体。</summary>
+    Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(
+        string connectionName, DbPrincipalKind kind, string? databaseName, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 判断当前连接下的数据库是否为多 Schema 结构（Oracle/Postgres 等）。
     /// </summary>

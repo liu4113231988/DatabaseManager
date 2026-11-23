@@ -36,6 +36,7 @@ public class ObjectTreeContextMenuBuilder
     private readonly Action<DbObjectTreeNode>? _openConvert;
     private readonly Action<DbObjectTreeNode, bool>? _openBackup;
     private readonly Action<DbObjectTreeNode>? _openDatabaseProperties;
+    private readonly Action<DbObjectTreeNode, PrincipalManagementAction>? _openUserManagement;
 
     private readonly IDbConnectionService _connectionService;
     private readonly IDdlService? _ddlService;
@@ -57,7 +58,8 @@ public class ObjectTreeContextMenuBuilder
         Action<DbObjectTreeNode>? openConvert = null,
         Action<DbObjectTreeNode, bool>? openBackup = null,
         Action<DbObjectTreeNode>? openDatabaseProperties = null,
-        Func<bool>? requireDeleteNameConfirmation = null)
+        Func<bool>? requireDeleteNameConfirmation = null,
+        Action<DbObjectTreeNode, PrincipalManagementAction>? openUserManagement = null)
     {
         _viewModel = viewModel;
         _treeView = treeView;
@@ -74,6 +76,7 @@ public class ObjectTreeContextMenuBuilder
         _openBackup = openBackup;
         _openDatabaseProperties = openDatabaseProperties;
         _requireDeleteNameConfirmation = requireDeleteNameConfirmation;
+        _openUserManagement = openUserManagement;
     }
 
     /// <summary>删除确认模式：开启需输入对象名称，关闭仅弹出确认提示（默认开启）。</summary>
@@ -82,6 +85,9 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>根据节点类型构建并显示右键菜单。</summary>
     public void BuildAndShow(DbObjectTreeNode node, ContextRequestedEventArgs e)
     {
+        if (node.IsPlaceholder && node.Parent?.NodeType == DbObjectTreeNodeType.PrincipalFolder)
+            node = node.Parent;
+
         var menu = new ContextMenu();
 
         switch (node.NodeType)
@@ -97,6 +103,12 @@ public class ObjectTreeContextMenuBuilder
                 break;
             case DbObjectTreeNodeType.Folder:
                 BuildFolderMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.PrincipalFolder:
+                BuildPrincipalFolderMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.Principal:
+                BuildPrincipalMenu(menu, node);
                 break;
             case DbObjectTreeNodeType.DbObject:
                 BuildDbObjectMenu(menu, node);
@@ -153,6 +165,7 @@ public class ObjectTreeContextMenuBuilder
 
             case DbObjectTreeNodeType.DbObject:
             case DbObjectTreeNodeType.ChildObject:
+            case DbObjectTreeNodeType.Principal:
                 // 与右键菜单一致：对象/子对象刷新其父节点
                 if (node.Parent is DbObjectTreeNode parent)
                 {
@@ -183,8 +196,17 @@ public class ObjectTreeContextMenuBuilder
             DbObjectTreeNodeType.Connection => DeleteConnectionAsync(node),
             DbObjectTreeNodeType.Database => DeleteDatabaseAsync(node),
             DbObjectTreeNodeType.DbObject or DbObjectTreeNodeType.ChildObject => DeleteDbObjectAsync(node),
+            DbObjectTreeNodeType.Principal => InvokeUserManagement(node, PrincipalManagementAction.Delete),
             _ => NotSupportedAsync("删除"),
         };
+
+    private Task InvokeUserManagement(DbObjectTreeNode node, PrincipalManagementAction action)
+    {
+        if (_openUserManagement is null)
+            return NotSupportedAsync("删除主体");
+        _openUserManagement.Invoke(node, action);
+        return Task.CompletedTask;
+    }
 
     /// <summary>快捷键 Ctrl+C：复制节点名称（对应菜单「复制名称\tCtrl+C」）。</summary>
     public void CopyName(DbObjectTreeNode node) => CopyToClipboard(node.Name);
@@ -447,6 +469,64 @@ public class ObjectTreeContextMenuBuilder
 
     #endregion
 
+    #region 安全主体右键菜单
+
+    private void BuildPrincipalFolderMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var newUser = CreateMenuItem("新建用户...", "打开用户与权限管理创建用户");
+        newUser.IsEnabled = _openUserManagement is not null;
+        newUser.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.NewUser);
+        menu.Items.Add(newUser);
+
+        var newRole = CreateMenuItem("新建角色...", "打开用户与权限管理创建角色");
+        newRole.IsEnabled = _openUserManagement is not null;
+        newRole.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.NewRole);
+        menu.Items.Add(newRole);
+
+        menu.Items.Add(new Separator());
+
+        var manage = CreateMenuItem("管理用户与权限...", "打开用户与权限管理窗口");
+        manage.IsEnabled = _openUserManagement is not null;
+        manage.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.Manage);
+        menu.Items.Add(manage);
+
+        var copy = CreateMenuItem("复制名称\tCtrl+C", "复制目录名称到剪贴板");
+        copy.Click += (_, _) => CopyName(node);
+        menu.Items.Add(copy);
+
+        menu.Items.Add(new Separator());
+        AddRefreshMenuItem(menu, node);
+    }
+
+    private void BuildPrincipalMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var grants = CreateMenuItem("查看权限...", "读取该主体的权限与成员角色");
+        grants.IsEnabled = _openUserManagement is not null;
+        grants.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.ShowGrants);
+        menu.Items.Add(grants);
+
+        var manage = CreateMenuItem("管理用户与权限...", "在管理窗口中定位该主体");
+        manage.IsEnabled = _openUserManagement is not null;
+        manage.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.Manage);
+        menu.Items.Add(manage);
+
+        menu.Items.Add(new Separator());
+
+        var drop = CreateMenuItem("删除主体...\tDelete", "按主体类别生成 DROP USER / DROP ROLE 并确认执行");
+        drop.IsEnabled = _openUserManagement is not null;
+        drop.Click += (_, _) => _openUserManagement?.Invoke(node, PrincipalManagementAction.Delete);
+        menu.Items.Add(drop);
+
+        var copy = CreateMenuItem("复制名称\tCtrl+C", "复制安全主体名称到剪贴板");
+        copy.Click += (_, _) => CopyName(node);
+        menu.Items.Add(copy);
+
+        menu.Items.Add(new Separator());
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    #endregion
+
     #region 类型文件夹右键菜单
 
     private void BuildFolderMenu(ContextMenu menu, DbObjectTreeNode node)
@@ -666,12 +746,22 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>其他数据库对象的右键菜单。</summary>
     private void BuildOtherDbObjectMenu(ContextMenu menu, DbObjectTreeNode node)
     {
-        // ==== 查看定义组（仅 ScriptDbObject：视图/函数/存储过程）====
-        if (node.DbObject is View or Function or Procedure)
+        // ==== 查看定义组（视图/函数/存储过程/触发器）====
+        if (node.DbObject is View or Function or Procedure or TableTrigger)
         {
             var viewDef = CreateMenuItem("查看对象定义", "在新查询标签页显示 CREATE 定义脚本");
             viewDef.Click += (_, _) => _asyncAction(async () => await ViewObjectDefinitionAsync(node));
             menu.Items.Add(viewDef);
+
+            menu.Items.Add(new Separator());
+        }
+
+        // ==== 详情组（Type / Sequence 的参数已随元数据读取，直接展示）====
+        if (node.DbObject is UserDefinedType or Sequence)
+        {
+            var details = CreateMenuItem("查看详细信息", "把类型属性 / 序列参数复制到剪贴板");
+            details.Click += (_, _) => ViewTypeOrSequenceInfo(node);
+            menu.Items.Add(details);
 
             menu.Items.Add(new Separator());
         }
@@ -727,6 +817,51 @@ public class ObjectTreeContextMenuBuilder
 
         _viewModel.NewObjectDefinitionQuery(result.Script!, connectionName, node.DatabaseName);
         _viewModel.QueryEditor.StatusMessage = $"已显示 {node.DbObject.GetType().Name}「{node.DbObject.Name}」的定义。";
+    }
+
+    /// <summary>展示 UserDefinedType 属性或 Sequence 参数（已随元数据读取，无需再次访问数据库）。</summary>
+    private void ViewTypeOrSequenceInfo(DbObjectTreeNode node)
+    {
+        var sb = new StringBuilder();
+
+        if (node.DbObject is Sequence sequence)
+        {
+            sb.AppendLine($"序列: {(string.IsNullOrEmpty(sequence.Schema) ? sequence.Name : $"{sequence.Schema}.{sequence.Name}")}");
+            sb.AppendLine($"数据类型: {sequence.DataType}");
+            sb.AppendLine($"起始值: {sequence.StartValue}");
+            sb.AppendLine($"增量: {sequence.Increment}");
+            sb.AppendLine($"最小值: {sequence.MinValue}");
+            sb.AppendLine($"最大值: {sequence.MaxValue}");
+            if (sequence.UseCache)
+                sb.AppendLine($"缓存大小: {sequence.CacheSize}");
+            sb.AppendLine($"循环: {(sequence.Cycled ? "是" : "否")}");
+            sb.AppendLine($"有序: {(sequence.Ordered ? "是" : "否")}");
+            if (!string.IsNullOrEmpty(sequence.OwnedByTable))
+                sb.AppendLine($"所属列: {sequence.OwnedByTable}.{sequence.OwnedByColumn}");
+        }
+        else if (node.DbObject is UserDefinedType type)
+        {
+            sb.AppendLine($"类型: {(string.IsNullOrEmpty(type.Schema) ? type.Name : $"{type.Schema}.{type.Name}")}");
+            foreach (var attribute in type.Attributes)
+            {
+                string definition = attribute.Name;
+                if (!string.IsNullOrEmpty(attribute.DataType))
+                    definition += $" {attribute.DataType}";
+                if (attribute.MaxLength.HasValue && attribute.MaxLength.Value > 0)
+                    definition += $"({attribute.MaxLength.Value}{(attribute.Precision.HasValue ? $",{attribute.Precision.Value}" : string.Empty)})";
+                if (attribute.IsRequired)
+                    definition += " NOT NULL";
+                sb.AppendLine($"  {definition}");
+            }
+            if (type.Attributes.Count == 0)
+                sb.AppendLine("  （未读取到属性，可能需要详细信息加载模式）");
+        }
+
+        if (sb.Length > 0)
+        {
+            CopyToClipboard(sb.ToString());
+            _viewModel.QueryEditor.StatusMessage = $"已复制 {node.Name} 的详细信息。";
+        }
     }
 
     #endregion

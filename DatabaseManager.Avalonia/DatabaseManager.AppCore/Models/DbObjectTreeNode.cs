@@ -22,6 +22,9 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>数据库对象类型（当节点对应数据库对象时有效）。</summary>
     public DatabaseObjectType DatabaseObjectType { get; set; } = DatabaseObjectType.None;
 
+    /// <summary>安全主体目录或叶节点的类别。</summary>
+    public DbPrincipalKind PrincipalKind { get; init; }
+
     /// <summary>节点关联的数据库对象（表/视图/存储过程等）。</summary>
     public DatabaseObject? DbObject { get; set; }
 
@@ -174,7 +177,7 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     {
         get
         {
-            if (NodeType != DbObjectTreeNodeType.Folder || !IsLoaded || Children.Count == 0)
+            if (NodeType is not (DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.PrincipalFolder) || !IsLoaded || Children.Count == 0)
             {
                 return string.Empty;
             }
@@ -451,6 +454,31 @@ public enum DbObjectTreeNodeType
 
     /// <summary>表/视图的子对象（列/索引/键/约束/触发器）。</summary>
     ChildObject,
+
+    /// <summary>用户、登录名、角色等安全主体目录。</summary>
+    PrincipalFolder,
+
+    /// <summary>只读的安全主体。</summary>
+    Principal,
+}
+
+public enum DbPrincipalKind
+{
+    None,
+    Login,
+    User,
+    Role,
+    Account,
+}
+
+/// <summary>从对象树打开用户与权限管理窗口时的预期动作。</summary>
+public enum PrincipalManagementAction
+{
+    Manage,
+    NewUser,
+    NewRole,
+    ShowGrants,
+    Delete,
 }
 
 /// <summary>表/视图子对象类型（用于图标与右键菜单路由）。</summary>

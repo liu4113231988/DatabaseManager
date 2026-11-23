@@ -6,7 +6,7 @@
         xmlns:mods="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.UserManagementWindow"
         Title="用户与权限管理"
-        Width="880" Height="600"
+        Width="940" Height="640"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
@@ -17,7 +17,7 @@
                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
             <StackPanel Spacing="2">
                 <TextBlock Text="用户与权限管理" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <TextBlock Text="管理数据库用户、角色与权限" FontSize="11"
+                <TextBlock Text="管理数据库用户、角色、成员关系与权限" FontSize="11"
                            Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
         </Border>
@@ -28,11 +28,10 @@
         </Border>
 
         <!-- 内容区 -->
-        <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+        <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16">
 
-
-        <!-- 连接与操作 -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,8">
+        <!-- 连接与主要操作 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,0,0,6">
             <TextBlock Grid.Column="0" Text="连接:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <atom:ComboBox Grid.Column="1" x:Name="CmbConnection" HorizontalAlignment="Stretch" Margin="0,0,10,0">
                 <ComboBox.ItemTemplate>
@@ -43,63 +42,85 @@
             </atom:ComboBox>
             <atom:Button Grid.Column="2" x:Name="BtnRefresh" Content="刷新" Click="BtnRefresh_Click" Margin="0,0,8,0" />
             <atom:Button Grid.Column="3" Content="新建用户" Click="BtnCreateUser_Click" Margin="0,0,8,0" />
-            <atom:Button Grid.Column="4" Content="授权..." Click="BtnGrant_Click" Margin="0,0,8,0"
-                    ToolTip.Tip="对选中用户授予对象权限（生成 SQL 并确认后执行）" />
-            <atom:Button Grid.Column="5" Content="删除用户" Click="BtnDropUser_Click" Margin="0,0,8,0" />
-            <atom:Button Grid.Column="6" Content="查看权限" Click="BtnShowGrants_Click" Margin="0,0,8,0" />
-            <atom:Button Grid.Column="7" Content="关闭" Click="BtnClose_Click" />
+            <atom:Button Grid.Column="4" Content="新建角色" Click="BtnCreateRole_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="5" Content="查看权限" Click="BtnShowGrants_Click" Margin="0,0,8,0" />
+            <atom:Button Grid.Column="6" Content="关闭" Click="BtnClose_Click" />
         </Grid>
 
-        <Grid Grid.Row="1" ColumnDefinitions="*,2*">
-            <!-- 用户列表 -->
+        <!-- 权限与主体管理操作 -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+            <atom:Button Content="授权..." Click="BtnGrant_Click"
+                    ToolTip.Tip="对选中主体授予对象权限（生成 SQL 并确认后执行）" />
+            <atom:Button Content="撤销授权..." Click="BtnRevoke_Click"
+                    ToolTip.Tip="从选中主体撤销对象权限" />
+            <atom:Button Content="授予角色..." Click="BtnGrantRole_Click"
+                    ToolTip.Tip="把角色授予选中的成员主体（成员关系）" />
+            <atom:Button Content="撤销角色..." Click="BtnRevokeRole_Click"
+                    ToolTip.Tip="从选中的成员主体撤销角色" />
+            <atom:Button Content="修改密码..." Click="BtnChangePassword_Click"
+                    ToolTip.Tip="修改选中主体的密码（SQL Server 为登录名）" />
+            <atom:Button Content="删除主体" Click="BtnDropUser_Click"
+                    ToolTip.Tip="按主体类别生成 DROP USER / DROP ROLE" />
+        </StackPanel>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,2*">
+            <!-- 主体列表 -->
             <DataGrid Grid.Column="0" x:Name="UsersGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
                       GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
                       IsReadOnly="True" Margin="0,0,8,0"
                       x:DataType="m:DbUserInfo">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="用户" Binding="{Binding Name}" Width="*" />
-                    <DataGridTextColumn Header="主机" Binding="{Binding Host}" Width="90" />
+                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="主机" Binding="{Binding Host}" Width="80" />
+                    <DataGridTextColumn Header="类别" Binding="{Binding Kind}" Width="60" />
                     <DataGridTextColumn Header="属性/状态" Binding="{Binding Attributes}" Width="*" />
-                    <DataGridTextColumn Header="创建时间" Binding="{Binding Created}" Width="100" />
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding Created}" Width="90" />
                 </DataGrid.Columns>
             </DataGrid>
 
             <!-- 权限文本 -->
             <atom:TextBox Grid.Column="1" x:Name="TxtGrants" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Classes="multiline"
-                     PlaceholderText="选中用户后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
+                     PlaceholderText="选中主体后点击「查看权限」；操作结果也显示在这里" FontSize="11" />
         </Grid>
 
-        <!-- 表单区（新建用户 / 授权 共用，按模式显示字段） -->
-        <Border Grid.Row="2" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
+        <!-- 表单区（新建用户 / 新建角色 / 授权 / 撤销 / 成员关系 / 改密码 共用） -->
+        <Border Grid.Row="3" x:Name="FormPanel" IsVisible="False" Background="{DynamicResource AppSubtleBrush}"
                 CornerRadius="6" Padding="10,8" Margin="0,8,0,0">
             <StackPanel Spacing="6">
                 <TextBlock x:Name="FormTitle" Text="新建用户" FontWeight="SemiBold" FontSize="12" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="用户名:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBlock x:Name="LblFormName" Text="用户名:" VerticalAlignment="Center" FontSize="11" />
                         <atom:TextBox x:Name="TxtFormUser" Width="130" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPassword">
                         <TextBlock Text="密码:" VerticalAlignment="Center" FontSize="11" />
                         <atom:TextBox x:Name="TxtFormPassword" Width="130" PasswordChar="*" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
+                    <CheckBox x:Name="ChkCanLogin" Content="可登录" IsVisible="False" VerticalAlignment="Center" FontSize="11"
+                              ToolTip.Tip="PostgreSQL/KingbaseES 创建角色时是否附加 LOGIN" />
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelHost">
                         <TextBlock Text="主机:" VerticalAlignment="Center" FontSize="11" />
-                        <atom:TextBox x:Name="TxtFormHost" Text="%" Width="90" VerticalContentAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormHost" Text="%" Width="80" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPrivilege">
-                        <TextBlock Text="权限:" VerticalAlignment="Center" FontSize="11" />
-                        <atom:ComboBox x:Name="ComboPrivilege" Width="110" FontSize="11">
-                            <ComboBoxItem>SELECT</ComboBoxItem>
-                            <ComboBoxItem>INSERT</ComboBoxItem>
-                            <ComboBoxItem>UPDATE</ComboBoxItem>
-                            <ComboBoxItem>DELETE</ComboBoxItem>
-                            <ComboBoxItem>ALL PRIVILEGES</ComboBoxItem>
-                        </atom:ComboBox>
-                        <TextBlock Text="ON 对象:" VerticalAlignment="Center" FontSize="11" />
-                        <atom:TextBox x:Name="TxtFormObject" Width="120" VerticalContentAlignment="Center" FontSize="11"
+                    <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelMember">
+                        <TextBlock Text="成员:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormMember" Width="120" VerticalContentAlignment="Center" FontSize="11"
+                                 ToolTip.Tip="被授予/撤销角色的主体名称；留空则使用列表中选中的主体" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPrivilege" IsVisible="False">
+                    <TextBlock Text="权限:" VerticalAlignment="Center" FontSize="11" />
+                    <atom:ComboBox x:Name="ComboPrivilege" Width="110" FontSize="11">
+                        <ComboBoxItem>SELECT</ComboBoxItem>
+                        <ComboBoxItem>INSERT</ComboBoxItem>
+                        <ComboBoxItem>UPDATE</ComboBoxItem>
+                        <ComboBoxItem>DELETE</ComboBoxItem>
+                        <ComboBoxItem>ALL PRIVILEGES</ComboBoxItem>
+                    </atom:ComboBox>
+                    <TextBlock Text="ON 对象:" VerticalAlignment="Center" FontSize="11" />
+                    <atom:TextBox x:Name="TxtFormObject" Width="160" VerticalContentAlignment="Center" FontSize="11"
                                  ToolTip.Tip="MySQL：db.table 或 *.*；PostgreSQL/SQL Server：schema.table 或 schema.*；Oracle：schema.table" />
-                    </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <atom:Button x:Name="BtnFormConfirm" Content="执行" Click="BtnFormConfirm_Click" />
