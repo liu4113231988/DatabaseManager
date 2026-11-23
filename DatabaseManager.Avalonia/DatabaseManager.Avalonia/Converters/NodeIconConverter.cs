@@ -37,6 +37,14 @@ public class NodeIconConverter : IValueConverter
         if (node.NodeType == DbObjectTreeNodeType.Schema) return "schema";
         if (node.NodeType == DbObjectTreeNodeType.Principal)
             return node.PrincipalKind == DbPrincipalKind.Role ? "key" : "user";
+        if (node.NodeType is DbObjectTreeNodeType.CatalogFolder or DbObjectTreeNodeType.CatalogObject)
+            return node.CatalogKind switch
+            {
+                DbCatalogKind.Extension => "extension",
+                DbCatalogKind.Tablespace => "tablespace",
+                DbCatalogKind.PartitionScheme or DbCatalogKind.PartitionFunction => "partition",
+                _ => "folder",
+            };
         if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder or DbObjectTreeNodeType.PrincipalFolder)
         {
             return node.Name switch
@@ -134,6 +142,16 @@ public class NodeIconConverter : IValueConverter
                 break;
             case "sequence":
                 Add("M4,5 L12,5 M9.5,2.5 L12,5 L9.5,7.5 M12,11 L4,11 M6.5,8.5 L4,11 L6.5,13.5", null, new Pen(teal, 1.2));
+                break;
+            case "extension":
+                Add("M6.5,2.5 L9.5,2.5 L9.5,4.5 A1.5,1.5 0 1 0 12.5,4.5 L13,4.5 L13,7.5 L11.5,7.5 A1.5,1.5 0 1 0 11.5,10.5 L13,10.5 L13,13.5 L10,13.5 L10,12 A1.5,1.5 0 1 0 7,12 L7,13.5 L4,13.5 L4,10.5 L5.5,10.5 A1.5,1.5 0 1 0 5.5,7.5 L4,7.5 L4,4.5 L6.5,4.5 Z M6.5,2.5 L6.5,4.5", lightBlue, new Pen(violet, 1));
+                break;
+            case "tablespace":
+                group.Children.Add(new GeometryDrawing { Geometry = new EllipseGeometry(new Rect(3, 3, 10, 3.5)), Brush = lightBlue, Pen = new Pen(teal, 1) });
+                Add("M3,4.8 L3,12 C3,13.9 13,13.9 13,12 L13,4.8 M3,8.5 C3,10.4 13,10.4 13,8.5", null, new Pen(teal, 1));
+                break;
+            case "partition":
+                Add("M2.5,3 L13.5,3 L13.5,13 L2.5,13 Z M2.5,8 L13.5,8 M8,3 L8,8 M8,8 L8,13", lightBlue, new Pen(amber, 1));
                 break;
             default:
                 Add("M3,2.5 L10,2.5 L13,5.5 L13,13.5 L3,13.5 Z M10,2.5 L10,5.5 L13,5.5", lightBlue, pen);

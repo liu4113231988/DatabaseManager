@@ -843,6 +843,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (node is { IsPlaceholder: true, Parent: { NodeType: DbObjectTreeNodeType.PrincipalFolder } principalFolder })
             node = principalFolder;
+        if (node is { IsPlaceholder: true, Parent: { NodeType: DbObjectTreeNodeType.CatalogFolder } catalogFolder })
+            node = catalogFolder;
+
+        if (node.NodeType == DbObjectTreeNodeType.CatalogFolder)
+        {
+            if (!node.IsLoading)
+            {
+                node.IsLoaded = false;
+                await ObjectsExplorer.LoadCatalogFolderAsync(node);
+            }
+            return;
+        }
 
         if (node.NodeType == DbObjectTreeNodeType.PrincipalFolder)
         {

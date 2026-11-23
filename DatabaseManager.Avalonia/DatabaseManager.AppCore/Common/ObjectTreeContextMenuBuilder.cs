@@ -85,7 +85,7 @@ public class ObjectTreeContextMenuBuilder
     /// <summary>根据节点类型构建并显示右键菜单。</summary>
     public void BuildAndShow(DbObjectTreeNode node, ContextRequestedEventArgs e)
     {
-        if (node.IsPlaceholder && node.Parent?.NodeType == DbObjectTreeNodeType.PrincipalFolder)
+        if (node.IsPlaceholder && node.Parent?.NodeType is DbObjectTreeNodeType.PrincipalFolder or DbObjectTreeNodeType.CatalogFolder)
             node = node.Parent;
 
         var menu = new ContextMenu();
@@ -109,6 +109,12 @@ public class ObjectTreeContextMenuBuilder
                 break;
             case DbObjectTreeNodeType.Principal:
                 BuildPrincipalMenu(menu, node);
+                break;
+            case DbObjectTreeNodeType.CatalogFolder:
+                AddRefreshMenuItem(menu, node);
+                break;
+            case DbObjectTreeNodeType.CatalogObject:
+                BuildCatalogObjectMenu(menu, node);
                 break;
             case DbObjectTreeNodeType.DbObject:
                 BuildDbObjectMenu(menu, node);
@@ -166,6 +172,7 @@ public class ObjectTreeContextMenuBuilder
             case DbObjectTreeNodeType.DbObject:
             case DbObjectTreeNodeType.ChildObject:
             case DbObjectTreeNodeType.Principal:
+            case DbObjectTreeNodeType.CatalogObject:
                 // 与右键菜单一致：对象/子对象刷新其父节点
                 if (node.Parent is DbObjectTreeNode parent)
                 {
@@ -518,6 +525,25 @@ public class ObjectTreeContextMenuBuilder
         menu.Items.Add(drop);
 
         var copy = CreateMenuItem("复制名称\tCtrl+C", "复制安全主体名称到剪贴板");
+        copy.Click += (_, _) => CopyName(node);
+        menu.Items.Add(copy);
+
+        menu.Items.Add(new Separator());
+        AddRefreshParentMenuItem(menu, node);
+    }
+
+    private void BuildCatalogObjectMenu(ContextMenu menu, DbObjectTreeNode node)
+    {
+        var details = CreateMenuItem("查看详细信息", "把目录项的属性摘要复制到剪贴板");
+        details.Click += (_, _) =>
+        {
+            string text = $"{node.Name}{(string.IsNullOrEmpty(node.CatalogDetails) ? string.Empty : Environment.NewLine + node.CatalogDetails)}";
+            CopyToClipboard(text);
+            _viewModel.QueryEditor.StatusMessage = $"已复制 {node.Name} 的目录信息。";
+        };
+        menu.Items.Add(details);
+
+        var copy = CreateMenuItem("复制名称\tCtrl+C", "复制目录项名称到剪贴板");
         copy.Click += (_, _) => CopyName(node);
         menu.Items.Add(copy);
 

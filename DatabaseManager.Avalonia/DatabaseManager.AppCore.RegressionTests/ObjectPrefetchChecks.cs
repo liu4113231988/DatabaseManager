@@ -155,6 +155,7 @@ internal static class ObjectPrefetchChecks
             PrincipalCalls++;
             return Principals(kind, d, ct);
         }
+        public Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(string c, DbCatalogKind kind, string? d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> HasMultipleSchemasAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetSchemasAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();

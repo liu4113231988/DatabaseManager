@@ -150,6 +150,19 @@ public class DefaultDbSchemaService : IDbSchemaService
             row[0] ?? string.Empty, kind == DbPrincipalKind.Account ? row[1] : null, databaseName, kind)).ToArray();
     }
 
+    public async Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(
+        string connectionName, DbCatalogKind kind, string? databaseName, CancellationToken cancellationToken = default)
+    {
+        var connection = FindConnection(connectionName);
+        if (connection is null || !DbAdminCatalog.CreateFolders(connection, databaseName).Any(f => f.CatalogKind == kind))
+            throw new InvalidOperationException("该连接上的管理目录不可用。");
+
+        var (nodes, error) = await DbAdminCatalog.ReadAsync(connection, databaseName, kind, cancellationToken);
+        if (error is not null)
+            throw new InvalidOperationException(error);
+        return nodes;
+    }
+
     public async Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
     {
         var connection = FindConnection(connectionName);
@@ -598,6 +611,8 @@ public class DefaultDbSchemaService : IDbSchemaService
         }
 
         foreach (var folder in DbPrincipalCatalog.CreateFolders(connection, databaseNode.Name))
+            databaseNode.AddChild(folder);
+        foreach (var folder in DbAdminCatalog.CreateFolders(connection, databaseNode.Name))
             databaseNode.AddChild(folder);
     }
 

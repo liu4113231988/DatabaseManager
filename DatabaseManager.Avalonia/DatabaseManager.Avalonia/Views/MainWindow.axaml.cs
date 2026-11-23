@@ -706,6 +706,9 @@ public partial class MainWindow : Window
             case DbObjectTreeNodeType.PrincipalFolder:
                 await vm.ObjectsExplorer.LoadPrincipalFolderAsync(node);
                 return;
+            case DbObjectTreeNodeType.CatalogFolder:
+                await vm.ObjectsExplorer.LoadCatalogFolderAsync(node);
+                return;
             case DbObjectTreeNodeType.ChildFolder:
                 await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);
                 break;
@@ -2058,6 +2061,9 @@ public partial class MainWindow : Window
                 break;
             case DbObjectTreeNodeType.PrincipalFolder:
                 await vm.ObjectsExplorer.LoadPrincipalFolderAsync(node);
+                break;
+            case DbObjectTreeNodeType.CatalogFolder:
+                await vm.ObjectsExplorer.LoadCatalogFolderAsync(node);
                 break;
             case DbObjectTreeNodeType.ChildFolder:
                 await vm.ObjectsExplorer.LoadTableChildFolderAsync(node, connectionName);

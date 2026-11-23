@@ -49,6 +49,10 @@ public interface IDbSchemaService
     Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(
         string connectionName, DbPrincipalKind kind, string? databaseName, CancellationToken cancellationToken = default);
 
+    /// <summary>读取管理型只读目录（扩展/表空间/分区方案/分区函数）的节点。</summary>
+    Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(
+        string connectionName, DbCatalogKind kind, string? databaseName, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// 判断当前连接下的数据库是否为多 Schema 结构（Oracle/Postgres 等）。
     /// </summary>

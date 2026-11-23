@@ -177,6 +177,10 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
             {
                 connectionNode.AddChild(folder);
             }
+            foreach (var folder in DbAdminCatalog.CreateFolders(connection, null))
+            {
+                connectionNode.AddChild(folder);
+            }
 
             connectionNode.IsConnectionActive = true;
             connectionNode.IsLoaded = true;
@@ -432,6 +436,46 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         try
         {
             var nodes = await _schemaService.GetPrincipalNodesAsync(connection.Name, folder.PrincipalKind, folder.DatabaseName, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            if (folder.FindConnectionNode() == connection)
+                FillFolder(folder, nodes);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            SetMessage("已取消，重新展开或按 F5 重试");
+        }
+        catch (Exception)
+        {
+            SetMessage("读取失败，请检查连接或目录权限，按 F5 重试");
+        }
+        finally
+        {
+            folder.LoadCts = null;
+            folder.IsLoading = false;
+            ReapplyFilterIfActive(folder);
+        }
+
+        void SetMessage(string message)
+        {
+            folder.ClearChildren();
+            folder.AddChild(new DbObjectTreeNode { Text = message, IsPlaceholder = true, IsLoaded = true });
+        }
+    }
+
+    /// <summary>按需加载管理型只读目录（扩展/表空间/分区方案/分区函数）。</summary>
+    public async Task LoadCatalogFolderAsync(DbObjectTreeNode folder)
+    {
+        if (folder.NodeType != DbObjectTreeNodeType.CatalogFolder || folder.IsPlaceholder || folder.IsLoading || folder.IsLoaded
+            || folder.FindConnectionNode() is not { IsConnectionActive: true } connection)
+            return;
+
+        using var cancellation = new CancellationTokenSource();
+        folder.LoadCts = cancellation;
+        folder.IsLoading = true;
+        try
+        {
+            var nodes = await _schemaService.GetCatalogNodesAsync(
+                connection.Name, folder.CatalogKind, folder.DatabaseName, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (folder.FindConnectionNode() == connection)
                 FillFolder(folder, nodes);

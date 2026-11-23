@@ -139,6 +139,7 @@ internal static class DatabaseManagementChecks
         }
         public IReadOnlyList<string> GetSupportedDatabaseTypes() => ["Postgres"];
         public Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(string c, DbPrincipalKind kind, string? d, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(string c, DbCatalogKind kind, string? d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDbObjectNodesAsync(string c, string d, DatabaseObjectType t, string? s = null, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> HasMultipleSchemasAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();

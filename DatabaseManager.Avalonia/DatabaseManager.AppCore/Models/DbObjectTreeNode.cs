@@ -25,6 +25,12 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>安全主体目录或叶节点的类别。</summary>
     public DbPrincipalKind PrincipalKind { get; init; }
 
+    /// <summary>管理型只读目录（扩展/表空间/分区方案/分区函数）的类别。</summary>
+    public DbCatalogKind CatalogKind { get; init; }
+
+    /// <summary>管理型只读目录项的摘要属性文本。</summary>
+    public string CatalogDetails { get; set; } = string.Empty;
+
     /// <summary>节点关联的数据库对象（表/视图/存储过程等）。</summary>
     public DatabaseObject? DbObject { get; set; }
 
@@ -172,12 +178,12 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
-    /// <summary>徽标文本（如 "Tables (20)" 的计数部分），仅 Folder 且已加载时有值；不计占位节点。</summary>
+    /// <summary>徽标文本（如 "Tables (20)" 的计数部分），仅目录文件夹且已加载时有值；不计占位节点。</summary>
     public string BadgeText
     {
         get
         {
-            if (NodeType is not (DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.PrincipalFolder) || !IsLoaded || Children.Count == 0)
+            if (NodeType is not (DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.PrincipalFolder or DbObjectTreeNodeType.CatalogFolder) || !IsLoaded || Children.Count == 0)
             {
                 return string.Empty;
             }
@@ -460,6 +466,12 @@ public enum DbObjectTreeNodeType
 
     /// <summary>只读的安全主体。</summary>
     Principal,
+
+    /// <summary>管理型只读目录（扩展/表空间/分区方案/分区函数）。</summary>
+    CatalogFolder,
+
+    /// <summary>管理型只读目录项。</summary>
+    CatalogObject,
 }
 
 public enum DbPrincipalKind
@@ -469,6 +481,16 @@ public enum DbPrincipalKind
     User,
     Role,
     Account,
+}
+
+/// <summary>管理型只读目录类别。</summary>
+public enum DbCatalogKind
+{
+    None,
+    Extension,
+    Tablespace,
+    PartitionScheme,
+    PartitionFunction,
 }
 
 /// <summary>从对象树打开用户与权限管理窗口时的预期动作。</summary>

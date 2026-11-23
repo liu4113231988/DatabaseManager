@@ -128,6 +128,7 @@ static class Program
         TemplateExternalizationChecks.Run();
         KingbaseStageEFChecks.RunAsync().GetAwaiter().GetResult();
         DbPrincipalChecks.Run();
+        DbAdminCatalogChecks.Run();
         ObjectTreeLowEffortChecks.RunAsync().GetAwaiter().GetResult();
         TableDesignerChecks.RunAsync().GetAwaiter().GetResult();
         SshProfileStoreChecks.Run();
