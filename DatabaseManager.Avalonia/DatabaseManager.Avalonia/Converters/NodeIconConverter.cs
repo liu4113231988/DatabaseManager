@@ -43,6 +43,10 @@ public class NodeIconConverter : IValueConverter
                 DbCatalogKind.Extension => "extension",
                 DbCatalogKind.Tablespace => "tablespace",
                 DbCatalogKind.PartitionScheme or DbCatalogKind.PartitionFunction => "partition",
+                DbCatalogKind.Synonym => "synonym",
+                DbCatalogKind.Package => "package",
+                DbCatalogKind.MaterializedView => "materialized-view",
+                DbCatalogKind.Job => "job",
                 _ => "folder",
             };
         if (node.NodeType is DbObjectTreeNodeType.Folder or DbObjectTreeNodeType.ChildFolder or DbObjectTreeNodeType.PrincipalFolder)
@@ -152,6 +156,19 @@ public class NodeIconConverter : IValueConverter
                 break;
             case "partition":
                 Add("M2.5,3 L13.5,3 L13.5,13 L2.5,13 Z M2.5,8 L13.5,8 M8,3 L8,8 M8,8 L8,13", lightBlue, new Pen(amber, 1));
+                break;
+            case "synonym":
+                Add("M3,5 L8,5 M11,11 L13,11 M8,5 C10,5 11,6.5 11,8 L11,11 M8,11 L6,11 C4,11 3,9.5 3,8 L3,5", null, new Pen(teal, 1.2));
+                Add("M10.5,9.5 L11,11 L12.5,9.5", null, new Pen(teal, 1.1));
+                break;
+            case "package":
+                Add("M3,3.5 L13,3.5 L13,12.5 L3,12.5 Z M3,6.5 L13,6.5 M6.5,3.5 L6.5,12.5", lightBlue, new Pen(violet, 1));
+                break;
+            case "materialized-view":
+                Add("M2.5,4 L13.5,4 L13.5,12 L2.5,12 Z M2.5,4 L4,2.5 L12,2.5 L13.5,4 M6,7 L10,7 M6,9.5 L9,9.5", lightBlue, new Pen(teal, 1));
+                break;
+            case "job":
+                Add("M4,3.5 L12,3.5 L12,5.5 L4,5.5 Z M3.5,5.5 L12.5,5.5 L11.5,13 L4.5,13 Z M6.5,2 L9.5,2 L9.5,3.5 L6.5,3.5 Z", lightBlue, new Pen(amber, 1));
                 break;
             default:
                 Add("M3,2.5 L10,2.5 L13,5.5 L13,13.5 L3,13.5 Z M10,2.5 L10,5.5 L13,5.5", lightBlue, pen);

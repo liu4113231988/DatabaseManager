@@ -491,6 +491,10 @@ public enum DbCatalogKind
     Tablespace,
     PartitionScheme,
     PartitionFunction,
+    Synonym,
+    Package,
+    MaterializedView,
+    Job,
 }
 
 /// <summary>从对象树打开用户与权限管理窗口时的预期动作。</summary>

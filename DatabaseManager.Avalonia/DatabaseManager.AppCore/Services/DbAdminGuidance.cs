@@ -1,4 +1,5 @@
 using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Models;
 
 namespace DatabaseManager.AppCore.Services;
 
@@ -23,6 +24,21 @@ public static class DbAdminGuidance
         DatabaseType.SqlServer => "读取服务器主体和角色成员建议授予 VIEW ANY DEFINITION；数据库对象权限取决于当前数据库可见性。",
         DatabaseType.Oracle => "查询 DBA_* 权限视图需要 SELECT_CATALOG_ROLE；无该权限时请改用具备 DBA 权限的连接。",
         _ => "请使用具备用户与权限管理权限的账号。",
+    };
+
+    /// <summary>管理型只读目录读取失败时的可操作提示。</summary>
+    public static string GetCatalogPermissionHint(DatabaseType databaseType, DbCatalogKind kind) => (databaseType, kind) switch
+    {
+        (DatabaseType.SqlServer, DbCatalogKind.Job) =>
+            "读取数据库作业需要 msdb 的 SQLAgentReaderRole 或 sysjobs 的 SELECT 权限。",
+        (DatabaseType.SqlServer, DbCatalogKind.Synonym) =>
+            "读取同义词需要对架构具有 VIEW DEFINITION 权限。",
+        (DatabaseType.Oracle, DbCatalogKind.Synonym or DbCatalogKind.Package
+            or DbCatalogKind.MaterializedView or DbCatalogKind.Job) =>
+            "USER_* 目录只返回当前账号可见对象；读取全库对象需 SELECT_CATALOG_ROLE。",
+        (DatabaseType.Postgres, DbCatalogKind.MaterializedView) =>
+            "读取 pg_matviews 需要对物化视图具有可见权限。",
+        _ => GetUserPermissionHint(databaseType),
     };
 
     /// <summary>验证可选的客户端工具路径；空值表示允许服务采用自动发现。</summary>

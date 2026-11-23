@@ -8,9 +8,12 @@ internal static class DbAdminCatalogChecks
     public static void Run()
     {
         VerifyCatalogSql();
+        VerifyAdvancedCatalogSql();
         VerifyNodeMapping();
+        VerifyAdvancedNodeMapping();
         VerifyFolders();
-        Console.WriteLine("Admin catalog checks passed: extension, tablespace and partition directories.");
+        VerifyAdvancedFolders();
+        Console.WriteLine("Admin catalog checks passed: extension, tablespace, partition, synonym, package, materialized view and job directories.");
     }
 
     private static void VerifyCatalogSql()
@@ -47,6 +50,42 @@ internal static class DbAdminCatalogChecks
         try { DbAdminCatalog.GetSql(DatabaseType.Sqlite, DbCatalogKind.Extension); }
         catch (NotSupportedException) { rejected = true; }
         Check(rejected, "Unsupported catalog types must fail with an explicit error.");
+    }
+
+    private static void VerifyAdvancedCatalogSql()
+    {
+        Check(DbAdminCatalog.GetSql(DatabaseType.Oracle, DbCatalogKind.Synonym)
+                .Contains("USER_SYNONYMS", StringComparison.Ordinal),
+            "Oracle synonym catalog must use USER_SYNONYMS for unprivileged accounts.");
+        Check(DbAdminCatalog.GetSql(DatabaseType.SqlServer, DbCatalogKind.Synonym)
+                .Contains("sys.synonyms", StringComparison.Ordinal),
+            "SQL Server synonym catalog must read sys.synonyms.");
+
+        string package = DbAdminCatalog.GetSql(DatabaseType.Oracle, DbCatalogKind.Package);
+        Check(package.Contains("USER_SOURCE", StringComparison.Ordinal)
+              && package.Contains("PACKAGE BODY", StringComparison.Ordinal),
+            "Oracle package catalog must read package specs and bodies from USER_SOURCE.");
+
+        Check(DbAdminCatalog.GetSql(DatabaseType.Oracle, DbCatalogKind.MaterializedView)
+                .Contains("USER_MVIEWS", StringComparison.Ordinal),
+            "Oracle materialized view catalog must use USER_MVIEWS.");
+        string pgMv = DbAdminCatalog.GetSql(DatabaseType.Postgres, DbCatalogKind.MaterializedView);
+        Check(pgMv.Contains("pg_catalog.pg_matviews", StringComparison.Ordinal),
+            "PostgreSQL materialized view catalog must use pg_matviews.");
+
+        Check(DbAdminCatalog.GetSql(DatabaseType.Oracle, DbCatalogKind.Job)
+                .Contains("USER_SCHEDULER_JOBS", StringComparison.Ordinal),
+            "Oracle job catalog must use USER_SCHEDULER_JOBS.");
+        Check(DbAdminCatalog.GetSql(DatabaseType.SqlServer, DbCatalogKind.Job)
+                .Contains("msdb.dbo.sysjobs", StringComparison.Ordinal),
+            "SQL Server job catalog must read msdb sysjobs.");
+
+        Check(DbAdminGuidance.GetCatalogPermissionHint(DatabaseType.SqlServer, DbCatalogKind.Job)
+                .Contains("SQLAgentReaderRole", StringComparison.Ordinal),
+            "SQL Server job errors must explain the agent role requirement.");
+        Check(DbAdminGuidance.GetCatalogPermissionHint(DatabaseType.Oracle, DbCatalogKind.Package)
+                .Contains("SELECT_CATALOG_ROLE", StringComparison.Ordinal),
+            "Oracle package errors must explain catalog role requirements.");
     }
 
     private static void VerifyNodeMapping()
@@ -87,18 +126,68 @@ internal static class DbAdminCatalogChecks
             "SQLite must not expose admin catalog folders.");
 
         var oracleFolders = DbAdminCatalog.CreateFolders(Connection("Oracle"), "ORCL").ToList();
-        Check(oracleFolders.Count == 1
-              && oracleFolders[0].CatalogKind == DbCatalogKind.Tablespace
-              && oracleFolders[0].DatabaseName == "ORCL",
-            "Oracle must expose a database-level tablespace folder.");
+        Check(oracleFolders.Count == 5
+              && oracleFolders.Any(f => f.CatalogKind == DbCatalogKind.Tablespace)
+              && oracleFolders.Any(f => f.CatalogKind == DbCatalogKind.Synonym)
+              && oracleFolders.Any(f => f.CatalogKind == DbCatalogKind.Package)
+              && oracleFolders.Any(f => f.CatalogKind == DbCatalogKind.MaterializedView)
+              && oracleFolders.Any(f => f.CatalogKind == DbCatalogKind.Job)
+              && oracleFolders.All(f => f.DatabaseName == "ORCL"),
+            "Oracle must expose tablespace, synonym, package, materialized view and job folders at database level.");
 
         var sqlServerFolders = DbAdminCatalog.CreateFolders(Connection("SqlServer"), "app_db")
             .Select(f => f.CatalogKind).ToList();
         Check(sqlServerFolders.Contains(DbCatalogKind.PartitionScheme)
-              && sqlServerFolders.Contains(DbCatalogKind.PartitionFunction),
-            "SQL Server must expose partition scheme and function folders at database level.");
-        Check(!DbAdminCatalog.CreateFolders(Connection("SqlServer"), null).Any(),
-            "Partition folders must not be created at connection level.");
+              && sqlServerFolders.Contains(DbCatalogKind.PartitionFunction)
+              && sqlServerFolders.Contains(DbCatalogKind.Synonym),
+            "SQL Server must expose partition and synonym folders at database level.");
+        Check(DbAdminCatalog.CreateFolders(Connection("SqlServer"), null)
+                .Any(f => f.CatalogKind == DbCatalogKind.Job && f.DatabaseName is null),
+            "SQL Server jobs must be exposed at connection level via msdb.");
+    }
+
+    private static void VerifyAdvancedNodeMapping()
+    {
+        var oracleSynonym = DbAdminCatalog.CreateNode(["EMP_SYN", "HR", "EMPLOYEES", "REMOTE_DB"], DbCatalogKind.Synonym);
+        Check(oracleSynonym.CatalogDetails.Contains("HR.EMPLOYEES", StringComparison.Ordinal)
+              && oracleSynonym.CatalogDetails.Contains("REMOTE_DB", StringComparison.Ordinal),
+            "Oracle synonym nodes must show target object and database link.");
+        var sqlServerSynonym = DbAdminCatalog.CreateNode(["syn_orders", "dbo", "Sales.Orders"], DbCatalogKind.Synonym);
+        Check(sqlServerSynonym.CatalogDetails.Contains("Sales.Orders", StringComparison.Ordinal),
+            "SQL Server synonym nodes must show the base object name.");
+
+        var spec = DbAdminCatalog.CreateNode(["PKG_UTIL", "PACKAGE"], DbCatalogKind.Package);
+        var body = DbAdminCatalog.CreateNode(["PKG_UTIL", "PACKAGE BODY"], DbCatalogKind.Package);
+        Check(spec.CatalogDetails == "包说明" && body.CatalogDetails == "包体",
+            "Package nodes must distinguish spec from body.");
+
+        var oracleMv = DbAdminCatalog.CreateNode(["MV_SALES", "COMPLETE", "FAST", "2026-11-23 09:30"], DbCatalogKind.MaterializedView);
+        Check(oracleMv.CatalogDetails.Contains("COMPLETE", StringComparison.Ordinal)
+              && oracleMv.CatalogDetails.Contains("2026-11-23", StringComparison.Ordinal),
+            "Oracle materialized view nodes must show refresh mode and last refresh.");
+        var pgMv = DbAdminCatalog.CreateNode(["mv_sales", "true", "SELECT * FROM sales"], DbCatalogKind.MaterializedView);
+        Check(pgMv.CatalogDetails.Contains("已填充", StringComparison.Ordinal)
+              && pgMv.CatalogDetails.Contains("SELECT", StringComparison.Ordinal),
+            "PostgreSQL materialized view nodes must show population state and definition.");
+
+        var oracleJob = DbAdminCatalog.CreateNode(["JOB_ETL", "SCHEDULED", "TRUE", "FREQ=DAILY"], DbCatalogKind.Job);
+        Check(oracleJob.CatalogDetails.Contains("启用", StringComparison.Ordinal)
+              && oracleJob.CatalogDetails.Contains("FREQ=DAILY", StringComparison.Ordinal),
+            "Oracle job nodes must show state, enabled flag and schedule.");
+        var sqlServerJob = DbAdminCatalog.CreateNode(["Nightly ETL", "False", "Legacy job"], DbCatalogKind.Job);
+        Check(sqlServerJob.CatalogDetails.Contains("禁用", StringComparison.Ordinal),
+            "SQL Server job nodes must translate the enabled flag.");
+    }
+
+    private static void VerifyAdvancedFolders()
+    {
+        Check(!DbAdminCatalog.CreateFolders(Connection("Postgres"), "app_db")
+                .Any(f => f.CatalogKind == DbCatalogKind.Job),
+            "PostgreSQL jobs must not be exposed because pg_cron is not built in.");
+        Check(!DbAdminCatalog.CreateFolders(Connection("Sqlite"), null)
+                .Any(f => f.CatalogKind is DbCatalogKind.Synonym or DbCatalogKind.Package
+                    or DbCatalogKind.MaterializedView or DbCatalogKind.Job),
+            "SQLite must not expose any advanced catalog folder.");
     }
 
     private static ConnectionItem Connection(string databaseType) => new()
