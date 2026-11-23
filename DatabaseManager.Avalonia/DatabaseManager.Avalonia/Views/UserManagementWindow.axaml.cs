@@ -1,7 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using DatabaseInterpreter.Model;
-using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 using MsBox.Avalonia;
@@ -20,7 +19,12 @@ public partial class UserManagementWindow : Window
 
     private enum FormMode { None, CreateUser, CreateRole, Grant, Revoke, GrantRole, RevokeRole, ChangePassword }
 
-    private FormMode _mode = FormMode.None;
+    private FormMode _mode;
+    private DbUserInfo? _formUser;
+    private string? _databaseName;
+    private DbPrincipalKind _principalKind;
+    private int _contextVersion;
+    private int _refreshVersion;
 
     public UserManagementWindow()
     {
@@ -32,11 +36,13 @@ public partial class UserManagementWindow : Window
     {
         _userService = userService;
         _connectionService = connectionService;
+        CmbConnection.SelectionChanged += CmbConnection_SelectionChanged;
 
         CmbConnection.ItemsSource = _connectionService.GetConnections()
             .Where(c => _userService.IsSupported(c.DatabaseType))
             .ToList();
 
+        BtnRefresh.IsEnabled = SelectedConnection is not null;
         if (CmbConnection.ItemCount == 0)
         {
             TxtGrants.Text = "没有支持用户管理的连接（SQLite 不支持）。";
@@ -51,97 +57,105 @@ public partial class UserManagementWindow : Window
     private DatabaseType? SelectedDatabaseType => SelectedConnection is { } c
         && Enum.TryParse<DatabaseType>(c.DatabaseType, true, out var type) ? type : null;
 
-    /// <summary>
-    /// 由对象树安全主体节点带入上下文：定位连接、刷新列表并选中对应主体。
-    /// principalName 允许传入 MySQL 的 'user'@'host' 形式。
-    /// </summary>
-    public async Task SetContextAsync(ConnectionItem connection, string principalName, bool showGrants = false)
+    public async Task OpenPrincipalAsync(ConnectionItem connection, DbObjectTreeNode node, PrincipalManagementAction action)
     {
-        if (!_userService.IsSupported(connection.DatabaseType))
+        ResetContext();
+        CmbConnection.ItemsSource = _connectionService.GetConnections()
+            .Where(c => _userService.IsSupported(c.DatabaseType))
+            .ToList();
+        CmbConnection.SelectedItem = CmbConnection.ItemsSource.OfType<ConnectionItem>()
+            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase));
+        if (SelectedConnection is null)
         {
-            TxtGrants.Text = "该连接不支持用户与角色管理。";
+            TxtGrants.Text = "找不到支持用户与权限管理的连接。";
             return;
         }
 
-        CmbConnection.SelectedItem = CmbConnection.ItemsSource?
-            .OfType<ConnectionItem>()
-            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase))
-            ?? connection;
-
-        await RefreshUsersAsync();
-
-        var (name, host) = ParsePrincipalLabel(principalName);
-        var match = UsersGrid.ItemsSource?
-            .OfType<DbUserInfo>()
-            .FirstOrDefault(u => string.Equals(u.Name, name, StringComparison.Ordinal)
-                                 && (host is null || string.Equals(u.Host, host, StringComparison.Ordinal)));
-
-        if (match is not null)
+        _databaseName = node.DatabaseName;
+        _principalKind = node.PrincipalKind;
+        UpdateScopeLabel();
+        if (action is PrincipalManagementAction.NewUser or PrincipalManagementAction.NewRole)
         {
-            UsersGrid.SelectedItem = match;
-            if (UsersGrid.Columns.Count > 0)
-                UsersGrid.ScrollIntoView(match, UsersGrid.Columns[0]);
-            if (showGrants)
-                await ShowGrantsForAsync(match);
+            if (action == PrincipalManagementAction.NewUser)
+                EnterForm(FormMode.CreateUser, CreateUserTitle);
+            else
+                EnterForm(FormMode.CreateRole, "新建角色");
+            return;
         }
-        else
+
+        int context = _contextVersion;
+        if (!await RefreshUsersAsync() || context != _contextVersion || node.NodeType != DbObjectTreeNodeType.Principal)
+            return;
+
+        var match = UsersGrid.ItemsSource?.OfType<DbUserInfo>().FirstOrDefault(u => u.MatchesPrincipal(node));
+        if (match is null)
         {
-            TxtGrants.Text = $"列表中未找到主体「{principalName}」，可点击刷新后重试。";
+            TxtGrants.Text = $"列表中未找到主体「{node.Text}」，请刷新对象树。";
+            return;
         }
+
+        UsersGrid.SelectedItem = match;
+        UsersGrid.ScrollIntoView(match, UsersGrid.Columns[0]);
+        if (action == PrincipalManagementAction.ShowGrants)
+            await ShowGrantsForAsync(match);
+        else if (action == PrincipalManagementAction.Delete)
+            await DeletePrincipalAsync(match);
     }
 
-    /// <summary>仅选中连接（供对象树「新建用户/角色」入口在创建前定位上下文）。</summary>
-    public void SetConnection(ConnectionItem connection)
+    private void CmbConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e) => ResetContext();
+
+    private void ResetContext()
     {
-        CmbConnection.SelectedItem = CmbConnection.ItemsSource?
-            .OfType<ConnectionItem>()
-            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase))
-            ?? connection;
+        _contextVersion++;
+        _databaseName = null;
+        _principalKind = DbPrincipalKind.None;
+        UsersGrid.ItemsSource = null;
+        TxtGrants.Text = string.Empty;
+        BtnRefresh.IsEnabled = SelectedConnection is not null;
+        CloseForm();
+        UpdateScopeLabel();
     }
 
-    public void PrepareCreateUser() => EnterForm(FormMode.CreateUser, "新建用户");
+    private string ScopeLabel => SelectedConnection is { } connection
+        ? SelectedDatabaseType == DatabaseType.SqlServer
+            ? $"{connection.Name} / {_databaseName ?? "服务器"}"
+            : connection.Description
+        : string.Empty;
 
-    public void PrepareCreateRole() => EnterForm(FormMode.CreateRole, "新建角色");
-
-    public Task RequestDeleteAsync() => DeleteSelectedPrincipalAsync();
-
-    private static (string Name, string? Host) ParsePrincipalLabel(string label)
-    {
-        // DbPrincipalCatalog 对 MySQL 生成 'user'@'host'，内部引号已翻倍。
-        if (label.Length > 3 && label.StartsWith('\'') && label.EndsWith('\'') && label.Contains("'@'", StringComparison.Ordinal))
-        {
-            int split = label.IndexOf("'@'", StringComparison.Ordinal);
-            return (label[1..split].Replace("''", "'", StringComparison.Ordinal),
-                label[(split + 3)..^1].Replace("''", "'", StringComparison.Ordinal));
-        }
-        return (label, null);
-    }
+    private void UpdateScopeLabel() => TxtScope.Text = ScopeLabel;
 
     private async void BtnRefresh_Click(object? sender, RoutedEventArgs e) => await RefreshUsersAsync();
 
-    private async Task RefreshUsersAsync()
+    private async Task<bool> RefreshUsersAsync()
     {
         if (SelectedConnection is not ConnectionItem connection)
         {
             TxtGrants.Text = "请先选择连接。";
-            return;
+            return false;
         }
 
+        int context = _contextVersion;
+        int refresh = ++_refreshVersion;
+        UsersGrid.ItemsSource = null;
         BtnRefresh.IsEnabled = false;
         TxtGrants.Text = "正在读取主体列表...";
 
         try
         {
-            var (users, error) = await _userService.GetUsersAsync(connection);
+            var (users, error) = await _userService.GetUsersAsync(connection, databaseName: _databaseName, principalKind: _principalKind);
+            if (context != _contextVersion || refresh != _refreshVersion)
+                return false;
             UsersGrid.ItemsSource = users;
 
             TxtGrants.Text = error is not null
                 ? $"读取失败：{error}\n（部分数据库需要管理员权限才能读取主体列表）"
-                : $"共 {users.Count} 个主体（用户 {users.Count(u => u.Kind != "role")}，角色 {users.Count(u => u.Kind == "role")}）。";
+                : $"共 {users.Count} 个主体。";
+            return error is null;
         }
         finally
         {
-            BtnRefresh.IsEnabled = true;
+            if (context == _contextVersion && refresh == _refreshVersion)
+                BtnRefresh.IsEnabled = true;
         }
     }
 
@@ -164,8 +178,11 @@ public partial class UserManagementWindow : Window
             return;
         }
 
+        int context = _contextVersion;
         TxtGrants.Text = "正在读取权限...";
-        var (text, error) = await _userService.GetGrantsAsync(connection, user.Name, NullIfEmpty(user.Host));
+        var (text, error) = await _userService.GetGrantsAsync(connection, user.Name, user.Host, databaseName: _databaseName);
+        if (context != _contextVersion || SelectedUser != user)
+            return;
 
         TxtGrants.Text = error is not null
             ? $"读取权限失败：{error}"
@@ -173,7 +190,7 @@ public partial class UserManagementWindow : Window
     }
 
     private void BtnCreateUser_Click(object? sender, RoutedEventArgs e)
-        => EnterForm(FormMode.CreateUser, "新建用户");
+        => EnterForm(FormMode.CreateUser, CreateUserTitle);
 
     private void BtnCreateRole_Click(object? sender, RoutedEventArgs e)
         => EnterForm(FormMode.CreateRole, "新建角色");
@@ -193,6 +210,9 @@ public partial class UserManagementWindow : Window
     private void BtnChangePassword_Click(object? sender, RoutedEventArgs e)
         => EnterForm(FormMode.ChangePassword, $"修改 {SelectedUser?.Name ?? "选中主体"} 的密码");
 
+    private string CreateUserTitle => SelectedDatabaseType != DatabaseType.SqlServer ? "新建用户"
+        : _databaseName is null ? "新建登录名" : "为同名登录名新建数据库用户";
+
     private void EnterForm(FormMode mode, string title)
     {
         if (SelectedConnection is null)
@@ -200,30 +220,51 @@ public partial class UserManagementWindow : Window
             TxtGrants.Text = "请先选择连接。";
             return;
         }
-        if (mode is FormMode.Grant or FormMode.Revoke or FormMode.ChangePassword && SelectedUser is null)
+        if ((mode is FormMode.Grant or FormMode.Revoke or FormMode.ChangePassword) && SelectedUser is null)
         {
             TxtGrants.Text = "请先选择主体。";
             return;
         }
 
+        bool isSqlServer = SelectedDatabaseType == DatabaseType.SqlServer;
+        if (isSqlServer && _databaseName is null && (mode is FormMode.Grant or FormMode.Revoke))
+        {
+            TxtGrants.Text = "请从目标数据库的安全主体目录打开管理窗口，再修改对象权限。";
+            return;
+        }
+
+        if (mode == FormMode.ChangePassword && (SelectedUser?.IsRole == true ||
+            (isSqlServer && (_databaseName is not null || SelectedUser?.Attributes != "SQL_LOGIN"))))
+        {
+            TxtGrants.Text = "该主体不支持在此修改密码。SQL Server 请在服务器范围选择 SQL 登录名。";
+            return;
+        }
+
         _mode = mode;
+        _formUser = SelectedUser;
         FormTitle.Text = title;
         bool isMySql = SelectedDatabaseType == DatabaseType.MySql;
         bool isPgLike = SelectedDatabaseType is DatabaseType.Postgres or DatabaseType.KingbaseES;
+        bool membership = mode is FormMode.GrantRole or FormMode.RevokeRole;
 
-        PanelPassword.IsVisible = mode is FormMode.CreateUser or FormMode.CreateRole or FormMode.ChangePassword;
-        PanelHost.IsVisible = isMySql && (mode is FormMode.CreateUser or FormMode.CreateRole or FormMode.ChangePassword);
+        PanelPassword.IsVisible = mode == FormMode.ChangePassword
+            || (mode == FormMode.CreateUser && !(isSqlServer && _databaseName is not null))
+            || (mode == FormMode.CreateRole && isPgLike);
+        PanelHost.IsVisible = isMySql && (membership || mode is FormMode.CreateUser or FormMode.CreateRole);
         PanelPrivilege.IsVisible = mode is FormMode.Grant or FormMode.Revoke;
-        PanelMember.IsVisible = mode is FormMode.GrantRole or FormMode.RevokeRole;
+        PanelMember.IsVisible = membership;
+        PanelMemberHost.IsVisible = isMySql && membership;
         ChkCanLogin.IsVisible = mode == FormMode.CreateRole && isPgLike;
+        ChkCanLogin.IsChecked = false;
 
-        LblFormName.Text = mode is FormMode.GrantRole or FormMode.RevokeRole ? "角色名:" : "名称:";
-        TxtFormUser.Text = mode is FormMode.GrantRole or FormMode.RevokeRole
-            ? string.Empty
-            : SelectedUser?.Name ?? string.Empty;
+        PanelFormName.IsVisible = membership || mode is FormMode.CreateUser or FormMode.CreateRole;
+        LblFormName.Text = membership ? "角色名:" : "名称:";
+        LblFormHost.Text = membership ? "角色主机:" : "主机:";
+        TxtFormUser.Text = string.Empty;
         TxtFormPassword.Text = string.Empty;
-        TxtFormHost.Text = "%";
-        TxtFormMember.Text = SelectedUser?.Name ?? string.Empty;
+        TxtFormHost.Text = membership ? string.Empty : "%";
+        TxtFormMember.Text = membership ? _formUser?.Name ?? string.Empty : string.Empty;
+        TxtFormMemberHost.Text = membership ? _formUser?.Host ?? string.Empty : string.Empty;
         ComboPrivilege.SelectedIndex = 0;
         TxtFormObject.Text = GetGrantObjectPlaceholder(SelectedConnection.DatabaseType);
         FormPanel.IsVisible = true;
@@ -234,7 +275,20 @@ public partial class UserManagementWindow : Window
         if (SelectedConnection is not ConnectionItem connection)
             return;
 
+        int context = _contextVersion;
+        string? databaseName = _databaseName;
+        string scope = ScopeLabel;
+        bool hasPassword = PanelPassword.IsVisible;
+        string password = TxtFormPassword.Text ?? string.Empty;
+        if (hasPassword && SelectedDatabaseType == DatabaseType.Oracle &&
+            (password.Length == 0 || password.IndexOfAny(['"', '\r', '\n', '\0']) >= 0))
+        {
+            await ShowErrorAsync("Oracle 密码不能为空，也不能包含双引号或换行。");
+            return;
+        }
+
         string sql;
+        string preview;
         string confirmTitle;
 
         switch (_mode)
@@ -247,9 +301,10 @@ public partial class UserManagementWindow : Window
                     await ShowErrorAsync("请填写用户名。");
                     return;
                 }
-                sql = _userService.BuildCreateUserSql(
-                    connection.DatabaseType, name, TxtFormPassword.Text ?? string.Empty, NullIfEmpty(TxtFormHost.Text));
-                confirmTitle = "创建用户";
+                string? host = NullIfEmpty(TxtFormHost.Text);
+                sql = _userService.BuildCreateUserSql(connection.DatabaseType, name, password, host, databaseName is not null);
+                preview = hasPassword ? _userService.BuildCreateUserSql(connection.DatabaseType, name, "********", host) : sql;
+                confirmTitle = CreateUserTitle;
                 break;
             }
             case FormMode.CreateRole:
@@ -260,16 +315,19 @@ public partial class UserManagementWindow : Window
                     await ShowErrorAsync("请填写角色名。");
                     return;
                 }
-                sql = _userService.BuildCreateRoleSql(
-                    connection.DatabaseType, name, TxtFormPassword.Text ?? string.Empty,
-                    ChkCanLogin.IsChecked == true, NullIfEmpty(TxtFormHost.Text));
+                string? host = NullIfEmpty(TxtFormHost.Text);
+                bool canLogin = ChkCanLogin.IsChecked == true;
+                sql = _userService.BuildCreateRoleSql(connection.DatabaseType, name, password, canLogin, host, databaseName is not null);
+                preview = hasPassword && password.Length > 0
+                    ? _userService.BuildCreateRoleSql(connection.DatabaseType, name, "********", canLogin, host, databaseName is not null)
+                    : sql;
                 confirmTitle = "创建角色";
                 break;
             }
             case FormMode.Grant:
             case FormMode.Revoke:
             {
-                if (SelectedUser is null)
+                if (_formUser is not { } user)
                 {
                     await ShowErrorAsync("请先选择主体。");
                     return;
@@ -277,37 +335,44 @@ public partial class UserManagementWindow : Window
                 var privilege = (ComboPrivilege.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "SELECT";
                 string onObject = (TxtFormObject.Text ?? string.Empty).Trim();
                 sql = _mode == FormMode.Grant
-                    ? _userService.BuildGrantSql(connection.DatabaseType, SelectedUser.Name, NullIfEmpty(SelectedUser.Host), privilege, onObject)
-                    : _userService.BuildRevokeSql(connection.DatabaseType, SelectedUser.Name, NullIfEmpty(SelectedUser.Host), privilege, onObject);
+                    ? _userService.BuildGrantSql(connection.DatabaseType, user.Name, user.Host, privilege, onObject)
+                    : _userService.BuildRevokeSql(connection.DatabaseType, user.Name, user.Host, privilege, onObject);
+                preview = sql;
                 confirmTitle = _mode == FormMode.Grant ? "授权" : "撤销授权";
                 break;
             }
             case FormMode.GrantRole:
             case FormMode.RevokeRole:
             {
-                string role = (TxtFormUser.Text ?? string.Empty).Trim();
-                string member = (TxtFormMember.Text ?? string.Empty).Trim();
-                if (role.Length == 0 || member.Length == 0)
+                bool isMySql = SelectedDatabaseType == DatabaseType.MySql;
+                string role = TxtFormUser.Text ?? string.Empty;
+                string member = TxtFormMember.Text ?? string.Empty;
+                string? roleHost = isMySql ? TxtFormHost.Text : null;
+                string? memberHost = isMySql ? TxtFormMemberHost.Text : null;
+                if (string.IsNullOrWhiteSpace(role) || (!isMySql && string.IsNullOrWhiteSpace(member)) ||
+                    (isMySql && (string.IsNullOrWhiteSpace(roleHost) || string.IsNullOrWhiteSpace(memberHost))))
                 {
-                    await ShowErrorAsync("请填写角色名与成员名。");
+                    await ShowErrorAsync("请填写角色名与成员名。MySQL 还需分别填写角色和成员的主机。");
                     return;
                 }
-                string? memberHost = SelectedDatabaseType == DatabaseType.MySql ? "%" : null;
+
                 sql = _mode == FormMode.GrantRole
-                    ? _userService.BuildGrantRoleSql(connection.DatabaseType, role, member, memberHost)
-                    : _userService.BuildRevokeRoleSql(connection.DatabaseType, role, member, memberHost);
+                    ? _userService.BuildGrantRoleSql(connection.DatabaseType, role, member, memberHost, roleHost, databaseName is not null)
+                    : _userService.BuildRevokeRoleSql(connection.DatabaseType, role, member, memberHost, roleHost, databaseName is not null);
+                preview = sql;
                 confirmTitle = _mode == FormMode.GrantRole ? "授予角色" : "撤销角色";
                 break;
             }
             case FormMode.ChangePassword:
             {
-                if (SelectedUser is null)
+                if (_formUser is not { } user)
                 {
                     await ShowErrorAsync("请先选择主体。");
                     return;
                 }
                 sql = _userService.BuildAlterPasswordSql(
-                    connection.DatabaseType, SelectedUser.Name, NullIfEmpty(SelectedUser.Host), TxtFormPassword.Text ?? string.Empty);
+                    connection.DatabaseType, user.Name, user.Host, password);
+                preview = _userService.BuildAlterPasswordSql(connection.DatabaseType, user.Name, user.Host, "********");
                 confirmTitle = "修改密码";
                 break;
             }
@@ -321,49 +386,37 @@ public partial class UserManagementWindow : Window
             return;
         }
 
-        var confirm = await DialogHelper.ShowConfirmAsync(confirmTitle, $"将执行以下 SQL：{Environment.NewLine}{Environment.NewLine}{sql}{Environment.NewLine}{Environment.NewLine}确定执行吗？");
-        if (confirm != true)
-            return;
-
-        var (success, error) = await _userService.ExecuteAsync(connection, sql);
-        if (success)
-        {
-            TxtGrants.Text = $"执行成功：{sql}";
-            FormPanel.IsVisible = false;
-            _mode = FormMode.None;
-            await RefreshUsersAsync();
-        }
-        else
-        {
-            await ShowErrorAsync($"执行失败：{error}");
-        }
+        await ConfirmAndExecuteAsync(connection, databaseName, scope, context, confirmTitle, sql, preview, hasPassword);
     }
 
-    private void BtnFormCancel_Click(object? sender, RoutedEventArgs e)
+    private void BtnFormCancel_Click(object? sender, RoutedEventArgs e) => CloseForm();
+
+    private void CloseForm()
     {
         FormPanel.IsVisible = false;
+        TxtFormPassword.Text = string.Empty;
+        _formUser = null;
         _mode = FormMode.None;
     }
 
-    private async void BtnDropUser_Click(object? sender, RoutedEventArgs e) => await DeleteSelectedPrincipalAsync();
-
-    private async Task DeleteSelectedPrincipalAsync()
+    private async void BtnDropUser_Click(object? sender, RoutedEventArgs e)
     {
-        if (SelectedConnection is not ConnectionItem connection)
-        {
-            TxtGrants.Text = "请先选择连接。";
-            return;
-        }
-
-        if (SelectedUser is not DbUserInfo user)
-        {
+        if (SelectedUser is { } user)
+            await DeletePrincipalAsync(user);
+        else
             TxtGrants.Text = "请先选择主体。";
-            return;
-        }
+    }
 
-        bool isRole = string.Equals(user.Kind, "role", StringComparison.OrdinalIgnoreCase);
+    private async Task DeletePrincipalAsync(DbUserInfo user)
+    {
+        if (SelectedConnection is not { } connection)
+            return;
+
+        int context = _contextVersion;
+        string? databaseName = _databaseName;
+        string scope = ScopeLabel;
         bool cascade = false;
-        if (!isRole && SelectedDatabaseType == DatabaseType.Oracle)
+        if (!user.IsRole && SelectedDatabaseType == DatabaseType.Oracle)
         {
             var answer = await MessageBoxManager
                 .GetMessageBoxStandard("删除用户", $"是否级联删除（CASCADE，同时删除其对象）？\n「是」= CASCADE，「否」= 仅删除用户。", ButtonEnum.YesNo, MsBox.Avalonia.Enums.Icon.Warning)
@@ -371,26 +424,48 @@ public partial class UserManagementWindow : Window
             cascade = answer == ButtonResult.Yes;
         }
 
-        string sql = isRole
-            ? _userService.BuildDropRoleSql(connection.DatabaseType, user.Name, NullIfEmpty(user.Host))
-            : _userService.BuildDropUserSql(connection.DatabaseType, user.Name, NullIfEmpty(user.Host), cascade);
+        string sql = user.IsRole
+            ? _userService.BuildDropRoleSql(connection.DatabaseType, user.Name, user.Host, databaseName is not null, user.Kind == "application role")
+            : _userService.BuildDropUserSql(connection.DatabaseType, user.Name, user.Host, cascade, databaseName is not null);
+        string title = user.IsRole ? "删除角色" : user.Kind == "login" ? "删除登录名" : "删除用户";
+        await ConfirmAndExecuteAsync(connection, databaseName, scope, context, title, sql, sql, hasPassword: false, destructive: true);
+    }
 
-        var confirm = await DialogHelper.ShowConfirmAsync(
-            isRole ? "删除角色" : "删除用户",
-            $"{sql}{Environment.NewLine}{Environment.NewLine}该操作不可撤销，确定执行吗？");
+    private bool _writeInProgress;
 
-        if (confirm != true)
+    private async Task ConfirmAndExecuteAsync(ConnectionItem connection, string? databaseName, string scope, int context,
+        string title, string sql, string preview, bool hasPassword, bool destructive = false)
+    {
+        if (_writeInProgress || context != _contextVersion)
             return;
 
-        var (success, error) = await _userService.ExecuteAsync(connection, sql);
-        if (success)
+        _writeInProgress = true;
+        try
         {
-            TxtGrants.Text = $"执行成功：{sql}";
-            await RefreshUsersAsync();
+            string prompt = destructive ? "该操作不可撤销，确定执行吗？" : "确定执行吗？";
+            var confirm = await MessageBoxManager.GetMessageBoxStandard(title,
+                    $"操作范围：{scope}\n\n{preview}\n\n{prompt}", ButtonEnum.YesNo, MsBox.Avalonia.Enums.Icon.Warning)
+                .ShowWindowDialogAsync(this);
+            if (confirm != ButtonResult.Yes || context != _contextVersion)
+                return;
+
+            var (success, error) = await _userService.ExecuteAsync(connection, sql, databaseName: databaseName);
+            if (context != _contextVersion)
+                return;
+
+            if (success)
+            {
+                CloseForm();
+                await RefreshUsersAsync();
+            }
+            else
+            {
+                await ShowErrorAsync(hasPassword ? "执行失败，请检查数据库权限和密码规则。" : $"执行失败：{error}");
+            }
         }
-        else
+        finally
         {
-            await ShowErrorAsync($"删除失败：{error}");
+            _writeInProgress = false;
         }
     }
 

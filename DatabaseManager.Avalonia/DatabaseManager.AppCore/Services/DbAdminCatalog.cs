@@ -17,10 +17,9 @@ internal static class DbAdminCatalog
         (DbCatalogKind Kind, string Label)[] folders = (dbType, databaseName is not null) switch
         {
 #if !DATABASE_MANAGER_AOT
-            (DatabaseType.KingbaseES, false) when KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is null
+            (DatabaseType.KingbaseES, true) when KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is null
                 => [(DbCatalogKind.Extension, "扩展")],
 #endif
-            (DatabaseType.Postgres, false) => [(DbCatalogKind.Extension, "扩展")],
             (DatabaseType.Oracle, true) =>
             [
                 (DbCatalogKind.Tablespace, "表空间"),
@@ -38,7 +37,7 @@ internal static class DbAdminCatalog
                 (DbCatalogKind.PartitionFunction, "分区函数"),
                 (DbCatalogKind.Synonym, "同义词"),
             ],
-            (DatabaseType.Postgres, true) => [(DbCatalogKind.MaterializedView, "物化视图")],
+            (DatabaseType.Postgres, true) => [(DbCatalogKind.Extension, "扩展"), (DbCatalogKind.MaterializedView, "物化视图")],
             (DatabaseType.SqlServer, false) => [(DbCatalogKind.Job, "数据库作业")],
             _ => [],
         };
@@ -78,7 +77,7 @@ internal static class DbAdminCatalog
         (DatabaseType.Oracle, DbCatalogKind.Synonym) =>
             "SELECT SYNONYM_NAME, TABLE_OWNER, TABLE_NAME, DB_LINK FROM USER_SYNONYMS ORDER BY SYNONYM_NAME",
         (DatabaseType.SqlServer, DbCatalogKind.Synonym) =>
-            "SELECT s.name, SCHEMA_NAME(s.schema_id), s.base_object_name FROM sys.synonyms s ORDER BY s.name",
+            "SELECT s.name, SCHEMA_NAME(s.schema_id), s.base_object_name FROM sys.synonyms s ORDER BY SCHEMA_NAME(s.schema_id), s.name",
         (DatabaseType.Oracle, DbCatalogKind.Package) =>
             "SELECT NAME, TYPE FROM USER_SOURCE WHERE TYPE IN ('PACKAGE', 'PACKAGE BODY') "
             + "GROUP BY NAME, TYPE ORDER BY NAME, TYPE",
@@ -86,7 +85,7 @@ internal static class DbAdminCatalog
             "SELECT MVIEW_NAME, REFRESH_MODE, REFRESH_METHOD, "
             + "TO_CHAR(LAST_REFRESH_DATE, 'YYYY-MM-DD HH24:MI') FROM USER_MVIEWS ORDER BY MVIEW_NAME",
         (DatabaseType.Postgres, DbCatalogKind.MaterializedView) =>
-            "SELECT matviewname, ispopulated::text, definition FROM pg_catalog.pg_matviews ORDER BY matviewname",
+            "SELECT matviewname, schemaname, ispopulated::text, definition FROM pg_catalog.pg_matviews ORDER BY schemaname, matviewname",
         (DatabaseType.Oracle, DbCatalogKind.Job) =>
             "SELECT JOB_NAME, STATE, ENABLED, REPEAT_INTERVAL FROM USER_SCHEDULER_JOBS ORDER BY JOB_NAME",
         (DatabaseType.SqlServer, DbCatalogKind.Job) =>
@@ -95,9 +94,14 @@ internal static class DbAdminCatalog
     };
 
     /// <summary>把目录行转换为只读节点；列数按方言差异做容错。</summary>
-    internal static DbObjectTreeNode CreateNode(string?[] row, DbCatalogKind kind)
+    internal static DbObjectTreeNode CreateNode(string?[] row, DbCatalogKind kind, DatabaseType dbType = DatabaseType.Unknown)
     {
         string name = row[0] ?? string.Empty;
+        bool hasSchema = (dbType, kind) is (DatabaseType.SqlServer, DbCatalogKind.Synonym)
+            or (DatabaseType.Postgres, DbCatalogKind.MaterializedView);
+        string? schema = hasSchema && row.Length >= 2 ? row[1] : null;
+        if (!string.IsNullOrEmpty(schema))
+            name = $"{schema}.{name}";
         string details = kind switch
         {
             DbCatalogKind.Extension => row.Length >= 3
@@ -118,9 +122,9 @@ internal static class DbAdminCatalog
             DbCatalogKind.Package => row.Length >= 2
                 ? (string.Equals(row[1], "PACKAGE BODY", StringComparison.OrdinalIgnoreCase) ? "包体" : "包说明")
                 : string.Empty,
-            DbCatalogKind.MaterializedView => row.Length >= 4
-                ? $"刷新 {row[1] ?? string.Empty}/{row[2] ?? string.Empty} · 上次 {row[3] ?? string.Empty}"
-                : row.Length >= 3 ? $"{(string.Equals(row[1], "true", StringComparison.OrdinalIgnoreCase) ? "已填充" : "未填充")} · {TrimDefinition(row[2])}" : string.Empty,
+            DbCatalogKind.MaterializedView when row.Length >= 4 => dbType == DatabaseType.Postgres
+                ? $"{(IsEnabled(row[2]) ? "已填充" : "未填充")} · {TrimDefinition(row[3])}"
+                : $"刷新 {row[1] ?? string.Empty}/{row[2] ?? string.Empty} · 上次 {row[3] ?? string.Empty}",
             DbCatalogKind.Job => row.Length >= 4
                 ? $"{row[1] ?? string.Empty} · {(IsEnabled(row[2]) ? "启用" : "禁用")} · {TrimDefinition(row[3])}"
                 : row.Length >= 3 ? $"{(IsEnabled(row[1]) ? "启用" : "禁用")} · {TrimDefinition(row[2])}" : string.Empty,
@@ -133,6 +137,7 @@ internal static class DbAdminCatalog
             Text = name,
             NodeType = DbObjectTreeNodeType.CatalogObject,
             CatalogKind = kind,
+            Schema = schema,
             CatalogDetails = details.Trim(),
             IsLoaded = true,
         };
@@ -156,6 +161,7 @@ internal static class DbAdminCatalog
         DbCatalogKind kind,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var dbType = ConnectionHelper.ParseDatabaseType(connection.DatabaseType);
         if (dbType == DatabaseType.KingbaseES &&
             KingbaseCompatibilityModes.GetAdminFeatureBlockReason(connection.KingbaseCompatibilityMode) is { } modeReason)
@@ -173,7 +179,7 @@ internal static class DbAdminCatalog
         {
             var rows = await DefaultDbUserService.ExecuteReaderAsync(interpreter, sql, cancellationToken);
             return (rows.Where(r => r.Length > 0 && !string.IsNullOrEmpty(r[0]))
-                        .Select(r => CreateNode(r, kind)).ToList(), null);
+                        .Select(r => CreateNode(r, kind, dbType)).ToList(), null);
         }
         catch (Exception ex) when (dbType == DatabaseType.Oracle && kind == DbCatalogKind.Tablespace && !cancellationToken.IsCancellationRequested)
         {
@@ -183,16 +189,18 @@ internal static class DbAdminCatalog
                 var rows = await DefaultDbUserService.ExecuteReaderAsync(
                     interpreter, GetSql(dbType, kind, dbaScope: true), cancellationToken);
                 return (rows.Where(r => r.Length > 0 && !string.IsNullOrEmpty(r[0]))
-                            .Select(r => CreateNode(r, kind)).ToList(), null);
+                            .Select(r => CreateNode(r, kind, dbType)).ToList(), null);
             }
             catch (Exception fallbackEx)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return (new List<DbObjectTreeNode>(),
                     $"USER_TABLESPACES 读取失败：{ex.Message}；DBA_TABLESPACES 回退失败：{fallbackEx.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetUserPermissionHint(dbType)}");
             }
         }
         catch (Exception ex)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             return (new List<DbObjectTreeNode>(),
                 $"{ex.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetCatalogPermissionHint(dbType, kind)}");
         }

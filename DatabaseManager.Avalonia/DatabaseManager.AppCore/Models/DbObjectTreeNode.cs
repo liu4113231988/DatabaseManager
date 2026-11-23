@@ -25,6 +25,10 @@ public class DbObjectTreeNode : System.ComponentModel.INotifyPropertyChanged
     /// <summary>安全主体目录或叶节点的类别。</summary>
     public DbPrincipalKind PrincipalKind { get; init; }
 
+    public string? PrincipalName { get; init; }
+
+    public string? PrincipalHost { get; init; }
+
     /// <summary>管理型只读目录（扩展/表空间/分区方案/分区函数）的类别。</summary>
     public DbCatalogKind CatalogKind { get; init; }
 

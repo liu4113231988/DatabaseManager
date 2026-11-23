@@ -69,6 +69,8 @@ internal static class DbPrincipalCatalog
             Text = label,
             NodeType = DbObjectTreeNodeType.Principal,
             PrincipalKind = kind,
+            PrincipalName = name,
+            PrincipalHost = host,
             DatabaseName = databaseName,
             IsLoaded = true,
         };

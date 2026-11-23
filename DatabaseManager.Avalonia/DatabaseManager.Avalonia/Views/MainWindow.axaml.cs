@@ -831,22 +831,7 @@ public partial class MainWindow : Window
         var window = _userManagementWindow;
         window.Activate();
 
-        if (action is PrincipalManagementAction.NewUser or PrincipalManagementAction.NewRole)
-        {
-            window.SetConnection(connection);
-            if (action == PrincipalManagementAction.NewUser)
-                window.PrepareCreateUser();
-            else
-                window.PrepareCreateRole();
-            return;
-        }
-
-        if (node.NodeType != DbObjectTreeNodeType.Principal)
-            return;
-
-        await window.SetContextAsync(connection, node.Name, action == PrincipalManagementAction.ShowGrants);
-        if (action == PrincipalManagementAction.Delete)
-            await window.RequestDeleteAsync();
+        await window.OpenPrincipalAsync(connection, node, action);
     }
 
     /// <summary>打开查询性能剖析窗口（预填当前查询标签的连接与 SQL）。</summary>

@@ -47,7 +47,7 @@ DatabaseManager.Avalonia/
 
 | 数据库 | 目录位置 | 内容 |
 | --- | --- | --- |
-| PostgreSQL、KingbaseES（PG 兼容） | 连接下「扩展」 | 扩展名称、版本与安装 Schema（`pg_extension`） |
+| PostgreSQL、KingbaseES（PG 兼容） | 各数据库下「扩展」 | 扩展名称、版本与安装 Schema（`pg_extension`） |
 | Oracle、DM | 数据库下「表空间」 | 当前用户可见的表空间；Oracle 在 `USER_TABLESPACES` 读取失败时回退 `DBA_TABLESPACES`（需目录权限） |
 | SQL Server | 数据库下「分区方案」「分区函数」 | 方案名称、绑定函数、分区数；函数类型与边界数 |
 | Oracle、SQL Server | 数据库下「同义词」 | 目标对象与数据库链接 / 基对象名；需 `USER_SYNONYMS` 或 `sys.synonyms` 权限 |

@@ -484,9 +484,9 @@ public partial class ObjectsExplorerViewModel : ViewModelBase
         {
             SetMessage("已取消，重新展开或按 F5 重试");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            SetMessage("读取失败，请检查连接或目录权限，按 F5 重试");
+            SetMessage($"读取失败，按 F5 重试：{ex.Message}");
         }
         finally
         {

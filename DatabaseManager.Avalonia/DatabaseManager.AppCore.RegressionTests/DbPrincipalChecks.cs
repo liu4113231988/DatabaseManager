@@ -1,3 +1,5 @@
+using DatabaseInterpreter.Model;
+using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
 
 /// <summary>用户与角色管理 SQL 生成的回归检查（纯模板，不依赖真实实例）。</summary>
@@ -13,6 +15,7 @@ internal static class DbPrincipalChecks
         VerifyRoleMembership(service);
         VerifyAlterPassword(service);
         VerifyCatalogColumns();
+        VerifyPrincipalScope(service);
 
         Console.WriteLine("User/role management checks passed: role lifecycle, revoke, membership, password and principal catalog.");
     }
@@ -29,7 +32,7 @@ internal static class DbPrincipalChecks
               == "CREATE ROLE \"app_reader\";",
             "KingbaseES role creation must follow PG-compatible syntax.");
         Check(service.BuildCreateRoleSql("MySql", "app_reader", null, false, null)
-              == "CREATE ROLE 'app_reader'@'%';",
+              == "CREATE ROLE `app_reader`@`%`;",
             "MySQL role creation must include the host part.");
         Check(service.BuildCreateRoleSql("SqlServer", "app_reader", null, false, null)
               == "CREATE ROLE [app_reader];",
@@ -47,7 +50,7 @@ internal static class DbPrincipalChecks
             "PostgreSQL role removal must use DROP ROLE.");
         Check(service.BuildDropRoleSql("KingbaseES", "app_reader", null) == "DROP ROLE \"app_reader\";",
             "KingbaseES role removal must use DROP ROLE.");
-        Check(service.BuildDropRoleSql("MySql", "app_reader", "localhost") == "DROP ROLE 'app_reader'@'localhost';",
+        Check(service.BuildDropRoleSql("MySql", "app_reader", "localhost") == "DROP ROLE `app_reader`@`localhost`;",
             "MySQL role removal must preserve the host part.");
         Check(service.BuildDropRoleSql("SqlServer", "app_reader", null) == "DROP ROLE [app_reader];",
             "SQL Server role removal must quote the identifier.");
@@ -62,7 +65,7 @@ internal static class DbPrincipalChecks
               == "REVOKE SELECT ON TABLE \"public\".\"orders\" FROM \"reporter\";",
             "KingbaseES table-level REVOKE must quote qualified identifiers.");
         Check(service.BuildRevokeSql("MySql", "app", "%", "ALL PRIVILEGES", "shop.orders")
-              == "REVOKE ALL PRIVILEGES ON `shop`.`orders` FROM 'app'@'%';",
+              == "REVOKE ALL PRIVILEGES ON `shop`.`orders` FROM `app`@`%`;",
             "MySQL REVOKE must include the host part.");
         Check(service.BuildRevokeSql("SqlServer", "app", null, "SELECT", "dbo.orders")
               == "REVOKE SELECT ON OBJECT::[dbo].[orders] FROM [app];",
@@ -81,14 +84,20 @@ internal static class DbPrincipalChecks
         Check(service.BuildGrantRoleSql("Postgres", "app_reader", "app_writer", null)
               == "GRANT \"app_reader\" TO \"app_writer\";",
             "PostgreSQL role membership must use GRANT role TO member.");
+        Check(service.BuildGrantRoleSql("MySql", "reader_role", "app", "localhost", "10.%")
+              == "GRANT `reader_role`@`10.%` TO `app`@`localhost`;",
+            "The role and member must independently retain their MySQL Host.");
+        Check(service.BuildRevokeRoleSql("MySql", "reader_role", "app", "localhost", "10.%")
+              == "REVOKE `reader_role`@`10.%` FROM `app`@`localhost`;",
+            "MySQL membership removal must target the same complete account identities.");
         Check(service.BuildRevokeRoleSql("KingbaseES", "app_reader", "app_writer", null)
               == "REVOKE \"app_reader\" FROM \"app_writer\";",
             "KingbaseES membership revocation must use PG syntax.");
         Check(service.BuildGrantRoleSql("MySql", "reader_role", "app", "%")
-              == "GRANT 'reader_role'@'%' TO 'app'@'%';",
+              == "GRANT `reader_role`@`%` TO `app`@`%`;",
             "MySQL role grant must use account syntax.");
         Check(service.BuildRevokeRoleSql("MySql", "reader_role", "app", "localhost")
-              == "REVOKE 'reader_role'@'%' FROM 'app'@'localhost';",
+              == "REVOKE `reader_role`@`%` FROM `app`@`localhost`;",
             "MySQL role revocation must use account syntax.");
         Check(service.BuildGrantRoleSql("SqlServer", "db_datareader", "app", null)
               == "ALTER ROLE [db_datareader] ADD MEMBER [app];",
@@ -112,7 +121,7 @@ internal static class DbPrincipalChecks
               == "ALTER USER \"app\" WITH PASSWORD 'newPwd';",
             "KingbaseES password change must follow PG syntax.");
         Check(service.BuildAlterPasswordSql("MySql", "app", "%", "newPwd")
-              == "ALTER USER 'app'@'%' IDENTIFIED BY 'newPwd';",
+              == "ALTER USER `app`@`%` IDENTIFIED BY 'newPwd';",
             "MySQL password change must include the host part.");
         Check(service.BuildAlterPasswordSql("SqlServer", "app", null, "newPwd")
               == "ALTER LOGIN [app] WITH PASSWORD = 'newPwd';",
@@ -133,6 +142,41 @@ internal static class DbPrincipalChecks
             "Principal catalog must expose a user/role discriminator column.");
         Check(KingbaseUserSql.BuildFallbackUsersSql().Contains("CASE WHEN rolcanlogin THEN 'user' ELSE 'role' END", StringComparison.Ordinal),
             "Fallback principal catalog must expose the same discriminator column.");
+    }
+
+    private static void VerifyPrincipalScope(DefaultDbUserService service)
+    {
+        var login = new DbUserInfo { Name = "same_name", Kind = "login" };
+        var databaseUser = new DbUserInfo { Name = "same_name", Kind = "user" };
+        var userNode = DbPrincipalCatalog.CreatePrincipalNode("same_name", null, "app_db", DbPrincipalKind.User);
+        Check(databaseUser.MatchesPrincipal(userNode) && !login.MatchesPrincipal(userNode),
+            "A database user action must not match the same-named server login.");
+        Check(service.BuildDropUserSql("SqlServer", "same_name", null, false, databaseScope: true) == "DROP USER [same_name];"
+              && service.BuildDropUserSql("SqlServer", "same_name", null, false) == "DROP LOGIN [same_name];",
+            "SQL Server DROP must use the principal scope from the tree.");
+        Check(service.BuildDropRoleSql("SqlServer", "r", null, databaseScope: false) == "DROP SERVER ROLE [r];"
+              && service.BuildDropRoleSql("SqlServer", "r", null, applicationRole: true) == "DROP APPLICATION ROLE [r];"
+              && service.BuildGrantRoleSql("SqlServer", "r", "m", null, databaseScope: false) == "ALTER SERVER ROLE [r] ADD MEMBER [m];",
+            "SQL Server server and application roles must use their own DDL.");
+        Check(DefaultDbUserService.GetUsersSql(DatabaseType.SqlServer, true, DbPrincipalKind.User).Contains("sys.database_principals")
+              && DefaultDbUserService.GetSqlServerGrantsSql("same_name", true).Contains("sys.database_role_members")
+              && DefaultDbUserService.GetSqlServerGrantsSql("same_name", false).Contains("sys.server_role_members"),
+            "Both SQL Server lists and membership queries must use the selected scope.");
+
+        var mySqlNode = DbPrincipalCatalog.CreatePrincipalNode("m'@' quoted", "localhost", null, DbPrincipalKind.Account);
+        var mySqlUser = new DbUserInfo { Name = "m'@' quoted", Host = "localhost", Kind = "account" };
+        Check(mySqlUser.MatchesPrincipal(mySqlNode), "MySQL principal actions must use the raw user and Host.");
+        mySqlUser.Host = "%";
+        Check(!mySqlUser.MatchesPrincipal(mySqlNode), "Same-named MySQL principals on different hosts must not match.");
+
+        string oracleUsers = DefaultDbUserService.GetUsersSql(DatabaseType.Oracle, false, DbPrincipalKind.User);
+        string oracleRoles = DefaultDbUserService.GetUsersSql(DatabaseType.Oracle, false, DbPrincipalKind.Role);
+        Check(oracleUsers.Contains("all_users") && !oracleUsers.Contains("account_status")
+              && oracleRoles.Contains("dba_roles"),
+            "Oracle users and roles must query their respective catalog views.");
+        Check(service.BuildAlterPasswordSql("Oracle", "APP", null, "p'ass") == "ALTER USER \"APP\" IDENTIFIED BY \"p'ass\";"
+              && service.BuildAlterPasswordSql("Oracle", "APP", null, "p\"ass") == string.Empty,
+            "Oracle password literals must preserve apostrophes and reject double quotes.");
     }
 
     private static void Check(bool condition, string message)

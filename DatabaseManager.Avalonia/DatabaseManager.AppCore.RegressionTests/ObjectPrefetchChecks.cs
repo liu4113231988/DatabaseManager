@@ -42,6 +42,7 @@ internal static class ObjectPrefetchChecks
         await refreshed;
         Check(schema.ViewCalls == 3 && views.Children.Single().Name == "fresh", "Old session requests must not supply refreshed metadata.");
         await VerifyPrincipalLoadingAsync(schema, vm);
+        await VerifyAdminCatalogLoadingAsync(schema, vm);
         await VerifySqlServerCatalogsAsync();
         Console.WriteLine("Object prefetch checks passed.");
     }
@@ -130,12 +131,53 @@ internal static class ObjectPrefetchChecks
             "Unsupported engines and compatibility modes must hide principal folders.");
     }
 
+    private static async Task VerifyAdminCatalogLoadingAsync(Schema schema, ObjectsExplorerViewModel vm)
+    {
+        var profile = new ConnectionItem { Name = "admin", DatabaseType = nameof(DatabaseType.Postgres), Database = "postgres" };
+        vm.LoadConnections([profile]);
+        var connection = vm.FindConnectionNode(profile.Name)!;
+        await vm.ConnectAsync(connection);
+        var database = connection.Children.Single(node => node.NodeType == DbObjectTreeNodeType.Database);
+        var folder = DbAdminCatalog.CreateFolders(profile, database.Name).Single(f => f.CatalogKind == DbCatalogKind.Extension);
+        database.AddChild(folder);
+
+        try
+        {
+            await DbAdminCatalog.ReadAsync(profile, database.Name, DbCatalogKind.Extension, new CancellationToken(true));
+            throw new InvalidOperationException("A canceled directory query must propagate cancellation before connecting.");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        schema.Catalog = async (_, _, ct) =>
+        {
+            await Task.Delay(Timeout.Infinite, ct);
+            return [];
+        };
+        var pending = vm.LoadCatalogFolderAsync(folder);
+        folder.LoadCts!.Cancel();
+        await pending.WaitAsync(TimeSpan.FromSeconds(5));
+        Check(!folder.IsLoaded && folder.Children.Single().Text.Contains("取消"), "Canceled catalogs must allow a retry and report cancellation.");
+
+        schema.Catalog = (_, _, _) => Task.FromException<IReadOnlyList<DbObjectTreeNode>>(new InvalidOperationException("权限提示：pg_extension"));
+        await vm.LoadCatalogFolderAsync(folder);
+        Check(!folder.IsLoaded && folder.Children.Single().Text.Contains("权限提示：pg_extension"), "Failed catalogs must show the database-specific hint.");
+
+        schema.Catalog = (kind, db, _) => Task.FromResult<IReadOnlyList<DbObjectTreeNode>>(
+            kind == DbCatalogKind.Extension && db == database.Name ? [new() { Name = "pgcrypto" }] : []);
+        await vm.LoadCatalogFolderAsync(folder);
+        Check(folder.IsLoaded && folder.Children.Single().Name == "pgcrypto", "The extension catalog must query the expanded database.");
+    }
+
     private static void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private sealed class Schema : IDbSchemaService
     {
         public int ViewCalls;
         public int PrincipalCalls;
         public Func<DbPrincipalKind, string?, CancellationToken, Task<IReadOnlyList<DbObjectTreeNode>>> Principals { get; set; } =
+            (_, _, _) => throw new NotSupportedException();
+        public Func<DbCatalogKind, string?, CancellationToken, Task<IReadOnlyList<DbObjectTreeNode>>> Catalog { get; set; } =
             (_, _, _) => throw new NotSupportedException();
         public TaskCompletionSource<IReadOnlyList<DbObjectTreeNode>> Pending = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -155,7 +197,8 @@ internal static class ObjectPrefetchChecks
             PrincipalCalls++;
             return Principals(kind, d, ct);
         }
-        public Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(string c, DbCatalogKind kind, string? d, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(string c, DbCatalogKind kind, string? d, CancellationToken ct = default)
+            => Catalog(kind, d, ct);
         public Task<IReadOnlyList<DbObjectTreeNode>> GetDatabaseChildrenAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<bool> HasMultipleSchemasAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<DbObjectTreeNode>> GetSchemasAsync(string c, string d, CancellationToken ct = default) => throw new NotSupportedException();

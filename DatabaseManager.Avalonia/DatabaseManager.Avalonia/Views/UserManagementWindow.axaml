@@ -17,7 +17,7 @@
                 BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
             <StackPanel Spacing="2">
                 <TextBlock Text="用户与权限管理" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <TextBlock Text="管理数据库用户、角色、成员关系与权限" FontSize="11"
+                <TextBlock x:Name="TxtScope" FontSize="11"
                            Foreground="{DynamicResource AppTextSecondaryBrush}" />
             </StackPanel>
         </Border>
@@ -89,7 +89,7 @@
             <StackPanel Spacing="6">
                 <TextBlock x:Name="FormTitle" Text="新建用户" FontWeight="SemiBold" FontSize="12" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
+                    <StackPanel x:Name="PanelFormName" Orientation="Horizontal" Spacing="4">
                         <TextBlock x:Name="LblFormName" Text="用户名:" VerticalAlignment="Center" FontSize="11" />
                         <atom:TextBox x:Name="TxtFormUser" Width="130" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
@@ -100,13 +100,17 @@
                     <CheckBox x:Name="ChkCanLogin" Content="可登录" IsVisible="False" VerticalAlignment="Center" FontSize="11"
                               ToolTip.Tip="PostgreSQL/KingbaseES 创建角色时是否附加 LOGIN" />
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelHost">
-                        <TextBlock Text="主机:" VerticalAlignment="Center" FontSize="11" />
+                        <TextBlock x:Name="LblFormHost" Text="主机:" VerticalAlignment="Center" FontSize="11" />
                         <atom:TextBox x:Name="TxtFormHost" Text="%" Width="80" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelMember">
                         <TextBlock Text="成员:" VerticalAlignment="Center" FontSize="11" />
                         <atom:TextBox x:Name="TxtFormMember" Width="120" VerticalContentAlignment="Center" FontSize="11"
-                                 ToolTip.Tip="被授予/撤销角色的主体名称；留空则使用列表中选中的主体" />
+                                 ToolTip.Tip="被授予或撤销角色的主体名称" />
+                    </StackPanel>
+                    <StackPanel x:Name="PanelMemberHost" Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="成员主机:" VerticalAlignment="Center" FontSize="11" />
+                        <atom:TextBox x:Name="TxtFormMemberHost" Width="80" VerticalContentAlignment="Center" FontSize="11" />
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="4" x:Name="PanelPrivilege" IsVisible="False">
@@ -125,7 +129,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <atom:Button x:Name="BtnFormConfirm" Content="执行" Click="BtnFormConfirm_Click" />
                     <atom:Button Content="取消" Click="BtnFormCancel_Click" />
-                    <TextBlock Text="执行前会显示生成的 SQL 并要求确认。" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                    <TextBlock Text="执行前会显示操作范围和 SQL，密码会遮蔽。" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
                 </StackPanel>
             </StackPanel>
         </Border>

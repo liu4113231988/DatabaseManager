@@ -70,7 +70,7 @@ internal static class DbAdminCatalogChecks
                 .Contains("USER_MVIEWS", StringComparison.Ordinal),
             "Oracle materialized view catalog must use USER_MVIEWS.");
         string pgMv = DbAdminCatalog.GetSql(DatabaseType.Postgres, DbCatalogKind.MaterializedView);
-        Check(pgMv.Contains("pg_catalog.pg_matviews", StringComparison.Ordinal),
+        Check(pgMv.Contains("pg_catalog.pg_matviews", StringComparison.Ordinal) && pgMv.Contains("schemaname", StringComparison.Ordinal),
             "PostgreSQL materialized view catalog must use pg_matviews.");
 
         Check(DbAdminCatalog.GetSql(DatabaseType.Oracle, DbCatalogKind.Job)
@@ -119,9 +119,14 @@ internal static class DbAdminCatalogChecks
 
     private static void VerifyFolders()
     {
-        Check(DbAdminCatalog.CreateFolders(Connection("Postgres"), null)
-                .Any(f => f.CatalogKind == DbCatalogKind.Extension && f.DatabaseName is null),
-            "PostgreSQL must expose the connection-level extension folder.");
+        Check(!DbAdminCatalog.CreateFolders(Connection("Postgres"), null).Any(f => f.CatalogKind == DbCatalogKind.Extension),
+            "PostgreSQL must not expose an unscoped extension folder.");
+        foreach (var databaseName in new[] { "default_db", "business_db" })
+        {
+            Check(DbAdminCatalog.CreateFolders(Connection("Postgres"), databaseName)
+                    .Any(f => f.CatalogKind == DbCatalogKind.Extension && f.DatabaseName == databaseName),
+                "Each PostgreSQL database must have its own extension folder.");
+        }
         Check(!DbAdminCatalog.CreateFolders(Connection("Sqlite"), null).Any(),
             "SQLite must not expose admin catalog folders.");
 
@@ -152,7 +157,10 @@ internal static class DbAdminCatalogChecks
         Check(oracleSynonym.CatalogDetails.Contains("HR.EMPLOYEES", StringComparison.Ordinal)
               && oracleSynonym.CatalogDetails.Contains("REMOTE_DB", StringComparison.Ordinal),
             "Oracle synonym nodes must show target object and database link.");
-        var sqlServerSynonym = DbAdminCatalog.CreateNode(["syn_orders", "dbo", "Sales.Orders"], DbCatalogKind.Synonym);
+        var sqlServerSynonym = DbAdminCatalog.CreateNode(["syn_orders", "dbo", "Sales.Orders"], DbCatalogKind.Synonym, DatabaseType.SqlServer);
+        var otherSynonym = DbAdminCatalog.CreateNode(["syn_orders", "sales", "Sales.Orders"], DbCatalogKind.Synonym, DatabaseType.SqlServer);
+        Check(sqlServerSynonym.Name == "dbo.syn_orders" && otherSynonym.Name == "sales.syn_orders",
+            "Same-named SQL Server synonyms must retain their schema in the displayed and copied name.");
         Check(sqlServerSynonym.CatalogDetails.Contains("Sales.Orders", StringComparison.Ordinal),
             "SQL Server synonym nodes must show the base object name.");
 
@@ -165,7 +173,10 @@ internal static class DbAdminCatalogChecks
         Check(oracleMv.CatalogDetails.Contains("COMPLETE", StringComparison.Ordinal)
               && oracleMv.CatalogDetails.Contains("2026-11-23", StringComparison.Ordinal),
             "Oracle materialized view nodes must show refresh mode and last refresh.");
-        var pgMv = DbAdminCatalog.CreateNode(["mv_sales", "true", "SELECT * FROM sales"], DbCatalogKind.MaterializedView);
+        var pgMv = DbAdminCatalog.CreateNode(["mv_sales", "public", "true", "SELECT * FROM sales"], DbCatalogKind.MaterializedView, DatabaseType.Postgres);
+        var otherMv = DbAdminCatalog.CreateNode(["mv_sales", "sales", "false", null], DbCatalogKind.MaterializedView, DatabaseType.Postgres);
+        Check(pgMv.Name == "public.mv_sales" && otherMv.Name == "sales.mv_sales" && otherMv.Schema == "sales",
+            "Same-named PostgreSQL materialized views must retain their schema in the displayed and copied name.");
         Check(pgMv.CatalogDetails.Contains("已填充", StringComparison.Ordinal)
               && pgMv.CatalogDetails.Contains("SELECT", StringComparison.Ordinal),
             "PostgreSQL materialized view nodes must show population state and definition.");
