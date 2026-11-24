@@ -67,8 +67,9 @@ public partial class UserManagementWindow : Window
             return true;
         }
 
-        CmbConnection.SelectedItem = supported
-            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase));
+        CmbConnection.SelectedItem = supported.FirstOrDefault(c => string.IsNullOrEmpty(connection.Id)
+            ? string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase)
+            : string.Equals(c.Id, connection.Id, StringComparison.OrdinalIgnoreCase));
         if (SelectedConnection is not null)
             return true;
 
@@ -76,12 +77,12 @@ public partial class UserManagementWindow : Window
         return false;
     }
 
-    public async Task OpenPrincipalAsync(ConnectionItem connection, DbObjectTreeNode node, PrincipalManagementAction action)
+    public async Task OpenPrincipalAsync(ConnectionItem connection, DbObjectTreeNode node, PrincipalManagementAction action, string? databaseName)
     {
         if (!await LoadConnectionsAsync(connection))
             return;
 
-        _databaseName = node.DatabaseName;
+        _databaseName = databaseName;
         _principalKind = node.PrincipalKind;
         UpdateScopeLabel();
         if (action is PrincipalManagementAction.NewUser or PrincipalManagementAction.NewRole)
@@ -127,9 +128,8 @@ public partial class UserManagementWindow : Window
     }
 
     private string ScopeLabel => SelectedConnection is { } connection
-        ? SelectedDatabaseType == DatabaseType.SqlServer
-            ? $"{connection.Name} / {_databaseName ?? "服务器"}"
-            : connection.Description
+        ? _databaseName is not null ? $"{connection.Name} / {_databaseName}"
+            : SelectedDatabaseType == DatabaseType.SqlServer ? $"{connection.Name} / 服务器" : connection.Description
         : string.Empty;
 
     private void UpdateScopeLabel() => TxtScope.Text = ScopeLabel;
@@ -488,13 +488,14 @@ public partial class UserManagementWindow : Window
 
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string GetGrantObjectPlaceholder(string databaseType)
+    private string GetGrantObjectPlaceholder(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var dbType)
             ? dbType switch
             {
                 DatabaseType.Postgres or DatabaseType.KingbaseES => "public.*",
                 DatabaseType.SqlServer => "dbo.*",
                 DatabaseType.Oracle => "SCHEMA.TABLE",
+                DatabaseType.MySql when _databaseName is not null => $"{_databaseName}.*",
                 _ => "*.*",
             }
             : "*.*";

@@ -21,7 +21,17 @@ internal static class DatabaseManagementSmokeChecks
         var root = vm.ObjectsExplorer.FindConnectionNode("数据库切换测试")!;
         var node = new DbObjectTreeNode { Name = "report_db", NodeType = DbObjectTreeNodeType.Database, Parent = root };
         Task? action = null;
-        var builder = new ObjectTreeContextMenuBuilder(vm, new TreeView(), work => action = work(), connections, new DefaultDdlService(connections));
+        string? permissionDatabase = null;
+        var builder = new ObjectTreeContextMenuBuilder(vm, new TreeView(), work => action = work(), connections, new DefaultDdlService(connections),
+            openUserManagement: (target, _) => permissionDatabase = vm.GetPrincipalManagementDatabase(target));
+        var databaseMenu = new ContextMenu();
+        typeof(ObjectTreeContextMenuBuilder).GetMethod("BuildDatabaseMenu", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(builder, [databaseMenu, node]);
+        var manage = databaseMenu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "管理用户与权限..."));
+        manage.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        if (!manage.IsEnabled || permissionDatabase != "report_db" || root.Connection!.Database != "app_db")
+            throw new InvalidOperationException("The database menu must manage the clicked database without changing the saved profile.");
+
         var menu = new ContextMenu();
         typeof(ObjectTreeContextMenuBuilder).GetMethod("BuildConnectionMenu", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(builder, [menu, root]);
         var create = menu.Items.OfType<MenuItem>().Single(i => Equals(i.Header, "新建数据库..."));

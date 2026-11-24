@@ -108,6 +108,23 @@ public partial class MainWindowViewModel : ViewModelBase
         return connection;
     }
 
+    public string? GetPrincipalManagementDatabase(DbObjectTreeNode node)
+    {
+        if (node.NodeType == DbObjectTreeNodeType.Database)
+            return node.Name;
+        if (!string.IsNullOrWhiteSpace(node.DatabaseName))
+            return node.DatabaseName;
+
+        var connection = node.FindConnectionNode()?.Connection;
+        if (connection?.DatabaseType is not (DatabaseTypeNames.Postgres or DatabaseTypeNames.MySql or DatabaseTypeNames.KingbaseES))
+            return null;
+
+        bool isCurrentConnection = string.IsNullOrEmpty(connection.Id)
+            ? string.Equals(connection.Name, SelectedConnection?.Name, StringComparison.OrdinalIgnoreCase)
+            : string.Equals(connection.Id, SelectedConnection?.Id, StringComparison.OrdinalIgnoreCase);
+        return isCurrentConnection && !string.IsNullOrWhiteSpace(CurrentDatabase) ? CurrentDatabase : null;
+    }
+
     public void RefreshQueryDatabases(QueryTabViewModel tab)
     {
         var connection = Connections.FirstOrDefault(c =>

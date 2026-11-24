@@ -330,6 +330,12 @@ public class ObjectTreeContextMenuBuilder
         properties.IsEnabled = _openDatabaseProperties is not null;
         properties.Click += (_, _) => _openDatabaseProperties?.Invoke(node);
         menu.Items.Add(properties);
+        if (_openUserManagement is not null && node.GetDatabaseType() is DatabaseType.SqlServer or DatabaseType.Postgres or DatabaseType.MySql)
+        {
+            var manage = CreateMenuItem("管理用户与权限...", "在所选数据库中管理用户与权限");
+            manage.Click += (_, _) => _openUserManagement(node, PrincipalManagementAction.Manage);
+            menu.Items.Add(manage);
+        }
         menu.Items.Add(new Separator());
 
         // ==== Compare/Migrate 组 ====

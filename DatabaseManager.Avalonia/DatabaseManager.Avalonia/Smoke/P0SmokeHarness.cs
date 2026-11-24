@@ -27,8 +27,10 @@ public static class P0SmokeHarness
         query.NotifyConnected(item.Name);
         try
         {
-            var loginConnection = new ConnectionItem { Name = "权限测试", DatabaseType = "SqlServer", Database = "master" };
-            var security = new UserManagementWindow(new FixtureUsers(), new FixtureConnections(loginConnection));
+            var loginConnection = new ConnectionItem { Id = "reports-profile", Name = "权限测试", DatabaseType = "SqlServer", Database = "master" };
+            var otherLogin = loginConnection.Clone();
+            otherLogin.Id = "other-profile";
+            var security = new UserManagementWindow(new FixtureUsers(), new FixtureConnections(loginConnection, otherLogin));
             await Capture(security, "user-management", verify: async () =>
             {
                 var node = new DbObjectTreeNode
@@ -39,7 +41,7 @@ public static class P0SmokeHarness
                     NodeType = DbObjectTreeNodeType.Principal,
                     DatabaseName = "reports",
                 };
-                await security.OpenPrincipalAsync(loginConnection, node, PrincipalManagementAction.ShowGrants);
+                await security.OpenPrincipalAsync(loginConnection, node, PrincipalManagementAction.ShowGrants, node.DatabaseName);
                 var grid = security.FindControl<DataGrid>("UsersGrid")!;
                 var grants = security.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "TxtGrants");
                 if (grid.SelectedItem is not DbUserInfo { Name: "report_reader" } || grants.Text?.Contains("GRANT SELECT") != true
@@ -90,7 +92,7 @@ public static class P0SmokeHarness
                 throw new InvalidOperationException("Result grid must use reflection-free template columns.");
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
-            var server = new ConnectionItem { Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
+            var server = new ConnectionItem { Id = "postgres-profile", Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
             var serverConnections = new FixtureConnections(server);
             var serverQuery = new DefaultQueryService(serverConnections);
             var schema = new DefaultDbSchemaService(serverConnections);
@@ -98,6 +100,18 @@ public static class P0SmokeHarness
             var mainVm = new MainWindowViewModel(schema, serverConnections, serverQuery,
                 new DefaultDataEditService(serverConnections), explorer, new QueryEditorViewModel(serverQuery));
             mainVm.Initialize();
+            var roleFolder = new DbObjectTreeNode { NodeType = DbObjectTreeNodeType.PrincipalFolder, Parent = explorer.FindConnectionNode(server.Name) };
+            mainVm.SelectedConnection = server;
+            mainVm.CurrentDatabase = "report_db";
+            if (mainVm.GetPrincipalManagementDatabase(roleFolder) != "report_db")
+                throw new InvalidOperationException("A PostgreSQL role folder must inherit the current database for its connection.");
+            var otherServer = server.Clone();
+            otherServer.Id = "other-postgres-profile";
+            mainVm.SelectedConnection = otherServer;
+            mainVm.CurrentDatabase = "other_db";
+            if (mainVm.GetPrincipalManagementDatabase(roleFolder) is not null)
+                throw new InvalidOperationException("A role folder must not inherit another connection's database.");
+            mainVm.SelectedConnection = null;
             await DatabaseDeletionSmokeChecks.RunAsync(output, mainVm, serverConnections);
             await DatabaseManagementSmokeChecks.RunAsync(output, mainVm, serverConnections, item);
             var shell = new MainWindow { DataContext = mainVm };
@@ -348,7 +362,7 @@ public static class P0SmokeHarness
     {
         Task<(List<DbUserInfo>, string?)> IDbUserService.GetUsersAsync(ConnectionItem connection, CancellationToken cancellationToken, string? databaseName, DbPrincipalKind principalKind)
         {
-            if (Dispatcher.UIThread.CheckAccess() || databaseName != "reports" || principalKind != DbPrincipalKind.Role)
+            if (Dispatcher.UIThread.CheckAccess() || connection.Id != "reports-profile" || databaseName != "reports" || principalKind != DbPrincipalKind.Role)
                 throw new InvalidOperationException("Principal queries must use the tree scope and run off the UI thread.");
             return Task.FromResult<(List<DbUserInfo>, string?)>(([new() { Name = "report_reader", Kind = "role" }], null));
         }
@@ -368,9 +382,9 @@ public static class P0SmokeHarness
             Columns = new[] { "QUERY PLAN" }, Rows = new[] { new[] { "[{\"Plan\":{\"Node Type\":\"Index Scan\",\"Relation Name\":\"sample\",\"Total Cost\":8.2,\"Actual Total Time\":0.03}}]" } },
         });
     }
-    private sealed class FixtureConnections(ConnectionItem item) : IDbConnectionService
+    private sealed class FixtureConnections(ConnectionItem item, params ConnectionItem[] otherItems) : IDbConnectionService
     {
-        public IReadOnlyList<ConnectionItem> GetConnections() => new[] { item };
+        public IReadOnlyList<ConnectionItem> GetConnections() => [.. otherItems, item];
         public IReadOnlyList<ConnectionItem> GetConnections(string type) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => item;
         public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());

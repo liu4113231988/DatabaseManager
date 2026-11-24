@@ -814,15 +814,16 @@ public partial class MainWindow : Window
         await window.LoadConnectionsAsync();
     }
 
-    /// <summary>从对象树的安全主体节点打开管理窗口，并按菜单动作预填上下文。</summary>
+    /// <summary>从对象树打开管理窗口，并按数据库和安全主体预填上下文。</summary>
     private async Task OpenUserManagementForNodeAsync(DbObjectTreeNode node, PrincipalManagementAction action)
     {
-        if (_services is null)
+        if (_services is null || DataContext is not MainWindowViewModel vm)
             return;
 
         var connection = node.FindConnectionNode()?.Connection;
         if (connection is null)
             return;
+        var databaseName = vm.GetPrincipalManagementDatabase(node);
 
         if (_userManagementWindow is null || !_userManagementWindow.IsVisible)
         {
@@ -838,7 +839,7 @@ public partial class MainWindow : Window
 
         var window = _userManagementWindow;
 
-        await window.OpenPrincipalAsync(connection, node, action);
+        await window.OpenPrincipalAsync(connection, node, action, databaseName);
     }
 
     /// <summary>打开查询性能剖析窗口（预填当前查询标签的连接与 SQL）。</summary>
