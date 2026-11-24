@@ -20,11 +20,11 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
     }
 
     public IReadOnlyList<ConnectionItem> GetConnections()
-    {
-        return Task.Run(() => GetConnectionsAsync()).GetAwaiter().GetResult();
-    }
+        => GetConnectionsAsync().GetAwaiter().GetResult();
 
-    public async Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        // SQLite 的异步 API 仍可能同步访问配置库。
+        => Task.Run<IReadOnlyList<ConnectionItem>>(async () =>
     {
         var result = new List<ConnectionItem>();
 
@@ -35,7 +35,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
         }
 
         return result;
-    }
+    }, cancellationToken);
 
     public IReadOnlyList<ConnectionItem> GetConnections(string databaseType)
     {
@@ -59,11 +59,10 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
     }
 
     public ConnectionItem? GetConnectionById(string id)
-    {
-        return Task.Run(() => GetConnectionByIdAsync(id)).GetAwaiter().GetResult();
-    }
+        => GetConnectionByIdAsync(id).GetAwaiter().GetResult();
 
-    public async Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default)
+    public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default)
+        => Task.Run<ConnectionItem?>(async () =>
     {
         if (string.IsNullOrEmpty(id))
             return null;
@@ -73,7 +72,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
             return null;
 
         return ToItem(profile, profile.DatabaseType);
-    }
+    }, cancellationToken);
 
     public async Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem connection, CancellationToken cancellationToken = default)
     {
@@ -118,7 +117,7 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
             UseSsl = connection.UseSsl,
         };
 
-        var id = await ConnectionProfileManager.Save(info, rememberPassword);
+        var id = await Task.Run(() => ConnectionProfileManager.Save(info, rememberPassword), cancellationToken);
         if (!string.IsNullOrEmpty(id))
         {
             connection.Id = id;
@@ -135,22 +134,20 @@ public class ProfileDbConnectionService : IDbConnectionService, IConnectionImpor
         if (idList.Count == 0)
             return false;
 
-        var deleted = await ConnectionProfileManager.Delete(idList);
+        var deleted = await Task.Run(() => ConnectionProfileManager.Delete(idList), cancellationToken);
         if (deleted) foreach (var id in idList) SshProfileStore.Save(id, null, false);
         return deleted;
     }
 
-    public async Task<bool> IsNameExistedAsync(bool isAdd, string? accountId, string name, string? id, CancellationToken cancellationToken = default)
-    {
-        return await ConnectionProfileManager.IsNameExisted(isAdd, accountId, name, id);
-    }
+    public Task<bool> IsNameExistedAsync(bool isAdd, string? accountId, string name, string? id, CancellationToken cancellationToken = default)
+        => Task.Run(() => ConnectionProfileManager.IsNameExisted(isAdd, accountId, name, id), cancellationToken);
 
     public async Task RollbackImportAsync(IReadOnlyList<string> ids)
     {
-        var imported = GetConnections().Where(c => c.Id is not null && ids.Contains(c.Id)).ToArray();
+        var imported = (await GetConnectionsAsync()).Where(c => c.Id is not null && ids.Contains(c.Id)).ToArray();
         if (!await DeleteAsync(ids)) throw new InvalidOperationException("无法清理导入连接。");
         foreach (var id in ids) _visualService.Remove(id);
-        var referenced = GetConnections().Select(c => c.AccountId).ToHashSet();
+        var referenced = (await GetConnectionsAsync()).Select(c => c.AccountId).ToHashSet();
         var accounts = imported.Select(c => c.AccountId).Where(id => !string.IsNullOrEmpty(id) && !referenced.Contains(id)).Distinct().Cast<string>().ToArray();
         if (accounts.Length > 0 && !await AccountProfileManager.Delete(accounts)) throw new InvalidOperationException("无法清理导入时创建的账号配置。");
     }

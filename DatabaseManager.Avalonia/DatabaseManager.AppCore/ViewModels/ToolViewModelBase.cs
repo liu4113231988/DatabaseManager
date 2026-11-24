@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DatabaseManager.AppCore.Common;
+using DatabaseManager.AppCore.Models;
+using DatabaseManager.AppCore.Services;
 
 namespace DatabaseManager.AppCore.ViewModels;
 
@@ -11,6 +13,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 public abstract partial class ToolViewModelBase : ViewModelBase
 {
     private bool _isBusy;
+    private CancellationTokenSource? _connectionRefresh;
 
     /// <summary>是否正在执行（驱动按钮禁用态与取消按钮）。</summary>
     public bool IsBusy
@@ -36,6 +39,48 @@ public abstract partial class ToolViewModelBase : ViewModelBase
 
     /// <summary>执行日志。</summary>
     public ObservableCollection<string> Logs { get; } = new();
+
+    protected async Task<bool> RefreshConnectionListAsync(IDbConnectionService service, ObservableCollection<ConnectionItem> connections,
+        Action restoreSelection, CancellationToken cancellationToken)
+    {
+        if (IsBusy)
+            return false;
+
+        using var refresh = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _connectionRefresh = refresh;
+        IsBusy = true;
+        const string loadingMessage = "正在读取连接...";
+        StatusMessage = loadingMessage;
+        try
+        {
+            var items = await service.GetConnectionsAsync(refresh.Token);
+            refresh.Token.ThrowIfCancellationRequested();
+            connections.Clear();
+            foreach (var item in items)
+                connections.Add(item);
+            restoreSelection();
+            if (StatusMessage == loadingMessage)
+                StatusMessage = items.Count == 0 ? "没有已保存的连接。" : string.Empty;
+            return true;
+        }
+        catch (OperationCanceledException) when (refresh.IsCancellationRequested)
+        {
+            StatusMessage = "已取消读取连接。";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"读取连接失败：{ex.Message}";
+            return false;
+        }
+        finally
+        {
+            _connectionRefresh = null;
+            IsBusy = false;
+        }
+    }
+
+    public void CancelConnectionRefresh() => _connectionRefresh?.Cancel();
 
     /// <summary>当前执行对应的取消令牌源（无任务时为 null）。</summary>
     protected CancellationTokenSource? BusyCts { get; private set; }

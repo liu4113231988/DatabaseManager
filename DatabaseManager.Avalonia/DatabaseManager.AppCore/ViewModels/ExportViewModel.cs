@@ -72,17 +72,14 @@ public partial class ExportViewModel : ToolViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     partial void OnSelectedConnectionChanged(ConnectionItem? value)
@@ -98,6 +95,7 @@ public partial class ExportViewModel : ToolViewModelBase
         if (connection is null)
         {
             Tables.Clear();
+            IsTablesLoading = false;
             return;
         }
 
@@ -108,7 +106,7 @@ public partial class ExportViewModel : ToolViewModelBase
         IsTablesLoading = true;
         try
         {
-            var tables = await _exportImportService.GetTablesAsync(connection);
+            var tables = await Task.Run(() => _exportImportService.GetTablesAsync(connection));
 
             // 竞态检查：如果版本号不再匹配，说明用户已经切换过连接或重入加载。
             if (currentVersion != _loadTableVersion)
@@ -150,6 +148,7 @@ public partial class ExportViewModel : ToolViewModelBase
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelExport()
     {
+        CancelConnectionRefresh();
         if (_currentRun is not null)
         {
             StatusMessage = "正在取消导出...";
@@ -162,13 +161,19 @@ public partial class ExportViewModel : ToolViewModelBase
     [RelayCommand]
     private async Task ExportAsync()
     {
+        if (IsTablesLoading)
+        {
+            StatusMessage = "正在加载表列表，请稍候。";
+            return;
+        }
+
         if (SelectedConnection is null)
         {
             StatusMessage = "请选择连接。";
             return;
         }
 
-        if (SelectedTable is null)
+        if (SelectedTable is null || !Tables.Contains(SelectedTable))
         {
             StatusMessage = "请选择要导出的表/视图。";
             return;

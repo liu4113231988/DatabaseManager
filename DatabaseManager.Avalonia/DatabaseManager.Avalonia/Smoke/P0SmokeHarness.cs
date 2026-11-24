@@ -83,6 +83,35 @@ public static class P0SmokeHarness
                 await Task.Delay(100);
             });
             await query.ExecuteAsync(item.Name, "CREATE TABLE sample(id INTEGER PRIMARY KEY, title TEXT, payload BLOB); INSERT INTO sample VALUES(1,'测试文本',X'0102');");
+            var documentConnections = new FixtureConnections(item) { ReadGate = new() };
+            var documentVm = new ColumnDocumentationViewModel(documentConnections, new DefaultColumnDocumentationService());
+            var documentWindow = new ColumnDocumentationWindow(documentVm);
+            await Capture(documentWindow, "column-documentation", verify: async () =>
+            {
+                if (!documentWindow.IsVisible || !documentVm.IsBusy || documentVm.Connections.Count != 0)
+                    throw new InvalidOperationException("The document window must stay responsive while reading profiles.");
+                documentConnections.ReadGate!.SetResult();
+                for (int attempt = 0; documentVm.IsBusy && attempt < 100; attempt++)
+                    await Task.Delay(50);
+                var selector = documentWindow.FindControl<AtomUI.Desktop.Controls.ComboBox>("ComboConnection");
+                if (!ReferenceEquals(selector?.SelectedItem, item))
+                    throw new InvalidOperationException("The document window must select its loaded connection.");
+                var checkBoxes = documentWindow.GetVisualDescendants().OfType<DataGrid>().Single()
+                    .GetVisualDescendants().OfType<CheckBox>().ToArray();
+                var comment = checkBoxes.Single(box => ReferenceEquals(box.DataContext, documentVm.Properties[^1]));
+                if (!comment.IsEffectivelyEnabled)
+                    throw new InvalidOperationException("Document columns must be selectable with one click.");
+                comment.IsChecked = false;
+                documentVm.FilePath = Path.Combine(folder, "schema.docx");
+                await documentVm.GenerateCommand.ExecuteAsync(null);
+                if (!File.Exists(documentVm.FilePath))
+                    throw new InvalidOperationException(documentVm.StatusMessage);
+                using var archive = System.IO.Compression.ZipFile.OpenRead(documentVm.FilePath);
+                using var xml = new StreamReader(archive.GetEntry("word/document.xml")!.Open());
+                var contents = await xml.ReadToEndAsync();
+                if (!contents.Contains(">sample<") || !contents.Contains(">payload<") || contents.Contains(">注释<"))
+                    throw new InvalidOperationException("Word output must include schema columns and honor the unchecked options.");
+            });
             var tab = new QueryTabViewModel(query, new DefaultDataEditService(connections)) { ConnectionName = item.Name, DatabaseName = item.Database, SqlText = "SELECT * FROM sample" };
             await tab.ExecuteAsync(); tab.PinResultCommand.Execute(null);
             var gridProbe = new DataGrid();
@@ -93,13 +122,17 @@ public static class P0SmokeHarness
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
             var server = new ConnectionItem { Id = "postgres-profile", Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
-            var serverConnections = new FixtureConnections(server);
+            var serverConnections = new FixtureConnections(server) { ReadGate = new() };
             var serverQuery = new DefaultQueryService(serverConnections);
             var schema = new DefaultDbSchemaService(serverConnections);
             var explorer = new ObjectsExplorerViewModel(schema);
             var mainVm = new MainWindowViewModel(schema, serverConnections, serverQuery,
                 new DefaultDataEditService(serverConnections), explorer, new QueryEditorViewModel(serverQuery));
-            mainVm.Initialize();
+            var initialization = mainVm.InitializeAsync();
+            if (initialization.IsCompleted || mainVm.SelectedQueryTab is null || mainVm.Connections.Count != 0)
+                throw new InvalidOperationException("The workspace must restore its tabs while saved connections are still loading.");
+            serverConnections.ReadGate!.SetResult();
+            await initialization;
             var roleFolder = new DbObjectTreeNode { NodeType = DbObjectTreeNodeType.PrincipalFolder, Parent = explorer.FindConnectionNode(server.Name) };
             mainVm.SelectedConnection = server;
             mainVm.CurrentDatabase = "report_db";
@@ -384,10 +417,21 @@ public static class P0SmokeHarness
     }
     private sealed class FixtureConnections(ConnectionItem item, params ConnectionItem[] otherItems) : IDbConnectionService
     {
-        public IReadOnlyList<ConnectionItem> GetConnections() => [.. otherItems, item];
+        public TaskCompletionSource? ReadGate { get; init; }
+        public IReadOnlyList<ConnectionItem> GetConnections()
+        {
+            if (ReadGate is not null && Dispatcher.UIThread.CheckAccess())
+                throw new InvalidOperationException("Saved profiles must not be read synchronously on the UI thread.");
+            return [.. otherItems, item];
+        }
         public IReadOnlyList<ConnectionItem> GetConnections(string type) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => item;
-        public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());
+        public async Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        {
+            if (ReadGate is not null)
+                await ReadGate.Task.WaitAsync(cancellationToken);
+            return [.. otherItems, item];
+        }
         public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(GetConnectionById(id));
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem c,CancellationToken ct=default) => Task.FromResult<IReadOnlyList<string>>(new[] { c.Database });
         public Task<string?> SaveAsync(ConnectionItem c,CancellationToken ct=default) => throw new NotSupportedException();

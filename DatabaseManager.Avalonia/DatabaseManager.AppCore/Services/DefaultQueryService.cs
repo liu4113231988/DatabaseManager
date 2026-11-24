@@ -64,7 +64,7 @@ public class DefaultQueryService : IQueryService
         int commandTimeoutSeconds = 60,
         string? databaseName = null)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new QueryResult
@@ -240,7 +240,7 @@ public class DefaultQueryService : IQueryService
         if (!IsConnected(connectionName) || _transactions.ContainsKey(connectionName))
             return false;
 
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return false;
 
@@ -414,10 +414,6 @@ public class DefaultQueryService : IQueryService
 
         return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
     }
-
-    private ConnectionItem? FindConnection(string connectionName)
-        => _connectionService.GetConnections().FirstOrDefault(c =>
-            string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
     private static DatabaseType ParseDatabaseType(string databaseType)
     {

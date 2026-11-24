@@ -11,7 +11,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 数据库优化 ViewModel（阶段 4）。
 /// 选择连接并执行数据库优化，查看优化前后的数据长度。
 /// </summary>
-public partial class OptimizeViewModel : ViewModelBase
+public partial class OptimizeViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IOptimizeService _optimizeService;
@@ -22,17 +22,8 @@ public partial class OptimizeViewModel : ViewModelBase
     /// <summary>优化结果。</summary>
     public ObservableCollection<OptimizeResultItem> Results { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
 
     public OptimizeViewModel(IDbConnectionService connectionService, IOptimizeService optimizeService)
     {
@@ -41,17 +32,14 @@ public partial class OptimizeViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     [RelayCommand]
@@ -117,12 +105,4 @@ public partial class OptimizeViewModel : ViewModelBase
         }
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }

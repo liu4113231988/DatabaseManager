@@ -64,6 +64,7 @@ public partial class ScheduleWindow : Window
     private ScheduleDefinition? _editing;
     private readonly List<ScheduleDefinition> _steps = new();
     private bool _addingStep;
+    private bool _loadingConnections;
 
     public ScheduleWindow(IScheduleService scheduleService, IDbConnectionService connectionService)
     {
@@ -72,11 +73,44 @@ public partial class ScheduleWindow : Window
         _scheduleService = scheduleService;
         _connectionService = connectionService;
 
-        ComboConnection.ItemsSource = _connectionService.GetConnections();
-        ComboTarget.ItemsSource = _connectionService.GetConnections();
         _scheduleService.SchedulesChanged += RefreshGrid;
 
         RefreshGrid();
+    }
+
+    protected override async void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        await LoadConnectionsAsync();
+    }
+
+    private async Task LoadConnectionsAsync()
+    {
+        if (_loadingConnections) return;
+
+        _loadingConnections = true;
+        TxtSummary.Text = "正在读取连接...";
+        try
+        {
+            var connections = await _connectionService.GetConnectionsAsync();
+            if (!IsVisible) return;
+
+            var source = (ComboConnection.SelectedItem as ConnectionItem)?.Name;
+            var target = (ComboTarget.SelectedItem as ConnectionItem)?.Name;
+            ComboConnection.ItemsSource = connections;
+            ComboTarget.ItemsSource = connections;
+            ComboConnection.SelectedItem = connections.FirstOrDefault(c => c.Name == source);
+            ComboTarget.SelectedItem = connections.FirstOrDefault(c => c.Name == target);
+            RefreshGrid();
+        }
+        catch (Exception ex)
+        {
+            if (IsVisible) TxtSummary.Text = $"读取连接失败：{ex.Message}";
+        }
+        finally
+        {
+            _loadingConnections = false;
+        }
     }
 
     protected override void OnClosed(EventArgs e)
@@ -107,6 +141,8 @@ public partial class ScheduleWindow : Window
 
     private void ShowForm(ScheduleDefinition? definition)
     {
+        if (ComboConnection.ItemsSource is null) return;
+
         _editing = definition;
         _steps.Clear();
         if (definition is not null) _steps.AddRange(definition.Steps);
@@ -337,7 +373,7 @@ public partial class ScheduleWindow : Window
         _scheduleService.Delete(SelectedDefinition.Id);
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e) => RefreshGrid();
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e) => await LoadConnectionsAsync();
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e) => Close();
 }

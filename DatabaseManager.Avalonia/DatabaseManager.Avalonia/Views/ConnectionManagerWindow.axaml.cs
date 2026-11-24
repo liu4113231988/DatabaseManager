@@ -14,6 +14,7 @@ namespace DatabaseManager.Avalonia.Views;
 public partial class ConnectionManagerWindow : Window
 {
     private readonly ConnectionManagerViewModel _vm;
+    private readonly CancellationTokenSource _lifetime = new();
 
     public ConnectionManagerWindow(ConnectionManagerViewModel vm)
     {
@@ -24,20 +25,31 @@ public partial class ConnectionManagerWindow : Window
 
         ComboDatabaseType.ItemsSource = _vm.DatabaseTypes;
         ComboDatabaseType.SelectedItem = _vm.SelectedDatabaseType;
-
-        _vm.Refresh();
     }
 
-    private void ComboDatabaseType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
-        _vm.SelectedDatabaseType = ComboDatabaseType.SelectedItem as string ?? string.Empty;
-        _vm.Refresh();
+        base.OnOpened(e);
+        await _vm.RefreshAsync(_lifetime.Token);
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    protected override void OnClosed(EventArgs e)
+    {
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        base.OnClosed(e);
+    }
+
+    private async void ComboDatabaseType_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         _vm.SelectedDatabaseType = ComboDatabaseType.SelectedItem as string ?? string.Empty;
-        _vm.Refresh();
+        if (IsVisible) await _vm.RefreshAsync(_lifetime.Token);
+    }
+
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    {
+        _vm.SelectedDatabaseType = ComboDatabaseType.SelectedItem as string ?? string.Empty;
+        await _vm.RefreshAsync(_lifetime.Token);
     }
 
     private async void BtnAdd_Click(object? sender, RoutedEventArgs e)
@@ -47,9 +59,9 @@ public partial class ConnectionManagerWindow : Window
 
         var dialog = new ConnectWindow(_vm, item) { DataContext = _vm };
         var result = await dialog.ShowDialog<object?>(this);
-        if (dialog.Result is not null)
+        if (IsVisible && dialog.Result is not null)
         {
-            _vm.Refresh();
+            await _vm.RefreshAsync(_lifetime.Token);
         }
     }
 
@@ -86,9 +98,9 @@ public partial class ConnectionManagerWindow : Window
 
         var dialog = new ConnectWindow(_vm, item) { DataContext = _vm };
         var result = await dialog.ShowDialog<object?>(this);
-        if (dialog.Result is not null)
+        if (IsVisible && dialog.Result is not null)
         {
-            _vm.Refresh();
+            await _vm.RefreshAsync(_lifetime.Token);
         }
     }
 

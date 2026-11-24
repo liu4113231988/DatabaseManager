@@ -102,7 +102,9 @@ public partial class DashboardWindow : Window
             var page = PageSelector.SelectedItem?.ToString() ?? "首页";
             _cards = _dashboardService.GetAll().Where(c => c.Page == page).OrderBy(c => c.Position).Select(c => new DashboardCard(c)).ToList();
             CardsHost.ItemsSource = _cards;
-            foreach (var card in _cards) { _lifetime.Token.ThrowIfCancellationRequested(); await RenderCardAsync(card); }
+            var profiles = _cards.Count > 0 && _connections is not null
+                ? await _connections.GetConnectionsAsync(_lifetime.Token) : null;
+            foreach (var card in _cards) { _lifetime.Token.ThrowIfCancellationRequested(); await RenderCardAsync(card, profiles); }
             DashboardStatus.Text = $"{page}：{_cards.Count} 张图表；筛选作用于返回样本，同名列联动。";
         }
         catch (OperationCanceledException) { DashboardStatus.Text = "已取消。"; }
@@ -110,11 +112,11 @@ public partial class DashboardWindow : Window
         finally { _refreshing = false; BtnRefresh.IsEnabled = true; PageSelector.IsEnabled = true; }
     }
 
-    private async Task RenderCardAsync(DashboardCard card)
+    private async Task RenderCardAsync(DashboardCard card, IReadOnlyList<ConnectionItem>? profiles = null)
     {
         try
         {
-            var result = await ReadChartAsync(card.Chart);
+            var result = await ReadChartAsync(card.Chart, profiles);
 
             if (!result.IsSuccess)
             {

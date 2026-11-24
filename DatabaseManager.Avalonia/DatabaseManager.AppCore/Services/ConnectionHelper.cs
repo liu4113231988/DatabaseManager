@@ -9,6 +9,11 @@ namespace DatabaseManager.AppCore.Services;
 /// </summary>
 public static class ConnectionHelper
 {
+    internal static async Task<ConnectionItem?> FindSavedConnectionAsync(
+        this IDbConnectionService connectionService, string name, CancellationToken cancellationToken)
+        => (await connectionService.GetConnectionsAsync(cancellationToken).ConfigureAwait(false))
+            .FirstOrDefault(connection => string.Equals(connection.Name, name, StringComparison.OrdinalIgnoreCase));
+
     /// <summary>将数据库类型字符串解析为 <see cref="DatabaseType"/>。</summary>
     public static DatabaseType ParseDatabaseType(string databaseType)
         => Enum.TryParse<DatabaseType>(databaseType, true, out var type) ? type : DatabaseType.Unknown;

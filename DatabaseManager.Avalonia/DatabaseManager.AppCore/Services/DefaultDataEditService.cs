@@ -36,7 +36,7 @@ public class DefaultDataEditService : IDataEditService
         bool loadTotalCount = true,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new DataLoadResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -133,7 +133,7 @@ public class DefaultDataEditService : IDataEditService
         string? schema,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new TableMetadataResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -247,7 +247,7 @@ public class DefaultDataEditService : IDataEditService
         IReadOnlyList<DataEditRow> deletes,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new DataSaveResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -646,10 +646,6 @@ public class DefaultDataEditService : IDataEditService
 
         return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
     }
-
-    private ConnectionItem? FindConnection(string connectionName)
-        => _connectionService.GetConnections().FirstOrDefault(c =>
-            string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
     private static DatabaseType ParseDatabaseType(string databaseType)
     {

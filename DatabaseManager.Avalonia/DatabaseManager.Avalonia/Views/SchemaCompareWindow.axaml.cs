@@ -25,7 +25,7 @@ public partial class SchemaCompareWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         if (_vm is null) return;
@@ -36,11 +36,12 @@ public partial class SchemaCompareWindow : Window
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
         ComboObjectType.SelectionChanged += ComboObjectType_SelectionChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
         if (_vm is null) return;
         _vm.RequestScriptPreview -= Vm_RequestScriptPreview;
@@ -54,10 +55,11 @@ public partial class SchemaCompareWindow : Window
         new ScriptPreviewWindow(previewVm).ShowDialog(this);
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadObjectTypes();
     }
@@ -105,9 +107,9 @@ public partial class SchemaCompareWindow : Window
         _vm.SelectedObjectType = ComboObjectType.SelectedItem as ObjectTypeOption;
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

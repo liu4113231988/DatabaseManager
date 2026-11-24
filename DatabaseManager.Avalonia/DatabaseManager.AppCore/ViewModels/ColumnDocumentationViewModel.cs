@@ -17,7 +17,8 @@ public partial class ColumnDocumentationViewModel : ViewModelBase
     private readonly IColumnDocumentationService _documentationService;
 
     /// <summary>全部已保存连接。</summary>
-    public ObservableCollection<ConnectionItem> Connections { get; } = new();
+    [ObservableProperty]
+    private IReadOnlyList<ConnectionItem> _connections = [];
 
     /// <summary>可勾选的列属性。</summary>
     public ObservableCollection<ColumnDocumentationProperty> Properties { get; } = new();
@@ -54,23 +55,43 @@ public partial class ColumnDocumentationViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    [RelayCommand]
+    private async Task RefreshConnectionsAsync(CancellationToken cancellationToken)
     {
+        if (IsBusy)
+            return;
+
         var previousId = SelectedConnection?.Id;
+        IsBusy = true;
+        StatusMessage = "正在读取连接...";
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        try
         {
-            Connections.Add(item);
+            var connections = await _connectionService.GetConnectionsAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            Connections = connections;
+            SelectedConnection = connections.FirstOrDefault(c => c.Id == previousId) ?? connections.FirstOrDefault();
+            StatusMessage = connections.Count == 0 ? "没有已保存的连接。" : string.Empty;
         }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            StatusMessage = $"读取连接失败：{ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]
     private async Task GenerateAsync()
     {
-        if (SelectedConnection is null)
+        if (IsBusy)
+            return;
+
+        var connection = SelectedConnection;
+        if (connection is null)
         {
             StatusMessage = "请选择连接。";
             return;
@@ -90,19 +111,19 @@ public partial class ColumnDocumentationViewModel : ViewModelBase
         }
 
         IsBusy = true;
-        StatusMessage = string.Empty;
+        StatusMessage = "正在生成文档...";
 
         var feedbackBuffer = new List<string>();
         void CollectFeedback(string message) => feedbackBuffer.Add(message);
 
         try
         {
-            AppendLog($"连接：{SelectedConnection.Description}");
+            AppendLog($"连接：{connection.Description}");
             AppendLog($"输出文件：{FilePath}");
             AppendLog("开始生成文档...");
 
             var result = await _documentationService.GenerateAsync(
-                SelectedConnection, selected, ShowTableComment, FilePath, CollectFeedback);
+                connection, selected, ShowTableComment, FilePath, CollectFeedback);
 
             foreach (var line in feedbackBuffer)
             {

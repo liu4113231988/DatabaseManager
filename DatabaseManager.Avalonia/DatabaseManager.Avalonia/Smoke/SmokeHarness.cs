@@ -67,14 +67,14 @@ public static class SmokeHarness
         AppendLog(logFile, $"[smoke] 输出目录：{outputDir}");
 
         // 1) 注入默认 PG 连接（环境变量可覆盖）。
-        var conn = EnsureDefaultConnection(services);
+        var conn = await EnsureDefaultConnectionAsync(services);
 
         // 2) 让主窗口在对象树里能看到这条连接。
         //    注意：MainWindowViewModel 注册为 Transient，必须用窗口的 DataContext，
         //    否则操作的是一个与界面无关的 VM 实例（树不会真正连接/展开）。
         var mainVm = main.DataContext as MainWindowViewModel
                      ?? services.GetRequiredService<MainWindowViewModel>();
-        mainVm.RefreshConnections();
+        await mainVm.RefreshConnectionsAsync();
         if (conn is not null)
         {
             mainVm.SelectedConnection = conn;
@@ -312,7 +312,7 @@ public static class SmokeHarness
         "v_member_stats", "audit_log", "categories", "tags", "user_roles",
     };
 
-    private static ConnectionItem? EnsureDefaultConnection(IServiceProvider services)
+    private static async Task<ConnectionItem?> EnsureDefaultConnectionAsync(IServiceProvider services)
     {
         var connStr = Environment.GetEnvironmentVariable("DBSMOKE_CONNSTR")
             ?? "Host=localhost;Port=5432;USER ID=postgres;Password=1qazXSW@;Database=Member;MaxPoolSize=128;";
@@ -322,13 +322,13 @@ public static class SmokeHarness
         var connService = services.GetRequiredService<IDbConnectionService>();
         try
         {
-            connService.SaveAsync(conn).GetAwaiter().GetResult();
+            await connService.SaveAsync(conn);
         }
         catch (Exception ex)
         {
             AppendLog(_logFile, $"[smoke] 保存默认连接失败：{ex.Message}");
         }
-        return connService.GetConnections("Postgres").FirstOrDefault(c => c.Name == conn.Name);
+        return (await connService.GetConnectionsAsync()).FirstOrDefault(c => c.Name == conn.Name && c.DatabaseType == "Postgres");
     }
 
     private static ConnectionItem ParseNpgsql(string connectionString, string name)

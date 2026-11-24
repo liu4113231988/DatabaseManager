@@ -17,6 +17,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 public partial class ConnectionManagerViewModel : ViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
+    private int _refreshVersion;
 
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
@@ -49,25 +50,39 @@ public partial class ConnectionManagerViewModel : ViewModelBase
     }
 
     /// <summary>刷新连接列表（按当前选中的数据库类型）。</summary>
-    public void Refresh()
+    public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
-        Connections.Clear();
+        int version = ++_refreshVersion;
+        var databaseType = SelectedDatabaseType;
+        IsBusy = true;
+        StatusMessage = "正在读取连接...";
 
-        var items = string.IsNullOrEmpty(SelectedDatabaseType)
-            ? _connectionService.GetConnections()
-            : _connectionService.GetConnections(SelectedDatabaseType);
-
-        foreach (var item in items)
+        try
         {
-            Connections.Add(item);
+            var items = await _connectionService.GetConnectionsAsync(cancellationToken);
+            if (version != _refreshVersion || cancellationToken.IsCancellationRequested) return;
+
+            var selectedId = SelectedConnection?.Id;
+            Connections.Clear();
+            foreach (var item in items)
+            {
+                if (string.IsNullOrEmpty(databaseType) || item.DatabaseType == databaseType)
+                    Connections.Add(item);
+            }
+            SelectedConnection = string.IsNullOrEmpty(selectedId)
+                ? null : Connections.FirstOrDefault(item => item.Id == selectedId);
+            StatusMessage = $"{Connections.Count} 条连接";
         }
-
-        StatusMessage = $"{Connections.Count} 条连接";
-    }
-
-    partial void OnSelectedDatabaseTypeChanged(string value)
-    {
-        Refresh();
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            if (version == _refreshVersion && !cancellationToken.IsCancellationRequested)
+                StatusMessage = $"读取连接失败：{ex.Message}";
+        }
+        finally
+        {
+            if (version == _refreshVersion) IsBusy = false;
+        }
     }
 
     /// <summary>新增连接：构造一个空连接项并选中，由视图打开编辑。</summary>

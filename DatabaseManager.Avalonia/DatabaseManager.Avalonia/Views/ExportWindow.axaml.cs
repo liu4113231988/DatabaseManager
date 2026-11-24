@@ -27,32 +27,34 @@ public partial class ExportWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
-        if (_vm is null) return;
         base.OnOpened(e);
+        if (_vm is null) return;
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         ComboTable.SelectionChanged += ComboTable_SelectionChanged;
         ComboFormat.SelectionChanged += ComboFormat_SelectionChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_vm is null) return;
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
+        if (_vm is null) return;
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
         ComboTable.SelectionChanged -= ComboTable_SelectionChanged;
         ComboFormat.SelectionChanged -= ComboFormat_SelectionChanged;
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadFormat();
     }
@@ -127,9 +129,9 @@ public partial class ExportWindow : Window
         }
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

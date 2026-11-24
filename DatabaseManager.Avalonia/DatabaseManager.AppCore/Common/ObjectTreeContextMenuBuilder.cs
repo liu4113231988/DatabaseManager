@@ -352,7 +352,7 @@ public class ObjectTreeContextMenuBuilder
         AddRefreshMenuItem(menu, node);
 
         menu.Items.Add(new Separator());
-        var preview = _ddlService?.PreviewDropDatabase(_viewModel.FindNodeConnectionName(node) ?? string.Empty, node.Name);
+        var preview = PreviewDatabaseCommand(node, node.Name, create: false);
         var delete = CreateMenuItem("删除数据库...\tDelete", preview?.IsSuccess == true
             ? "永久删除数据库及其中全部对象和数据" : preview?.ErrorMessage ?? "DDL 服务未初始化。");
         delete.IsEnabled = preview?.IsSuccess == true;
@@ -422,7 +422,7 @@ public class ObjectTreeContextMenuBuilder
     private async Task DeleteDatabaseAsync(DbObjectTreeNode node)
     {
         var connectionName = _viewModel.FindNodeConnectionName(node) ?? string.Empty;
-        var preview = _ddlService?.PreviewDropDatabase(connectionName, node.Name);
+        var preview = PreviewDatabaseCommand(node, node.Name, create: false);
         if (preview?.IsSuccess != true)
         {
             _viewModel.QueryEditor.StatusMessage = preview?.ErrorMessage ?? "DDL 服务未初始化。";
@@ -449,24 +449,37 @@ public class ObjectTreeContextMenuBuilder
     private void AddCreateDatabaseMenuItem(ContextMenu menu, DbObjectTreeNode node)
     {
         var connectionName = node.FindConnectionNode()?.Name ?? string.Empty;
-        var preview = _ddlService?.PreviewCreateDatabase(connectionName, "NewDatabase");
+        var preview = PreviewDatabaseCommand(node, "NewDatabase", create: true);
         var create = CreateMenuItem("新建数据库...", preview?.IsSuccess == true
             ? "使用服务器默认设置创建数据库" : preview?.ErrorMessage ?? "DDL 服务未初始化。");
         create.IsEnabled = preview?.IsSuccess == true;
         create.Click += (_, _) => _asyncAction(async () =>
         {
+            if (_ddlService is null)
+                return;
             var name = await ShowInputDialog($"连接：{connectionName}\n请输入新数据库名称（编码、排序规则及文件设置使用服务器默认值）：", "新建数据库");
             if (name is null) return;
-            var script = _ddlService!.PreviewCreateDatabase(connectionName, name);
-            if (!script.IsSuccess)
+            var script = PreviewDatabaseCommand(node, name, create: true);
+            if (script?.IsSuccess != true)
             {
-                _viewModel.QueryEditor.StatusMessage = script.ErrorMessage ?? "无法生成新建数据库脚本。";
+                _viewModel.QueryEditor.StatusMessage = script?.ErrorMessage ?? "无法生成新建数据库脚本。";
                 return;
             }
             if (await ShowConfirmDialog($"连接：{connectionName}\n\n{script.Script}\n\n确定创建此数据库？", "新建数据库") != true) return;
             await _viewModel.CreateDatabaseAsync(node, name, _ddlService);
         });
         menu.Items.Add(create);
+    }
+
+    private DdlScriptResult? PreviewDatabaseCommand(DbObjectTreeNode node, string databaseName, bool create)
+    {
+        var connectionNode = node.FindConnectionNode();
+        var connectionName = connectionNode?.Name ?? string.Empty;
+        if (_ddlService is DefaultDdlService)
+            return DefaultDdlService.PreviewDatabaseCommand(connectionNode?.Connection, connectionName, databaseName, create);
+
+        return create ? _ddlService?.PreviewCreateDatabase(connectionName, databaseName)
+            : _ddlService?.PreviewDropDatabase(connectionName, databaseName);
     }
 
     private void SetCurrentSchema(DbObjectTreeNode node)
@@ -980,11 +993,7 @@ public class ObjectTreeContextMenuBuilder
             return;
         }
 
-        // 从连接配置读取数据库类型（GetAddColumnTemplate 不访问数据库）。
-        var connectionItem = _connectionService.GetConnections()
-            .FirstOrDefault(c => string.Equals(c.Name, connectionNode, StringComparison.OrdinalIgnoreCase));
-
-        var result = ddl.GetAddColumnTemplate(connectionItem?.DatabaseType ?? string.Empty, table);
+        var result = ddl.GetAddColumnTemplate(GetConnectionDatabaseType(node) ?? string.Empty, table);
         if (!result.IsSuccess)
         {
             _viewModel.QueryEditor.StatusMessage = result.ErrorMessage ?? string.Empty;
@@ -1573,7 +1582,7 @@ public class ObjectTreeContextMenuBuilder
             var connectionService = GetConnectionService();
             await connectionService.DeleteAsync(new[] { node.Connection.Id });
             _viewModel.QueryEditor.StatusMessage = $"已删除连接：{node.Name}";
-            _viewModel.RefreshConnections();
+            await _viewModel.RefreshConnectionsAsync();
         }
         catch (Exception ex)
         {
@@ -1596,7 +1605,7 @@ public class ObjectTreeContextMenuBuilder
             var connectionService = GetConnectionService();
             await connectionService.SaveAsync(node.Connection);
             _viewModel.QueryEditor.StatusMessage = $"已重命名连接为：{newName}";
-            _viewModel.RefreshConnections();
+            await _viewModel.RefreshConnectionsAsync();
         }
         catch (Exception ex)
         {

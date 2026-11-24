@@ -14,7 +14,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 数据对比 ViewModel（阶段 4）。
 /// 对比两个同类型数据库的表数据差异：选择源/目标连接、表与展示模式，执行对比并查看明细/生成同步脚本。
 /// </summary>
-public partial class DataCompareViewModel : ViewModelBase
+public partial class DataCompareViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly ICompareService _compareService;
@@ -22,6 +22,7 @@ public partial class DataCompareViewModel : ViewModelBase
 
     private ConnectionItem? _effectiveSource;
     private ConnectionItem? _effectiveTarget;
+    private int _loadTableVersion;
     private IReadOnlyList<DataCompareResultItem>? _lastResults;
 
     /// <summary>全部已保存连接（源/目标下拉共用）。</summary>
@@ -35,9 +36,6 @@ public partial class DataCompareViewModel : ViewModelBase
 
     /// <summary>展示模式选项。</summary>
     public IReadOnlyList<DataCompareModeOption> Modes { get; }
-
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
 
     /// <summary>同步脚本。</summary>
     public ObservableCollection<string> Scripts { get; } = new();
@@ -58,13 +56,7 @@ public partial class DataCompareViewModel : ViewModelBase
     private DataCompareResultItem? _selectedResult;
 
     [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
     private bool _isTablesLoading;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
 
     /// <summary>当前明细的列标题（Dynamic 数据行用）。</summary>
     [ObservableProperty]
@@ -92,22 +84,19 @@ public partial class DataCompareViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新源/目标选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousSourceId = SourceConnection?.Id;
         var previousTargetId = TargetConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
+            SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
+            TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
 
-        SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
-        TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
-
-        _effectiveSource = SourceConnection;
-        _effectiveTarget = TargetConnection;
+            _effectiveSource = SourceConnection;
+            _effectiveTarget = TargetConnection;
+        }, cancellationToken);
     }
 
     private ConnectionItem? FindConnection(string? id)
@@ -127,16 +116,21 @@ public partial class DataCompareViewModel : ViewModelBase
 
     private async Task LoadTablesAsync(ConnectionItem? connection)
     {
+        int version = ++_loadTableVersion;
         if (connection is null)
         {
             Tables.Clear();
+            IsTablesLoading = false;
             return;
         }
 
         IsTablesLoading = true;
         try
         {
-            var tables = await _compareService.GetTablesAsync(connection);
+            var tables = await Task.Run(() => _compareService.GetTablesAsync(connection));
+            if (version != _loadTableVersion)
+                return;
+
             Tables.Clear();
             foreach (var table in tables)
             {
@@ -146,12 +140,16 @@ public partial class DataCompareViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
+            if (version != _loadTableVersion)
+                return;
+
             Tables.Clear();
             StatusMessage = $"加载表列表失败：{ex.Message}";
         }
         finally
         {
-            IsTablesLoading = false;
+            if (version == _loadTableVersion)
+                IsTablesLoading = false;
         }
     }
 
@@ -161,6 +159,12 @@ public partial class DataCompareViewModel : ViewModelBase
     [RelayCommand]
     private async Task ExecuteAsync()
     {
+        if (IsTablesLoading)
+        {
+            StatusMessage = "正在加载表列表，请稍候。";
+            return;
+        }
+
         if (SourceConnection is null || TargetConnection is null)
         {
             StatusMessage = "请选择源连接和目标连接。";
@@ -437,14 +441,6 @@ public partial class DataCompareViewModel : ViewModelBase
         _ => category,
     };
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }
 
 /// <summary>动态列数据行（UI 绑定，支持按索引访问值）。</summary>

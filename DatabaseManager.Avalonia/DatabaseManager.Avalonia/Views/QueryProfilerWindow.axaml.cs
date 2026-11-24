@@ -12,6 +12,7 @@ public partial class QueryProfilerWindow : Window
 {
     private readonly IQueryProfilerService _profilerService = null!;
     private readonly IDbConnectionService _connectionService = null!;
+    private string? _initialConnectionName;
 
     public QueryProfilerWindow()
     {
@@ -24,17 +25,37 @@ public partial class QueryProfilerWindow : Window
         _profilerService = profilerService;
         _connectionService = connectionService;
 
-        CmbConnection.ItemsSource = _connectionService.GetConnections();
-
         if (!string.IsNullOrEmpty(initialSql))
         {
             TxtSql.Text = initialSql;
         }
     }
 
-    /// <summary>预设连接与 SQL（主窗口打开时注入当前上下文）。</summary>
-    public void SetContext(string connectionName, string? sql)
+    protected override async void OnOpened(EventArgs e)
     {
+        base.OnOpened(e);
+        if (_connectionService is null) return;
+
+        TxtSummary.Text = "正在读取连接...";
+        try
+        {
+            var connections = await _connectionService.GetConnectionsAsync();
+            if (!IsVisible) return;
+
+            CmbConnection.ItemsSource = connections;
+            SetContext(_initialConnectionName, null);
+            TxtSummary.Text = connections.Count == 0 ? "没有已保存的连接。" : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (IsVisible) TxtSummary.Text = $"读取连接失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>预设连接与 SQL（主窗口打开时注入当前上下文）。</summary>
+    public void SetContext(string? connectionName, string? sql)
+    {
+        _initialConnectionName = connectionName;
         var target = CmbConnection.ItemsSource?.Cast<ConnectionItem>()
             .FirstOrDefault(c => string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
         if (target is not null)

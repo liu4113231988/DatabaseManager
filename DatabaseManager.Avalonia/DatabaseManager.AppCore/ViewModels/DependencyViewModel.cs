@@ -11,7 +11,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 依赖分析 ViewModel（阶段 4）。
 /// 指定数据库对象并分析其依赖关系（谁依赖它 / 它依赖谁）。
 /// </summary>
-public partial class DependencyViewModel : ViewModelBase
+public partial class DependencyViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IDependencyService _dependencyService;
@@ -38,9 +38,6 @@ public partial class DependencyViewModel : ViewModelBase
     /// <summary>依赖关系树。</summary>
     public ObservableCollection<DependencyNode> Nodes { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
@@ -56,12 +53,6 @@ public partial class DependencyViewModel : ViewModelBase
     [ObservableProperty]
     private DependencyDirectionOption? _selectedDirection;
 
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
     public DependencyViewModel(IDbConnectionService connectionService, IDependencyService dependencyService)
     {
         _connectionService = connectionService;
@@ -70,17 +61,14 @@ public partial class DependencyViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     [RelayCommand]
@@ -139,12 +127,4 @@ public partial class DependencyViewModel : ViewModelBase
         }
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }

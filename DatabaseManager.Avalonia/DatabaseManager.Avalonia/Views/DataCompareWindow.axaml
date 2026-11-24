@@ -38,12 +38,12 @@
             <!-- 源/目标连接 -->
             <Grid ColumnDefinitions="110,*,40,110,*">
                 <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" />
-                <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
 
                 <TextBlock Grid.Column="2" Text="⇄" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                 <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" />
-                <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
             </Grid>
 
             <!-- 展示模式 -->
@@ -62,7 +62,7 @@
                 <atom:Button Content="生成回滚脚本..." Command="{Binding GenerateDataRollbackCommand}"
                              IsEnabled="{Binding !IsBusy}"
                              ToolTip.Tip="按勾选的表生成回滚脚本（恢复目标库为对比前状态）" />
-                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>

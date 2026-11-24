@@ -34,7 +34,7 @@
         <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
             <Grid ColumnDefinitions="120,*">
                 <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
-                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
             </Grid>
 
             <Grid ColumnDefinitions="120,*,Auto">

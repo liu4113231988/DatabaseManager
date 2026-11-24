@@ -37,7 +37,7 @@
             <!-- 连接 -->
             <Grid ColumnDefinitions="90,*">
                 <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
-                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
             </Grid>
 
             <!-- 诊断类型 -->
@@ -50,7 +50,7 @@
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
                 <atom:Button Content="开始诊断" ButtonType="Primary" Command="{Binding ExecuteCommand}"
                              IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>

@@ -49,17 +49,14 @@ public partial class StatisticViewModel : ToolViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     partial void OnSelectedStatisticTypeChanged(StatisticTypeOption? value)
@@ -71,6 +68,7 @@ public partial class StatisticViewModel : ToolViewModelBase
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelExecute()
     {
+        CancelConnectionRefresh();
         if (_currentRun is not { State: TaskRunState.Running } run)
         {
             return;

@@ -15,12 +15,12 @@ Native AOT 的发布目标是 Avalonia 客户端的 Windows x64。正式的 Wind
 ```powershell
 dotnet publish DatabaseManager.Avalonia/DatabaseManager.Avalonia/DatabaseManager.Avalonia.csproj `
   -c Release -r win-x64 -p:DatabaseManagerNativeAot=true -p:UsedAvaloniaProducts= `
-  -warnaserror:NU1903,NU1904 `
-  -o .artifacts/aot-win-x64
-.github/scripts/Test-NativeAot.ps1 .artifacts/aot-win-x64
+  -warnaserror:NU1903,NU1904
 ```
 
-每次验证使用全新发布目录。脚本从独立工作目录启动发布后的 EXE，检查 P0/P2 的退出码与成功标记，并输出截图目录。首次启动会在 EXE 旁创建 `Profiles`。CI 在变更检查中验证发布目录，在正式发布前验证解压后的 ZIP。
+本地输出默认位于仓库根目录的 `bin\win-x64-aot`。更新前关闭该目录中正在运行的客户端。首次启动会在 EXE 旁创建 `Profiles`，同目录后续发布可继续使用原连接配置。
+
+`.github/scripts/Test-NativeAot.ps1` 接收干净的发布目录。脚本从独立工作目录启动发布后的 EXE，检查 P0/P2 的退出码与成功标记，并输出截图目录。验证已使用的本地包时，可把程序文件和 `Config` 复制到临时目录运行脚本。CI 在变更检查中验证发布目录，在正式发布前验证解压后的 ZIP。
 
 旧 SDK 10.0.402 默认使用存在 CVE-2026-111497 的 Native AOT 编译器 10.0.13。更新 SDK 后需重新发布原生 EXE。[Microsoft 安全公告](https://github.com/advisories/GHSA-p3jp-9v83-76w9)
 

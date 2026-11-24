@@ -11,7 +11,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 索引碎片分析 ViewModel（阶段 5）。
 /// 选择连接并分析索引碎片，支持重建选中的索引。
 /// </summary>
-public partial class IndexFragmentationViewModel : ViewModelBase
+public partial class IndexFragmentationViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IIndexFragmentationService _indexFragmentationService;
@@ -22,20 +22,11 @@ public partial class IndexFragmentationViewModel : ViewModelBase
     /// <summary>索引碎片结果。</summary>
     public ObservableCollection<IndexFragmentationItem> Results { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
     [ObservableProperty]
     private IndexFragmentationItem? _selectedResult;
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
 
     public IndexFragmentationViewModel(
         IDbConnectionService connectionService,
@@ -46,17 +37,14 @@ public partial class IndexFragmentationViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     [RelayCommand]
@@ -161,12 +149,4 @@ public partial class IndexFragmentationViewModel : ViewModelBase
         }
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }

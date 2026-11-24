@@ -61,29 +61,37 @@ public partial class BackupViewModel : ToolViewModelBase
 
     public void SetTargetConnection(ConnectionItem connection)
     {
+        CancelConnectionRefresh();
         _targetConnection = connection.Clone();
-        RefreshConnections();
+        ApplyTargetConnection(_targetConnection);
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
-        if (_targetConnection is not null)
+        if (_targetConnection is { } target)
         {
-            Connections.Clear();
-            Connections.Add(_targetConnection.Clone());
-            SelectedConnection = Connections[0];
-            return;
+            if (IsBusy || cancellationToken.IsCancellationRequested)
+                return Task.FromResult(false);
+
+            ApplyTargetConnection(target);
+            return Task.FromResult(true);
         }
+
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
+    }
 
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+    private void ApplyTargetConnection(ConnectionItem connection)
+    {
+        var target = connection.Clone();
+        Connections.Clear();
+        Connections.Add(target);
+        SelectedConnection = target;
     }
 
     [RelayCommand(CanExecute = nameof(CanBackup))]

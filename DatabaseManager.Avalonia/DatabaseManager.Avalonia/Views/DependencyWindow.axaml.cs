@@ -25,32 +25,34 @@ public partial class DependencyWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
-        if (_vm is null) return;
         base.OnOpened(e);
+        if (_vm is null) return;
 
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         ComboObjectType.SelectionChanged += ComboObjectType_SelectionChanged;
         ComboDirection.SelectionChanged += ComboDirection_SelectionChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_vm is null) return;
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
+        if (_vm is null) return;
 
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
         ComboObjectType.SelectionChanged -= ComboObjectType_SelectionChanged;
         ComboDirection.SelectionChanged -= ComboDirection_SelectionChanged;
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadObjectTypes();
         LoadDirections();
@@ -101,9 +103,9 @@ public partial class DependencyWindow : Window
         _vm.SelectedDirection = ComboDirection.SelectedItem as DependencyDirectionOption;
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

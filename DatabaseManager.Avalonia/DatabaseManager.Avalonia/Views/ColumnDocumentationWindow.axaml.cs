@@ -1,7 +1,5 @@
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
-using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.ViewModels;
 
 namespace DatabaseManager.Avalonia.Views;
@@ -25,42 +23,17 @@ public partial class ColumnDocumentationWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
-        if (_vm is null) return;
         base.OnOpened(e);
-        ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
-        Refresh();
+        if (_vm is not null)
+            await _vm.RefreshConnectionsCommand.ExecuteAsync(null);
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_vm is null) return;
+        _vm?.RefreshConnectionsCommand.Cancel();
         base.OnClosed(e);
-        ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
-    }
-
-    private void Refresh()
-    {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
-        LoadConnections();
-    }
-
-    private void LoadConnections()
-    {
-        if (_vm is null) return;
-        ComboConnection.ItemsSource = _vm.Connections;
-        ComboConnection.ItemTemplate = new FuncDataTemplate<ConnectionItem>((item, _) =>
-            new TextBlock { Text = item?.Description ?? string.Empty });
-
-        ComboConnection.SelectedItem = _vm.SelectedConnection;
-    }
-
-    private void ComboConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (_vm is null) return;
-        _vm.SelectedConnection = ComboConnection.SelectedItem as ConnectionItem;
     }
 
     private async void BtnBrowseFile_Click(object? sender, RoutedEventArgs e)
@@ -82,11 +55,6 @@ public partial class ColumnDocumentationWindow : Window
         {
             _vm.FilePath = file.Path?.LocalPath ?? string.Empty;
         }
-    }
-
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
-    {
-        Refresh();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

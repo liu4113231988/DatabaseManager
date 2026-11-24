@@ -348,10 +348,9 @@ public class DefaultScheduleService : IScheduleService
         }
     }
 
-    private ConnectionItem ResolveConnection(ScheduleDefinition definition)
+    private async Task<ConnectionItem> ResolveConnectionAsync(ScheduleDefinition definition, CancellationToken ct)
     {
-        var connection = _connectionService.GetConnections()
-            .FirstOrDefault(c => string.Equals(c.Name, definition.ConnectionName, StringComparison.OrdinalIgnoreCase))
+        var connection = await _connectionService.FindSavedConnectionAsync(definition.ConnectionName, ct)
             ?? throw new InvalidOperationException($"找不到连接「{definition.ConnectionName}」。");
 
         if (!string.IsNullOrWhiteSpace(definition.DatabaseName)
@@ -389,7 +388,7 @@ public class DefaultScheduleService : IScheduleService
         }
 
         run.Report("执行 SQL 脚本...");
-        var connection = ResolveConnection(definition);
+        var connection = await ResolveConnectionAsync(definition, ct);
         var result = await _queryService.ExecuteStandaloneAsync(connection, definition.SqlText, ct, 600);
 
         if (!result.IsSuccess)
@@ -409,7 +408,7 @@ public class DefaultScheduleService : IScheduleService
             throw new InvalidOperationException("未配置备份保存文件夹。");
         }
 
-        var connection = ResolveConnection(definition);
+        var connection = await ResolveConnectionAsync(definition, ct);
         run.Report($"开始备份 {connection.Name}/{connection.Database} ...");
 
         var result = await _backupService.BackupAsync(
@@ -431,7 +430,7 @@ public class DefaultScheduleService : IScheduleService
             throw new InvalidOperationException("未配置导出表或导出文件路径。");
         }
 
-        var connection = ResolveConnection(definition);
+        var connection = await ResolveConnectionAsync(definition, ct);
         run.Report($"导出 {definition.ExportTable} → {definition.ExportFilePath} ...");
 
         var result = await _exportImportService.ExportDataAsync(

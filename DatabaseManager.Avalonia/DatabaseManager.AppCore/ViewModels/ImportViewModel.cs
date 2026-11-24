@@ -88,17 +88,14 @@ public partial class ImportViewModel : ToolViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     partial void OnSelectedConnectionChanged(ConnectionItem? value)
@@ -120,13 +117,14 @@ public partial class ImportViewModel : ToolViewModelBase
     {
         TableColumns.Clear();
 
-        if (SelectedConnection is null || table is null)
+        if (SelectedConnection is not { } connection || table is null)
             return;
 
         try
         {
-            var columns = await _exportImportService.GetTableColumnsAsync(
-                SelectedConnection, table.Name, table.Schema);
+            var columns = await Task.Run(() => _exportImportService.GetTableColumnsAsync(connection, table.Name, table.Schema));
+            if (SelectedConnection != connection || SelectedTable != table)
+                return;
 
             TableColumns.Clear();
             foreach (var column in columns)
@@ -136,6 +134,9 @@ public partial class ImportViewModel : ToolViewModelBase
         }
         catch (Exception ex)
         {
+            if (SelectedConnection != connection || SelectedTable != table)
+                return;
+
             // 列加载失败不再静默吞掉：提示用户以便排查连接 / 权限问题。
             StatusMessage = $"加载表列失败：{ex.Message}";
             AppendLog(StatusMessage);
@@ -149,13 +150,14 @@ public partial class ImportViewModel : ToolViewModelBase
         if (connection is null)
         {
             Tables.Clear();
+            IsTablesLoading = false;
             return;
         }
 
         IsTablesLoading = true;
         try
         {
-            var tables = await _exportImportService.GetTablesAsync(connection);
+            var tables = await Task.Run(() => _exportImportService.GetTablesAsync(connection));
 
             if (currentVersion != _loadTableVersion)
                 return;
@@ -317,6 +319,7 @@ public partial class ImportViewModel : ToolViewModelBase
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelImport()
     {
+        CancelConnectionRefresh();
         if (_currentRun is not null)
         {
             StatusMessage = "正在取消导入...";
@@ -329,13 +332,19 @@ public partial class ImportViewModel : ToolViewModelBase
     [RelayCommand]
     private async Task ImportAsync()
     {
+        if (IsTablesLoading)
+        {
+            StatusMessage = "正在加载表列表，请稍候。";
+            return;
+        }
+
         if (SelectedConnection is null)
         {
             StatusMessage = "请选择连接。";
             return;
         }
 
-        if (SelectedTable is null)
+        if (SelectedTable is null || !Tables.Contains(SelectedTable))
         {
             StatusMessage = "请选择目标表。";
             return;

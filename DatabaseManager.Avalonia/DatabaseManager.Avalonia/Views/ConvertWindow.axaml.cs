@@ -25,7 +25,7 @@ public partial class ConvertWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
 
@@ -33,11 +33,12 @@ public partial class ConvertWindow : Window
         ComboTarget.SelectionChanged += ComboTarget_SelectionChanged;
         ComboMode.SelectionChanged += ComboMode_SelectionChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
 
         ComboSource.SelectionChanged -= ComboSource_SelectionChanged;
@@ -45,10 +46,11 @@ public partial class ConvertWindow : Window
         ComboMode.SelectionChanged -= ComboMode_SelectionChanged;
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadModes();
     }
@@ -114,9 +116,9 @@ public partial class ConvertWindow : Window
         await dialog.ShowDialog<object?>(this);
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

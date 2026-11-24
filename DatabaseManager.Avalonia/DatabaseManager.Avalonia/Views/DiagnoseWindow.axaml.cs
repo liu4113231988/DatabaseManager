@@ -25,7 +25,7 @@ public partial class DiagnoseWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         if (_vm is null) return;
@@ -33,21 +33,23 @@ public partial class DiagnoseWindow : Window
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         ComboDiagnoseType.SelectionChanged += ComboDiagnoseType_SelectionChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
         if (_vm is null) return;
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
         ComboDiagnoseType.SelectionChanged -= ComboDiagnoseType_SelectionChanged;
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadDiagnoseTypes();
     }
@@ -84,9 +86,9 @@ public partial class DiagnoseWindow : Window
         _vm.SelectedDiagnoseType = ComboDiagnoseType.SelectedItem as DiagnoseTypeOption;
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

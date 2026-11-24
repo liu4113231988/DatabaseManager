@@ -28,6 +28,7 @@
     <SelfContained>true</SelfContained>
     <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildProjectDirectory)/../../bin/win-x64-aot/</PublishDir>
     <!-- AOT 下避免 Avalonia 运行时反射 Binding；P0/P2 原生冒烟已验证所有首页/工具窗口。 -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>

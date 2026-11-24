@@ -21,11 +21,12 @@ public partial class DashboardWindow
         PageSelector.ItemsSource = pages; PageSelector.SelectedItem = pages.Contains(page) ? page : pages[0]; _updatingPages = false;
     }
     private async void PageChanged(object? sender, SelectionChangedEventArgs e) { if (!_updatingPages && _dashboardService is not null) await RefreshAllAsync(); }
-    private async Task<QueryResult> ReadChartAsync(DashboardChart chart)
+    private async Task<QueryResult> ReadChartAsync(DashboardChart chart, IReadOnlyList<ConnectionItem>? profiles = null)
     {
         var invalid = SqlSafety.ValidateProfilerStatement(chart.Sql); if (invalid is not null) throw new InvalidOperationException("仪表盘只允许单条 SELECT 查询。");
         if (_connections is null) return await _queryService.ExecuteAsync(chart.ConnectionName, chart.Sql, _lifetime.Token, 120);
-        var saved = _connections.GetConnections().FirstOrDefault(c => c.Name == chart.ConnectionName) ?? throw new InvalidOperationException("找不到图表连接。");
+        profiles ??= await _connections.GetConnectionsAsync(_lifetime.Token);
+        var saved = profiles.FirstOrDefault(c => c.Name == chart.ConnectionName) ?? throw new InvalidOperationException("找不到图表连接。");
         var connection = saved.Clone();
         if (!string.IsNullOrWhiteSpace(chart.Database)) connection.Database = chart.Database;
         return await _queryService.ExecuteStandaloneAsync(connection, chart.Sql, _lifetime.Token, 120);

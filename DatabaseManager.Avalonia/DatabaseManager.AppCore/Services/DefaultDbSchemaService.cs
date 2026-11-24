@@ -26,7 +26,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
     public async Task<IReadOnlyList<DbObjectTreeNode>> GetObjectTreeAsync(string connectionName, CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
@@ -106,7 +106,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         string databaseName,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
@@ -128,7 +128,7 @@ public class DefaultDbSchemaService : IDbSchemaService
     public async Task<IReadOnlyList<DbObjectTreeNode>> GetPrincipalNodesAsync(
         string connectionName, DbPrincipalKind kind, string? databaseName, CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null || !DbPrincipalCatalog.CreateFolders(connection, databaseName).Any(folder => folder.PrincipalKind == kind))
             throw new InvalidOperationException("该连接上的安全主体目录不可用。");
 
@@ -153,7 +153,7 @@ public class DefaultDbSchemaService : IDbSchemaService
     public async Task<IReadOnlyList<DbObjectTreeNode>> GetCatalogNodesAsync(
         string connectionName, DbCatalogKind kind, string? databaseName, CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null || !DbAdminCatalog.CreateFolders(connection, databaseName).Any(f => f.CatalogKind == kind))
             throw new InvalidOperationException("该连接上的管理目录不可用。");
 
@@ -165,7 +165,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
     public async Task<bool> HasMultipleSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return false;
 
@@ -176,7 +176,7 @@ public class DefaultDbSchemaService : IDbSchemaService
 
     public async Task<IReadOnlyList<DbObjectTreeNode>> GetSchemasAsync(string connectionName, string databaseName, CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
@@ -203,7 +203,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         string? schema = null,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
@@ -260,7 +260,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         bool isForView = false,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return new List<DbObjectTreeNode>();
 
@@ -350,7 +350,7 @@ public class DefaultDbSchemaService : IDbSchemaService
         if (keyword.Length == 0)
             return result;
 
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
             return result;
 
@@ -882,10 +882,6 @@ public class DefaultDbSchemaService : IDbSchemaService
 
         return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
     }
-
-    private ConnectionItem? FindConnection(string connectionName)
-        => _connectionService.GetConnections().FirstOrDefault(c =>
-            string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
     private static DatabaseObjectType GetObjectType(DatabaseObject obj)
         => obj switch

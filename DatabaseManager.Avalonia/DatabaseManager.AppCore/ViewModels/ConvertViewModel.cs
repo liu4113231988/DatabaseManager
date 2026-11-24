@@ -86,19 +86,16 @@ public partial class ConvertViewModel : ToolViewModelBase
     }
 
     /// <summary>加载已保存的连接并刷新源/目标选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousSourceId = SourceConnection?.Id;
         var previousTargetId = TargetConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
-        TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
+            SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
+            TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
+        }, cancellationToken);
     }
 
     private ConnectionItem? FindConnection(string? id)
@@ -375,6 +372,7 @@ public partial class ConvertViewModel : ToolViewModelBase
     [RelayCommand(CanExecute = nameof(IsBusy))]
     private void CancelExecute()
     {
+        CancelConnectionRefresh();
         if (_currentRun is not { State: TaskRunState.Running } run)
         {
             return;

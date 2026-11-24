@@ -30,21 +30,33 @@ public partial class SessionMonitorWindow : Window
         _sessionService = sessionService;
         _connectionService = connectionService;
 
-        var connections = _connectionService.GetConnections()
-            .Where(c => _sessionService.IsSupported(c.DatabaseType))
-            .ToList();
-        CmbConnection.ItemsSource = connections;
-
-        if (connections.Count == 0)
-        {
-            TxtSummary.Text = "没有支持会话监控的连接（SQLite 不支持）。";
-            BtnRefresh.IsEnabled = false;
-        }
-
         _autoRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         _autoRefreshTimer.Tick += async (_, _) => await RefreshAsync();
         ChkAutoRefresh.IsCheckedChanged += (_, _) => UpdateAutoRefreshTimer();
         TxtInterval.TextChanged += (_, _) => UpdateAutoRefreshTimer();
+    }
+
+    protected override async void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (_connectionService is null) return;
+
+        BtnRefresh.IsEnabled = false;
+        TxtSummary.Text = "正在读取连接...";
+        try
+        {
+            var connections = await _connectionService.GetConnectionsAsync();
+            if (!IsVisible) return;
+
+            var supported = connections.Where(c => _sessionService.IsSupported(c.DatabaseType)).ToList();
+            CmbConnection.ItemsSource = supported;
+            BtnRefresh.IsEnabled = supported.Count > 0;
+            TxtSummary.Text = supported.Count == 0 ? "没有支持会话监控的连接（SQLite 不支持）。" : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (IsVisible) TxtSummary.Text = $"读取连接失败：{ex.Message}";
+        }
     }
 
     private void UpdateAutoRefreshTimer()
@@ -137,13 +149,13 @@ public partial class SessionMonitorWindow : Window
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)
     {
-        _autoRefreshTimer.Stop();
+        _autoRefreshTimer?.Stop();
         Close();
     }
 
     protected override void OnClosed(EventArgs e)
     {
-        _autoRefreshTimer.Stop();
+        _autoRefreshTimer?.Stop();
         base.OnClosed(e);
     }
 

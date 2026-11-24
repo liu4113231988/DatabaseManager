@@ -34,7 +34,7 @@
         <StackPanel DockPanel.Dock="Top" Spacing="10" Margin="0,0,0,10">
             <Grid ColumnDefinitions="90,*">
                 <TextBlock Grid.Column="0" Text="数据库" VerticalAlignment="Center" />
-                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboConnection" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
             </Grid>
 
             <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
@@ -42,7 +42,7 @@
                              IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="重建选中索引" ButtonType="Default" Command="{Binding RebuildCommand}"
                              IsEnabled="{Binding !IsBusy}" />
-                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>

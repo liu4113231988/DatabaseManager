@@ -34,8 +34,26 @@ public partial class FullDataSearchWindow : Window
         _searchService = searchService;
         _connectionService = connectionService;
         _openSqlCallback = openSqlCallback;
+    }
 
-        CmbConnection.ItemsSource = _connectionService.GetConnections();
+    protected override async void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+        if (_connectionService is null) return;
+
+        TxtSummary.Text = "正在读取连接...";
+        try
+        {
+            var connections = await _connectionService.GetConnectionsAsync();
+            if (!IsVisible) return;
+
+            CmbConnection.ItemsSource = connections;
+            TxtSummary.Text = connections.Count == 0 ? "没有已保存的连接。" : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            if (IsVisible) TxtSummary.Text = $"读取连接失败：{ex.Message}";
+        }
     }
 
     private async void CmbConnection_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -47,11 +65,9 @@ public partial class FullDataSearchWindow : Window
         CmbDatabase.ItemsSource = null;
         try
         {
-            var connectionService = AppServices.ConnectionService;
-            if (connectionService is null)
+            var databases = await _connectionService.TestConnectionAsync(connection);
+            if (!IsVisible || !ReferenceEquals(CmbConnection.SelectedItem, connection))
                 return;
-
-            var databases = await connectionService.TestConnectionAsync(connection);
             CmbDatabase.ItemsSource = databases;
             if (databases.Count > 0)
             {
@@ -193,11 +209,4 @@ public partial class FullDataSearchWindow : Window
 
     private static int TryParseInt(string? text, int fallback)
         => int.TryParse(text, out int value) && value > 0 ? value : fallback;
-}
-
-/// <summary>App 服务便捷访问（供窗口内使用）。</summary>
-internal static class AppServices
-{
-    public static IDbConnectionService? ConnectionService
-        => (App.Current as App)?.Services?.GetService(typeof(IDbConnectionService)) as IDbConnectionService;
 }

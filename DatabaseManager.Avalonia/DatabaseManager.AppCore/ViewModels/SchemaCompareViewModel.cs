@@ -12,7 +12,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 结构对比 ViewModel（阶段 4）。
 /// 对比两个同类型数据库的结构差异：选择源/目标连接、对象类型，执行对比并展示差异树。
 /// </summary>
-public partial class SchemaCompareViewModel : ViewModelBase
+public partial class SchemaCompareViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly ICompareService _compareService;
@@ -30,9 +30,6 @@ public partial class SchemaCompareViewModel : ViewModelBase
     /// <summary>结构差异根节点（树）。</summary>
     public ObservableCollection<SchemaCompareItem> DifferenceRoots { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _sourceConnection;
 
@@ -44,12 +41,6 @@ public partial class SchemaCompareViewModel : ViewModelBase
 
     [ObservableProperty]
     private SchemaCompareItem? _selectedDifference;
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
 
     /// <summary>当前选中差异的详情描述。</summary>
     [ObservableProperty]
@@ -77,19 +68,16 @@ public partial class SchemaCompareViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存的连接并刷新源/目标选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousSourceId = SourceConnection?.Id;
         var previousTargetId = TargetConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
-        TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
+            SourceConnection = FindConnection(previousSourceId) ?? Connections.FirstOrDefault();
+            TargetConnection = FindConnection(previousTargetId) ?? Connections.Skip(1).FirstOrDefault();
+        }, cancellationToken);
     }
 
     private ConnectionItem? FindConnection(string? id)
@@ -265,14 +253,6 @@ public partial class SchemaCompareViewModel : ViewModelBase
         }
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }
 
 /// <summary>对象类型下拉选项。</summary>

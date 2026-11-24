@@ -36,13 +36,12 @@ public partial class BackupWindow : Window
         }
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
-        if (_vm is null) return;
         base.OnOpened(e);
+        if (_vm is null) return;
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
-        Refresh();
-        if (_restoreMode)
+        if (await RefreshAsync() && _restoreMode)
         {
             _vm.StatusMessage = $"恢复目标：{_vm.SelectedConnection?.Description}。请选择备份文件并确认目标。";
             RestoreFileBox.Focus();
@@ -51,16 +50,19 @@ public partial class BackupWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        if (_vm is null) return;
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
+        if (_vm is null) return;
         ComboConnection.SelectionChanged -= ComboConnection_SelectionChanged;
     }
 
-    private void Refresh()
+    private async Task<bool> RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return false;
+
         LoadConnections();
+        return true;
     }
 
     private void LoadConnections()
@@ -140,9 +142,9 @@ public partial class BackupWindow : Window
             await _vm.RestoreCommand.ExecuteAsync(null);
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

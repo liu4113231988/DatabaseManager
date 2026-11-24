@@ -81,8 +81,8 @@ internal static class DatabaseManagementChecks
         var vm = new BackupViewModel(connections, backup, new DefaultTaskCenterService());
         vm.SetTargetConnection(target);
         target.Database = "mutated";
-        vm.RefreshConnections();
-        Check(vm.SelectedConnection!.Database == "report_db" && vm.Connections.Count == 1 && vm.CanBackup && vm.CanRestore,
+        Check(await vm.RefreshConnectionsAsync() && vm.SelectedConnection!.Database == "report_db"
+            && vm.Connections.Count == 1 && vm.CanBackup && vm.CanRestore,
             "Opening and refreshing the window must preserve its isolated target.");
         await vm.BackupCommand.ExecuteAsync(null);
         Check(backup.BackupTarget?.Database == "report_db", "The backup service must receive the right-click database.");

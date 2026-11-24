@@ -26,7 +26,7 @@ public partial class DataCompareWindow : Window
         _vm = vm;
     }
 
-    protected override void OnOpened(EventArgs e)
+    protected override async void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
         if (_vm is null) return;
@@ -37,15 +37,19 @@ public partial class DataCompareWindow : Window
         ComboMode.SelectionChanged += ComboMode_SelectionChanged;
         _vm.PropertyChanged += Vm_PropertyChanged;
 
-        Refresh();
+        await RefreshAsync();
     }
 
     protected override void OnClosed(EventArgs e)
     {
+        _vm?.CancelConnectionRefresh();
         base.OnClosed(e);
         if (_vm is null) return;
         _vm.RequestScriptPreview -= Vm_RequestScriptPreview;
         _vm.PropertyChanged -= Vm_PropertyChanged;
+        ComboSource.SelectionChanged -= ComboSource_SelectionChanged;
+        ComboTarget.SelectionChanged -= ComboTarget_SelectionChanged;
+        ComboMode.SelectionChanged -= ComboMode_SelectionChanged;
     }
 
     private void Vm_RequestScriptPreview(ScriptPreviewViewModel previewVm)
@@ -53,10 +57,11 @@ public partial class DataCompareWindow : Window
         new ScriptPreviewWindow(previewVm).ShowDialog(this);
     }
 
-    private void Refresh()
+    private async Task RefreshAsync()
     {
-        if (_vm is null) return;
-        _vm.RefreshConnections();
+        if (_vm is null || !await _vm.RefreshConnectionsAsync() || !IsVisible)
+            return;
+
         LoadConnections();
         LoadModes();
     }
@@ -134,9 +139,9 @@ public partial class DataCompareWindow : Window
         }
     }
 
-    private void BtnRefresh_Click(object? sender, RoutedEventArgs e)
+    private async void BtnRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        Refresh();
+        await RefreshAsync();
     }
 
     private void BtnClose_Click(object? sender, RoutedEventArgs e)

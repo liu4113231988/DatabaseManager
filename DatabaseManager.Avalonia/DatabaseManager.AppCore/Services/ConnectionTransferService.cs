@@ -89,7 +89,7 @@ public static class ConnectionTransferService
     }
     public static async Task<int> ImportAsync(IDbConnectionService service, IReadOnlyList<ConnectionItem> selected, bool renameConflicts, CancellationToken ct)
     {
-        var names = service.GetConnections().Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var names = (await service.GetConnectionsAsync(ct)).Select(c => c.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var saved = new List<string>();
         try
         {

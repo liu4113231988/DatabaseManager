@@ -47,12 +47,12 @@
             <!-- 源/目标连接 -->
             <Grid ColumnDefinitions="90,*,40,90,*">
                 <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
 
                 <TextBlock Grid.Column="2" Text="→" FontSize="20" Foreground="#246BCE" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                 <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
-                <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" />
+                <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
             </Grid>
 
             <!-- 模式 -->
@@ -84,7 +84,7 @@
                 <atom:Button Content="取消" Command="{Binding CancelExecuteCommand}"
                              IsEnabled="{Binding IsBusy}"
                              ToolTip.Tip="取消正在执行的转换（任务中心中仍可见）" />
-                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" />
+                <atom:Button Content="刷新连接" Click="BtnRefresh_Click" IsEnabled="{Binding !IsBusy}" />
                 <atom:Button Content="关闭" Click="BtnClose_Click" />
             </StackPanel>
         </StackPanel>

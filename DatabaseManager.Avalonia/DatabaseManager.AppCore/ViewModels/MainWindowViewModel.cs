@@ -314,16 +314,18 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>初始化：枚举受支持的数据库类型，加载已保存连接，并恢复上次会话的查询标签。</summary>
-    public void Initialize()
+    public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         SupportedDatabases = string.Join(", ", _schemaService.GetSupportedDatabaseTypes());
-        RefreshConnections();
-        System.Diagnostics.Trace.WriteLine("startup|connections-end");
         RefreshRecentScripts();
         System.Diagnostics.Trace.WriteLine("startup|recent-scripts-end");
 
         RestoreSession();
         System.Diagnostics.Trace.WriteLine("startup|session-end");
+        await RefreshConnectionsAsync(cancellationToken);
+        System.Diagnostics.Trace.WriteLine("startup|connections-end");
+        foreach (var tab in QueryTabs)
+            RefreshQueryDatabases(tab);
     }
 
     /// <summary>恢复上次会话打开的查询标签（含未保存的 SQL 草稿）；无可恢复内容时新建一个空标签。</summary>
@@ -404,15 +406,21 @@ public partial class MainWindowViewModel : ViewModelBase
         _appSettingsService.Save();
     }
 
+    private int _connectionRefreshVersion;
+
     /// <summary>刷新左侧对象浏览器的连接列表。</summary>
-    public void RefreshConnections()
+    public async Task RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         if (_connectionService is null || ObjectsExplorer is null)
             return;
 
-        Connections.Clear();
+        int version = ++_connectionRefreshVersion;
+        var items = await _connectionService.GetConnectionsAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (version != _connectionRefreshVersion)
+            return;
 
-        var items = _connectionService.GetConnections() ?? new List<ConnectionItem>();
+        Connections.Clear();
         foreach (var item in items)
         {
             Connections.Add(item);
@@ -770,7 +778,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _isCreatingDatabase = true;
         try
         {
-            var result = await ddlService.CreateDatabaseAsync(connection.Name, databaseName);
+            var result = ddlService is DefaultDdlService
+                ? await DefaultDdlService.ChangeDatabaseAsync(connection.Clone(), databaseName, create: true)
+                : await ddlService.CreateDatabaseAsync(connection.Name, databaseName);
             if (!result.IsSuccess)
             {
                 QueryEditor.StatusMessage = $"新建数据库失败：{result.ErrorMessage}";
@@ -816,7 +826,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _isDeletingDatabase = true;
         try
         {
-            result = await ddlService.DropDatabaseAsync(connection.Name, node.Name);
+            result = ddlService is DefaultDdlService
+                ? await DefaultDdlService.ChangeDatabaseAsync(connection.Clone(), node.Name, create: false)
+                : await ddlService.DropDatabaseAsync(connection.Name, node.Name);
         }
         finally { _isDeletingDatabase = false; }
         if (!result.IsSuccess)

@@ -58,8 +58,13 @@ public sealed partial class ConnectionTransferWindow : Window
             RefreshSelection();
         };
 
-        ShowConnections(_shell.Connections.GetConnections());
-        _shell.Bind(LoadConnectionsButton, _ => { ShowConnections(_shell.Connections.GetConnections()); _isImport = false; return Task.CompletedTask; });
+        _shell.Bind(LoadConnectionsButton, async ct =>
+        {
+            var connections = await _shell.Connections.GetConnectionsAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            ShowConnections(connections);
+            _isImport = false;
+        });
         _shell.Bind(ExportButton, async ct =>
         {
             var selected = Selected();
@@ -83,9 +88,11 @@ public sealed partial class ConnectionTransferWindow : Window
             if (selected.Length == 0) throw new InvalidOperationException("请至少勾选一个连接。");
             int count = await ConnectionTransferService.ImportAsync(_shell.Connections, selected, PolicyBox.SelectedIndex == 0, ct);
             _isImport = false; _shell.SetOutput($"已导入 {count} 个连接。");
-            _shell.ConnectionBox.ItemsSource = _shell.Connections.GetConnections();
+            var connections = await _shell.Connections.GetConnectionsAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            _shell.ConnectionBox.ItemsSource = connections;
         });
-        _shell.Initialize();
+        _shell.Initialize(ShowConnections);
     }
 
     private ConnectionItem[] Selected() => _rows.Where(r => r.IsSelected).Select(r => r.Item).ToArray();

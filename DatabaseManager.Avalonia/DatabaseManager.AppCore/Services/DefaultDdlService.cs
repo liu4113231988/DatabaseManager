@@ -31,14 +31,14 @@ public class DefaultDdlService : IDdlService
     }
 
     public DdlScriptResult PreviewDropDatabase(string connectionName, string databaseName)
-        => PreviewDatabaseCommand(connectionName, databaseName, create: false);
+        => PreviewDatabaseCommand(FindConnection(connectionName), connectionName, databaseName, create: false);
 
     public DdlScriptResult PreviewCreateDatabase(string connectionName, string databaseName)
-        => PreviewDatabaseCommand(connectionName, databaseName, create: true);
+        => PreviewDatabaseCommand(FindConnection(connectionName), connectionName, databaseName, create: true);
 
-    private DdlScriptResult PreviewDatabaseCommand(string connectionName, string databaseName, bool create)
+    internal static DdlScriptResult PreviewDatabaseCommand(ConnectionItem? connection, string connectionName,
+        string databaseName, bool create)
     {
-        var connection = FindConnection(connectionName);
         if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
         var type = ParseDatabaseType(connection.DatabaseType);
         if (type is not (DatabaseType.Postgres or DatabaseType.MySql or DatabaseType.SqlServer))
@@ -72,14 +72,19 @@ public class DefaultDdlService : IDdlService
         _ => throw new NotSupportedException("当前数据库类型不支持整库删除。"),
     };
 
-    public async Task<DdlExecuteResult> CreateDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+    public Task<DdlExecuteResult> CreateDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+        => ChangeDatabaseAsync(connectionName, databaseName, create: true, ct);
+
+    public Task<DdlExecuteResult> DropDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+        => ChangeDatabaseAsync(connectionName, databaseName, create: false, ct);
+
+    private async Task<DdlExecuteResult> ChangeDatabaseAsync(string connectionName, string databaseName, bool create, CancellationToken ct)
     {
-        var preview = PreviewCreateDatabase(connectionName, databaseName);
-        if (!preview.IsSuccess) return ErrorExecute(preview.ErrorMessage!);
         try
         {
-            ct.ThrowIfCancellationRequested();
-            return await ExecuteDatabaseCommandAsync(FindConnection(connectionName)!, preview.Script!, ct);
+            var connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
+            return connection is null ? ErrorExecute($"未找到连接 '{connectionName}'。")
+                : await ChangeDatabaseAsync(connection, databaseName, create, ct);
         }
         catch (Exception ex)
         {
@@ -87,17 +92,17 @@ public class DefaultDdlService : IDdlService
         }
     }
 
-    public async Task<DdlExecuteResult> DropDatabaseAsync(string connectionName, string databaseName, CancellationToken ct = default)
+    internal static async Task<DdlExecuteResult> ChangeDatabaseAsync(ConnectionItem connection, string databaseName, bool create, CancellationToken ct = default)
     {
-        var preview = PreviewDropDatabase(connectionName, databaseName);
-        if (!preview.IsSuccess) return ErrorExecute(preview.ErrorMessage!);
         try
         {
+            var preview = PreviewDatabaseCommand(connection, connection.Name, databaseName, create);
+            if (!preview.IsSuccess) return ErrorExecute(preview.ErrorMessage!);
             ct.ThrowIfCancellationRequested();
-            var connection = FindConnection(connectionName)!;
             // 只清理目标库的空闲池连接；活动会话由服务器拒绝删除，不强制终止或回滚。
-            using (var target = CreateInterpreter(connection, databaseName).CreateConnection())
+            if (!create)
             {
+                using var target = CreateInterpreter(connection, databaseName).CreateConnection();
                 if (target is Npgsql.NpgsqlConnection pg) Npgsql.NpgsqlConnection.ClearPool(pg);
                 else if (target is Microsoft.Data.SqlClient.SqlConnection sql) Microsoft.Data.SqlClient.SqlConnection.ClearPool(sql);
                 else if (target is MySqlConnector.MySqlConnection mysql) await MySqlConnector.MySqlConnection.ClearPoolAsync(mysql, ct);
@@ -131,13 +136,7 @@ public class DefaultDdlService : IDdlService
     {
         try
         {
-            var connection = FindConnection(connectionName);
-            if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
-
-            var interpreter = CreateInterpreter(connection, databaseName);
-            var scriptGenerator = DbScriptGeneratorHelper.GetDbScriptGenerator(interpreter);
-            var script = scriptGenerator.Drop(dbObject);
-            return new DdlScriptResult { IsSuccess = true, Script = script?.Content };
+            return PreviewDropObject(FindConnection(connectionName), connectionName, databaseName, dbObject);
         }
         catch (Exception ex)
         {
@@ -145,22 +144,43 @@ public class DefaultDdlService : IDdlService
         }
     }
 
+    private static DdlScriptResult PreviewDropObject(ConnectionItem? connection, string connectionName,
+        string databaseName, DatabaseObject dbObject)
+    {
+        if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
+
+        var interpreter = CreateInterpreter(connection, databaseName);
+        var scriptGenerator = DbScriptGeneratorHelper.GetDbScriptGenerator(interpreter);
+        var script = scriptGenerator.Drop(dbObject);
+        return new DdlScriptResult { IsSuccess = true, Script = script?.Content };
+    }
+
     public async Task<DdlExecuteResult> DropAsync(string connectionName, string databaseName, DatabaseObject dbObject, CancellationToken ct = default)
     {
-        var preview = PreviewDrop(connectionName, databaseName, dbObject);
+        ConnectionItem? connection;
+        DdlScriptResult preview;
+        try
+        {
+            connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
+            preview = PreviewDropObject(connection, connectionName, databaseName, dbObject);
+        }
+        catch (Exception ex)
+        {
+            return ErrorExecute(ex.Message);
+        }
         if (!preview.IsSuccess)
             return new DdlExecuteResult { IsSuccess = false, ErrorMessage = preview.ErrorMessage };
         if (string.IsNullOrWhiteSpace(preview.Script))
             return new DdlExecuteResult { IsSuccess = false, ErrorMessage = $"不支持删除 {dbObject.GetType().Name}。" };
 
-        return await ExecuteSingleAsync(connectionName, databaseName, preview.Script!, ct);
+        return await ExecuteSingleAsync(connection!, databaseName, preview.Script!, ct);
     }
 
     public async Task<DdlExecuteResult> RenameTableAsync(string connectionName, string databaseName, Table table, string newName, CancellationToken ct = default)
     {
         try
         {
-            var connection = FindConnection(connectionName);
+            var connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
             if (connection is null) return ErrorExecute($"未找到连接 '{connectionName}'。");
 
             var interpreter = CreateInterpreter(connection, databaseName);
@@ -169,7 +189,7 @@ public class DefaultDdlService : IDdlService
             if (string.IsNullOrWhiteSpace(script?.Content))
                 return ErrorExecute($"当前数据库类型暂不支持重命名表。");
 
-            return await ExecuteSingleAsync(connectionName, databaseName, script.Content!, ct);
+            return await ExecuteSingleAsync(connection, databaseName, script.Content!, ct);
         }
         catch (Exception ex)
         {
@@ -181,7 +201,7 @@ public class DefaultDdlService : IDdlService
     {
         try
         {
-            var connection = FindConnection(connectionName);
+            var connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
             if (connection is null) return ErrorExecute($"未找到连接 '{connectionName}'。");
 
             var interpreter = CreateInterpreter(connection, databaseName);
@@ -190,7 +210,7 @@ public class DefaultDdlService : IDdlService
             if (string.IsNullOrWhiteSpace(script?.Content))
                 return ErrorExecute($"当前数据库类型暂不支持重命名列。");
 
-            return await ExecuteSingleAsync(connectionName, databaseName, script.Content!, ct);
+            return await ExecuteSingleAsync(connection, databaseName, script.Content!, ct);
         }
         catch (Exception ex)
         {
@@ -198,11 +218,8 @@ public class DefaultDdlService : IDdlService
         }
     }
 
-    private async Task<DdlExecuteResult> ExecuteSingleAsync(string connectionName, string databaseName, string sql, CancellationToken ct)
+    private static async Task<DdlExecuteResult> ExecuteSingleAsync(ConnectionItem connection, string databaseName, string sql, CancellationToken ct)
     {
-        var connection = FindConnection(connectionName);
-        if (connection is null) return ErrorExecute($"未找到连接 '{connectionName}'。");
-
         var interpreter = CreateInterpreter(connection, databaseName);
         using var dbConnection = interpreter.CreateConnection();
         if (dbConnection.State != ConnectionState.Open)
@@ -323,7 +340,7 @@ public class DefaultDdlService : IDdlService
     {
         try
         {
-            var connection = FindConnection(connectionName);
+            var connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
             if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
 
             // 先尝试使用已有 Definition（如果 ObjectFetchMode.Details 模式已经填充）。
@@ -385,7 +402,7 @@ public class DefaultDdlService : IDdlService
     {
         try
         {
-            var connection = FindConnection(connectionName);
+            var connection = await _connectionService.FindSavedConnectionAsync(connectionName, ct);
             if (connection is null) return Error<DdlScriptResult>($"未找到连接 '{connectionName}'。");
 
             if (dbObject is not (Table or View))

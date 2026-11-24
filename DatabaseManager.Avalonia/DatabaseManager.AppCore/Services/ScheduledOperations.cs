@@ -9,9 +9,9 @@ namespace DatabaseManager.AppCore.Services;
 public sealed class ScheduledOperations(IDbConnectionService connections, IExportImportService files,
     IConvertService? convert, ICompareService? compare, ISyncScriptService? sync, ITemplateStore? templates = null)
 {
-    private ConnectionItem Resolve(string name, string? database)
+    private async Task<ConnectionItem> ResolveAsync(string name, string? database, CancellationToken ct)
     {
-        var item = connections.GetConnections().FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+        var item = await connections.FindSavedConnectionAsync(name, ct)
             ?? throw new InvalidOperationException($"找不到连接：{name}");
         var copy = item.Clone();
         if (!string.IsNullOrWhiteSpace(database)) copy.Database = database;
@@ -19,7 +19,7 @@ public sealed class ScheduledOperations(IDbConnectionService connections, IExpor
     }
     public async Task<string> RunAsync(ScheduleDefinition step, TaskRun run, CancellationToken ct)
     {
-        var source = Resolve(step.ConnectionName, step.DatabaseName);
+        var source = await ResolveAsync(step.ConnectionName, step.DatabaseName, ct);
         if (step.TaskType == ScheduleTaskTypes.Documentation)
         {
             run.Report("读取文档元数据…");
@@ -34,7 +34,7 @@ public sealed class ScheduledOperations(IDbConnectionService connections, IExpor
             if (!imported.IsSuccess) throw new InvalidOperationException(imported.Message);
             return imported.Message;
         }
-        var target = Resolve(step.TargetConnectionName!, step.TargetDatabaseName);
+        var target = await ResolveAsync(step.TargetConnectionName!, step.TargetDatabaseName, ct);
         if (source.DatabaseType == target.DatabaseType && source.Server == target.Server && source.Port == target.Port && source.Database == target.Database)
             throw new InvalidOperationException("源库与目标库不能相同。");
         if (step.TaskType == ScheduleTaskTypes.Migration)

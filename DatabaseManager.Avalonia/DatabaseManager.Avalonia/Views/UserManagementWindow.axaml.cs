@@ -53,8 +53,7 @@ public partial class UserManagementWindow : Window
         CmbConnection.SelectedItem = null;
         ResetContext();
         int context = _contextVersion;
-        // SQLite 的异步 API 仍可能同步读取本地配置库。
-        var connections = await Task.Run(() => _connectionService.GetConnectionsAsync());
+        var connections = await _connectionService.GetConnectionsAsync();
         if (context != _contextVersion)
             return false;
 

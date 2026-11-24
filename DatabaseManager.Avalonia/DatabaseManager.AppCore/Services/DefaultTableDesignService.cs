@@ -32,7 +32,7 @@ public class DefaultTableDesignService : ITableDesignService
         bool isNew,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new TableDesignLoadResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -155,7 +155,7 @@ public class DefaultTableDesignService : ITableDesignService
         string? schema,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new TablePartitionLoadResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -301,7 +301,7 @@ public class DefaultTableDesignService : ITableDesignService
         TableDesignInfo design,
         CancellationToken cancellationToken = default)
     {
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new TableDesignScriptResult { ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -381,7 +381,7 @@ public class DefaultTableDesignService : ITableDesignService
             return new TableDesignSaveResult { IsSuccess = true, ScriptCount = 0 };
         }
 
-        var connection = FindConnection(connectionName);
+        var connection = await _connectionService.FindSavedConnectionAsync(connectionName, cancellationToken);
         if (connection is null)
         {
             return new TableDesignSaveResult { IsSuccess = false, ErrorMessage = $"未找到连接 '{connectionName}'。" };
@@ -846,10 +846,6 @@ public class DefaultTableDesignService : ITableDesignService
 
         return DbInterpreterHelper.GetDbInterpreter(dbType, connectionInfo, option);
     }
-
-    private ConnectionItem? FindConnection(string connectionName)
-        => _connectionService.GetConnections().FirstOrDefault(c =>
-            string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
     private static DatabaseType ParseDatabaseType(string databaseType)
     {

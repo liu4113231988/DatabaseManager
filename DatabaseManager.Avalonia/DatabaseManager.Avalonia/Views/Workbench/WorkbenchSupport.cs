@@ -68,9 +68,8 @@ public sealed class WorkbenchSupport
     public ExportTableItem Table => TableBox.SelectedItem as ExportTableItem ?? throw new InvalidOperationException("请先加载并选择表。");
 
     /// <summary>绑定公共控件的交互（供各页面在构造末尾调用一次）。</summary>
-    public void Initialize()
+    public void Initialize(Action<IReadOnlyList<ConnectionItem>>? onConnectionsLoaded = null)
     {
-        ConnectionBox.ItemsSource = Connections.GetConnections();
         ConnectionBox.ItemTemplate = new FuncDataTemplate<ConnectionItem>((c, _) => new TextBlock { Text = c?.Description });
         TableBox.ItemTemplate = new FuncDataTemplate<ExportTableItem>((t, _) => new TextBlock { Text = t?.DisplayName });
         ConnectionBox.SelectionChanged += (_, _) => { DatabaseBox.Text = (ConnectionBox.SelectedItem as ConnectionItem)?.Database; ClearContext(); };
@@ -78,24 +77,31 @@ public sealed class WorkbenchSupport
         CancelButton.Click += (_, _) => _cts?.Cancel();
         Window.Closed += (_, _) => _cts?.Cancel();
         Bind(LoadButton, LoadTablesAsync);
-        ConnectionBox.SelectedItem = ConnectionBox.ItemsSource.Cast<ConnectionItem>().FirstOrDefault(c => c.Name == InitialConnection);
-        if (ConnectionBox.SelectedIndex < 0) ConnectionBox.SelectedIndex = ConnectionBox.ItemCount > 0 ? 0 : -1;
-        if (!string.IsNullOrEmpty(InitialDatabase)) DatabaseBox.Text = InitialDatabase;
+        Window.Opened += async (_, _) => await RunAsync(LoadButton, async ct =>
+        {
+            var connections = await Connections.GetConnectionsAsync(ct);
+            ct.ThrowIfCancellationRequested();
+            ConnectionBox.ItemsSource = connections;
+            ConnectionBox.SelectedItem = connections.FirstOrDefault(c => c.Name == InitialConnection) ?? connections.FirstOrDefault();
+            if (!string.IsNullOrEmpty(InitialDatabase)) DatabaseBox.Text = InitialDatabase;
+            onConnectionsLoaded?.Invoke(connections);
+            SetStatus(connections.Count == 0 ? "没有已保存的连接。" : "");
+        }, "正在读取连接...");
         BodyGrid.SizeChanged += (_, _) => Dispatcher.UIThread.Post(UpdatePageRowHeight, DispatcherPriority.Loaded);
     }
 
     /// <summary>把按钮动作包装成带忙碌状态、取消与统一错误提示的操作。</summary>
     public void Bind(Button button, Func<CancellationToken, Task> action)
+        => button.Click += async (_, _) => await RunAsync(button, action);
+
+    private async Task RunAsync(Button button, Func<CancellationToken, Task> action, string status = "正在处理…")
     {
-        button.Click += async (_, _) =>
-        {
-            if (_cts is not null) { SetStatus("请等待当前操作完成，或先取消。"); return; }
-            _cts = new CancellationTokenSource(); button.IsEnabled = false; PageHost.IsEnabled = false; ConnectionBox.IsEnabled = false; DatabaseBox.IsEnabled = false; TableBox.IsEnabled = false; SetStatus("正在处理…");
-            try { await action(_cts.Token); if (StatusText.Text == "正在处理…") SetStatus("已完成。"); }
-            catch (OperationCanceledException) { SetStatus("已取消。"); }
-            catch (Exception ex) { SetStatus(ex.Message); }
-            finally { _cts.Dispose(); _cts = null; button.IsEnabled = true; PageHost.IsEnabled = true; ConnectionBox.IsEnabled = true; DatabaseBox.IsEnabled = true; TableBox.IsEnabled = true; }
-        };
+        if (_cts is not null) { SetStatus("请等待当前操作完成，或先取消。"); return; }
+        _cts = new CancellationTokenSource(); button.IsEnabled = false; PageHost.IsEnabled = false; ConnectionBox.IsEnabled = false; DatabaseBox.IsEnabled = false; TableBox.IsEnabled = false; SetStatus(status);
+        try { await action(_cts.Token); if (StatusText.Text == status) SetStatus("已完成。"); }
+        catch (OperationCanceledException) { SetStatus("已取消。"); }
+        catch (Exception ex) { SetStatus(ex.Message); }
+        finally { _cts.Dispose(); _cts = null; button.IsEnabled = true; PageHost.IsEnabled = true; ConnectionBox.IsEnabled = true; DatabaseBox.IsEnabled = true; TableBox.IsEnabled = true; }
     }
 
     public void SetOutput(string text) => OutputBox.Text = text;

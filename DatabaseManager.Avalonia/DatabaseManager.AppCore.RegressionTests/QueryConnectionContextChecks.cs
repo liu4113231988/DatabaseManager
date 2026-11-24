@@ -25,7 +25,7 @@ internal static class QueryConnectionContextChecks
                     $"CREATE TABLE marker (value TEXT); INSERT INTO marker VALUES ('{connection.Name}');");
                 Check(result.IsSuccess, result.ErrorMessage ?? "Create marker database failed.");
             }
-            vm.Initialize();
+            await vm.InitializeAsync();
             var draft = vm.SelectedQueryTab!;
             await vm.ConnectConnectionNodeAsync(explorer.FindConnectionNode(a.Name)!);
             Check(draft.ConnectionName == a.Name && draft.DatabaseName == a.Database,

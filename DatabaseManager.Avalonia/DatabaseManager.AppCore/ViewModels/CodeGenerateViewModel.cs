@@ -11,7 +11,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 代码生成 ViewModel（阶段 5）。
 /// 选择连接，加载表/视图并勾选，配置语言/命名空间/输出目录，生成实体类代码。
 /// </summary>
-public partial class CodeGenerateViewModel : ViewModelBase
+public partial class CodeGenerateViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly ICodeGenerateService _codeGenerateService;
@@ -29,9 +29,6 @@ public partial class CodeGenerateViewModel : ViewModelBase
     /// <summary>可勾选的表/视图目标。</summary>
     public ObservableCollection<CodeGenerateTarget> Targets { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
@@ -47,12 +44,6 @@ public partial class CodeGenerateViewModel : ViewModelBase
     [ObservableProperty]
     private bool _generateComments = true;
 
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
-
     public CodeGenerateViewModel(IDbConnectionService connectionService, ICodeGenerateService codeGenerateService)
     {
         _connectionService = connectionService;
@@ -61,17 +52,14 @@ public partial class CodeGenerateViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     /// <summary>加载当前连接下的表/视图列表。</summary>
@@ -181,12 +169,4 @@ public partial class CodeGenerateViewModel : ViewModelBase
         }
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }

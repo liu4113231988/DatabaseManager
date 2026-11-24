@@ -56,7 +56,7 @@ public class DefaultConnectionVisualService : IConnectionVisualService
 {
     private static readonly object FileLock = new();
     private readonly string _filePath;
-    private List<ConnectionVisualInfo> _items;
+    private readonly List<ConnectionVisualInfo> _items;
 
     public IReadOnlyList<string> PaletteColors { get; } = new[]
     {
@@ -72,12 +72,19 @@ public class DefaultConnectionVisualService : IConnectionVisualService
         _items = Load();
     }
 
-    public IReadOnlyList<ConnectionVisualInfo> GetAll() => _items.ToList();
+    public IReadOnlyList<ConnectionVisualInfo> GetAll()
+    {
+        lock (FileLock)
+            return _items.ToList();
+    }
 
     public ConnectionVisualInfo? Find(string? connectionId)
-        => string.IsNullOrEmpty(connectionId)
-            ? null
-            : _items.FirstOrDefault(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
+    {
+        if (string.IsNullOrEmpty(connectionId))
+            return null;
+        lock (FileLock)
+            return _items.FirstOrDefault(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
+    }
 
     public void Save(string connectionId, string connectionName, string? group, string? colorTag, string? kingbaseCompatibilityMode = null, bool? duckDbReadOnly = null)
     {
@@ -88,29 +95,24 @@ public class DefaultConnectionVisualService : IConnectionVisualService
         colorTag = string.IsNullOrWhiteSpace(colorTag) ? null : colorTag.Trim();
         kingbaseCompatibilityMode = string.IsNullOrWhiteSpace(kingbaseCompatibilityMode) ? null : kingbaseCompatibilityMode.Trim();
 
-        var existing = Find(connectionId);
-        if (existing is not null)
+        lock (FileLock)
         {
-            existing.ConnectionName = connectionName;
-            existing.Group = group;
-            existing.ColorTag = colorTag;
-            existing.KingbaseCompatibilityMode = kingbaseCompatibilityMode;
-            if (duckDbReadOnly.HasValue) existing.DuckDbReadOnly = duckDbReadOnly.Value;
-        }
-        else
-        {
-            _items.Add(new ConnectionVisualInfo
+            int index = _items.FindIndex(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
+            var item = new ConnectionVisualInfo
             {
-                ConnectionId = connectionId,
+                ConnectionId = index >= 0 ? _items[index].ConnectionId : connectionId,
                 ConnectionName = connectionName,
                 Group = group,
                 ColorTag = colorTag,
                 KingbaseCompatibilityMode = kingbaseCompatibilityMode,
-                DuckDbReadOnly = duckDbReadOnly ?? false,
-            });
+                DuckDbReadOnly = duckDbReadOnly ?? (index >= 0 && _items[index].DuckDbReadOnly),
+            };
+            if (index < 0)
+                _items.Add(item);
+            else
+                _items[index] = item;
+            Persist();
         }
-
-        Persist();
     }
 
     public void Remove(string connectionId)
@@ -118,10 +120,10 @@ public class DefaultConnectionVisualService : IConnectionVisualService
         if (string.IsNullOrEmpty(connectionId))
             return;
 
-        int removed = _items.RemoveAll(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase));
-        if (removed > 0)
+        lock (FileLock)
         {
-            Persist();
+            if (_items.RemoveAll(i => string.Equals(i.ConnectionId, connectionId, StringComparison.OrdinalIgnoreCase)) > 0)
+                Persist();
         }
     }
 
@@ -145,16 +147,13 @@ public class DefaultConnectionVisualService : IConnectionVisualService
 
     private void Persist()
     {
-        lock (FileLock)
+        try
         {
-            try
-            {
-                File.WriteAllText(_filePath, JsonSerializer.Serialize(_items, ConnectionVisualJsonContext.Default.ListConnectionVisualInfo));
-            }
-            catch
-            {
-                // 持久化失败不抛出（与 task-history 同策略）。
-            }
+            File.WriteAllText(_filePath, JsonSerializer.Serialize(_items, ConnectionVisualJsonContext.Default.ListConnectionVisualInfo));
+        }
+        catch
+        {
+            // 持久化失败不抛出（与 task-history 同策略）。
         }
     }
 }

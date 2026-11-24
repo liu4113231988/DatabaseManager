@@ -33,7 +33,17 @@ public static class P2SmokeHarness
             var source = await query.ExecuteStandaloneAsync(item, "SELECT * FROM sample");
             var services = new ServiceCollection().AddSingleton<IDbConnectionService>(connections).AddSingleton<IExportImportService>(new DefaultExportImportService(connections)).AddSingleton<IDataEditService>(new DefaultDataEditService(connections)).BuildServiceProvider();
             string sent = "";
-            var queryWindow = new QueryBuilderWindow(services, (_, sql) => sent = sql, item.Name, item.Database); queryWindow.Show(); await Task.Delay(250);
+            connections.ReadGate = new();
+            var queryWindow = new QueryBuilderWindow(services, (_, sql) => sent = sql, item.Name, item.Database);
+            queryWindow.Show();
+            var loadButton = queryWindow.FindControl<Button>("LoadButton")!;
+            if (!queryWindow.IsVisible || loadButton.IsEnabled)
+                throw new InvalidOperationException("The workbench must open while its saved connections are loading.");
+            connections.ReadGate.SetResult();
+            for (int attempt = 0; !loadButton.IsEnabled && attempt < 100; attempt++)
+                await Task.Delay(50);
+            if (queryWindow.FindControl<ComboBox>("ConnectionBox")?.SelectedItem != item)
+                throw new InvalidOperationException("The workbench must select its connection after loading.");
             await Click(queryWindow, "加载对象");
             if (queryWindow.FindControl<ListBox>("AvailableTables")?.ItemCount != 1)
                 throw new InvalidOperationException("Builder did not load the fixture table: " + Status(queryWindow));
@@ -258,10 +268,17 @@ public static class P2SmokeHarness
 
     private sealed class FixtureConnections(ConnectionItem item) : IDbConnectionService
     {
-        public IReadOnlyList<ConnectionItem> GetConnections() => new[] { item };
+        public TaskCompletionSource? ReadGate { get; set; }
+        public IReadOnlyList<ConnectionItem> GetConnections() => ReadGate is null ? [item]
+            : throw new InvalidOperationException("Workbench startup must read connections asynchronously.");
         public IReadOnlyList<ConnectionItem> GetConnections(string type) => GetConnections();
         public ConnectionItem? GetConnectionById(string id) => item;
-        public Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default) => Task.FromResult(GetConnections());
+        public async Task<IReadOnlyList<ConnectionItem>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        {
+            if (ReadGate is not null)
+                await ReadGate.Task.WaitAsync(cancellationToken);
+            return [item];
+        }
         public Task<ConnectionItem?> GetConnectionByIdAsync(string id, CancellationToken cancellationToken = default) => Task.FromResult(GetConnectionById(id));
         public Task<IReadOnlyList<string>> TestConnectionAsync(ConnectionItem c, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>(new[] { c.Database });
         public Task<string?> SaveAsync(ConnectionItem c, CancellationToken ct = default) => throw new NotSupportedException();

@@ -12,7 +12,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 /// 诊断 ViewModel（阶段 4）。
 /// 对单个数据库执行表 / 脚本诊断：选择连接与诊断类型，执行并查看检出结果与日志。
 /// </summary>
-public partial class DiagnoseViewModel : ViewModelBase
+public partial class DiagnoseViewModel : ToolViewModelBase
 {
     private readonly IDbConnectionService _connectionService;
     private readonly IDiagnoseService _diagnoseService;
@@ -29,20 +29,11 @@ public partial class DiagnoseViewModel : ViewModelBase
     /// <summary>脚本诊断结果。</summary>
     public ObservableCollection<ScriptDiagnoseResultItem> ScriptResults { get; } = new();
 
-    /// <summary>执行日志。</summary>
-    public ObservableCollection<string> Logs { get; } = new();
-
     [ObservableProperty]
     private ConnectionItem? _selectedConnection;
 
     [ObservableProperty]
     private DiagnoseTypeOption? _selectedDiagnoseType;
-
-    [ObservableProperty]
-    private bool _isBusy;
-
-    [ObservableProperty]
-    private string _statusMessage = string.Empty;
 
     public DiagnoseViewModel(IDbConnectionService connectionService, IDiagnoseService diagnoseService)
     {
@@ -62,17 +53,14 @@ public partial class DiagnoseViewModel : ViewModelBase
     }
 
     /// <summary>加载已保存连接并刷新选择。</summary>
-    public void RefreshConnections()
+    public Task<bool> RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
         var previousId = SelectedConnection?.Id;
 
-        Connections.Clear();
-        foreach (var item in _connectionService.GetConnections())
+        return RefreshConnectionListAsync(_connectionService, Connections, () =>
         {
-            Connections.Add(item);
-        }
-
-        SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+            SelectedConnection = Connections.FirstOrDefault(c => c.Id == previousId) ?? Connections.FirstOrDefault();
+        }, cancellationToken);
     }
 
     partial void OnSelectedDiagnoseTypeChanged(DiagnoseTypeOption? value)
@@ -181,12 +169,4 @@ public partial class DiagnoseViewModel : ViewModelBase
         return ScriptDiagnoseType.NameNotMatch;
     }
 
-    private void AppendLog(string message)
-    {
-        if (string.IsNullOrWhiteSpace(message))
-            return;
-
-        var time = DateTime.Now.ToString("HH:mm:ss");
-        Logs.Add($"[{time}] {message}");
-    }
 }

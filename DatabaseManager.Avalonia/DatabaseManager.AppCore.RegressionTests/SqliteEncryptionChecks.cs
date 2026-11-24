@@ -140,7 +140,7 @@ internal static class SqliteEncryptionChecks
         var explorer = new ObjectsExplorerViewModel(schema);
         var vm = new MainWindowViewModel(schema, profiles, query, new DefaultDataEditService(profiles),
             explorer, new QueryEditorViewModel(query));
-        vm.Initialize();
+        await vm.InitializeAsync();
         var node = explorer.FindConnectionNode(connection.Name)!;
         bool rejected = false;
         try { await vm.ConnectConnectionNodeAsync(node); }

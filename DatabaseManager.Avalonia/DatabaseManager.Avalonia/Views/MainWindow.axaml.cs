@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private bool _restoreMaximizedAfterFirstRender;
     private readonly ObjectTreeDragDropHelper _objectTreeDragDrop;
     private WindowLayoutHelper? _layoutHelper;
+    private readonly CancellationTokenSource _connectionLoading = new();
 
     public MainWindow()
     {
@@ -86,10 +87,6 @@ public partial class MainWindow : Window
 
         if (DataContext is MainWindowViewModel vm)
         {
-            System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-start");
-            vm.Initialize();
-            System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-end");
-
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
             foreach (var tab in vm.QueryTabs)
@@ -183,6 +180,15 @@ public partial class MainWindow : Window
             _scheduleTimer.Start();
         }
         System.Diagnostics.Trace.WriteLine("startup|opened-end");
+        if (DataContext is MainWindowViewModel workspace)
+        {
+            AppExceptionHandler.Run(async () =>
+            {
+                System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-start");
+                await workspace.InitializeAsync(_connectionLoading.Token);
+                System.Diagnostics.Trace.WriteLine("startup|viewmodel-initialize-end");
+            }, "加载工作区");
+        }
     }
 
     private IAppSettingsService? _appSettings;
@@ -483,6 +489,8 @@ public partial class MainWindow : Window
     /// <summary>窗口真实关闭后：捕获查询标签会话（SQL 草稿）与窗口布局。</summary>
     protected override void OnClosed(EventArgs e)
     {
+        _connectionLoading.Cancel();
+        _connectionLoading.Dispose();
         try
         {
             if (DataContext is MainWindowViewModel vm)
@@ -750,7 +758,8 @@ public partial class MainWindow : Window
         var dialog = new ConnectWindow(connVm) { DataContext = connVm };
         await dialog.ShowDialog<object?>(this);
 
-        (DataContext as MainWindowViewModel)?.RefreshConnections();
+        if (IsVisible && DataContext is MainWindowViewModel vm)
+            await vm.RefreshConnectionsAsync(_connectionLoading.Token);
     }
 
     private async void MenuConnectionManager_Click(object? sender, RoutedEventArgs e)
@@ -766,7 +775,8 @@ public partial class MainWindow : Window
         var window = new ConnectionManagerWindow(connVm);
         await window.ShowDialog<object?>(this);
 
-        (DataContext as MainWindowViewModel)?.RefreshConnections();
+        if (IsVisible && DataContext is MainWindowViewModel vm)
+            await vm.RefreshConnectionsAsync(_connectionLoading.Token);
     }
 
     /// <summary>打开全库数据搜索窗口（跨表搜索数据内容）。</summary>
@@ -1851,8 +1861,7 @@ public partial class MainWindow : Window
     private async void QueryRecord_Click(object? sender, RoutedEventArgs e)
     {
         if (_currentQueryTab is not { IsResultEditable: true } tab || FindDataGridInVisualTree(this)?.SelectedItem is not QueryResultRow row) return;
-        var connections = (App.Current as App)?.Services?.GetService(typeof(IDbConnectionService)) as IDbConnectionService;
-        var connection = connections?.GetConnections().FirstOrDefault(c => c.Name.Equals(tab.ConnectionName, StringComparison.OrdinalIgnoreCase));
+        var connection = (DataContext as MainWindowViewModel)?.GetSelectedQueryConnection();
         await new RecordEditorWindow(tab, row, connection).ShowDialog(this);
     }
     private void QueryCompareResults_Click(object? sender, RoutedEventArgs e)
@@ -1998,7 +2007,8 @@ public partial class MainWindow : Window
 
     private void MenuRefresh_Click(object? sender, RoutedEventArgs e)
     {
-        (DataContext as MainWindowViewModel)?.RefreshConnections();
+        if (DataContext is MainWindowViewModel vm)
+            AppExceptionHandler.Run(() => vm.RefreshConnectionsAsync(_connectionLoading.Token), "刷新连接");
     }
 
     private void MenuExit_Click(object? sender, RoutedEventArgs e)
@@ -2388,7 +2398,7 @@ public partial class MainWindow : Window
         var connectionNode = FindConnectionNode(node);
         if (connectionNode?.Connection is not null)
         {
-            exportVm.RefreshConnections();
+            await exportVm.RefreshConnectionsAsync(_connectionLoading.Token);
             // 选中对应连接
             var conn = exportVm.Connections.FirstOrDefault(c => 
                 string.Equals(c.Id, connectionNode.Connection.Id, StringComparison.OrdinalIgnoreCase));
@@ -2414,7 +2424,7 @@ public partial class MainWindow : Window
         var connectionNode = FindConnectionNode(node);
         if (connectionNode?.Connection is not null)
         {
-            importVm.RefreshConnections();
+            await importVm.RefreshConnectionsAsync(_connectionLoading.Token);
             // 选中对应连接
             var conn = importVm.Connections.FirstOrDefault(c => 
                 string.Equals(c.Id, connectionNode.Connection.Id, StringComparison.OrdinalIgnoreCase));
@@ -2929,7 +2939,7 @@ public partial class MainWindow : Window
             case Key.F4:
                 // F4：刷新对象树（对齐 DBeaver）
                 e.Handled = true;
-                vm.RefreshConnections();
+                await vm.RefreshConnectionsAsync(_connectionLoading.Token);
                 break;
 
             case Key.Delete:
