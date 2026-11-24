@@ -800,6 +800,9 @@ public partial class MainWindow : Window
 
     /// <summary>打开用户与权限管理窗口。</summary>
     private void MenuUserManagement_Click(object? sender, RoutedEventArgs e)
+        => AppExceptionHandler.Run(OpenUserManagementAsync, "用户与角色管理");
+
+    private async Task OpenUserManagementAsync()
     {
         if (_services is null)
             return;
@@ -808,6 +811,7 @@ public partial class MainWindow : Window
             _services.GetRequiredService<IDbUserService>(),
             _services.GetRequiredService<IDbConnectionService>());
         window.Show(this);
+        await window.LoadConnectionsAsync();
     }
 
     /// <summary>从对象树的安全主体节点打开管理窗口，并按菜单动作预填上下文。</summary>
@@ -827,9 +831,12 @@ public partial class MainWindow : Window
                 _services.GetRequiredService<IDbConnectionService>());
             _userManagementWindow.Show(this);
         }
+        else
+        {
+            _userManagementWindow.Activate();
+        }
 
         var window = _userManagementWindow;
-        window.Activate();
 
         await window.OpenPrincipalAsync(connection, node, action);
     }

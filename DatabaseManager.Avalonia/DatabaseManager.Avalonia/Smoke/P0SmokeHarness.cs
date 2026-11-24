@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -26,6 +27,25 @@ public static class P0SmokeHarness
         query.NotifyConnected(item.Name);
         try
         {
+            var loginConnection = new ConnectionItem { Name = "权限测试", DatabaseType = "SqlServer", Database = "master" };
+            var security = new UserManagementWindow(new FixtureUsers(), new FixtureConnections(loginConnection));
+            await Capture(security, "user-management", verify: async () =>
+            {
+                var node = new DbObjectTreeNode
+                {
+                    Text = "report_reader",
+                    PrincipalName = "report_reader",
+                    PrincipalKind = DbPrincipalKind.Role,
+                    NodeType = DbObjectTreeNodeType.Principal,
+                    DatabaseName = "reports",
+                };
+                await security.OpenPrincipalAsync(loginConnection, node, PrincipalManagementAction.ShowGrants);
+                var grid = security.FindControl<DataGrid>("UsersGrid")!;
+                var grants = security.GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "TxtGrants");
+                if (grid.SelectedItem is not DbUserInfo { Name: "report_reader" } || grants.Text?.Contains("GRANT SELECT") != true
+                    || security.FindControl<TextBlock>("TxtScope")?.Text != "权限测试 / reports")
+                    throw new InvalidOperationException("Opening permissions from the tree must preserve the database, select the principal and show its grants.");
+            });
             File.WriteAllBytes(item.Database, []);
             await VerifySqlServerLoginMetadataAsync();
             var diagnose = new DiagnoseViewModel(connections, new DefaultDiagnoseService());
@@ -322,6 +342,23 @@ public static class P0SmokeHarness
             || !functions[0].IsOnRight || functions[0].Values.Count != 2
             || functions[0].Values[0] != "2025-01-01")
             throw new InvalidOperationException("SQL Server partition function rows must map without dynamic code.");
+    }
+
+    private sealed class FixtureUsers : DefaultDbUserService, IDbUserService
+    {
+        Task<(List<DbUserInfo>, string?)> IDbUserService.GetUsersAsync(ConnectionItem connection, CancellationToken cancellationToken, string? databaseName, DbPrincipalKind principalKind)
+        {
+            if (Dispatcher.UIThread.CheckAccess() || databaseName != "reports" || principalKind != DbPrincipalKind.Role)
+                throw new InvalidOperationException("Principal queries must use the tree scope and run off the UI thread.");
+            return Task.FromResult<(List<DbUserInfo>, string?)>(([new() { Name = "report_reader", Kind = "role" }], null));
+        }
+
+        Task<(string, string?)> IDbUserService.GetGrantsAsync(ConnectionItem connection, string userName, string? host, CancellationToken cancellationToken, string? databaseName)
+        {
+            if (Dispatcher.UIThread.CheckAccess() || databaseName != "reports" || userName != "report_reader")
+                throw new InvalidOperationException("Grant queries must use the selected principal and run off the UI thread.");
+            return Task.FromResult<(string, string?)>(("GRANT SELECT", null));
+        }
     }
 
     private sealed class FixturePlan : IExecutionPlanService

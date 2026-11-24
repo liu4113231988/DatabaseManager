@@ -37,17 +37,8 @@ public partial class UserManagementWindow : Window
         _userService = userService;
         _connectionService = connectionService;
         CmbConnection.SelectionChanged += CmbConnection_SelectionChanged;
-
-        CmbConnection.ItemsSource = _connectionService.GetConnections()
-            .Where(c => _userService.IsSupported(c.DatabaseType))
-            .ToList();
-
-        BtnRefresh.IsEnabled = SelectedConnection is not null;
-        if (CmbConnection.ItemCount == 0)
-        {
-            TxtGrants.Text = "没有支持用户管理的连接（SQLite 不支持）。";
-            BtnRefresh.IsEnabled = false;
-        }
+        Closed += (_, _) => _contextVersion++;
+        BtnRefresh.IsEnabled = false;
     }
 
     private ConnectionItem? SelectedConnection => CmbConnection.SelectedItem as ConnectionItem;
@@ -57,19 +48,38 @@ public partial class UserManagementWindow : Window
     private DatabaseType? SelectedDatabaseType => SelectedConnection is { } c
         && Enum.TryParse<DatabaseType>(c.DatabaseType, true, out var type) ? type : null;
 
+    internal async Task<bool> LoadConnectionsAsync(ConnectionItem? connection = null)
+    {
+        CmbConnection.SelectedItem = null;
+        ResetContext();
+        int context = _contextVersion;
+        // SQLite 的异步 API 仍可能同步读取本地配置库。
+        var connections = await Task.Run(() => _connectionService.GetConnectionsAsync());
+        if (context != _contextVersion)
+            return false;
+
+        var supported = connections.Where(c => _userService.IsSupported(c.DatabaseType)).ToList();
+        CmbConnection.ItemsSource = supported;
+        if (connection is null)
+        {
+            if (supported.Count == 0)
+                TxtGrants.Text = "没有支持用户管理的连接（SQLite 不支持）。";
+            return true;
+        }
+
+        CmbConnection.SelectedItem = supported
+            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase));
+        if (SelectedConnection is not null)
+            return true;
+
+        TxtGrants.Text = "找不到支持用户与权限管理的连接。";
+        return false;
+    }
+
     public async Task OpenPrincipalAsync(ConnectionItem connection, DbObjectTreeNode node, PrincipalManagementAction action)
     {
-        ResetContext();
-        CmbConnection.ItemsSource = _connectionService.GetConnections()
-            .Where(c => _userService.IsSupported(c.DatabaseType))
-            .ToList();
-        CmbConnection.SelectedItem = CmbConnection.ItemsSource.OfType<ConnectionItem>()
-            .FirstOrDefault(c => string.Equals(c.Name, connection.Name, StringComparison.OrdinalIgnoreCase));
-        if (SelectedConnection is null)
-        {
-            TxtGrants.Text = "找不到支持用户与权限管理的连接。";
+        if (!await LoadConnectionsAsync(connection))
             return;
-        }
 
         _databaseName = node.DatabaseName;
         _principalKind = node.PrincipalKind;
@@ -142,7 +152,11 @@ public partial class UserManagementWindow : Window
 
         try
         {
-            var (users, error) = await _userService.GetUsersAsync(connection, databaseName: _databaseName, principalKind: _principalKind);
+            string? databaseName = _databaseName;
+            var principalKind = _principalKind;
+            // 数据库驱动可能在异步调用返回之前执行同步 I/O。
+            var (users, error) = await Task.Run(() =>
+                _userService.GetUsersAsync(connection, databaseName: databaseName, principalKind: principalKind));
             if (context != _contextVersion || refresh != _refreshVersion)
                 return false;
             UsersGrid.ItemsSource = users;
@@ -179,8 +193,9 @@ public partial class UserManagementWindow : Window
         }
 
         int context = _contextVersion;
+        string? databaseName = _databaseName;
         TxtGrants.Text = "正在读取权限...";
-        var (text, error) = await _userService.GetGrantsAsync(connection, user.Name, user.Host, databaseName: _databaseName);
+        var (text, error) = await Task.Run(() => _userService.GetGrantsAsync(connection, user.Name, user.Host, databaseName: databaseName));
         if (context != _contextVersion || SelectedUser != user)
             return;
 
