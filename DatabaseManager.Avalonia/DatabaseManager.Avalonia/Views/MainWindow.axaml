@@ -200,13 +200,15 @@
                 <!-- 当前查询上下文：连接 / 数据库 / Schema 相邻成组；数据库绑定标签，避免跟随对象树的连接选择。 -->
                 <Border Classes="toolbar-group" Padding="8,0">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <TextBlock Text="生产环境" IsVisible="{Binding IsSelectedQueryProduction}"
-                                   Foreground="{DynamicResource AppWarningBrush}" FontWeight="SemiBold"
-                                   FontSize="11" VerticalAlignment="Center" />
+                        <Grid Width="26" VerticalAlignment="Center">
+                            <TextBlock Text="连接" IsVisible="{Binding !IsSelectedQueryProduction}"
+                                       Foreground="{DynamicResource AppTextSecondaryBrush}" FontSize="11" />
+                            <TextBlock Text="生产" IsVisible="{Binding IsSelectedQueryProduction}"
+                                       Foreground="{DynamicResource AppWarningBrush}" FontWeight="SemiBold" FontSize="11"
+                                       AutomationProperties.Name="生产环境" ToolTip.Tip="生产环境连接" />
+                        </Grid>
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                     DataContext="{Binding SelectedQueryTab}" x:DataType="vm:QueryTabViewModel">
-                            <TextBlock Text="连接" FontSize="11" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource AppTextSecondaryBrush}" />
                             <TextBlock Text="{Binding ConnectionName}" MaxWidth="110" FontSize="11"
                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
                                        ToolTip.Tip="{Binding ConnectionName}" />

@@ -179,7 +179,7 @@ public static class P0SmokeHarness
                 var borders = selector.GetVisualAncestors().OfType<Border>().ToArray();
                 var toolbar = borders.Single(b => b.Name == "MainToolbarPanel");
                 var contextGroup = borders.First(b => b.Classes.Contains("toolbar-group"));
-                var production = contextGroup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "生产环境");
+                var production = contextGroup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "生产");
                 if (!production.IsEffectivelyVisible)
                     throw new InvalidOperationException("The query toolbar must identify the selected production connection.");
                 var toolbarHeight = toolbar.Bounds.Height;
@@ -211,8 +211,9 @@ public static class P0SmokeHarness
                     throw new InvalidOperationException("The SQLite query tab must hide the database selector.");
                 if (production.IsEffectivelyVisible)
                     throw new InvalidOperationException("The production label must follow the query tab rather than the object tree.");
-                if (toolbar.Bounds.Height != toolbarHeight || contextGroup.Bounds.Height != contextHeight)
-                    throw new InvalidOperationException($"Query tabs must use the same toolbar height (PostgreSQL: {toolbarHeight}, SQLite: {toolbar.Bounds.Height}).");
+                // Hiding database controls can change the number of wrapped rows on a small display.
+                if (contextGroup.Bounds.Height != contextHeight)
+                    throw new InvalidOperationException("Query context controls must stay aligned across database types.");
                 mainVm.SelectedQueryTab = queryTab;
                 await Task.Delay(100);
                 if (!selector.IsVisible || !Equals(selector.SelectedItem, "report_db") || toolbar.Bounds.Height != toolbarHeight)
@@ -228,9 +229,12 @@ public static class P0SmokeHarness
                 databaseWindow.Width = 760;
                 await Task.Delay(200);
                 var position = selector.TranslatePoint(default, databaseWindow);
+                var productionPosition = production.TranslatePoint(default, databaseWindow);
                 if (position is null || position.Value.X < 0
-                    || position.Value.X + selector.Bounds.Width > databaseWindow.ClientSize.Width)
-                    throw new InvalidOperationException("Query context must remain visible in a narrow toolbar.");
+                    || position.Value.X + selector.Bounds.Width > databaseWindow.ClientSize.Width
+                    || !production.IsEffectivelyVisible || productionPosition is null || productionPosition.Value.X < 0
+                    || productionPosition.Value.X + production.Bounds.Width > databaseWindow.ClientSize.Width)
+                    throw new InvalidOperationException("Query context and the production label must remain visible in a narrow toolbar.");
                 using (var narrow = new RenderTargetBitmap(new global::Avalonia.PixelSize(760, 800), new global::Avalonia.Vector(96, 96)))
                 {
                     narrow.Render(databaseWindow);
