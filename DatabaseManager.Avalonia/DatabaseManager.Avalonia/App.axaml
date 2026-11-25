@@ -16,6 +16,7 @@
 			<ResourceDictionary.MergedDictionaries>
 				<ResourceInclude Source="avares://DatabaseManager/Resources/Converters.axaml" />
 			</ResourceDictionary.MergedDictionaries>
+			<x:Double x:Key="ToolbarControlHeight">28</x:Double>
 			<ResourceDictionary.ThemeDictionaries>
 				<ResourceDictionary x:Key="Default">
 					<SolidColorBrush x:Key="AppWindowBgBrush">#F3F3F3</SolidColorBrush>
@@ -294,7 +295,7 @@
 		<Style Selector="Button.toolbar">
 			<Setter Property="MinWidth" Value="28" />
 			<Setter Property="MinHeight" Value="26" />
-			<Setter Property="Height" Value="28" />
+			<Setter Property="Height" Value="{StaticResource ToolbarControlHeight}" />
 			<Setter Property="VerticalAlignment" Value="Center" />
 			<Setter Property="VerticalContentAlignment" Value="Center" />
 			<Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -349,7 +350,7 @@
 			<Setter Property="CornerRadius" Value="3" />
 			<Setter Property="Margin" Value="0,1" />
 			<Setter Property="VerticalAlignment" Value="Center" />
-			<Setter Property="MinHeight" Value="28" />
+			<Setter Property="MinHeight" Value="30" />
 		</Style>
 
 		<!-- 标签：去掉过大的默认 padding；紧凑且不抢主视觉 -->

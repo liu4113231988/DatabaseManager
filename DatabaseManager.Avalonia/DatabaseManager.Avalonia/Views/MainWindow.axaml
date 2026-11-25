@@ -216,7 +216,7 @@
                                            SelectedItem="{Binding DatabaseName, Mode=TwoWay}"
                                            DropDownOpened="QueryDatabase_DropDownOpened"
                                            SelectionChanged="QueryDatabase_SelectionChanged"
-                                           Width="200" MinHeight="0" FontSize="11"
+                                           Width="200" Height="{StaticResource ToolbarControlHeight}" SizeType="Small" FontSize="11"
                                            VerticalAlignment="Center"
                                            IsVisible="{Binding AvailableDatabases.Count}"
                                            AutomationProperties.Name="当前查询数据库"
@@ -229,7 +229,8 @@
                                    Foreground="{DynamicResource AppTextSecondaryBrush}"
                                    IsVisible="{Binding SchemaSelectorVisible}" />
                         <atom:TextBox Text="{Binding CurrentSchema}" Width="120"
-                                      VerticalContentAlignment="Center" MinHeight="24" FontSize="11"
+                                      Height="{StaticResource ToolbarControlHeight}" SizeType="Small" FontSize="11"
+                                      VerticalContentAlignment="Center"
                                       VerticalAlignment="Center"
                                       IsVisible="{Binding SchemaSelectorVisible}"
                                       AutomationProperties.Name="当前查询 Schema"

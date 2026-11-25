@@ -122,7 +122,7 @@ public static class P0SmokeHarness
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
             var server = new ConnectionItem { Id = "postgres-profile", Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
-            var serverConnections = new FixtureConnections(server) { ReadGate = new() };
+            var serverConnections = new FixtureConnections(server, item) { ReadGate = new() };
             var serverQuery = new DefaultQueryService(serverConnections);
             var schema = new DefaultDbSchemaService(serverConnections);
             var explorer = new ObjectsExplorerViewModel(schema);
@@ -175,8 +175,11 @@ public static class P0SmokeHarness
                     .Single(c => ReferenceEquals(c.ItemsSource, queryTab.AvailableDatabases));
                 if (!selector.IsVisible || !Equals(selector.SelectedItem, "app_db"))
                     throw new InvalidOperationException("Database selector must display its initial context.");
-                if (!selector.GetVisualAncestors().OfType<Border>().Any(b => b.Name == "MainToolbarPanel"))
-                    throw new InvalidOperationException("Query database selector must be in the main toolbar.");
+                var borders = selector.GetVisualAncestors().OfType<Border>().ToArray();
+                var toolbar = borders.Single(b => b.Name == "MainToolbarPanel");
+                var contextGroup = borders.First(b => b.Classes.Contains("toolbar-group"));
+                var toolbarHeight = toolbar.Bounds.Height;
+                var contextHeight = contextGroup.Bounds.Height;
                 selector.SelectedItem = "report_db";
                 await Task.Delay(100);
                 if (queryTab.DatabaseName != "report_db") throw new InvalidOperationException("Database selection binding failed.");
@@ -198,6 +201,24 @@ public static class P0SmokeHarness
                 await Task.Delay(100);
                 if (!Equals(selector.SelectedItem, "report_db"))
                     throw new InvalidOperationException("Switching tabs must preserve each database context.");
+                var sqliteTab = mainVm.OpenSqlInNewTab(item.Name, "SELECT 1;", item.Database);
+                await Task.Delay(100);
+                if (!ReferenceEquals(selector.DataContext, sqliteTab) || selector.IsVisible)
+                    throw new InvalidOperationException("The SQLite query tab must hide the database selector.");
+                if (toolbar.Bounds.Height != toolbarHeight || contextGroup.Bounds.Height != contextHeight)
+                    throw new InvalidOperationException($"Query tabs must use the same toolbar height (PostgreSQL: {toolbarHeight}, SQLite: {toolbar.Bounds.Height}).");
+                mainVm.SelectedQueryTab = queryTab;
+                await Task.Delay(100);
+                if (!selector.IsVisible || !Equals(selector.SelectedItem, "report_db") || toolbar.Bounds.Height != toolbarHeight)
+                    throw new InvalidOperationException("Returning to PostgreSQL must restore the database selector without changing the toolbar height.");
+                mainVm.CurrentSchema = "public";
+                mainVm.SchemaSelectorVisible = true;
+                await Task.Delay(100);
+                var schemaSelector = toolbar.GetVisualDescendants().OfType<AtomUI.Desktop.Controls.TextBox>().Single();
+                if (!schemaSelector.IsEffectivelyVisible || schemaSelector.Text != "public"
+                    || schemaSelector.Bounds.Height != selector.Bounds.Height || contextGroup.Bounds.Height != contextHeight)
+                    throw new InvalidOperationException("The Schema field must match the database selector height without expanding the context group.");
+                mainVm.SchemaSelectorVisible = false;
                 databaseWindow.Width = 760;
                 await Task.Delay(200);
                 var position = selector.TranslatePoint(default, databaseWindow);
