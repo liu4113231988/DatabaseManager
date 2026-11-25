@@ -60,9 +60,12 @@ public partial class QueryTabViewModel : ViewModelBase
     private int? _lastErrorLine;
 
     private CancellationTokenSource? _executionCts;
+    private bool _isConfirmingExecution;
 
     /// <summary>由 UI 注入的危险 SQL 执行确认回调。</summary>
-    public Func<string, Task<bool>>? RequestDangerousExecution { get; set; }
+    public Func<string, string, string, Task<bool>>? RequestDangerousExecution { get; set; }
+    public Func<string, string, Task<bool>>? RequestIndependentSave { get; set; }
+    internal Func<string, bool>? IsProductionConnection { get; set; }
 
     [ObservableProperty]
     private string _statusMessage = "就绪";
@@ -367,9 +370,11 @@ public partial class QueryTabViewModel : ViewModelBase
     [RelayCommand]
     public async Task ExecuteAsync() => await ExecuteWithSqlAsync(null);
 
-    public async Task ExecuteWithSqlAsync(string? sqlOverride)
+    public Task ExecuteWithSqlAsync(string? sqlOverride) => ExecuteWithSqlAsync(sqlOverride, refreshingAfterSave: false);
+
+    private async Task ExecuteWithSqlAsync(string? sqlOverride, bool refreshingAfterSave)
     {
-        if (IsExecuting)
+        if (IsExecuting || (IsSavingChanges && !refreshingAfterSave) || _isConfirmingExecution)
             return;
 
         if (string.IsNullOrWhiteSpace(ConnectionName))
@@ -394,14 +399,32 @@ public partial class QueryTabViewModel : ViewModelBase
         }
 
         var effectiveSql = parameterizedSql ?? sqlToExecute;
+        var connectionName = ConnectionName;
+        var databaseName = DatabaseName;
 
-        if (DangerousSqlConfirmationEnabled
-            && IsPotentiallyDestructiveSql(effectiveSql)
-            && RequestDangerousExecution is not null
-            && !await RequestDangerousExecution(effectiveSql))
+        bool production = IsProductionConnection?.Invoke(connectionName) == true;
+        bool requiresConfirmation = ((DangerousSqlConfirmationEnabled || production) && IsPotentiallyDestructiveSql(effectiveSql))
+            || (production && SqlSafety.ValidateProfilerStatement(effectiveSql) is not null);
+        if (requiresConfirmation && RequestDangerousExecution is { } confirm)
         {
-            StatusMessage = "已取消执行危险 SQL。";
-            return;
+            _isConfirmingExecution = true;
+            try
+            {
+                if (!await confirm(connectionName, databaseName, effectiveSql))
+                {
+                    StatusMessage = "已取消执行危险 SQL。";
+                    return;
+                }
+                if (ConnectionName != connectionName || DatabaseName != databaseName)
+                {
+                    StatusMessage = "执行目标已变更，请重新执行并确认。";
+                    return;
+                }
+            }
+            finally
+            {
+                _isConfirmingExecution = false;
+            }
         }
 
         bool isSelection = !string.IsNullOrWhiteSpace(sqlOverride);
@@ -415,7 +438,7 @@ public partial class QueryTabViewModel : ViewModelBase
         try
         {
             var timeout = Math.Clamp(CommandTimeoutSeconds, 1, 3600);
-            var result = await _queryService.ExecuteAsync(ConnectionName, effectiveSql, _executionCts.Token, timeout, DatabaseName);
+            var result = await _queryService.ExecuteAsync(connectionName, effectiveSql, _executionCts.Token, timeout, databaseName);
             historyResult = result;
             LoadResultSets(result);
 
@@ -1095,12 +1118,29 @@ public partial class QueryTabViewModel : ViewModelBase
     [RelayCommand]
     public async Task SaveEditsAsync()
     {
-        if (_editService is null || !IsResultEditable || !HasPendingChanges || IsSavingChanges)
+        if (_editService is null || !IsResultEditable || !HasPendingChanges || IsSavingChanges || IsExecuting || _isConfirmingExecution)
             return;
 
+        var connectionName = ConnectionName;
+        var databaseName = DatabaseName;
         IsSavingChanges = true;
         try
         {
+            if (RequestIndependentSave is { } confirm && (!_queryService.IsAutoCommit(connectionName)
+                || _queryService.IsTransactionActive(connectionName) || IsProductionConnection?.Invoke(connectionName) == true))
+            {
+                if (!await confirm(connectionName, databaseName))
+                {
+                    StatusMessage = "已取消保存，数据修改仍待保存。";
+                    return;
+                }
+                if (ConnectionName != connectionName || DatabaseName != databaseName)
+                {
+                    StatusMessage = "保存目标已变更，请重新确认。";
+                    return;
+                }
+            }
+
             var inserts = new List<DataEditRow>();
             var updates = new List<DataEditRow>();
             var deletes = new List<DataEditRow>();
@@ -1172,8 +1212,8 @@ public partial class QueryTabViewModel : ViewModelBase
 
             StatusMessage = "正在保存改动...";
             var result = await _editService.SaveChangesAsync(
-                ConnectionName,
-                DatabaseName,
+                connectionName,
+                databaseName,
                 _editableTableName!,
                 _editableSchema,
                 inserts,
@@ -1266,7 +1306,7 @@ public partial class QueryTabViewModel : ViewModelBase
     /// <summary>重新执行当前查询，并按保存行的主键值在结果中定位（跨页跳转 + 通知 UI 滚动选中）。</summary>
     private async Task RefreshAndLocateAsync(List<Dictionary<string, object?>> keys)
     {
-        await ExecuteWithSqlAsync(null);
+        await ExecuteWithSqlAsync(null, refreshingAfterSave: true);
 
         if (!HasResult)
         {

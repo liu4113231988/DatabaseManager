@@ -200,6 +200,9 @@
                 <!-- 当前查询上下文：连接 / 数据库 / Schema 相邻成组；数据库绑定标签，避免跟随对象树的连接选择。 -->
                 <Border Classes="toolbar-group" Padding="8,0">
                     <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="生产环境" IsVisible="{Binding IsSelectedQueryProduction}"
+                                   Foreground="{DynamicResource AppWarningBrush}" FontWeight="SemiBold"
+                                   FontSize="11" VerticalAlignment="Center" />
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
                                     DataContext="{Binding SelectedQueryTab}" x:DataType="vm:QueryTabViewModel">
                             <TextBlock Text="连接" FontSize="11" VerticalAlignment="Center"
@@ -269,7 +272,7 @@
                         <atom:CheckBox IsChecked="{Binding QueryEditor.AutoCommit}" Content="自动提交"
                                   IsEnabled="{Binding QueryEditor.CanChangeTransaction}"
                                   FontSize="11" VerticalAlignment="Center"
-                                  ToolTip.Tip="自动提交：开启后每条 SQL 单独提交；关闭后需手动提交/回滚" />
+                                  ToolTip.Tip="开启自动提交时，系统会先确认是否提交当前活动事务" />
                         <Button Classes="toolbar" Command="{Binding QueryEditor.BeginTransactionCommand}" AutomationProperties.Name="开始事务" ToolTip.Tip="开始事务">
                             <Grid Width="16" Height="16"><Path Data="M5 7H19M5 12H15M5 17H12M18 14V20M15 17H21" MaxWidth="14" MaxHeight="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource AppTextSecondaryBrush}" StrokeThickness="1.7" Fill="Transparent" StrokeLineCap="Round" /></Grid>
                         </Button>
@@ -279,6 +282,10 @@
                         <Button Classes="toolbar danger" Command="{Binding QueryEditor.RollbackTransactionCommand}" AutomationProperties.Name="回滚" ToolTip.Tip="回滚事务">
                             <Grid Width="16" Height="16"><Path Data="M9 7L5 11L9 15M5 11H14C17 11 19 13 19 16V17" MaxWidth="14" MaxHeight="14" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="#FFFFFF" StrokeThickness="1.8" Fill="Transparent" StrokeLineCap="Round" /></Grid>
                         </Button>
+                        <TextBlock Text="{Binding QueryEditor.TransactionDatabase, StringFormat='事务：{0}'}"
+                                   IsVisible="{Binding QueryEditor.IsTransactionActive}" MaxWidth="136"
+                                   ToolTip.Tip="{Binding QueryEditor.TransactionDatabase}" TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" FontSize="11" />
                     </StackPanel>
                 </Border>
                 <!-- 工具组 -->
@@ -575,7 +582,8 @@
                                         <Button Classes="compact" Click="QueryRemoveRow_Click" Content="－ 删除"
                                                 ToolTip.Tip="删除选中的行（保存时生效）" />
                                         <Button Classes="compact Primary" Command="{Binding SaveEditsCommand}" Content="💾 保存"
-                                                IsEnabled="{Binding HasPendingChanges}" />
+                                                IsEnabled="{Binding HasPendingChanges}"
+                                                ToolTip.Tip="将结果网格修改独立提交到当前标签的数据库" />
                                         <Button Classes="compact" Click="QueryRevert_Click" Content="↺ 还原"
                                                 IsEnabled="{Binding HasPendingChanges}" />
                                     </StackPanel>

@@ -55,6 +55,9 @@ public class ConnectionItem
     /// <summary>分组名（由 IConnectionVisualService 侧车存储合并而来；空表示未分组）。</summary>
     public string? Group { get; set; }
 
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsProduction => Group?.Trim().ToUpperInvariant() is "生产" or "生产环境" or "PROD" or "PRODUCTION";
+
     /// <summary>颜色标签（hex，如 #1E88E5；空表示无色）。</summary>
     public string? ColorTag { get; set; }
 

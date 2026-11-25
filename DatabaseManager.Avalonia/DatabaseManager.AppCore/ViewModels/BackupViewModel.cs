@@ -187,27 +187,29 @@ public partial class BackupViewModel : ToolViewModelBase
         var restoreFile = RestoreFilePath;
         var clientTool = ClientToolFilePath;
 
-        var feedbackBuffer = new List<string>();
-        void CollectFeedback(string message)
-        {
-            lock (feedbackBuffer) feedbackBuffer.Add(message);
-            _currentRun?.Report(message);
-        }
-
         AppendLog($"连接：{connection.Description}");
         AppendLog($"恢复文件：{restoreFile}");
         AppendLog("开始恢复...");
 
-        _currentRun = _taskCenter.Run($"恢复 {connection.Description}", "恢复", async (run, ct) =>
+        var task = _taskCenter.Run($"恢复 {connection.Description}", "恢复", async (run, ct) =>
         {
+            var feedbackBuffer = new List<string>();
+            void CollectFeedback(string message)
+            {
+                lock (feedbackBuffer) feedbackBuffer.Add(message);
+                run.Report(message);
+            }
+
             try
             {
                 var result = await _backupService.RestoreAsync(connection, restoreFile, clientTool, CollectFeedback, ct);
 
                 foreach (var line in feedbackBuffer)
                     AppendLog(line);
+                if (!result.IsOK)
+                    throw new InvalidOperationException(result.Message);
 
-                StatusMessage = result.IsOK ? "恢复成功。请重新连接并验证数据库对象。" : $"恢复失败：{result.Message}";
+                StatusMessage = "恢复成功。请重新连接并验证数据库对象。";
                 AppendLog(StatusMessage);
                 run.ResultSummary = StatusMessage;
             }
@@ -229,6 +231,7 @@ public partial class BackupViewModel : ToolViewModelBase
                 IsBusy = false;
             }
         });
+        _currentRun = task.State == TaskRunState.Running ? task : null;
     }
 
     [RelayCommand(CanExecute = nameof(IsBusy))]

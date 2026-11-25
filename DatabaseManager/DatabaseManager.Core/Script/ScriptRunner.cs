@@ -244,11 +244,7 @@ namespace DatabaseManager.Core
 
                         foreach (string command in commands)
                         {
-                            if (cancellationToken.IsCancellationRequested)
-                            {
-                                await transaction.RollbackAsync();
-                                break;
-                            }
+                            cancellationToken.ThrowIfCancellationRequested();
 
                             if (string.IsNullOrEmpty(command.Trim()))
                             {
@@ -286,7 +282,8 @@ namespace DatabaseManager.Core
 
                         result.Result = affectedRows;
 
-                        if (!cancellationToken.IsCancellationRequested && transaction != null)
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (transaction != null)
                         {
                             await transaction.CommitAsync();
                         }
@@ -420,10 +417,7 @@ namespace DatabaseManager.Core
                         continue;
                     }
 
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        break;
-                    }
+                    cancellationToken.ThrowIfCancellationRequested();
 
                     string sql = s.Content?.Trim();
 
@@ -451,10 +445,8 @@ namespace DatabaseManager.Core
                     }
                 }
 
-                if (!cancellationToken.IsCancellationRequested)
-                {
-                    await transaction.CommitAsync();
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                await transaction.CommitAsync();
             }
         }
 

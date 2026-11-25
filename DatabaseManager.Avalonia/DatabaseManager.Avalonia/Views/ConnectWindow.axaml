@@ -126,7 +126,8 @@
             <Grid ColumnDefinitions="*,200">
                 <StackPanel Spacing="6" Grid.Column="0" Margin="0,0,7,0">
                     <TextBlock Text="分组" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />
-                    <atom:TextBox x:Name="TxtGroup" PlaceholderText="分组名（留空则不分组，如：生产环境）" />
+                    <atom:TextBox x:Name="TxtGroup" PlaceholderText="分组名（留空则不分组，如：生产环境）"
+                                  ToolTip.Tip="分组为「生产环境」「生产」「prod」或「production」时，查询工具栏会标记该连接并确认可能的写入。" />
                 </StackPanel>
                 <StackPanel Spacing="6" Grid.Column="1" Margin="7,0,0,0">
                     <TextBlock Text="颜色标签" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" FontSize="12" />

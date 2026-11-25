@@ -105,21 +105,22 @@ public partial class ScriptPreviewViewModel : ViewModelBase
         IsBusy = true;
         StatusMessage = "正在执行脚本...";
 
-        var feedbackBridge = new List<string>();
-        void CollectFeedback(string message)
-        {
-            feedbackBridge.Add(message);
-            AppendLog(message);
-        }
-
         // 经任务中心登记：预览窗口中途关闭后脚本仍在执行且可从任务中心取消/观测。
         _taskCenter?.Run($"执行同步脚本（{selected.Count} 项）→ {TargetConnection?.Description}", "脚本执行", async (run, ct) =>
         {
+            void CollectFeedback(string message)
+            {
+                AppendLog(message);
+                run.Report(message);
+            }
+
             try
             {
                 var result = await _syncScriptService!.ExecuteScriptsAsync(TargetConnection!, selected, CollectFeedback, ct);
+                if (!result.IsSuccess)
+                    throw new InvalidOperationException(result.Message);
 
-                StatusMessage = result.IsSuccess ? result.Message : $"执行失败：{result.Message}";
+                StatusMessage = result.Message;
                 AppendLog(StatusMessage);
                 run.ResultSummary = StatusMessage;
             }

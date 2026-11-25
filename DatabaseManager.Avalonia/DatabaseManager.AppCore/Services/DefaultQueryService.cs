@@ -263,6 +263,8 @@ public class DefaultQueryService : IQueryService
             {
                 Connection = dbConnection,
                 Transaction = dbTransaction,
+                DatabaseName = interpreter.DatabaseType == DatabaseType.Sqlite || string.IsNullOrWhiteSpace(dbConnection.Database)
+                    ? interpreter.ConnectionInfo.Database : dbConnection.Database,
             };
 
             if (!_transactions.TryAdd(connectionName, context))
@@ -343,7 +345,11 @@ public class DefaultQueryService : IQueryService
     public bool IsTransactionActive(string connectionName)
         => _transactions.ContainsKey(connectionName);
 
-    public Task<bool> SetAutoCommitAsync(string connectionName, bool enabled, CancellationToken cancellationToken = default)
+    public string? GetTransactionDatabase(string connectionName)
+        => _transactions.TryGetValue(connectionName, out var context) ? context.DatabaseName : null;
+
+    public Task<bool> SetAutoCommitAsync(string connectionName, bool enabled, CancellationToken cancellationToken = default,
+        bool commitActiveTransaction = true)
         => InConnectionAsync(connectionName, async () =>
         {
             if (!IsConnected(connectionName)) return false;
@@ -352,7 +358,8 @@ public class DefaultQueryService : IQueryService
                 _manualCommit[connectionName] = 0;
                 return true;
             }
-            if (_transactions.ContainsKey(connectionName) && !await CommitCoreAsync(connectionName, cancellationToken))
+            if (_transactions.ContainsKey(connectionName)
+                && (!commitActiveTransaction || !await CommitCoreAsync(connectionName, cancellationToken)))
                 return false;
             _manualCommit.TryRemove(connectionName, out _);
             return true;
@@ -440,5 +447,7 @@ public class DefaultQueryService : IQueryService
         public DbConnection Connection { get; set; } = null!;
 
         public DbTransaction Transaction { get; set; } = null!;
+
+        public string DatabaseName { get; init; } = string.Empty;
     }
 }

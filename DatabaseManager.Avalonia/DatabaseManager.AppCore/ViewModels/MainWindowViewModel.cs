@@ -29,6 +29,8 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>主界面左侧"对象浏览器"当前展示的连接集合。</summary>
     public ObservableCollection<ConnectionItem> Connections { get; } = new();
 
+    public bool IsSelectedQueryProduction => FindConnection(SelectedQueryTab?.ConnectionName)?.IsProduction == true;
+
     /// <summary>查询标签页集合（对齐 DBeaver 多标签设计）。</summary>
     public ObservableCollection<QueryTabViewModel> QueryTabs { get; } = new();
 
@@ -95,18 +97,27 @@ public partial class MainWindowViewModel : ViewModelBase
         QueryEditor.ConnectionName = SelectedQueryTab?.ConnectionName ?? string.Empty;
         QueryEditor.DatabaseName = SelectedQueryTab?.DatabaseName ?? string.Empty;
         QueryEditor.OnConnectionChanged();
+        OnPropertyChanged(nameof(IsSelectedQueryProduction));
     }
 
     /// <summary>查询工具使用标签的上下文快照，不受对象浏览器选择变化影响。</summary>
     public ConnectionItem? GetSelectedQueryConnection()
     {
         var tab = SelectedQueryTab;
-        var saved = Connections.FirstOrDefault(c => string.Equals(c.Name, tab?.ConnectionName, StringComparison.OrdinalIgnoreCase));
-        if (tab is null || saved is null) return null;
+        return tab is null ? null : GetQueryConnection(tab.ConnectionName, tab.DatabaseName);
+    }
+
+    public ConnectionItem? GetQueryConnection(string connectionName, string? databaseName)
+    {
+        var saved = FindConnection(connectionName);
+        if (saved is null) return null;
         var connection = saved.Clone();
-        if (!string.IsNullOrWhiteSpace(tab.DatabaseName)) connection.Database = tab.DatabaseName;
+        if (!string.IsNullOrWhiteSpace(databaseName)) connection.Database = databaseName;
         return connection;
     }
+
+    private ConnectionItem? FindConnection(string? connectionName)
+        => Connections.FirstOrDefault(c => string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase));
 
     public string? GetPrincipalManagementDatabase(DbObjectTreeNode node)
     {
@@ -232,7 +243,11 @@ public partial class MainWindowViewModel : ViewModelBase
             if (args.OldItems is not null)
                 foreach (QueryTabViewModel tab in args.OldItems) tab.PropertyChanged -= OnTabTransactionContextChanged;
             if (args.NewItems is not null)
-                foreach (QueryTabViewModel tab in args.NewItems) tab.PropertyChanged += OnTabTransactionContextChanged;
+                foreach (QueryTabViewModel tab in args.NewItems)
+                {
+                    tab.PropertyChanged += OnTabTransactionContextChanged;
+                    tab.IsProductionConnection = name => FindConnection(name)?.IsProduction == true;
+                }
             RefreshSharedTransactionIndicators();
         };
         System.Diagnostics.Trace.WriteLine("startup|viewmodel-resolved");
@@ -430,6 +445,7 @@ public partial class MainWindowViewModel : ViewModelBase
         ObjectsExplorer.LoadConnections(items);
 
         ConnectionSummary = $"{Connections.Count} 个已保存连接";
+        OnPropertyChanged(nameof(IsSelectedQueryProduction));
     }
 
     /// <summary>新建查询标签页（对齐 DBeaver）。</summary>

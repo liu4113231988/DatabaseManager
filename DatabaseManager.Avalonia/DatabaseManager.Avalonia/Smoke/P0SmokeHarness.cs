@@ -121,7 +121,7 @@ public static class P0SmokeHarness
                 throw new InvalidOperationException("Result grid must use reflection-free template columns.");
             await Capture(new RecordEditorWindow(tab, tab.Rows[0], item), "record");
             await Capture(new ResultCompareWindow(tab.ResultSnapshots.ToArray()), "compare");
-            var server = new ConnectionItem { Id = "postgres-profile", Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db" };
+            var server = new ConnectionItem { Id = "postgres-profile", Name = "数据库切换测试", DatabaseType = "Postgres", Database = "app_db", Group = "生产环境" };
             var serverConnections = new FixtureConnections(server, item) { ReadGate = new() };
             var serverQuery = new DefaultQueryService(serverConnections);
             var schema = new DefaultDbSchemaService(serverConnections);
@@ -163,6 +163,7 @@ public static class P0SmokeHarness
                 roles.IsExpanded = true;
                 node.AddChild(roles);
                 node.IsConnectionActive = true;
+                if (node.Parent is { } group) group.IsExpanded = true;
                 node.IsExpanded = true;
                 var queryTab = mainVm.OpenSqlInNewTab(server.Name, "SELECT current_database();", server.Database);
                 if (queryTab.AvailableDatabases.Count != 2) throw new InvalidOperationException("Database selector fixture failed.");
@@ -178,6 +179,9 @@ public static class P0SmokeHarness
                 var borders = selector.GetVisualAncestors().OfType<Border>().ToArray();
                 var toolbar = borders.Single(b => b.Name == "MainToolbarPanel");
                 var contextGroup = borders.First(b => b.Classes.Contains("toolbar-group"));
+                var production = contextGroup.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == "生产环境");
+                if (!production.IsEffectivelyVisible)
+                    throw new InvalidOperationException("The query toolbar must identify the selected production connection.");
                 var toolbarHeight = toolbar.Bounds.Height;
                 var contextHeight = contextGroup.Bounds.Height;
                 selector.SelectedItem = "report_db";
@@ -205,6 +209,8 @@ public static class P0SmokeHarness
                 await Task.Delay(100);
                 if (!ReferenceEquals(selector.DataContext, sqliteTab) || selector.IsVisible)
                     throw new InvalidOperationException("The SQLite query tab must hide the database selector.");
+                if (production.IsEffectivelyVisible)
+                    throw new InvalidOperationException("The production label must follow the query tab rather than the object tree.");
                 if (toolbar.Bounds.Height != toolbarHeight || contextGroup.Bounds.Height != contextHeight)
                     throw new InvalidOperationException($"Query tabs must use the same toolbar height (PostgreSQL: {toolbarHeight}, SQLite: {toolbar.Bounds.Height}).");
                 mainVm.SelectedQueryTab = queryTab;
@@ -246,6 +252,18 @@ public static class P0SmokeHarness
                 await Task.Delay(100);
                 if (!serverQuery.IsAutoCommit(server.Name) || autoCommit.IsChecked != true)
                     throw new InvalidOperationException("Auto commit checkbox must restore automatic mode.");
+
+                mainVm.SelectedQueryTab = sqliteTab;
+                serverQuery.NotifyConnected(item.Name);
+                await mainVm.QueryEditor.BeginTransactionAsync();
+                await Task.Delay(100);
+                var transaction = toolbar.GetVisualDescendants().OfType<TextBlock>().Single(t => t.Text == $"事务：{item.Database}");
+                if (!transaction.IsEffectivelyVisible)
+                    throw new InvalidOperationException("The active transaction database must be visible in the query toolbar.");
+                await mainVm.QueryEditor.RollbackTransactionAsync();
+                if (transaction.IsEffectivelyVisible)
+                    throw new InvalidOperationException("Rolling back must hide the transaction database label.");
+                await serverQuery.CloseConnectionAsync(item.Name);
             });
             var vm = new ExecutionPlanViewModel(new FixturePlan()) { Connection = item, SqlText = "SELECT * FROM sample" };
             await Capture(new ExecutionPlanWindow(vm), "plan", async () =>

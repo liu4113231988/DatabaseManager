@@ -47,6 +47,11 @@ public partial class QueryEditorViewModel : ViewModelBase
     private bool _isTransactionActive;
 
     [ObservableProperty]
+    private string? _transactionDatabase;
+
+    public Func<string, string?, Task<bool>>? RequestAutoCommitConfirmation { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanChangeTransaction))]
     [NotifyCanExecuteChangedFor(nameof(BeginTransactionCommand), nameof(CommitTransactionCommand), nameof(RollbackTransactionCommand))]
     private bool _isTransactionBusy;
@@ -77,7 +82,20 @@ public partial class QueryEditorViewModel : ViewModelBase
         StatusMessage = enabled ? "正在切换为自动提交..." : "正在切换为手动事务...";
         try
         {
-            bool ok = await _queryService.SetAutoCommitAsync(connectionName, enabled);
+            var confirm = RequestAutoCommitConfirmation;
+            bool commitActiveTransaction = confirm is null;
+            if (enabled && confirm is not null && _queryService.IsTransactionActive(connectionName))
+            {
+                commitActiveTransaction = await confirm(connectionName, _queryService.GetTransactionDatabase(connectionName));
+                if (!commitActiveTransaction)
+                {
+                    if (ConnectionName == connectionName) StatusMessage = "已取消切换，事务仍处于手动提交模式。";
+                    return;
+                }
+            }
+
+            bool ok = await _queryService.SetAutoCommitAsync(connectionName, enabled,
+                commitActiveTransaction: commitActiveTransaction);
             if (ConnectionName == connectionName)
                 StatusMessage = ok ? enabled ? "已切换为自动提交模式。" : "已切换为手动事务模式（执行后请手动提交/回滚）。"
                     : "切换提交模式失败，请检查连接和事务状态。";
@@ -236,6 +254,7 @@ public partial class QueryEditorViewModel : ViewModelBase
         CommitTransactionCommand.NotifyCanExecuteChanged();
         RollbackTransactionCommand.NotifyCanExecuteChanged();
         IsTransactionActive = _queryService.IsTransactionActive(ConnectionName);
+        TransactionDatabase = _queryService.GetTransactionDatabase(ConnectionName);
         // 刷新显示不能触发 OnAutoCommitChanged，否则切换标签可能提交事务。
 #pragma warning disable MVVMTK0034
         SetProperty(ref _autoCommit, _queryService.IsAutoCommit(ConnectionName), nameof(AutoCommit));

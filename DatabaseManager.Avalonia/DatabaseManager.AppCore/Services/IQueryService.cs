@@ -33,8 +33,12 @@ public interface IQueryService
     /// <summary>查询当前连接是否处于活动事务中。</summary>
     bool IsTransactionActive(string connectionName);
 
+    /// <summary>获取活动事务的数据库；没有事务时返回 null。</summary>
+    string? GetTransactionDatabase(string connectionName);
+
     /// <summary>设置提交模式；启用自动提交时异步提交已有事务，失败返回 false 并保留手动模式。</summary>
-    Task<bool> SetAutoCommitAsync(string connectionName, bool enabled, CancellationToken cancellationToken = default);
+    Task<bool> SetAutoCommitAsync(string connectionName, bool enabled, CancellationToken cancellationToken = default,
+        bool commitActiveTransaction = true);
 
     /// <summary>获取当前连接是否处于自动提交模式。</summary>
     bool IsAutoCommit(string connectionName);

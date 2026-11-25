@@ -89,9 +89,11 @@ public partial class MainWindow : Window
         {
             // 设置关闭标签页的回调（用于显示未保存提示）
             vm.RequestCloseTab = RequestCloseTabAsync;
+            vm.QueryEditor.RequestAutoCommitConfirmation = RequestAutoCommitConfirmationAsync;
             foreach (var tab in vm.QueryTabs)
             {
                 tab.RequestDangerousExecution = RequestDangerousExecutionAsync;
+                tab.RequestIndependentSave = RequestIndependentSaveAsync;
                 tab.RequestLocateRow = LocateRowInResultGrid;
             }
 
@@ -113,6 +115,7 @@ public partial class MainWindow : Window
                 foreach (var item in args.NewItems?.OfType<QueryTabViewModel>() ?? Enumerable.Empty<QueryTabViewModel>())
                 {
                     item.RequestDangerousExecution = RequestDangerousExecutionAsync;
+                    item.RequestIndependentSave = RequestIndependentSaveAsync;
                     item.RequestLocateRow = LocateRowInResultGrid;
                 }
             };
@@ -489,6 +492,7 @@ public partial class MainWindow : Window
     /// <summary>窗口真实关闭后：捕获查询标签会话（SQL 草稿）与窗口布局。</summary>
     protected override void OnClosed(EventArgs e)
     {
+        _scheduleTimer?.Stop();
         _connectionLoading.Cancel();
         _connectionLoading.Dispose();
         try
@@ -522,9 +526,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 主窗口整体关闭拦截：存在未保存数据修改或未保存 SQL 的标签时弹三选确认。
-    /// 「是」= 保存全部数据修改后退出（SQL 文本不逐个弹文件对话框，退出即丢失请先手动保存）；
-    /// 「否」= 放弃全部并退出；「取消」= 留在应用。
+    /// 主窗口关闭前处理后台任务和未保存的结果网格修改。
     /// </summary>
     protected override async void OnClosing(WindowClosingEventArgs e)
     {
@@ -535,47 +537,73 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 存在运行中的后台任务时先确认（退出会尝试取消它们）。
         var taskCenter = _taskCenter ?? _services?.GetService<ITaskCenterService>();
-        if (taskCenter is { HasRunning: true })
+        if (_closingCheckInProgress)
         {
             e.Cancel = true;
+            return;
+        }
+        if (taskCenter?.HasRunning != true && !vm.QueryTabs.Any(t => t.HasPendingChanges || t.IsModified || t.IsSavingChanges))
+            return;
 
-            var runningBox = MessageBoxManager.GetMessageBoxStandard(
-                title: "后台任务正在运行",
-                text: $"有 {taskCenter.RunningCount} 个后台任务正在运行（转换/导入导出/统计等）。\n\n「是」取消任务并退出；「否」返回应用（可在任务中心查看进度）。",
-                ButtonEnum.YesNo,
-                MsBox.Avalonia.Enums.Icon.Warning);
-            var runningResult = await runningBox.ShowWindowDialogAsync(this);
-
-            if (runningResult != ButtonResult.Yes)
-            {
-                return;
-            }
-
-            foreach (var run in taskCenter.Runs.Where(r => r.State == TaskRunState.Running).ToList())
-            {
-                taskCenter.Cancel(run.Id);
-            }
-
-            // 等待任务退出运行态（最多 3 秒），随后直接退出（跳过其余确认）。
-            for (int i = 0; i < 30 && taskCenter.HasRunning; i++)
-            {
-                await Task.Delay(100);
-            }
+        e.Cancel = true;
+        _closingCheckInProgress = true;
+        _scheduleTimer?.Stop();
+        try
+        {
+            if (taskCenter is { HasRunning: true } && !await ConfirmTasksStoppedAsync(taskCenter)) return;
+            if (!await ConfirmPendingEditsAsync(vm)) return;
+            if (taskCenter is { HasRunning: true } && !await ConfirmTasksStoppedAsync(taskCenter)) return;
 
             _closingConfirmed = true;
             Close();
-            return;
         }
+        catch (Exception ex)
+        {
+            AppExceptionHandler.Report(ex, "退出数据库管理器");
+        }
+        finally
+        {
+            _closingCheckInProgress = false;
+            if (!_closingConfirmed) _scheduleTimer?.Start();
+        }
+    }
 
+    private async Task<bool> ConfirmTasksStoppedAsync(ITaskCenterService taskCenter)
+    {
+        var runningBox = MessageBoxManager.GetMessageBoxStandard(
+            title: "后台任务正在运行",
+            text: $"有 {taskCenter.RunningCount} 个后台任务正在运行。是否取消这些任务并继续检查退出条件？",
+            ButtonEnum.YesNo,
+            MsBox.Avalonia.Enums.Icon.Warning);
+        if (await runningBox.ShowWindowDialogAsync(this) != ButtonResult.Yes) return false;
+
+        foreach (var run in taskCenter.Runs.Where(r => r.State == TaskRunState.Running).ToList())
+            taskCenter.Cancel(run.Id);
+        for (int i = 0; i < 30 && taskCenter.HasRunning; i++)
+            await Task.Delay(100);
+        if (!taskCenter.HasRunning) return true;
+
+        await MessageBoxManager.GetMessageBoxStandard("正在取消后台任务",
+            "部分任务还在停止或清理。请在任务中心查看进度，等任务结束后再退出。",
+            ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning).ShowWindowDialogAsync(this);
+        return false;
+    }
+
+    private async Task<bool> ConfirmPendingEditsAsync(MainWindowViewModel vm)
+    {
+        if (vm.QueryTabs.Any(t => t.IsSavingChanges))
+        {
+            await MessageBoxManager.GetMessageBoxStandard("正在保存数据",
+                "请等待结果集修改保存完成，再退出应用。",
+                ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Warning).ShowWindowDialogAsync(this);
+            return false;
+        }
         var dataChangedTabs = vm.QueryTabs.Where(t => t.HasPendingChanges).ToList();
         var modifiedTabs = vm.QueryTabs.Where(t => t.IsModified).ToList();
 
         if (dataChangedTabs.Count == 0 && modifiedTabs.Count == 0)
-        {
-            return;
-        }
+            return true;
 
         var messageParts = new List<string>();
         if (dataChangedTabs.Count > 0)
@@ -587,19 +615,14 @@ public partial class MainWindow : Window
             messageParts.Add($"{modifiedTabs.Count} 个标签的 SQL 文本尚未保存到文件");
         }
 
-        e.Cancel = true;
-
         var box = MessageBoxManager.GetMessageBoxStandard(
             title: "未保存的更改",
-            text: $"有 {string.Join("，", messageParts)}。\n\n「是」保存数据修改并退出；「否」放弃全部并退出；「取消」留在应用。",
+            text: $"有 {string.Join("，", messageParts)}。SQL 草稿会随工作区恢复。\n\n「是」保存数据修改并退出；「否」放弃数据修改并退出；「取消」留在应用。",
             ButtonEnum.YesNoCancel,
             MsBox.Avalonia.Enums.Icon.Warning);
         var result = await box.ShowWindowDialogAsync(this);
 
-        if (result == ButtonResult.Cancel)
-        {
-            return;
-        }
+        if (result is not (ButtonResult.Yes or ButtonResult.No)) return false;
 
         if (result == ButtonResult.Yes)
         {
@@ -607,19 +630,16 @@ public partial class MainWindow : Window
             foreach (var tab in dataChangedTabs)
             {
                 await tab.SaveEditsAsync();
-                if (tab.HasPendingChanges)
-                {
-                    return;
-                }
+                if (tab.HasPendingChanges) return false;
             }
         }
 
-        _closingConfirmed = true;
-        Close();
+        return true;
     }
 
     /// <summary>主窗口关闭确认已通过（避免二次弹窗）。</summary>
     private bool _closingConfirmed;
+    private bool _closingCheckInProgress;
 
     /// <summary>保存刷新后在结果网格中滚动并选中指定行。</summary>
     private void LocateRowInResultGrid(QueryResultRow row)
@@ -2783,15 +2803,35 @@ public partial class MainWindow : Window
     private Task<bool> RequestDiscardDataChangesAsync() => Task.FromResult(true);
 
     /// <summary>对可能写入数据或改变结构的 SQL 请求二次确认。</summary>
-    private async Task<bool> RequestDangerousExecutionAsync(string sql)
+    private Task<bool> RequestDangerousExecutionAsync(string connectionName, string databaseName, string sql)
     {
         var preview = sql.Trim();
         if (preview.Length > 160)
             preview = $"{preview[..160]}...";
 
+        return ConfirmQueryOperationAsync("确认执行危险 SQL", connectionName, databaseName,
+            $"该语句可能修改数据或数据库结构，是否继续执行？\n\n{preview}");
+    }
+
+    private Task<bool> RequestAutoCommitConfirmationAsync(string connectionName, string? databaseName)
+        => ConfirmQueryOperationAsync("确认提交当前事务", connectionName, databaseName,
+            "开启自动提交会立即提交当前连接的活动事务，包括共享此事务的其他标签中已执行的修改。是否继续？");
+
+    private Task<bool> RequestIndependentSaveAsync(string connectionName, string databaseName)
+        => ConfirmQueryOperationAsync("确认保存数据修改", connectionName, databaseName,
+            "保存会立即提交结果网格的修改。查询工具栏的回滚只影响查询事务。是否继续？");
+
+    private async Task<bool> ConfirmQueryOperationAsync(string title, string connectionName, string? databaseName, string message)
+    {
+        var connection = (DataContext as MainWindowViewModel)?.GetQueryConnection(connectionName, databaseName);
+        var server = connection?.Server;
+        var address = string.IsNullOrWhiteSpace(server) ? string.Empty : $"\n服务器：{server}";
+        if (address.Length > 0 && !string.IsNullOrWhiteSpace(connection?.Port)) address += $"（端口 {connection.Port}）";
+        var database = connection?.Database ?? databaseName;
+        var target = $"连接：{connectionName}{address}\n数据库：{(string.IsNullOrWhiteSpace(database) ? "连接默认值" : database)}";
         var box = MessageBoxManager.GetMessageBoxStandard(
-            title: "确认执行危险 SQL",
-            text: $"该语句可能修改数据或数据库结构，是否继续执行？\n\n{preview}",
+            title: connection?.IsProduction == true ? $"生产连接 · {title}" : title,
+            text: $"{target}\n\n{message}",
             ButtonEnum.YesNo,
             MsBox.Avalonia.Enums.Icon.Warning);
         return await box.ShowWindowDialogAsync(this) == ButtonResult.Yes;

@@ -3,6 +3,8 @@ using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.Core;
 using DatabaseManager.Core.Model;
+using Microsoft.Data.Sqlite;
+using System.Data.Common;
 using System.Diagnostics;
 using System.Text;
 
@@ -152,30 +154,79 @@ public class DefaultBackupService : IBackupService
         if (!Path.GetExtension(backupFilePath).Equals(".bak", StringComparison.OrdinalIgnoreCase))
             return new BackupResultItem(false, "SQL Server 仅支持 .bak 备份文件。", string.Empty);
 
+        var info = ConnectionHelper.ToConnectionInfo(connection);
+        info.Database = "master";
+        var interpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.SqlServer, info, new DbInterpreterOption());
+        var database = QuoteSqlServerIdentifier(connection.Database);
+        var backupPath = backupFilePath.Replace("'", "''", StringComparison.Ordinal);
+        await using var session = interpreter.CreateConnection();
+
+        string? originalAccess = null;
+        bool restoreAttempted = false;
+        Exception? restoreError = null;
         try
         {
-            var info = ConnectionHelper.ToConnectionInfo(connection);
-            info.Database = "master";
-            var interpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.SqlServer, info, new DbInterpreterOption());
-            var database = QuoteSqlServerIdentifier(connection.Database);
-            var backupPath = backupFilePath.Replace("'", "''", StringComparison.Ordinal);
-            var script = $"ALTER DATABASE {database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; RESTORE DATABASE {database} FROM DISK = N'{backupPath}' WITH REPLACE, RECOVERY; ALTER DATABASE {database} SET MULTI_USER;";
-            var result = await interpreter.ExecuteNonQueryAsync(new CommandInfo
-            {
-                CommandText = script,
-                CancellationToken = ct,
-                CommandTimeoutSeconds = 1800,
-            });
-            if (result is null || result.HasError)
-                return new BackupResultItem(false, result?.Message ?? "SQL Server 未返回恢复结果。", string.Empty);
+            await session.OpenAsync(ct);
+            originalAccess = await ReadSqlServerAccessAsync(session, connection.Database, ct);
+            if (originalAccess is not (null or "MULTI_USER" or "RESTRICTED_USER" or "SINGLE_USER"))
+                return new BackupResultItem(false, $"无法识别目标库的访问模式：{originalAccess}。", string.Empty);
 
-            feedback?.Invoke("SQL Server 已完成 RESTORE DATABASE，目标数据库已重新开放连接。");
-            return new BackupResultItem(true, string.Empty, backupFilePath);
+            ct.ThrowIfCancellationRequested();
+            restoreAttempted = true;
+            using var command = session.CreateCommand();
+            command.CommandTimeout = 1800;
+            var restrictAccess = originalAccess is "MULTI_USER" or "RESTRICTED_USER"
+                ? $"ALTER DATABASE {database} SET SINGLE_USER WITH ROLLBACK IMMEDIATE; " : string.Empty;
+            command.CommandText = $"{restrictAccess}RESTORE DATABASE {database} FROM DISK = N'{backupPath}' WITH REPLACE, RECOVERY;";
+            await command.ExecuteNonQueryAsync(ct);
         }
         catch (Exception ex)
         {
-            return new BackupResultItem(false, ex.Message, string.Empty);
+            restoreError = ex;
         }
+
+        // 恢复失败或取消后也要还原原有访问模式。清理使用独立的连接和超时。
+        var accessToRestore = originalAccess ?? (restoreError is null ? "MULTI_USER" : null);
+        if (restoreAttempted && accessToRestore is not null)
+        {
+            try
+            {
+                using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                await using var cleanupSession = interpreter.CreateConnection();
+                await cleanupSession.OpenAsync(cleanup.Token);
+                if (await ReadSqlServerAccessAsync(cleanupSession, connection.Database, cleanup.Token) != accessToRestore)
+                {
+                    using var command = cleanupSession.CreateCommand();
+                    command.CommandText = $"ALTER DATABASE {database} SET {accessToRestore} WITH ROLLBACK IMMEDIATE;";
+                    await command.ExecuteNonQueryAsync(cleanup.Token);
+                }
+            }
+            catch (Exception ex)
+            {
+                var outcome = restoreError is null ? "备份已恢复" : $"恢复未完成：{restoreError.Message}";
+                return new BackupResultItem(false, $"{outcome}。未能还原目标库的 {accessToRestore} 访问模式：{ex.Message}", string.Empty);
+            }
+        }
+
+        if (restoreError is not null)
+        {
+            ct.ThrowIfCancellationRequested();
+            return new BackupResultItem(false, restoreError.Message, string.Empty);
+        }
+
+        feedback?.Invoke("SQL Server 已完成 RESTORE DATABASE，目标数据库已恢复原有访问模式。");
+        return new BackupResultItem(true, string.Empty, backupFilePath);
+    }
+
+    private static async Task<string?> ReadSqlServerAccessAsync(DbConnection session, string database, CancellationToken ct)
+    {
+        using var command = session.CreateCommand();
+        command.CommandText = "SELECT user_access_desc FROM sys.databases WHERE name = @database";
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = "@database";
+        parameter.Value = database;
+        command.Parameters.Add(parameter);
+        return await command.ExecuteScalarAsync(ct) as string;
     }
 
     private static async Task<BackupResultItem> RestoreMySqlAsync(
@@ -204,7 +255,11 @@ public class DefaultBackupService : IBackupService
         var args = BuildConnectionArgs(connection, "--host", "--port", "--username");
         args.Add($"--dbname={connection.Database}");
         if (plainSql)
+        {
+            args.Add("-X");
+            args.Add("--set=ON_ERROR_STOP=on");
             args.Add($"--file={backupFilePath}");
+        }
         else
         {
             args.Add("--clean");
@@ -274,37 +329,82 @@ public class DefaultBackupService : IBackupService
     private static Task<BackupResultItem> RestoreSqliteAsync(
         ConnectionItem connection, string backupFilePath, Action<string>? feedback, CancellationToken ct)
     {
-        return Task.Run(() =>
+        return Task.Run(async () =>
         {
+            if (connection.Database == ":memory:")
+                return new BackupResultItem(false, "SQLite 恢复需要选择目标数据库文件。", string.Empty);
             var target = Path.GetFullPath(connection.Database);
-            if (!File.Exists(backupFilePath))
-                return new BackupResultItem(false, "找不到 SQLite 备份文件。", string.Empty);
-            if (string.Equals(Path.GetFullPath(backupFilePath), target, StringComparison.OrdinalIgnoreCase))
+            var source = Path.GetFullPath(backupFilePath);
+            var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            if (string.Equals(source, target, pathComparison))
                 return new BackupResultItem(false, "备份文件不能与当前 SQLite 数据库为同一文件。", string.Empty);
-
-            ct.ThrowIfCancellationRequested();
-            if (File.Exists(target))
-            {
-                var safetyCopy = $"{target}.before-restore-{DateTime.Now:yyyyMMddHHmmss}.bak";
-                File.Copy(target, safetyCopy, overwrite: false);
-                feedback?.Invoke($"已创建恢复前安全副本：{safetyCopy}");
-            }
+            if (HasSqliteSidecar(source))
+                return new BackupResultItem(false, "备份文件带有 SQLite 日志，请先关闭备份库的所有连接并准备独立备份文件。", string.Empty);
+            if (HasSqliteSidecar(target))
+                return new BackupResultItem(false, "目标库仍有 SQLite 日志，请关闭相关连接后再恢复。", string.Empty);
 
             var temporary = $"{target}.restore-{Guid.NewGuid():N}.tmp";
             try
             {
-                File.Copy(backupFilePath, temporary, overwrite: false);
+                await using (var input = File.OpenRead(source))
+                await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                    await input.CopyToAsync(output, ct);
+                if (HasSqliteSidecar(source) || new FileInfo(temporary).Length == 0)
+                    return new BackupResultItem(false, "SQLite 备份为空或仍有日志，无法恢复。", string.Empty);
+
+                var info = ConnectionHelper.ToConnectionInfo(connection);
+                var sqliteBuilder = new DatabaseInterpreter.Core.SqliteConnectionStringBuilder();
+                var targetConnectionString = sqliteBuilder.BuildConntionString(info);
+                info.Database = temporary;
+                var builder = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(sqliteBuilder.BuildConntionString(info))
+                {
+                    Mode = SqliteOpenMode.ReadOnly,
+                    Pooling = false,
+                };
+                await using (var database = new SqliteConnection(builder.ConnectionString))
+                {
+                    await database.OpenAsync(ct);
+                    using var command = database.CreateCommand();
+                    command.CommandText = "PRAGMA integrity_check;";
+                    using var check = await command.ExecuteReaderAsync(ct);
+                    if (!await check.ReadAsync(ct) || check.GetString(0) != "ok" || await check.ReadAsync(ct))
+                        return new BackupResultItem(false, "SQLite 备份完整性检查失败，目标库未替换。", string.Empty);
+                }
+
+                ct.ThrowIfCancellationRequested();
+                using var targetConnection = new SqliteConnection(targetConnectionString);
+                SqliteConnection.ClearPool(targetConnection);
+                if (HasSqliteSidecar(target))
+                    return new BackupResultItem(false, "目标库仍有 SQLite 日志，请关闭相关连接后再恢复。", string.Empty);
+                if (File.Exists(target))
+                {
+                    var safetyCopy = $"{target}.before-restore-{DateTime.Now:yyyyMMddHHmmss}-{Guid.NewGuid():N}.bak";
+                    File.Copy(target, safetyCopy, overwrite: false);
+                    feedback?.Invoke($"已创建恢复前安全副本：{safetyCopy}");
+                }
+
                 ct.ThrowIfCancellationRequested();
                 File.Move(temporary, target, overwrite: true);
                 feedback?.Invoke("SQLite 数据库文件已替换，请重新连接。");
                 return new BackupResultItem(true, string.Empty, backupFilePath);
             }
+            catch (SqliteException ex)
+            {
+                ct.ThrowIfCancellationRequested();
+                return new BackupResultItem(false, $"无法验证 SQLite 备份，请检查文件和数据库密码：{ex.Message}", string.Empty);
+            }
             finally
             {
                 if (File.Exists(temporary)) File.Delete(temporary);
+                if (File.Exists(temporary + "-shm")) File.Delete(temporary + "-shm");
+                if (File.Exists(temporary + "-wal")) File.Delete(temporary + "-wal");
+                if (File.Exists(temporary + "-journal")) File.Delete(temporary + "-journal");
             }
         }, ct);
     }
+
+    private static bool HasSqliteSidecar(string path) => File.Exists(path + "-wal")
+        || File.Exists(path + "-shm") || File.Exists(path + "-journal");
 
     private static bool EnsureTool(string? toolPath, string message, out string error)
     {

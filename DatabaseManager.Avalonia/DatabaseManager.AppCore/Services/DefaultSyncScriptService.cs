@@ -228,40 +228,66 @@ public class DefaultSyncScriptService : ISyncScriptService
             return result;
         }
 
-        int executed = 0;
+        var completed = new List<ScriptItem>();
+        var structuralScripts = selected.Where(s => s.Kind == ScriptKind.Structural).ToList();
+        var dataScripts = selected.Where(s => s.Kind == ScriptKind.Data).ToList();
 
-        // 结构脚本：单事务执行（任一脚本失败整体回滚）。
-        var structuralScripts = selected.Where(s => s.Kind == ScriptKind.Structural)
-            .Select(s => new Script(s.SqlText))
-            .ToList();
+        static string Titles(IEnumerable<ScriptItem> items)
+        {
+            var titles = string.Join("、", items.Select(item => item.Title));
+            return string.IsNullOrEmpty(titles) ? "无" : titles;
+        }
 
+        ScriptExecutionResult Failed(string error, IEnumerable<ScriptItem> failed, IEnumerable<ScriptItem> remaining)
+        {
+            result.ExecutedCount = completed.Count;
+            result.Message = $"{error}\n已确认完成：{Titles(completed)}\n失败：{Titles(failed)}\n未执行：{Titles(remaining)}";
+            onFeedback?.Invoke(result.Message);
+            return result;
+        }
+
+        // 结构脚本作为一个批次执行，DDL 是否可回滚取决于数据库。
         if (structuralScripts.Count > 0)
         {
-            onFeedback?.Invoke($"开始在目标库执行 {structuralScripts.Count} 项结构脚本（单事务）...");
-            var interpreter = CreateInterpreter(target);
-            var runner = new ScriptRunner();
-            runner.Subscribe(new FeedbackObserver(onFeedback));
-            await runner.Run(interpreter, structuralScripts, cancellationToken);
-            executed += structuralScripts.Count;
+            cancellationToken.ThrowIfCancellationRequested();
+            onFeedback?.Invoke($"开始在目标库执行 {structuralScripts.Count} 项结构脚本...");
+            try
+            {
+                var runner = new ScriptRunner();
+                runner.Subscribe(new FeedbackObserver(onFeedback));
+                await runner.Run(CreateInterpreter(target), structuralScripts.Select(s => new Script(s.SqlText)), cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Failed($"结构脚本批次失败，请检查目标库中已生效的变更。{ex.Message}", structuralScripts, dataScripts);
+            }
+            completed.AddRange(structuralScripts);
             onFeedback?.Invoke("结构脚本执行完成。");
         }
 
         // 数据脚本：按条目（表）逐个执行，每条内部按语句切分并包裹事务。
-        foreach (var dataScript in selected.Where(s => s.Kind == ScriptKind.Data))
+        for (int index = 0; index < dataScripts.Count; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
+            var dataScript = dataScripts[index];
             onFeedback?.Invoke($"开始执行数据脚本 [{dataScript.Title}]...");
             var runner = new ScriptRunner();
             runner.Subscribe(new FeedbackObserver(onFeedback));
-            await runner.Run(ParseDatabaseType(target.DatabaseType), ToConnectionInfo(target), dataScript.SqlText, cancellationToken);
-            executed++;
+            var execution = await runner.Run(ParseDatabaseType(target.DatabaseType), ToConnectionInfo(target), dataScript.SqlText, cancellationToken);
+            if (execution.HasError)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Failed($"数据脚本执行失败：{execution.Result}", [dataScript], dataScripts.Skip(index + 1));
+            }
+
+            completed.Add(dataScript);
             onFeedback?.Invoke($"数据脚本 [{dataScript.Title}] 执行完成。");
         }
 
         result.IsSuccess = true;
-        result.ExecutedCount = executed;
-        result.Message = $"已执行 {executed} 项脚本。";
+        result.ExecutedCount = completed.Count;
+        result.Message = $"已执行 {completed.Count} 项脚本。";
         onFeedback?.Invoke(result.Message);
 
         return result;
