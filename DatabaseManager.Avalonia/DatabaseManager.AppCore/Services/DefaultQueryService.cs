@@ -16,6 +16,7 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultQueryService : IQueryService
 {
     private readonly IDbConnectionService _connectionService;
+    private readonly IAppSettingsService? _appSettings;
 
     /// <summary>每个连接名对应的活动事务状态（连接名 → 事务上下文）。</summary>
     private readonly ConcurrentDictionary<string, TransactionContext> _transactions = new(StringComparer.OrdinalIgnoreCase);
@@ -27,9 +28,10 @@ public class DefaultQueryService : IQueryService
     private readonly HashSet<string> _connected = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _connectedLock = new();
 
-    public DefaultQueryService(IDbConnectionService connectionService)
+    public DefaultQueryService(IDbConnectionService connectionService, IAppSettingsService? appSettings = null)
     {
         _connectionService = connectionService;
+        _appSettings = appSettings;
     }
 
     /// <summary>后台脚本使用独立自动提交连接，不复用交互查询的事务或连接状态。</summary>
@@ -168,7 +170,7 @@ public class DefaultQueryService : IQueryService
     }
 
     // ExecuteReader also executes DML/DDL. Never retry a command just because it has no columns.
-    private static async Task<QueryResult> ExecuteCommandAsync(
+    private async Task<QueryResult> ExecuteCommandAsync(
         DbConnection connection, DbTransaction? transaction, string sql,
         CancellationToken cancellationToken, int timeoutSeconds, Stopwatch stopwatch)
     {
@@ -184,7 +186,7 @@ public class DefaultQueryService : IQueryService
         long retainedCharacters = 0;
         int retainedRows = 0;
         bool truncated = false;
-        const int maxRows = 100000;
+        int maxRows = _appSettings?.Settings.QueryResultMaxRows ?? 100000;
         const long maxCharacters = 16 * 1024 * 1024;
         do
         {

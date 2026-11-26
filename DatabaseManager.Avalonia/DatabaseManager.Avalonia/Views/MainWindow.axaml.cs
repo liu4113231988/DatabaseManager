@@ -826,6 +826,27 @@ public partial class MainWindow : Window
         window.Show(this);
     }
 
+    /// <summary>打开统一设置窗口；保存后重新应用外观与缩放，并同步删除确认开关。</summary>
+    private async void MenuSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_appSettings is null)
+            return;
+
+        var window = new SettingsWindow(_appSettings);
+        await window.ShowDialog(this);
+        if (!window.Saved)
+            return;
+
+        ApplyThemeMode(_appSettings.Settings.ThemeMode);
+        ApplyFontScale(_appSettings.Settings.FontScale);
+
+        if (DataContext is MainWindowViewModel vm
+            && vm.RequireDeleteNameConfirmation != _appSettings.Settings.RequireDeleteNameConfirmation)
+        {
+            vm.RequireDeleteNameConfirmation = _appSettings.Settings.RequireDeleteNameConfirmation;
+        }
+    }
+
     private UserManagementWindow? _userManagementWindow;
 
     /// <summary>打开用户与权限管理窗口。</summary>

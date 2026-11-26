@@ -60,7 +60,31 @@ public class AppSettings
     /// <summary>删除数据库/表等对象时是否要求输入对象名称确认；关闭后仅弹出提示，确认即可删除。</summary>
     public bool RequireDeleteNameConfirmation { get; set; } = true;
 
+    /// <summary>查询结果单次返回的最大行数（1000–1000000）。</summary>
+    public int QueryResultMaxRows { get; set; } = 100000;
+
+    /// <summary>查询命令超时秒数；0 表示使用数据库驱动默认值（0–3600）。</summary>
+    public int QueryCommandTimeoutSeconds { get; set; }
+
+    /// <summary>退出时自动保存打开的查询标签与未保存 SQL 草稿。</summary>
+    public bool AutoSaveSession { get; set; } = true;
+
+    /// <summary>新建查询标签时默认启用危险 SQL 执行确认。</summary>
+    public bool ConfirmDangerousSql { get; set; } = true;
+
     public WorkspaceState Workspace { get; set; } = new();
+
+    /// <summary>把数值/枚举设置夹取到合法范围，避免手工编辑配置文件导致异常。</summary>
+    public void Normalize()
+    {
+        if (!ThemeModes.All.Contains(ThemeMode))
+            ThemeMode = ThemeModes.System;
+        if (!double.IsFinite(FontScale) || FontScale <= 0)
+            FontScale = 1.0;
+        FontScale = Math.Clamp(FontScale, 0.5, 2.0);
+        QueryResultMaxRows = Math.Clamp(QueryResultMaxRows, 1000, 1_000_000);
+        QueryCommandTimeoutSeconds = Math.Clamp(QueryCommandTimeoutSeconds, 0, 3600);
+    }
 }
 
 /// <summary>

@@ -377,7 +377,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>按会话快照恢复一个查询标签（SQL 以草稿形式恢复，不自动标记为已修改）。</summary>
     public QueryTabViewModel RestoreQueryTab(QueryTabState state)
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService, title: state.Title, historyService: _historyService);
+        var newTab = CreateQueryTab(state.Title);
 
         if (!string.IsNullOrEmpty(state.ConnectionName))
         {
@@ -405,6 +405,14 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (_appSettingsService is null)
         {
+            return;
+        }
+
+        // 关闭会话自动保存后，退出时清空快照，避免下次启动恢复旧标签。
+        if (!_appSettingsService.Settings.AutoSaveSession)
+        {
+            _appSettingsService.Settings.Workspace.Tabs = new List<QueryTabState>();
+            _appSettingsService.Save();
             return;
         }
 
@@ -448,11 +456,24 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsSelectedQueryProduction));
     }
 
+    /// <summary>创建查询标签页，并按应用设置应用默认的确认与超时策略。</summary>
+    private QueryTabViewModel CreateQueryTab(string? title = null)
+    {
+        var tab = new QueryTabViewModel(_queryService, _dataEditService, title: title, historyService: _historyService);
+        if (_appSettingsService is { } settingsService)
+        {
+            tab.DangerousSqlConfirmationEnabled = settingsService.Settings.ConfirmDangerousSql;
+            if (settingsService.Settings.QueryCommandTimeoutSeconds > 0)
+                tab.CommandTimeoutSeconds = settingsService.Settings.QueryCommandTimeoutSeconds;
+        }
+        return tab;
+    }
+
     /// <summary>新建查询标签页（对齐 DBeaver）。</summary>
     [RelayCommand]
     public void NewQuery()
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
+        var newTab = CreateQueryTab();
 
         // 如果有当前连接，自动设置到新标签
         if (SelectedConnection is not null)
@@ -468,13 +489,11 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>打开一个新查询标签并填充 SQL（供全库数据搜索等工具窗口回调）。</summary>
     public QueryTabViewModel OpenSqlInNewTab(string connectionName, string sql, string? databaseName = null)
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService)
-        {
-            ConnectionName = connectionName,
-            DatabaseName = databaseName ?? (string.Equals(connectionName, SelectedConnection?.Name, StringComparison.OrdinalIgnoreCase)
-                ? CurrentDatabase : Connections.FirstOrDefault(c => string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase))?.Database) ?? string.Empty,
-            SqlText = sql,
-        };
+        var newTab = CreateQueryTab();
+        newTab.ConnectionName = connectionName;
+        newTab.DatabaseName = databaseName ?? (string.Equals(connectionName, SelectedConnection?.Name, StringComparison.OrdinalIgnoreCase)
+            ? CurrentDatabase : Connections.FirstOrDefault(c => string.Equals(c.Name, connectionName, StringComparison.OrdinalIgnoreCase))?.Database) ?? string.Empty;
+        newTab.SqlText = sql;
         newTab.MarkAsSaved();
 
         QueryTabs.Add(newTab);
@@ -741,7 +760,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public QueryTabViewModel OpenNodeSqlInNewTab(DbObjectTreeNode node, string sql, string? statusMessage = null)
     {
         var connectionName = FindNodeConnectionName(node);
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
+        var newTab = CreateQueryTab();
 
         if (!string.IsNullOrEmpty(connectionName))
         {
@@ -767,7 +786,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>新建查询标签页并填入 SQL（用于新建对象模板 / 查看对象定义）。</summary>
     public void NewObjectDefinitionQuery(string sql, string? connectionName, string? databaseName)
     {
-        var newTab = new QueryTabViewModel(_queryService, _dataEditService, historyService: _historyService);
+        var newTab = CreateQueryTab();
 
         if (!string.IsNullOrEmpty(connectionName))
         {

@@ -146,6 +146,8 @@
                 <MenuItem Header="删除对象需输入名称确认" ToggleType="CheckBox"
                           IsChecked="{Binding RequireDeleteNameConfirmation, Mode=TwoWay}"
                           ToolTip.Tip="开启：删除数据库/表等对象需输入对象名称；关闭：仅弹出确认提示，确认即可删除" />
+                <MenuItem Header="设置..." Click="MenuSettings_Click"
+                          ToolTip.Tip="打开设置窗口（外观、会话恢复、查询执行策略）" />
             </MenuItem>
             <MenuItem Header="视图">
                 <MenuItem Header="刷新" Click="MenuRefresh_Click" />

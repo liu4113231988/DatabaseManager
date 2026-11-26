@@ -56,8 +56,10 @@ public class DefaultAppSettingsService : IAppSettingsService
                     return new AppSettings();
                 }
 
-                return JsonSerializer.Deserialize(File.ReadAllText(_filePath), AppSettingsJsonContext.Default.AppSettings)
-                       ?? new AppSettings();
+                var settings = JsonSerializer.Deserialize(File.ReadAllText(_filePath), AppSettingsJsonContext.Default.AppSettings)
+                               ?? new AppSettings();
+                settings.Normalize();
+                return settings;
             }
             catch
             {

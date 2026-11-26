@@ -1,0 +1,89 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:atom="https://atomui.net"
+        x:Class="DatabaseManager.Avalonia.Views.SettingsWindow"
+        Title="设置"
+        Width="560" Height="560"
+        Icon="/Assets/database-manager.ico"
+        WindowStartupLocation="CenterOwner">
+
+    <DockPanel Background="{DynamicResource AppWindowBgBrush}">
+        <Border DockPanel.Dock="Top" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Padding="20,14,20,12">
+            <StackPanel Spacing="2">
+                <TextBlock Text="设置" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <TextBlock Text="外观、确认与查询执行策略" FontSize="11"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Background="{DynamicResource AppSurfaceBrush}"
+                BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,1,0,0" Padding="16,10">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                <atom:Button Grid.Column="0" Content="恢复默认" Click="BtnReset_Click"
+                        ToolTip.Tip="把所有设置恢复为默认值（仍需点击保存生效）" />
+                <atom:Button Grid.Column="2" Content="取消" Click="BtnCancel_Click" Margin="0,0,8,0" />
+                <atom:Button Grid.Column="3" Content="保存" Click="BtnSave_Click" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer>
+            <StackPanel Margin="20,16" Spacing="18">
+
+                <!-- 常规 -->
+                <TextBlock Text="常规" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <Grid ColumnDefinitions="190,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="主题外观" VerticalAlignment="Center" FontSize="12" />
+                    <atom:ComboBox Grid.Row="0" Grid.Column="1" x:Name="CmbTheme" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="跟随系统" Tag="System" />
+                        <ComboBoxItem Content="亮色" Tag="Light" />
+                        <ComboBoxItem Content="深色" Tag="Dark" />
+                        <ComboBoxItem Content="高对比" Tag="HighContrast" />
+                    </atom:ComboBox>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="界面缩放" VerticalAlignment="Center" FontSize="12" />
+                    <atom:ComboBox Grid.Row="1" Grid.Column="1" x:Name="CmbFontScale" HorizontalAlignment="Stretch">
+                        <ComboBoxItem Content="90%" Tag="0.9" />
+                        <ComboBoxItem Content="100%" Tag="1" />
+                        <ComboBoxItem Content="110%" Tag="1.1" />
+                        <ComboBoxItem Content="125%" Tag="1.25" />
+                    </atom:ComboBox>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="删除对象确认" VerticalAlignment="Center" FontSize="12" />
+                    <CheckBox Grid.Row="2" Grid.Column="1" x:Name="ChkDeleteConfirm" VerticalAlignment="Center" FontSize="12"
+                              Content="删除对象时需输入名称确认" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="会话恢复" VerticalAlignment="Center" FontSize="12" />
+                    <CheckBox Grid.Row="3" Grid.Column="1" x:Name="ChkAutoSaveSession" VerticalAlignment="Center" FontSize="12"
+                              Content="退出时保存打开的查询标签与 SQL 草稿" />
+                </Grid>
+
+                <!-- 查询 -->
+                <TextBlock Text="查询" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
+                <Grid ColumnDefinitions="190,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="结果最大行数" VerticalAlignment="Center" FontSize="12" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <atom:TextBox x:Name="TxtMaxRows" Width="140" VerticalContentAlignment="Center" FontSize="12" />
+                        <TextBlock Text="1000 – 1000000" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="命令超时（秒）" VerticalAlignment="Center" FontSize="12" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <atom:TextBox x:Name="TxtCommandTimeout" Width="140" VerticalContentAlignment="Center" FontSize="12" />
+                        <TextBlock Text="0 表示使用驱动默认值（0 – 3600）" VerticalAlignment="Center" FontSize="11"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="危险 SQL 确认" VerticalAlignment="Center" FontSize="12" />
+                    <CheckBox Grid.Row="2" Grid.Column="1" x:Name="ChkDangerousConfirm" VerticalAlignment="Center" FontSize="12"
+                              Content="新建查询时默认启用危险 SQL 执行前确认" />
+                </Grid>
+
+                <TextBlock Text="提示：查询标签仍可在「查询」菜单中单独调整危险 SQL 确认与自动提交；此处仅提供默认值。"
+                           FontSize="11" TextWrapping="Wrap" Opacity="0.7" />
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+
+</Window>
