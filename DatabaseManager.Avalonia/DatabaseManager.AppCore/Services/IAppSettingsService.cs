@@ -63,8 +63,11 @@ public class AppSettings
     /// <summary>查询结果单次返回的最大行数（1000–1000000）。</summary>
     public int QueryResultMaxRows { get; set; } = 100000;
 
-    /// <summary>查询命令超时秒数；0 表示使用数据库驱动默认值（0–3600）。</summary>
-    public int QueryCommandTimeoutSeconds { get; set; }
+    /// <summary>
+    /// 查询命令超时秒数，默认 60。0 表示使用数据库驱动默认值（范围 0–3600）；
+    /// 该值同时作为新查询标签页的初始超时。
+    /// </summary>
+    public int QueryCommandTimeoutSeconds { get; set; } = 60;
 
     /// <summary>退出时自动保存打开的查询标签与未保存 SQL 草稿。</summary>
     public bool AutoSaveSession { get; set; } = true;

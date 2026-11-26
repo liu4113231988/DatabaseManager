@@ -437,7 +437,7 @@ public partial class QueryTabViewModel : ViewModelBase
 
         try
         {
-            var timeout = Math.Clamp(CommandTimeoutSeconds, 1, 3600);
+            var timeout = Math.Clamp(CommandTimeoutSeconds, 0, 3600);
             var result = await _queryService.ExecuteAsync(connectionName, effectiveSql, _executionCts.Token, timeout, databaseName);
             historyResult = result;
             LoadResultSets(result);

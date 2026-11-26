@@ -222,7 +222,7 @@ public partial class MainWindow : Window
     /// <summary>应用主工作区字体缩放并持久化。</summary>
     private void ApplyFontScale(double scale)
     {
-        RootScaler.LayoutTransform = scale is > 0.5 and < 2 && Math.Abs(scale - 1.0) > 0.001
+        RootScaler.LayoutTransform = scale is >= 0.5 and <= 2 && Math.Abs(scale - 1.0) > 0.001
             ? new ScaleTransform(scale, scale)
             : null;
 

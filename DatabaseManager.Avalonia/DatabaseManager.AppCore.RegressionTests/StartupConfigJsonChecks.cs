@@ -30,7 +30,7 @@ internal static class StartupConfigJsonChecks
             throw new InvalidOperationException("AppSettings legacy JSON fields must round trip.");
         if (!settings.RequireDeleteNameConfirmation)
             throw new InvalidOperationException("Typed delete-name confirmation must default to enabled for legacy settings.");
-        if (settings.QueryResultMaxRows != 100000 || settings.QueryCommandTimeoutSeconds != 0
+        if (settings.QueryResultMaxRows != 100000 || settings.QueryCommandTimeoutSeconds != 60
             || !settings.AutoSaveSession || !settings.ConfirmDangerousSql)
             throw new InvalidOperationException("New query and session settings must default for legacy settings.");
 

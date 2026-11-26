@@ -195,7 +195,7 @@ internal static class DbAdminCatalog
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return (new List<DbObjectTreeNode>(),
-                    $"USER_TABLESPACES 读取失败：{ex.Message}；DBA_TABLESPACES 回退失败：{fallbackEx.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetUserPermissionHint(dbType)}");
+                    $"USER_TABLESPACES 读取失败：{ex.Message}；DBA_TABLESPACES 回退失败：{fallbackEx.Message}{Environment.NewLine}权限提示：{DbAdminGuidance.GetCatalogPermissionHint(dbType, kind)}");
             }
         }
         catch (Exception ex)

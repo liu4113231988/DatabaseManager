@@ -463,8 +463,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (_appSettingsService is { } settingsService)
         {
             tab.DangerousSqlConfirmationEnabled = settingsService.Settings.ConfirmDangerousSql;
-            if (settingsService.Settings.QueryCommandTimeoutSeconds > 0)
-                tab.CommandTimeoutSeconds = settingsService.Settings.QueryCommandTimeoutSeconds;
+            tab.CommandTimeoutSeconds = settingsService.Settings.QueryCommandTimeoutSeconds;
         }
         return tab;
     }

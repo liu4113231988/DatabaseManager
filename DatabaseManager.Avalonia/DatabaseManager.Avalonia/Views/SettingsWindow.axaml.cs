@@ -1,5 +1,6 @@
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using DatabaseManager.AppCore.Services;
 
@@ -16,6 +17,14 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
     {
         InitializeComponent();
+        KeyDown += (_, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                Close();
+                e.Handled = true;
+            }
+        };
     }
 
     public SettingsWindow(IAppSettingsService settingsService)
@@ -30,13 +39,37 @@ public partial class SettingsWindow : Window
 
     private void LoadValues(AppSettings settings)
     {
-        SelectByTag(CmbTheme, settings.ThemeMode);
-        SelectByTag(CmbFontScale, settings.FontScale.ToString(CultureInfo.InvariantCulture));
+        if (!SelectByTag(CmbTheme, settings.ThemeMode) && CmbTheme.ItemCount > 0)
+            CmbTheme.SelectedIndex = 0;
+        SelectFontScale(settings.FontScale);
         ChkDeleteConfirm.IsChecked = settings.RequireDeleteNameConfirmation;
         ChkAutoSaveSession.IsChecked = settings.AutoSaveSession;
         ChkDangerousConfirm.IsChecked = settings.ConfirmDangerousSql;
         TxtMaxRows.Text = settings.QueryResultMaxRows.ToString(CultureInfo.InvariantCulture);
         TxtCommandTimeout.Text = settings.QueryCommandTimeoutSeconds.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>选中预设缩放档位；手工配置的非预设值以「自定义」项保留，避免保存时被重置。</summary>
+    private void SelectFontScale(double scale)
+    {
+        for (int i = CmbFontScale.ItemCount - 1; i >= 0; i--)
+        {
+            if (CmbFontScale.Items[i] is ComboBoxItem { Name: "custom-font-scale" })
+                CmbFontScale.Items.RemoveAt(i);
+        }
+
+        string tag = scale.ToString(CultureInfo.InvariantCulture);
+        if (SelectByTag(CmbFontScale, tag))
+            return;
+
+        var custom = new ComboBoxItem
+        {
+            Name = "custom-font-scale",
+            Content = $"自定义 ({scale * 100:0.#}%)",
+            Tag = tag,
+        };
+        CmbFontScale.Items.Add(custom);
+        CmbFontScale.SelectedItem = custom;
     }
 
     private void BtnSave_Click(object? sender, RoutedEventArgs e)
@@ -65,7 +98,7 @@ public partial class SettingsWindow : Window
 
     private void BtnCancel_Click(object? sender, RoutedEventArgs e) => Close();
 
-    private static void SelectByTag(ComboBox comboBox, string tag)
+    private static bool SelectByTag(ComboBox comboBox, string tag)
     {
         for (int i = 0; i < comboBox.ItemCount; i++)
         {
@@ -73,11 +106,10 @@ public partial class SettingsWindow : Window
                 && string.Equals(item.Tag?.ToString(), tag, StringComparison.OrdinalIgnoreCase))
             {
                 comboBox.SelectedIndex = i;
-                return;
+                return true;
             }
         }
-        if (comboBox.ItemCount > 0)
-            comboBox.SelectedIndex = 0;
+        return false;
     }
 
     private static string? ReadTag(ComboBox comboBox)

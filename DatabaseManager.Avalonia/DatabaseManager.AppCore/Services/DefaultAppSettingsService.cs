@@ -36,6 +36,8 @@ public class DefaultAppSettingsService : IAppSettingsService
         {
             try
             {
+                // 持久化前统一规范化，避免调用方写入越界值后下次加载才发现。
+                Settings.Normalize();
                 File.WriteAllText(_filePath, JsonSerializer.Serialize(Settings, AppSettingsJsonContext.Default.AppSettings));
             }
             catch
