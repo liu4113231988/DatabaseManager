@@ -133,6 +133,7 @@ static class Program
         TableDesignerChecks.RunAsync().GetAwaiter().GetResult();
         SshProfileStoreChecks.Run();
         StartupConfigJsonChecks.Run();
+        QueryEditorTimeoutChecks.RunAsync().GetAwaiter().GetResult();
         ObjectPrefetchChecks.RunAsync().GetAwaiter().GetResult();
         SqlFormattingChecks.Run();
         PackageCompatibilityChecks.Run();

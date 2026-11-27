@@ -15,6 +15,7 @@ namespace DatabaseManager.AppCore.ViewModels;
 public partial class QueryEditorViewModel : ViewModelBase
 {
     private readonly IQueryService _queryService;
+    private readonly IAppSettingsService? _appSettings;
 
     /// <summary>查询结果列名。</summary>
     public ObservableCollection<string> Columns { get; } = new();
@@ -58,9 +59,10 @@ public partial class QueryEditorViewModel : ViewModelBase
 
     public bool CanChangeTransaction => !IsTransactionBusy && !string.IsNullOrWhiteSpace(ConnectionName);
 
-    public QueryEditorViewModel(IQueryService queryService)
+    public QueryEditorViewModel(IQueryService queryService, IAppSettingsService? appSettings = null)
     {
         _queryService = queryService;
+        _appSettings = appSettings;
     }
 
     /// <summary>当前执行的连接名。</summary>
@@ -137,7 +139,9 @@ public partial class QueryEditorViewModel : ViewModelBase
 
         try
         {
-            var result = await _queryService.ExecuteAsync(connectionName, sql, databaseName: DatabaseName);
+            int timeout = Math.Clamp(_appSettings?.Settings.QueryCommandTimeoutSeconds ?? 60, 0, 3600);
+            var result = await _queryService.ExecuteAsync(connectionName, sql,
+                commandTimeoutSeconds: timeout, databaseName: DatabaseName);
             if (ConnectionName != connectionName) return;
 
             ApplyResult(result);
