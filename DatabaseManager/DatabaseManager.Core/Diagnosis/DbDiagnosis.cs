@@ -31,33 +31,18 @@ namespace DatabaseManager.Core
 
         public static DbDiagnosis GetInstance(DatabaseType databaseType, ConnectionInfo connectionInfo)
         {
-            if (databaseType == DatabaseType.SqlServer)
+            return databaseType switch
             {
-                return new SqlServerDiagnosis(connectionInfo);
-            }
-            else if (databaseType == DatabaseType.MySql)
-            {
-                return new MySqlDiagnosis(connectionInfo);
-            }
-            else if (databaseType == DatabaseType.Oracle)
-            {
-                return new OracleDiagnosis(connectionInfo);
-            }
-            else if (databaseType == DatabaseType.Postgres)
-            {
-                return new PostgresDiagnosis(connectionInfo);
-            }
-            else if (databaseType == DatabaseType.Sqlite)
-            {
-                return new SqliteDiagnosis(connectionInfo);
-            }
-
-            if (databaseType == DatabaseType.KingbaseES || databaseType == DatabaseType.DuckDB || databaseType == DatabaseType.DM)
-            {
-                throw new NotSupportedException($"{databaseType} 暂不支持诊断信息查看。");
-            }
-
-            throw new NotImplementedException($"Not implemente diagnosis for {databaseType}.");
+                DatabaseType.SqlServer => new SqlServerDiagnosis(connectionInfo),
+                DatabaseType.MySql => new MySqlDiagnosis(connectionInfo),
+                DatabaseType.Oracle => new OracleDiagnosis(connectionInfo),
+                DatabaseType.Postgres => new PostgresDiagnosis(connectionInfo),
+                DatabaseType.Sqlite => new SqliteDiagnosis(connectionInfo),
+                DatabaseType.KingbaseES => new KingbaseDiagnosis(connectionInfo),
+                DatabaseType.DuckDB => new DuckDbDiagnosis(connectionInfo),
+                DatabaseType.DM => new DmDiagnosis(connectionInfo),
+                _ => throw new NotSupportedException($"{databaseType} 暂不支持诊断信息查看。")
+            };
         }
 
         #region Diagnose Table
@@ -312,7 +297,7 @@ namespace DatabaseManager.Core
 
             string sql = $"SELECT {selectColumn} FROM {tableName} WHERE {lengthFunName}(TRIM({columnName}))<{lengthFunName}({columnName})";
 
-            if (interpreter.DatabaseType == DatabaseType.Postgres)
+            if (interpreter.DatabaseType == DatabaseType.Postgres || interpreter.DatabaseType == DatabaseType.KingbaseES)
             {
                 if (column.DataType == "character")
                 {
