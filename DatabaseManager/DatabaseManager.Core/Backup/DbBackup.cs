@@ -57,28 +57,18 @@ namespace DatabaseManager.Core
 
         public static DbBackup GetInstance(DatabaseType databaseType)
         {
-            if(databaseType == DatabaseType.SqlServer)
+            return databaseType switch
             {
-                return new SqlServerBackup();
-            }
-            if (databaseType == DatabaseType.Oracle)
-            {
-                return new OracleBackup();
-            }
-            else if (databaseType == DatabaseType.MySql)
-            {
-                return new MySqlBackup();
-            }
-            else if(databaseType == DatabaseType.Postgres)
-            {
-                return new PostgresBackup();
-            }
-            else if (databaseType == DatabaseType.KingbaseES)
-            {
-                return new KingbaseBackup();
-            }
-
-            throw new NotImplementedException($"Not implemente for backup {databaseType}.");
+                DatabaseType.SqlServer => new SqlServerBackup(),
+                DatabaseType.Oracle => new OracleBackup(),
+                DatabaseType.MySql => new MySqlBackup(),
+                DatabaseType.Postgres => new PostgresBackup(),
+                DatabaseType.KingbaseES => new KingbaseBackup(),
+                DatabaseType.Sqlite => new SqliteBackup(),
+                DatabaseType.DuckDB => new DuckDbBackup(),
+                DatabaseType.DM => new DmBackup(),
+                _ => throw new NotImplementedException($"Not implemente for backup {databaseType}.")
+            };
         }
 
     }
