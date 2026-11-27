@@ -14,12 +14,12 @@ namespace DatabaseManager.AppCore.Services;
 public class DefaultConvertService : IConvertService
 {
     /// <summary>
-    /// 未验证的跨库转换类型：KingbaseES 跨库转换尚未按兼容模式逐一验证；DuckDB / 达梦（DM8）
-    /// 未用真实实例验证。未验证的转换不得静默套用 Oracle/PostgreSQL 翻译规则，因此在能力标记
-    /// 中明确禁用，并返回面向用户的提示。
+    /// 跨库转换能力门控集合。KingbaseES / DuckDB / 达梦（DM8）的跨库转换已放开，但尚未用
+    /// 真实实例逐一验证结构翻译、类型映射与数据回放；集合保留为空，便于后续对确认有风险的
+    /// 类型重新启用门控，而不是静默执行。
     /// </summary>
     public static readonly IReadOnlySet<DatabaseType> UnverifiedConversionTypes =
-        new HashSet<DatabaseType> { DatabaseType.KingbaseES, DatabaseType.DuckDB, DatabaseType.DM };
+        new HashSet<DatabaseType>();
 
     public static string? GetConversionBlockReason(DatabaseType dbType)
     {

@@ -235,12 +235,14 @@ static class Program
         });
         AssertContains("::CHARACTER VARYING", kingbaseCondition.ToString());
 
-        // 阶段 D 任务 5：跨库转换能力标记。KingbaseES 未用真实实例验证前，必须
-        // 禁用并返回明确提示，而不是静默套用 PostgreSQL 翻译规则。
-        AssertContains("未验证", DefaultConvertService.GetConversionBlockReason(DatabaseType.KingbaseES)!);
+        // 跨库转换能力门控：KingbaseES / DuckDB / DM 已放开，不再拦截。
+        // 注意：这三类尚未用真实实例端到端验证结构翻译、类型映射与数据回放，需后续补测。
+        AssertEqual(null, DefaultConvertService.GetConversionBlockReason(DatabaseType.KingbaseES));
+        AssertEqual(null, DefaultConvertService.GetConversionBlockReason(DatabaseType.DuckDB));
+        AssertEqual(null, DefaultConvertService.GetConversionBlockReason(DatabaseType.DM));
         AssertEqual(null, DefaultConvertService.GetConversionBlockReason(DatabaseType.Postgres));
-        AssertTrue(DefaultConvertService.UnverifiedConversionTypes.Contains(DatabaseType.KingbaseES),
-            "KingbaseES 应列入未验证转换能力集合，避免静默执行。 ");
+        AssertTrue(!DefaultConvertService.UnverifiedConversionTypes.Contains(DatabaseType.KingbaseES),
+            "KingbaseES 已放开跨库转换，不应再列入未验证集合。 ");
 
         Console.WriteLine("All regression checks passed.");
         return 0;
