@@ -646,6 +646,7 @@ namespace DatabaseManager.Core
                         #endregion
                         #region Oracle
                         case DatabaseType.Oracle:
+                        case DatabaseType.DM:
                             switch (dataType)
                             {
                                 case "bfile":
@@ -705,6 +706,7 @@ namespace DatabaseManager.Core
                         #region Postgres
                         case DatabaseType.Postgres:
                         case DatabaseType.KingbaseES:
+                        case DatabaseType.DuckDB:
                             switch (dataType)
                             {
                                 case "bigint":
@@ -1040,6 +1042,7 @@ namespace DatabaseManager.Core
                         #endregion
                         #region Oracle
                         case DatabaseType.Oracle:
+                        case DatabaseType.DM:
                             switch (dataType)
                             {
                                 case "bfile":
@@ -1102,6 +1105,7 @@ namespace DatabaseManager.Core
                         #region Postgres
                         case DatabaseType.Postgres:
                         case DatabaseType.KingbaseES:
+                        case DatabaseType.DuckDB:
                             switch (dataType)
                             {
                                 case "bigint":

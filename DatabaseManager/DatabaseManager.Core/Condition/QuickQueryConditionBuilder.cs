@@ -70,14 +70,14 @@ namespace DatabaseManager.Core
                                     fieldName = $"CAST({fieldName} AS CHAR)";
                                 }
                             }
-                            else if (this.databaseType == DatabaseType.Oracle)
+                            else if (this.databaseType is DatabaseType.Oracle or DatabaseType.DM)
                             {
                                 if (!isCharType)
                                 {
                                     fieldName = $"CAST({fieldName} AS VARCHAR2(4000))";
                                 }
                             }
-                            else if(this.databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES)
+                            else if(this.databaseType is DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.DuckDB)
                             {
                                 if(!isCharType)
                                 {

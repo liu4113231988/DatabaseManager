@@ -363,7 +363,7 @@ namespace DatabaseManager.Core
             {
                 string dataType = this.dbInterpreter.ParseDataType(column);
 
-                if (databaseType is DatabaseType.Oracle or DatabaseType.Postgres or DatabaseType.KingbaseES)
+                if (databaseType is DatabaseType.Oracle or DatabaseType.DM or DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.DuckDB)
                 {
                     int parenthesesIndex = dataType.IndexOf("(");
 
@@ -473,6 +473,7 @@ BEGIN
 END;";
                     break;
                 case DatabaseType.Oracle:
+                case DatabaseType.DM:
                     script =
 $@"CREATE OR REPLACE PROCEDURE {procedureName}
 (
@@ -485,6 +486,7 @@ END {procedureName};";
                     break;
                 case DatabaseType.Postgres:
                 case DatabaseType.KingbaseES:
+                case DatabaseType.DuckDB:
                     script =
 $@"CREATE OR REPLACE PROCEDURE {procedureName}
 (

@@ -178,8 +178,9 @@ namespace DatabaseManager.Core
                         result.IsOK = result.Details.Count == 0 || result.Details.Any(d => d.IsOK);
                         if (!result.IsOK) result.Message = string.Join("; ", result.Details.Where(d => !d.IsOK).Select(d => $"{d.ObjectName}: {d.Message}").Take(3));
                     }
-                    else if (databaseType == DatabaseType.Oracle)
+                    else if (databaseType is DatabaseType.Oracle or DatabaseType.DM)
                     {
+                        // Oracle/达梦：达梦复用 Oracle 方言（USER_TABLES / SHRINK SPACE）
                         // Oracle：对每张表尝试 SHRINK SPACE COMPACT（需已启用 ROW MOVEMENT）并重建相关索引
                         string tableSql = @"SELECT TABLE_NAME AS Name FROM USER_TABLES";
                         var tables = await DbRowMapper.ReadObjectsAsync<Table>(con, tableSql);
@@ -204,10 +205,15 @@ namespace DatabaseManager.Core
                         result.IsOK = result.Details.Count == 0 || result.Details.Any(d => d.IsOK);
                         if (!result.IsOK) result.Message = string.Join("; ", result.Details.Where(d => !d.IsOK).Select(d => $"{d.ObjectName}: {d.Message}").Take(3));
                     }
+                    else if (databaseType == DatabaseType.DuckDB)
+                    {
+                        result.IsOK = true;
+                        result.Message = "DuckDB 为列式存储引擎，查询时自动向量化执行，无需手动优化。";
+                    }
                     else
                     {
                         result.IsOK = false;
-                        result.Message = $"当前数据库类型 {databaseType} 暂不支持自动优化。仅支持 SQLite（VACUUM）、MySQL（InnoDB 重建）、Postgres/KingbaseES（VACUUM）、SQL Server（索引重组）与 Oracle（SHRINK COMPACT）。";
+                        result.Message = $"当前数据库类型 {databaseType} 暂不支持自动优化。仅支持 SQLite（VACUUM）、MySQL（InnoDB 重建）、Postgres/KingbaseES/DuckDB（VACUUM）、SQL Server（索引重组）与 Oracle/DM（SHRINK COMPACT）。";
                     }
                 }
             }

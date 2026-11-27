@@ -320,12 +320,10 @@ namespace DatabaseManager.Forms
 
         public void OnError(Exception error)
         {
-            throw new NotImplementedException();
         }
 
         public void OnCompleted()
         {
-            throw new NotImplementedException();
         }
 
         private void tsmiDbConnection_Click(object sender, EventArgs e)
