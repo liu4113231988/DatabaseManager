@@ -21,6 +21,30 @@ public class DefaultBackupService : IBackupService
 
     public static bool SupportsRestore(string databaseType) => SupportsBackup(databaseType);
 
+    /// <summary>连接级备份能力：文件型数据库还需可用的目标文件（排除 :memory:）。</summary>
+    public static bool SupportsBackup(ConnectionItem connection)
+        => SupportsBackup(connection.DatabaseType) && HasUsableTarget(connection);
+
+    public static bool SupportsRestore(ConnectionItem connection)
+        => SupportsRestore(connection.DatabaseType)
+           && HasUsableTarget(connection)
+           && !IsReadOnlyDuckDb(connection);
+
+    private static bool IsReadOnlyDuckDb(ConnectionItem connection)
+        => connection.DuckDbReadOnly
+           && ConnectionHelper.ParseDatabaseType(connection.DatabaseType) == DatabaseType.DuckDB;
+
+    private static bool HasUsableTarget(ConnectionItem connection)
+    {
+        var dbType = ConnectionHelper.ParseDatabaseType(connection.DatabaseType);
+        if (!ConnectionHelper.IsFileDatabase(dbType))
+            return true;
+
+        var database = connection.Database?.Trim();
+        return !string.IsNullOrEmpty(database)
+            && !string.Equals(database, ":memory:", StringComparison.OrdinalIgnoreCase);
+    }
+
     public Task<BackupResultItem> BackupAsync(
         ConnectionItem connection,
         string saveFolder,
@@ -415,7 +439,10 @@ public class DefaultBackupService : IBackupService
         {
             if (!Directory.Exists(backupFilePath))
                 return new BackupResultItem(false, "DuckDB 恢复需要 EXPORT DATABASE 生成的目录，ZIP 备份请先解压。", string.Empty);
-            if (string.IsNullOrWhiteSpace(connection.Database) || connection.Database == ":memory:")
+            if (!File.Exists(Path.Combine(backupFilePath, "schema.sql")))
+                return new BackupResultItem(false, "所选目录不是有效的 DuckDB 导出目录（缺少 schema.sql）。", string.Empty);
+            if (string.IsNullOrWhiteSpace(connection.Database)
+                || string.Equals(connection.Database.Trim(), ":memory:", StringComparison.OrdinalIgnoreCase))
                 return new BackupResultItem(false, "DuckDB 恢复需要选择文件型目标数据库。", string.Empty);
 
             ct.ThrowIfCancellationRequested();

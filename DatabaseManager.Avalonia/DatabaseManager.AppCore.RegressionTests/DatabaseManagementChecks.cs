@@ -99,8 +99,24 @@ internal static class DatabaseManagementChecks
             saved.DatabaseType = type;
             Check(node.GetConnectionSnapshot()!.Database == "default_db", "File paths and Oracle/DM service identifiers must not become tree node names.");
         }
+        var sqliteFile = Path.GetTempFileName();
+        try
+        {
+            vm.SetTargetConnection(new ConnectionItem { DatabaseType = "Sqlite", Database = sqliteFile, Password = saved.Password });
+            Check(vm.CanBackup && vm.CanRestore, "File-based SQLite supports both backup and restore adapters.");
+        }
+        finally { File.Delete(sqliteFile); }
+
+        vm.SetTargetConnection(new ConnectionItem
+        {
+            DatabaseType = "DuckDB",
+            Database = Path.Combine(Path.GetTempPath(), "dbm-readonly.duckdb"),
+            DuckDbReadOnly = true,
+        });
+        Check(vm.CanBackup && !vm.CanRestore, "Read-only DuckDB can be backed up but not restored.");
+
         vm.SetTargetConnection(new ConnectionItem { DatabaseType = "Sqlite", Database = ":memory:", Password = saved.Password });
-        Check(vm.CanBackup && vm.CanRestore, "SQLite supports both backup and restore adapters.");
+        Check(!vm.CanBackup && !vm.CanRestore, "In-memory SQLite cannot be backed up or restored.");
         var properties = await new DatabasePropertiesService().GetAsync(vm.SelectedConnection!, "main");
         Check(properties.Any(p => p.Name == "数据源" && p.Value == ":memory:") && properties.Any(p => p.Name == "信息范围"), "File database properties must preserve their data source and state their scope.");
         Check(!properties.Any(p => p.Value == "not-for-display"), "Property values must not expose connection passwords.");

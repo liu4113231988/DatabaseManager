@@ -318,12 +318,17 @@ public class ObjectTreeContextMenuBuilder
         menu.Items.Add(new Separator());
 
         AddCreateDatabaseMenuItem(menu, node);
+        var menuConnection = node.GetConnectionSnapshot();
         var backup = CreateMenuItem("备份数据库...", "备份当前选中的数据库");
-        backup.IsEnabled = _openBackup is not null && DefaultBackupService.SupportsBackup(GetConnectionDatabaseType(node) ?? string.Empty);
+        backup.IsEnabled = _openBackup is not null && (menuConnection is not null
+            ? DefaultBackupService.SupportsBackup(menuConnection)
+            : DefaultBackupService.SupportsBackup(GetConnectionDatabaseType(node) ?? string.Empty));
         backup.Click += (_, _) => _openBackup?.Invoke(node, false);
         menu.Items.Add(backup);
         var restore = CreateMenuItem("恢复数据库...", "从备份文件恢复到当前选中的数据库");
-        restore.IsEnabled = _openBackup is not null && DefaultBackupService.SupportsRestore(GetConnectionDatabaseType(node) ?? string.Empty);
+        restore.IsEnabled = _openBackup is not null && (menuConnection is not null
+            ? DefaultBackupService.SupportsRestore(menuConnection)
+            : DefaultBackupService.SupportsRestore(GetConnectionDatabaseType(node) ?? string.Empty));
         restore.Click += (_, _) => _openBackup?.Invoke(node, true);
         menu.Items.Add(restore);
         var properties = CreateMenuItem(node.GetDatabaseType() is DatabaseType.Oracle or DatabaseType.DM ? "Schema 属性..." : "数据库属性...", "查看所选数据库的信息");

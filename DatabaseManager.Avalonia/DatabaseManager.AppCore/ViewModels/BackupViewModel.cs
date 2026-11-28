@@ -56,8 +56,8 @@ public partial class BackupViewModel : ToolViewModelBase
 
     partial void OnSelectedConnectionChanged(ConnectionItem? value) => OnBusyChanged();
 
-    public bool CanBackup => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsBackup(c.DatabaseType);
-    public bool CanRestore => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsRestore(c.DatabaseType);
+    public bool CanBackup => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsBackup(c);
+    public bool CanRestore => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsRestore(c);
 
     public void SetTargetConnection(ConnectionItem connection)
     {
