@@ -88,7 +88,7 @@
                             <TextBlock Text="▦" Opacity="0.6" />
                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding Rows.Count, StringFormat='（{0} 行匹配）'}" FontSize="11" Opacity="0.6" />
-                            <TextBlock Text="{Binding Error, StringFormat='⚠ {0}'}" FontSize="11" Foreground="#D97706" />
+                            <TextBlock Text="{Binding Error, StringFormat='⚠ {0}'}" FontSize="11" Foreground="{DynamicResource AppWarningSoftBrush}" />
                         </StackPanel>
                         <!-- 行节点的子模板由下方 Row 模板提供 -->
                     </TreeDataTemplate>

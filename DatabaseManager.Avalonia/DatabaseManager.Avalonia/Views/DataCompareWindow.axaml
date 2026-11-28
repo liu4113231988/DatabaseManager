@@ -118,10 +118,10 @@
                                                 <TextBlock Text="{Binding TargetRecordCount, StringFormat='目标:{0}'}" FontSize="11" />
                                             </StackPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="8" Margin="22,0,0,0">
-                                                <TextBlock Text="{Binding DifferentCount, StringFormat='差异:{0}'}" Foreground="#C0392B" FontSize="11" />
-                                                <TextBlock Text="{Binding OnlyInSourceCount, StringFormat='仅源:{0}'}" Foreground="#E67E22" FontSize="11" />
-                                                <TextBlock Text="{Binding OnlyInTargetCount, StringFormat='仅目标:{0}'}" Foreground="#2980B9" FontSize="11" />
-                                                <TextBlock Text="{Binding IdenticalCount, StringFormat='一致:{0}'}" Foreground="#27AE60" FontSize="11" />
+                                                <TextBlock Text="{Binding DifferentCount, StringFormat='差异:{0}'}" Foreground="{DynamicResource AppDangerBrush}" FontSize="11" />
+                                                <TextBlock Text="{Binding OnlyInSourceCount, StringFormat='仅源:{0}'}" Foreground="{DynamicResource AppWarningSoftBrush}" FontSize="11" />
+                                                <TextBlock Text="{Binding OnlyInTargetCount, StringFormat='仅目标:{0}'}" Foreground="{DynamicResource AppInfoBrush}" FontSize="11" />
+                                                <TextBlock Text="{Binding IdenticalCount, StringFormat='一致:{0}'}" Foreground="{DynamicResource AppSuccessBrush}" FontSize="11" />
                                             </StackPanel>
                                         </StackPanel>
                                     </DataTemplate>

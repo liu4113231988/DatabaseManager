@@ -99,7 +99,7 @@
                                 <DataTemplate x:DataType="models:ScriptDiagnoseResultItem">
                                     <StackPanel Spacing="2" Margin="0,2">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="#2980B9" />
+                                            <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="{DynamicResource AppInfoBrush}" />
                                             <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                         </StackPanel>
                                         <ItemsControl ItemsSource="{Binding Details}">

@@ -60,7 +60,7 @@
                 </Border>
             </DockPanel>
 
-            <GridSplitter Grid.Column="1" Width="5" Background="#E0E0E0"
+            <GridSplitter Grid.Column="1" Width="5" Background="{DynamicResource AppBorderBrush}"
                           HorizontalAlignment="Center" VerticalAlignment="Stretch" />
 
             <DockPanel Grid.Column="2" Margin="4,0,0,0">

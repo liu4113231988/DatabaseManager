@@ -79,7 +79,7 @@
                                     <atom:Button Classes="compact" Content="删除" Click="CardDelete_Click" Tag="{Binding}" />
                                     <atom:Button Classes="compact" Content="布局 / 计算" Click="CardLayout_Click" Tag="{Binding}" />
                                     <atom:ComboBox Width="110" ItemsSource="{Binding FilterValues}" Tag="{Binding}" SelectionChanged="CardFilterChanged" PlaceholderText="联动维度值" />
-                                    <TextBlock Text="{Binding ErrorText}" FontSize="10" Foreground="#D97706"
+                                    <TextBlock Text="{Binding ErrorText}" FontSize="10" Foreground="{DynamicResource AppWarningSoftBrush}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                MaxWidth="200" />
                                 </WrapPanel>

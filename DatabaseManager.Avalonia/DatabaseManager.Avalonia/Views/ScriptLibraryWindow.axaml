@@ -65,7 +65,7 @@
                                 <DataTemplate x:DataType="svc:ScriptLibraryItem">
                                     <StackPanel Spacing="2">
                                         <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="★" IsVisible="{Binding IsFavorite}" Foreground="#E8A33D" />
+                                            <TextBlock Text="★" IsVisible="{Binding IsFavorite}" Foreground="{DynamicResource AppFavoriteBrush}" />
                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                                         </StackPanel>
                                         <TextBlock Text="{Binding Category}" FontSize="11" Opacity="0.65" />

@@ -39,6 +39,12 @@
 					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppChevronBrush">#606060</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppGridLineBrush">#EAEAEA</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoBrush">#246BCE</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoSoftBgBrush">#E8F3FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubsurfaceBrush">#F5F8FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningSoftBrush">#B45309</SolidColorBrush>
+					<SolidColorBrush x:Key="AppFavoriteBrush">#E8A33D</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#DFF6DD</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
@@ -71,6 +77,12 @@
 					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppChevronBrush">#606060</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#FFF7E6</SolidColorBrush>
+					<SolidColorBrush x:Key="AppGridLineBrush">#EAEAEA</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoBrush">#246BCE</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoSoftBgBrush">#E8F3FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubsurfaceBrush">#F5F8FC</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningSoftBrush">#B45309</SolidColorBrush>
+					<SolidColorBrush x:Key="AppFavoriteBrush">#E8A33D</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#DFF6DD</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#FFF4D6</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#FDE3E5</SolidColorBrush>
@@ -103,6 +115,12 @@
 					<SolidColorBrush x:Key="AppAccentTextBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppChevronBrush">#B5B5B5</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#4A3B15</SolidColorBrush>
+					<SolidColorBrush x:Key="AppGridLineBrush">#3A3A3E</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoBrush">#4FA3FF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoSoftBgBrush">#14293D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubsurfaceBrush">#232326</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningSoftBrush">#FFB84D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppFavoriteBrush">#F0B85C</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#16321F</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#3A2F10</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#3B1D20</SolidColorBrush>
@@ -135,6 +153,12 @@
 					<SolidColorBrush x:Key="AppAccentTextBrush">#000000</SolidColorBrush>
 					<SolidColorBrush x:Key="AppChevronBrush">#FFFFFF</SolidColorBrush>
 					<SolidColorBrush x:Key="AppHighlightBrush">#664D00</SolidColorBrush>
+					<SolidColorBrush x:Key="AppGridLineBrush">#FFFFFF</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoBrush">#FFD966</SolidColorBrush>
+					<SolidColorBrush x:Key="AppInfoSoftBgBrush">#000000</SolidColorBrush>
+					<SolidColorBrush x:Key="AppSubsurfaceBrush">#0D0D0D</SolidColorBrush>
+					<SolidColorBrush x:Key="AppWarningSoftBrush">#FCE100</SolidColorBrush>
+					<SolidColorBrush x:Key="AppFavoriteBrush">#FFD966</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowAddedBrush">#005A2B</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowModifiedBrush">#5A4500</SolidColorBrush>
 					<SolidColorBrush x:Key="AppRowDeletedBrush">#6B0018</SolidColorBrush>
@@ -407,7 +431,7 @@
 			<Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
 			<Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
 			<Setter Property="GridLinesVisibility" Value="Horizontal" />
-			<Setter Property="HorizontalGridLinesBrush" Value="#EAEAEA" />
+			<Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource AppGridLineBrush}" />
 		</Style>
 		<Style Selector="DataGridColumnHeader">
 			<Setter Property="FontSize" Value="12" />

@@ -80,7 +80,7 @@
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="models:DependencyNode">
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2">
-                                        <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="#2980B9" />
+                                        <TextBlock Text="{Binding ObjectType}" FontWeight="SemiBold" Foreground="{DynamicResource AppInfoBrush}" />
                                         <TextBlock Text="{Binding DisplayName}" />
                                     </StackPanel>
                                 </DataTemplate>

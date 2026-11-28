@@ -39,8 +39,8 @@
                     <TextBlock Text="数据库转换" FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                     <TextBlock Text="在源数据库与目标数据库之间迁移结构和数据。" FontSize="12" Foreground="{DynamicResource AppTextSecondaryBrush}" />
                 </StackPanel>
-                <Border Grid.Column="1" Background="#E8F3FF" CornerRadius="12" Padding="10,4" VerticalAlignment="Center">
-                    <TextBlock Text="迁移工作台" FontSize="11" Foreground="#246BCE" FontWeight="SemiBold" />
+                <Border Grid.Column="1" Background="{DynamicResource AppInfoSoftBgBrush}" CornerRadius="12" Padding="10,4" VerticalAlignment="Center">
+                    <TextBlock Text="迁移工作台" FontSize="11" Foreground="{DynamicResource AppInfoBrush}" FontWeight="SemiBold" />
                 </Border>
             </Grid>
 
@@ -49,7 +49,7 @@
                 <TextBlock Grid.Column="0" Text="源数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboSource" Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
 
-                <TextBlock Grid.Column="2" Text="→" FontSize="20" Foreground="#246BCE" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="→" FontSize="20" Foreground="{DynamicResource AppInfoBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                 <TextBlock Grid.Column="3" Text="目标数据库" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource AppTextBrush}" />
                 <atom:ComboBox x:Name="ComboTarget" Grid.Column="4" HorizontalAlignment="Stretch" IsEnabled="{Binding !IsBusy}" />
@@ -62,7 +62,7 @@
             </Grid>
 
             <!-- 选项 -->
-            <Border Background="#F5F8FC" CornerRadius="6" Padding="10,8">
+            <Border Background="{DynamicResource AppSubsurfaceBrush}" CornerRadius="6" Padding="10,8">
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <atom:CheckBox Content="目标执行" IsChecked="{Binding ExecuteOnTargetServer}" />
                 <atom:CheckBox Content="使用事务" IsChecked="{Binding UseTransaction}" />

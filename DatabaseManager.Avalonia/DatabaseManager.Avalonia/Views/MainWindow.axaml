@@ -462,7 +462,7 @@
                                                        FontWeight="{Binding NodeType, Converter={StaticResource NodeFontWeightConverter}}"
                                                        TextTrimming="CharacterEllipsis"
                                                        MaxWidth="220" />
-                                            <TextBlock Text="加载中…（双击取消）" FontSize="10" Foreground="#D97706"
+                                            <TextBlock Text="加载中…（双击取消）" FontSize="10" Foreground="{DynamicResource AppWarningSoftBrush}"
                                                        VerticalAlignment="Center" IsVisible="{Binding IsLoading}" Margin="2,0,0,0" />
                                             <Border Background="{DynamicResource AppHoverBrush}" CornerRadius="8" Padding="6,1" VerticalAlignment="Center"
                                                     IsVisible="{Binding HasBadge}" Margin="4,0,0,0">
@@ -533,7 +533,7 @@
                                               Height="3" Margin="0"
                                               ResizeDirection="Rows"
                                               ResizeBehavior="PreviousAndNext"
-                                              Background="#E0E0E0" />
+                                              Background="{DynamicResource AppBorderBrush}" />
 
                                 <!-- 参数面板（启用参数化执行时显示） -->
                                 <Expander Grid.Row="4" IsExpanded="{Binding ParametersEnabled}"
@@ -567,14 +567,14 @@
                                                    Opacity="0.7" FontSize="11" />
                                         <TextBlock Text="{Binding EditReadOnlyReason}"
                                                    IsVisible="{Binding IsResultEditable, Converter={x:Static conv:BoolOppositeConverter.Instance}}"
-                                                   Opacity="0.6" FontSize="10" Foreground="#B45309" />
+                                                   Opacity="0.6" FontSize="10" Foreground="{DynamicResource AppWarningSoftBrush}" />
                                     </StackPanel>
                                     <!-- 内联编辑工具栏（仅单表简单 SELECT 且有主键时可用） -->
                                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="2"
                                                 Margin="4,2" HorizontalAlignment="Right"
                                                 IsVisible="{Binding IsResultEditable}">
                                         <TextBlock Text="{Binding PendingChangeSummary}"
-                                                   VerticalAlignment="Center" FontSize="11" Foreground="#B45309"
+                                                   VerticalAlignment="Center" FontSize="11" Foreground="{DynamicResource AppWarningSoftBrush}"
                                                    IsVisible="{Binding HasPendingChanges}" Margin="0,0,6,0" />
                                         <atom:CheckBox Content="保存后刷新" IsChecked="{Binding AutoRefreshAfterSave}"
                                                   VerticalAlignment="Center" FontSize="11" Margin="0,0,6,0"
