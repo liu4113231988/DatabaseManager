@@ -6,7 +6,7 @@
         xmlns:mods="using:DatabaseManager.AppCore.Models"
         x:Class="DatabaseManager.Avalonia.Views.UserManagementWindow"
         Title="用户与权限管理"
-        Width="940" Height="640"
+        Width="1120" Height="680" MinWidth="1020" MinHeight="600"
         Icon="/Assets/database-manager.ico"
         WindowStartupLocation="CenterOwner">
 
@@ -63,18 +63,18 @@
                     ToolTip.Tip="按主体类别生成 DROP USER / DROP ROLE" />
         </StackPanel>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,2*">
+        <Grid Grid.Row="2" ColumnDefinitions="1.35*,*">
             <!-- 主体列表 -->
             <DataGrid Grid.Column="0" x:Name="UsersGrid" AutoGenerateColumns="False" CanUserResizeColumns="True"
                       GridLinesVisibility="Horizontal" HeadersVisibility="Column" FontSize="11"
                       IsReadOnly="True" Margin="0,0,8,0"
                       x:DataType="m:DbUserInfo">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" />
+                    <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="*" MinWidth="150" />
                     <DataGridTextColumn Header="主机" Binding="{Binding Host}" Width="80" />
-                    <DataGridTextColumn Header="类别" Binding="{Binding Kind}" Width="60" />
-                    <DataGridTextColumn Header="属性/状态" Binding="{Binding Attributes}" Width="*" />
-                    <DataGridTextColumn Header="创建时间" Binding="{Binding Created}" Width="90" />
+                    <DataGridTextColumn Header="类别" Binding="{Binding Kind}" Width="72" />
+                    <DataGridTextColumn Header="属性/状态" Binding="{Binding Attributes}" Width="*" MinWidth="110" />
+                    <DataGridTextColumn Header="创建时间" Binding="{Binding Created}" Width="100" />
                 </DataGrid.Columns>
             </DataGrid>
 
