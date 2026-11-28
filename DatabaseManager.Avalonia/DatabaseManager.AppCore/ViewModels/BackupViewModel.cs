@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DatabaseInterpreter.Model;
 using DatabaseManager.AppCore.Common;
 using DatabaseManager.AppCore.Models;
 using DatabaseManager.AppCore.Services;
@@ -43,7 +44,10 @@ public partial class BackupViewModel : ToolViewModelBase
         _connectionService = connectionService;
         _backupService = backupService;
         _taskCenter = taskCenter;
+        Logs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasLogs));
     }
+
+    public bool HasLogs => Logs.Count > 0;
 
     protected override void OnBusyChanged()
     {
@@ -54,10 +58,31 @@ public partial class BackupViewModel : ToolViewModelBase
         OnPropertyChanged(nameof(CanRestore));
     }
 
-    partial void OnSelectedConnectionChanged(ConnectionItem? value) => OnBusyChanged();
+    partial void OnSelectedConnectionChanged(ConnectionItem? value)
+    {
+        OnBusyChanged();
+        OnPropertyChanged(nameof(NeedsClientTool));
+        OnPropertyChanged(nameof(RestoreSourceLabel));
+        OnPropertyChanged(nameof(RestoreSourcePlaceholder));
+    }
 
     public bool CanBackup => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsBackup(c);
     public bool CanRestore => !IsBusy && SelectedConnection is { } c && DefaultBackupService.SupportsRestore(c);
+
+    /// <summary>是否需要外部客户端工具：SQLite/DuckDB 为文件操作，SQL Server 走内置备份。</summary>
+    public bool NeedsClientTool => SelectedConnection is { } c
+        && ConnectionHelper.ParseDatabaseType(c.DatabaseType)
+            is DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES
+            or DatabaseType.Oracle or DatabaseType.DM;
+
+    public bool RestoreFromDirectory => SelectedConnection is { } c
+        && ConnectionHelper.ParseDatabaseType(c.DatabaseType) == DatabaseType.DuckDB;
+
+    public string RestoreSourceLabel => RestoreFromDirectory ? "恢复目录" : "恢复文件";
+
+    public string RestoreSourcePlaceholder => RestoreFromDirectory
+        ? "选择 DuckDB 导出的备份目录"
+        : "选择要恢复的备份文件";
 
     public void SetTargetConnection(ConnectionItem connection)
     {

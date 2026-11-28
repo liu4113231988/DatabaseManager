@@ -1,3 +1,4 @@
+using DatabaseInterpreter.Core;
 using DatabaseInterpreter.Model;
 using DatabaseManager.Core.Model;
 using System;
@@ -28,6 +29,12 @@ namespace DatabaseManager.Core
                 throw new ArgumentException($"SQLite 数据库文件不存在：{sourceFile}");
             }
 
+            // WAL 模式下最新已提交事务可能还在 -wal 中，直接复制主文件会丢失数据，先做检查点。
+            if (File.Exists(sourceFile + "-wal"))
+            {
+                CheckpointWal();
+            }
+
             string fileNameWithoutExt = Path.GetFileNameWithoutExtension(sourceFile) + "_" + DateTime.Now.ToString("yyyyMMddHHmmss");
             string ext = Path.GetExtension(sourceFile);
             if (string.IsNullOrEmpty(ext))
@@ -46,6 +53,22 @@ namespace DatabaseManager.Core
             }
 
             return saveFilePath;
+        }
+
+        /// <summary>把 WAL 中的已提交事务合并进主文件；被其他写入阻塞时拒绝生成不一致的备份。</summary>
+        private void CheckpointWal()
+        {
+            var interpreter = DbInterpreterHelper.GetDbInterpreter(DatabaseType.Sqlite, this.ConnectionInfo);
+            using var connection = interpreter.CreateConnection();
+            connection.Open();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+            using var reader = command.ExecuteReader();
+            if (reader.Read() && Convert.ToInt32(reader.GetValue(0)) != 0)
+            {
+                throw new InvalidOperationException("SQLite 正在被其他连接写入，WAL 检查点未完成；请停止写入后重试备份。");
+            }
         }
     }
 }

@@ -43,7 +43,7 @@ public partial class BackupWindow : Window
         ComboConnection.SelectionChanged += ComboConnection_SelectionChanged;
         if (await RefreshAsync() && _restoreMode)
         {
-            _vm.StatusMessage = $"恢复目标：{_vm.SelectedConnection?.Description}。请选择备份文件并确认目标。";
+            _vm.StatusMessage = $"恢复目标：{_vm.SelectedConnection?.Description}。请选择备份文件或目录并确认目标。";
             RestoreFileBox.Focus();
         }
     }
@@ -149,7 +149,9 @@ public partial class BackupWindow : Window
 
         var box = MessageBoxManager.GetMessageBoxStandard(
             "确认恢复数据库",
-            $"恢复会覆盖目标数据库「{_vm.SelectedConnection.Database}」，此操作不可撤销。\n\n请确认备份文件来源可靠，并已停止相关业务写入。是否继续？",
+            _vm.RestoreFromDirectory
+                ? $"DuckDB 恢复会把备份目录导入目标数据库「{_vm.SelectedConnection.Database}」，目标库需为空库或不存在同名表。此操作不可撤销。\n\n请确认备份来源可靠。是否继续？"
+                : $"恢复会覆盖目标数据库「{_vm.SelectedConnection.Database}」，此操作不可撤销。\n\n请确认备份文件来源可靠，并已停止相关业务写入。是否继续？",
             ButtonEnum.YesNo,
             MsBox.Avalonia.Enums.Icon.Warning);
         if (await box.ShowWindowDialogAsync(this) == ButtonResult.Yes)
