@@ -22,20 +22,9 @@ public class DefaultConvertService : IConvertService
         new HashSet<DatabaseType>();
 
     public static string? GetConversionBlockReason(DatabaseType dbType)
-    {
-        if (!UnverifiedConversionTypes.Contains(dbType))
-        {
-            return null;
-        }
-
-        return dbType switch
-        {
-            DatabaseType.KingbaseES => "KingbaseES 跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。",
-            DatabaseType.DuckDB => "DuckDB 跨库转换尚未验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 PostgreSQL 规则。",
-            DatabaseType.DM => "达梦（DM8）跨库转换尚未用真实实例验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的 Oracle 规则。",
-            _ => $"{dbType} 跨库转换尚未验证，当前版本禁用。",
-        };
-    }
+        => UnverifiedConversionTypes.Contains(dbType)
+            ? $"{dbType} 跨库转换尚未验证结构翻译、类型映射与数据回放，当前版本禁用，避免静默套用未验证的翻译规则。"
+            : null;
 
     public IReadOnlyList<string> GetSupportedConverters()
     {
