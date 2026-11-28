@@ -118,6 +118,20 @@ public partial class BackupWindow : Window
 
     private async void BtnBrowseRestoreFile_Click(object? sender, RoutedEventArgs e)
     {
+        // DuckDB 的备份产物是 EXPORT DATABASE 目录，需要选择文件夹而非文件。
+        if (_vm?.SelectedConnection is { } connection &&
+            string.Equals(connection.DatabaseType, "DuckDB", StringComparison.OrdinalIgnoreCase))
+        {
+            var folders = await StorageProvider.OpenFolderPickerAsync(new global::Avalonia.Platform.Storage.FolderPickerOpenOptions
+            {
+                Title = "选择 DuckDB 备份目录（EXPORT DATABASE 产物）",
+                AllowMultiple = false,
+            });
+            if (folders.Count > 0)
+                _vm.RestoreFilePath = folders[0].Path?.LocalPath ?? string.Empty;
+            return;
+        }
+
         var files = await StorageProvider.OpenFilePickerAsync(new global::Avalonia.Platform.Storage.FilePickerOpenOptions
         {
             Title = "选择备份文件",

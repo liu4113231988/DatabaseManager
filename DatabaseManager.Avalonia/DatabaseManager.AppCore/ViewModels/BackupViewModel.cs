@@ -173,9 +173,11 @@ public partial class BackupViewModel : ToolViewModelBase
             StatusMessage = "请选择连接。";
             return;
         }
-        if (string.IsNullOrWhiteSpace(RestoreFilePath) || !File.Exists(RestoreFilePath))
+        // DuckDB 的备份产物是目录，其余类型是文件。
+        if (string.IsNullOrWhiteSpace(RestoreFilePath)
+            || (!File.Exists(RestoreFilePath) && !Directory.Exists(RestoreFilePath)))
         {
-            StatusMessage = "请选择有效的备份文件。";
+            StatusMessage = "请选择有效的备份文件或备份目录。";
             return;
         }
 

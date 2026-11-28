@@ -17,10 +17,9 @@ public class DefaultBackupService : IBackupService
 {
     public static bool SupportsBackup(string databaseType) => ConnectionHelper.ParseDatabaseType(databaseType)
         is DatabaseType.SqlServer or DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES
-        or DatabaseType.Oracle;
+        or DatabaseType.Oracle or DatabaseType.Sqlite or DatabaseType.DuckDB or DatabaseType.DM;
 
-    public static bool SupportsRestore(string databaseType) => SupportsBackup(databaseType)
-        || ConnectionHelper.ParseDatabaseType(databaseType) == DatabaseType.Sqlite;
+    public static bool SupportsRestore(string databaseType) => SupportsBackup(databaseType);
 
     public Task<BackupResultItem> BackupAsync(
         ConnectionItem connection,
@@ -120,10 +119,14 @@ public class DefaultBackupService : IBackupService
     {
         return Task.Run(async () =>
         {
-            if (!File.Exists(backupFilePath))
-                return new BackupResultItem(false, "找不到备份文件。", string.Empty);
-
             var dbType = ConnectionHelper.ParseDatabaseType(connection.DatabaseType);
+            // DuckDB 的备份产物是 EXPORT DATABASE 目录，其余类型的备份产物是单个文件。
+            bool backupExists = dbType == DatabaseType.DuckDB
+                ? Directory.Exists(backupFilePath)
+                : File.Exists(backupFilePath);
+            if (!backupExists)
+                return new BackupResultItem(false, dbType == DatabaseType.DuckDB ? "找不到备份目录。" : "找不到备份文件。", string.Empty);
+
             if (dbType == DatabaseType.Unknown || string.IsNullOrWhiteSpace(connection.Database))
                 return new BackupResultItem(false, "连接或目标数据库无效。", string.Empty);
             if (dbType == DatabaseType.KingbaseES &&
@@ -143,6 +146,8 @@ public class DefaultBackupService : IBackupService
                 DatabaseType.KingbaseES => await RestoreKingbaseAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 DatabaseType.Oracle => await RestoreOracleAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 DatabaseType.Sqlite => await RestoreSqliteAsync(connection, backupFilePath, onFeedback, cancellationToken),
+                DatabaseType.DuckDB => await RestoreDuckDbAsync(connection, backupFilePath, onFeedback, cancellationToken),
+                DatabaseType.DM => await RestoreDmAsync(connection, backupFilePath, clientToolFilePath, onFeedback, cancellationToken),
                 _ => new BackupResultItem(false, $"暂不支持 {connection.DatabaseType} 的恢复。", string.Empty),
             };
         }, cancellationToken);
@@ -401,6 +406,63 @@ public class DefaultBackupService : IBackupService
                 if (File.Exists(temporary + "-journal")) File.Delete(temporary + "-journal");
             }
         }, ct);
+    }
+
+    private static Task<BackupResultItem> RestoreDuckDbAsync(
+        ConnectionItem connection, string backupFilePath, Action<string>? feedback, CancellationToken ct)
+    {
+        return Task.Run(async () =>
+        {
+            if (!Directory.Exists(backupFilePath))
+                return new BackupResultItem(false, "DuckDB 恢复需要 EXPORT DATABASE 生成的目录，ZIP 备份请先解压。", string.Empty);
+            if (string.IsNullOrWhiteSpace(connection.Database) || connection.Database == ":memory:")
+                return new BackupResultItem(false, "DuckDB 恢复需要选择文件型目标数据库。", string.Empty);
+
+            ct.ThrowIfCancellationRequested();
+            var interpreter = DbInterpreterHelper.GetDbInterpreter(
+                DatabaseType.DuckDB, ConnectionHelper.ToConnectionInfo(connection), new DbInterpreterOption());
+
+            try
+            {
+                await using var database = interpreter.CreateConnection();
+                await database.OpenAsync(ct);
+                await DbRowMapper.ExecuteNonQueryAsync(
+                    database, $"IMPORT DATABASE '{backupFilePath.Replace("'", "''", StringComparison.Ordinal)}'");
+                feedback?.Invoke("DuckDB 数据已导入目标数据库，请重新连接。");
+                return new BackupResultItem(true, string.Empty, backupFilePath);
+            }
+            catch (Exception ex)
+            {
+                ct.ThrowIfCancellationRequested();
+                return new BackupResultItem(false, $"DuckDB 恢复失败（目标库需为空库或不存在同名表）：{ex.Message}", string.Empty);
+            }
+        }, ct);
+    }
+
+    private static async Task<BackupResultItem> RestoreDmAsync(
+        ConnectionItem connection, string backupFilePath, string? toolPath, Action<string>? feedback, CancellationToken ct)
+    {
+        if (!EnsureTool(toolPath, "达梦恢复需要选择 dimp 客户端程序", out var error))
+            return new BackupResultItem(false, error, string.Empty);
+        if (!Path.GetFileNameWithoutExtension(toolPath!).Equals("dimp", StringComparison.OrdinalIgnoreCase))
+            return new BackupResultItem(false, "当前恢复仅支持达梦 dimp 工具，请选择 dimp.exe。", string.Empty);
+        if (string.IsNullOrWhiteSpace(connection.UserId) || string.IsNullOrWhiteSpace(connection.Password))
+            return new BackupResultItem(false, "达梦恢复需要用户名和密码。", string.Empty);
+        if (!Path.GetExtension(backupFilePath).Equals(".dmp", StringComparison.OrdinalIgnoreCase))
+            return new BackupResultItem(false, "达梦仅支持 .dmp 备份文件。", string.Empty);
+
+        var port = string.IsNullOrWhiteSpace(connection.Port) ? "5236" : connection.Port;
+        var directory = Path.GetDirectoryName(Path.GetFullPath(backupFilePath)) ?? ".";
+        var arguments = new List<string>
+        {
+            $"USERID={connection.UserId}/{connection.Password}@{connection.Server}:{port}",
+            $"FILE={Path.GetFileName(backupFilePath)}",
+            $"DIRECTORY={directory}",
+            "FULL=Y",
+            "IGNORE=Y",
+        };
+
+        return await RunToolAsync(toolPath!, arguments, null, null, string.Empty, feedback, ct);
     }
 
     private static bool HasSqliteSidecar(string path) => File.Exists(path + "-wal")

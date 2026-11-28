@@ -9,7 +9,8 @@ namespace DatabaseManager.AppCore.Services;
 
 /// <summary>
 /// 执行计划服务实现：
-/// - MySQL / PostgreSQL / SQLite：EXPLAIN（可选 ANALYZE）前缀，直接读取计划结果集；
+/// - MySQL / PostgreSQL / SQLite / DuckDB：EXPLAIN（可选 ANALYZE）前缀，直接读取计划结果集；
+/// - 达梦（DM）：EXPLAIN 语句，Oracle 兼容方言；
 /// - SQL Server：SET SHOWPLAN_ALL ON → 查询 → SET SHOWPLAN_ALL OFF（同一连接）；
 /// - Oracle：EXPLAIN PLAN FOR → 查询 DBMS_XPLAN.DISPLAY。
 /// </summary>
@@ -35,7 +36,7 @@ public class DefaultExecutionPlanService : IExecutionPlanService
         var statement = sql.Trim().TrimEnd(';').Trim();
         var safetyError = SqlSafety.ValidateProfilerStatement(statement);
         if (safetyError is not null) return ErrorResult(safetyError);
-        if (analyze && dbType is not (DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES))
+        if (analyze && dbType is not (DatabaseType.MySql or DatabaseType.Postgres or DatabaseType.KingbaseES or DatabaseType.DuckDB))
             return ErrorResult("当前数据库在此窗口只支持估算计划，不支持 ANALYZE。");
 
         try
@@ -69,6 +70,13 @@ public class DefaultExecutionPlanService : IExecutionPlanService
                 case DatabaseType.Oracle:
                     await ExecuteAsync(conn, $"EXPLAIN PLAN FOR {statement}", cancellationToken);
                     return await ReadPlanAsync(conn, "SELECT * FROM TABLE(DBMS_XPLAN.DISPLAY)", sw, 60, cancellationToken);
+
+                case DatabaseType.DuckDB:
+                    return await ReadPlanAsync(conn, $"{(analyze ? "EXPLAIN ANALYZE " : "EXPLAIN ")}{statement}", sw, 60, cancellationToken);
+
+                // 达梦为 Oracle 兼容方言，EXPLAIN 直接返回计划结果集。
+                case DatabaseType.DM:
+                    return await ReadPlanAsync(conn, $"EXPLAIN {statement}", sw, 60, cancellationToken);
 
                 default:
                     return ErrorResult($"暂不支持该数据库类型的执行计划分析：{dbType}。");

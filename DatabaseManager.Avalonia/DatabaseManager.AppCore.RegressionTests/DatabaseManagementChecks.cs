@@ -100,7 +100,7 @@ internal static class DatabaseManagementChecks
             Check(node.GetConnectionSnapshot()!.Database == "default_db", "File paths and Oracle/DM service identifiers must not become tree node names.");
         }
         vm.SetTargetConnection(new ConnectionItem { DatabaseType = "Sqlite", Database = ":memory:", Password = saved.Password });
-        Check(!vm.CanBackup && vm.CanRestore, "SQLite has a restore adapter but no backup adapter.");
+        Check(vm.CanBackup && vm.CanRestore, "SQLite supports both backup and restore adapters.");
         var properties = await new DatabasePropertiesService().GetAsync(vm.SelectedConnection!, "main");
         Check(properties.Any(p => p.Name == "数据源" && p.Value == ":memory:") && properties.Any(p => p.Name == "信息范围"), "File database properties must preserve their data source and state their scope.");
         Check(!properties.Any(p => p.Value == "not-for-display"), "Property values must not expose connection passwords.");
